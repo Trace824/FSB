@@ -8,7 +8,7 @@
 
 ## Milestones
 
-- 🚧 **v1.0.0 Jev Fast Mode** — Phases 66-71, planned 2026-09-28. Establish a whole-task speed and quality baseline, add FSB-hosted Jev with the credential held on the server, expose one opt-in switch in Advanced Settings, use bounded autopilot and MCP fast paths, shorten existing MCP tool descriptions, and release the extension as 1.0.0 only with honest comparative evidence.
+- 🚧 **v1.0.0 Jev Fast Mode** — Phases 66-71, planned 2026-09-28. Establish a whole-task speed and quality baseline, add FSB-hosted Jev with the credential held on the server, expose one opt-in switch in Advanced Settings, add an MCP tool to view and change settings, use bounded autopilot and MCP fast paths, shorten existing MCP tool descriptions, and release the extension as 1.0.0 only with honest comparative evidence.
 - ✅ **v0.9.91 MCP Clients as Providers** — Phases 57-65, shipped 2026-09-28. Installed agent CLIs (Claude Code, OpenCode, Codex) became key-less side-panel providers that drive the live browser through FSB's own MCP tools. Archive: `.planning/milestones/v0.9.91-ROADMAP.md`.
 - ✅ **v1.2.0 Showcase i18n Completeness** — Phases 52-56, shipped 2026-07-09. Archive: `.planning/milestones/v1.2.0-ROADMAP.md`. Closes the translation gap that reopened after v0.9.63 shipped: a full-page audit establishes the true drift/missing scope, resync + stats-page translation + transcreation review close it, a CI drift-detection gate lands on the clean baseline, and the long-deferred WARNING-02 locale-cookie redirect bug is fixed.
 - ✅ **v1.1.0 T1 App Execution Expansion** — Phases 44-51, shipped 2026-06-30; refreshed 2026-07-01 after post-closeout T1 ports. Expanded proven T1/guarded coverage from 26 baseline descriptors to 1,267 executable T1-ready descriptors plus 556 guarded fail-closed rows, and closed the remaining catalog tail with explicit terminal-state accounting. Archive: `.planning/milestones/v1.1.0-ROADMAP.md`.
@@ -18,9 +18,11 @@
 
 **Milestone goal:** Make FSB measurably faster on complete autopilot and MCP tasks by delegating bounded simple decisions to Jev while preserving the LLM's planning and writing roles and FSB's existing action and safety boundaries.
 
-**Scope:** 23 requirements in `.planning/REQUIREMENTS.md`; Phases 66-71 continue numbering after the completed v0.9.91 milestone. The existing Phase 999.1 is a completed historical backlog item outside this milestone.
+**Scope:** 25 requirements in `.planning/REQUIREMENTS.md`, across Phases 66-71 plus the inserted Phase 66.1; numbering continues after the completed v0.9.91 milestone. The existing Phase 999.1 is a completed historical backlog item outside this milestone.
 
-**Provider decision:** FSB supplies Jev to every installation without user sign-in or usage quotas for now. The upstream credential stays on `showcase/server/` (or its server-side secret store); the extension never receives it. A bounded HTTPS gateway carries redacted decision state and monitors aggregate usage and cost. The only user-facing fast-mode switch is in control-panel Advanced Settings, default off; MCP `run_task` follows that switch. The server round trip is included in all speed measurements.
+**Compatibility:** With Jev disabled, FSB behaves exactly as it did before this milestone (owner direction, 2026-09-29).
+
+**Provider decision:** FSB supplies Jev to every installation without user sign-in or usage quotas for now. The upstream credential stays on `showcase/server/` (or its server-side secret store); the extension never receives it. A bounded HTTPS gateway carries redacted decision state and monitors aggregate usage and cost. The only fast-mode setting is the control-panel Advanced Settings switch, default off. MCP `run_task` follows it, and the MCP settings tool (Phase 66.1) reads and writes that same value. The server round trip is included in all speed measurements.
 
 **Release evidence:** Compare whole-task completion, wall time per completed task, and cost on the same task set. The project brief's 1.5-2x autopilot and 1.3-1.6x MCP speedups are targets to measure, not results already achieved. A path that fails its predeclared gate remains experimental or disabled.
 
@@ -34,6 +36,22 @@
 2. Journal-backed MCP sessions resolve to session details with tool-call timing rather than an empty or broken lookup.
 3. A reproducible suite runs representative mixed and click-heavy tasks, verifies outcomes from page evidence, and saves completion, wall-time, and cost baselines before fast mode is enabled.
 4. The suite records enough task and environment identity to compare later runs without counting Jev's own completion answer as proof.
+**Plans:** Not planned.
+
+### Phase 66.1: MCP Settings Tool (INSERTED)
+
+**Goal:** Let an MCP client view FSB's control-panel settings and change one setting at a time through a single new tool, without exposing secrets or changing behavior for existing callers or autopilot.
+**Depends on:** Phase 66 (the baseline records the MCP tool list before this phase changes it).
+**Requirements:** SET-01, SET-02.
+**Success Criteria:**
+1. One new MCP tool returns every control-panel setting as compact key-value data in a single call, and changes one setting by key in a single call.
+2. Secret values (API keys, hash keys, and credential and payment data) are masked on read and refused on write. Every other setting is writable, as the owner chose on 2026-09-29.
+3. A write goes through the control panel's own validation and storage, so the control panel, autopilot, and `run_task` all see the new value. An invalid key or value returns a typed error and changes nothing.
+4. The Jev fast-mode switch becomes reachable through the same tool once Phase 68 adds it. It stays one stored value shared with Advanced Settings.
+5. Only MCP clients get the tool. The autopilot model's tool list and prompt are unchanged, and existing tool names, arguments, and responses stay byte-stable.
+**Open questions for discussion:**
+- Should endpoint settings that receive API keys or page data (custom endpoint, sync server URL, LM Studio URL) count as secrets?
+- Should settings changed over MCP be logged for the operator?
 **Plans:** Not planned.
 
 ### Phase 67: Hosted Jev Gateway, Policy, and Shadow Mode
@@ -55,7 +73,7 @@
 **Depends on:** Phase 67 (safe provider and calibrated thresholds).
 **Requirements:** AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05.
 **Success Criteria:**
-1. A user can enable or disable fast mode only in control-panel Advanced Settings; the default is off, the setting explains the bounded FSB-to-Jev page-context transfer, and an ordinary task with it off follows the existing autopilot path.
+1. A user can enable or disable fast mode in control-panel Advanced Settings or through the Phase 66.1 settings tool, which changes the same stored value; the default is off, the setting explains the bounded FSB-to-Jev page-context transfer, and an ordinary task with it off follows the existing autopilot path.
 2. On a supported simple step, Jev chooses only among operations and current elements offered by FSB; FSB rechecks target freshness and executes through its existing action machinery.
 3. Planning, generated text, extraction, unsupported steps, and below-threshold decisions route to the LLM without the Jev loop fabricating arguments or page understanding.
 4. Completion and stuck decisions are checked against observable page evidence; action, request, and wall-clock budgets stop repeated or runaway loops with a truthful outcome.
@@ -95,7 +113,7 @@
 1. The same outcome-checked corpus compares baseline, fast mode, and a non-Jev control on completion rate, wall time per completed task, and cost, with uncertainty and failure cases included.
 2. A predeclared gate reports pass or fail for speed, success, and safety; any failing path remains experimental or disabled and no per-decision timing is presented as whole-task speedup.
 3. `CHANGELOG.md` has a v1.0.0 entry before `npm run version:set:extension -- 1.0.0` succeeds, and product version checks agree across extension surfaces.
-4. The MCP package receives its planned minor bump for optional `expect`, with compatibility checks for existing callers and no unreviewed tool additions.
+4. The MCP package receives its planned minor bump for optional `expect` and the approved settings tool, with compatibility checks for existing callers and no unreviewed tool additions.
 **Plans:** Not planned.
 
 ## Completed Milestones

@@ -10,7 +10,7 @@ FSB is an AI-powered browser automation Chrome extension that executes tasks thr
 
 ## Current State
 
-**Active milestone:** v1.0.0 Jev Fast Mode — 23 requirements mapped to Phases 66-71; Phase 66 is ready for discussion and planning.
+**Active milestone:** v1.0.0 Jev Fast Mode — 25 requirements mapped to Phases 66-71 plus inserted Phase 66.1; Phase 66 context is captured and ready for planning.
 
 **Last completed:** v0.9.91 MCP Clients as Providers — Phases 57-65 shipped 2026-09-28. Installed agent CLIs (Claude Code, OpenCode, Codex) became key-less side-panel providers that drive the live browser back through FSB's own MCP tools; 51/51 requirements complete with green automated/source verification. The 48 deferred live UAT scenarios were closed at the user's direction as waived, not executed. Backlog Phase 999.1 remains outside the milestone.
 
@@ -33,8 +33,9 @@ FSB is an AI-powered browser automation Chrome extension that executes tasks thr
 **Target features:**
 - **Speed baseline and measurement** -- per-call timing recorded for MCP and autopilot sessions, a working session-detail lookup for journal-backed MCP sessions, and a repeatable benchmark suite comparing wall time per completed task, success rate and cost before and after.
 - **FSB-hosted Jev decision service** -- FSB keeps its upstream Jev credential on `showcase/server/` in server-side secret storage. The MV3 service worker sends bounded, redacted decision requests over HTTPS to the FSB gateway; the credential is never sent to the extension or entered by users. Every install may use the service without sign-in or a usage quota. The server monitors aggregate cost, has an operator-wide disable switch, and the extension falls back cleanly when Jev is unavailable.
-- **Autopilot fast mode (opt-in)** -- the only user switch lives in control-panel Advanced Settings and defaults off. Each simple step, Jev picks the operation and target from FSB's element snapshot and checks whether the task is done or stuck; the LLM handles the plan, typed text, extraction and any step below the confidence threshold.
-- **MCP speedups with minimal wire change** -- shorter descriptions for all 73 MCP tools; only `expect` is added as an optional action-tool parameter (outcome checked in the same call). Existing `run_task` follows the Advanced Settings switch and has a bounded fast path without a separate fast-mode argument; no new tools unless planning proves one is needed.
+- **Autopilot fast mode (opt-in)** -- the only fast-mode setting lives in control-panel Advanced Settings and defaults off. The MCP settings tool can also read and write it. Each simple step, Jev picks the operation and target from FSB's element snapshot and checks whether the task is done or stuck; the LLM handles the plan, typed text, extraction and any step below the confidence threshold.
+- **MCP speedups with minimal wire change** -- shorter descriptions for all 73 MCP tools; only `expect` is added as an optional action-tool parameter (outcome checked in the same call). Existing `run_task` follows the Advanced Settings switch and has a bounded fast path without a separate fast-mode argument.
+- **MCP settings tool (Phase 66.1, approved 2026-09-29)** -- one new MCP-only tool that shows every control-panel setting compactly and changes one setting by key, including the Jev switch once it exists. Secrets are masked on read and refused on write; every other setting is writable. The autopilot tool list does not change.
 - **Safety** -- Jev can only add confirmations, never remove them; page text is treated as untrusted; Jev is never the sole safety gate.
 - **Release** -- extension 1.0.0 via a `CHANGELOG.md` v1.0.0 entry and `npm run version:set:extension -- 1.0.0`; MCP gets a minor bump for the additive parameters (0.11.0 to 0.12.0).
 
@@ -45,7 +46,9 @@ FSB is an AI-powered browser automation Chrome extension that executes tasks thr
 - The user clarified that FSB provides Jev and owns the credential. The reference's BYOK recommendation is superseded. Hosted Jev is planned for every install with no sign-in or user usage quota for now. `showcase/server/src/routes/auth.js` currently allows anyone to create a hash key, so that key is an attribution signal rather than protection for the FSB-owned credential. Phase 67 must bound request shape and concurrent work, monitor aggregate cost, and provide an operator-wide disable switch. Server round-trip time belongs in the whole-task benchmark.
 - Evidence to respect: per-decision speed and cost wins are real, but whole-agent tests mostly cut cost without raising task success; a third-party benchmark scored Jev 25/49 on raw DOM controls; confidence ranks answers well, but thresholds must be tuned on FSB's own labelled tasks against a pinned model version.
 - Realistic targets: autopilot about 1.5-2x faster on mixed tasks; MCP about 1.3-1.6x on UAT/Jira-style sessions and 2-3x on click-heavy flows; MCP tool-list tokens cut by more than half.
-- INV-01 carries forward: MCP wire contracts stay byte-stable; only additive optional parameters.
+- INV-01 carries forward: MCP wire contracts stay byte-stable; only additive optional parameters, plus the one approved settings tool.
+- With Jev disabled, FSB behaves exactly as it did before this milestone (owner direction, 2026-09-29).
+- xAI retired `grok-4-1-fast` on 2026-08-15. That name is now served by grok-4.3 at $1.25 / $2.50 per million tokens, while FSB's price table still has $0.20 / $0.50. The Phase 66 benchmark pins an explicit current model. The product default is a separate fix.
 - The version bump goes through `scripts/sync-product-version.mjs`, which refuses to run until the `## v1.0.0` CHANGELOG entry exists.
 - Tests read archived planning files, and source-pin tripwires on extension files require paired test updates in the same commit.
 - Phases continue from 66. The milestone label v1.0.0 matches the extension release; the former v1.0.0 catalog milestone is now v0.13.0.
@@ -343,7 +346,16 @@ Carry-forward backlog candidates:
 
 ### Active — v1.0.0 Jev Fast Mode
 
-The 23 testable active requirements are in `.planning/REQUIREMENTS.md`. They cover timing and a repeatable baseline (MEAS-01..03), the hosted Jev gateway and safety policy (JEV-01..07), opt-in autopilot fast mode (AUTO-01..05), additive MCP speedups (MCP-01..04), comparative evaluation (EVAL-01..02), and versioned release (REL-01..02). Every requirement maps to exactly one of Phases 66-71 in `.planning/ROADMAP.md`.
+The 25 testable active requirements are in `.planning/REQUIREMENTS.md`. They cover:
+- timing and a repeatable baseline (MEAS-01..03)
+- the hosted Jev gateway and safety policy (JEV-01..07)
+- opt-in autopilot fast mode (AUTO-01..05)
+- additive MCP speedups (MCP-01..04)
+- the MCP settings tool (SET-01..02)
+- comparative evaluation (EVAL-01..02)
+- versioned release (REL-01..02)
+
+Every requirement maps to exactly one of Phases 66-71 or inserted Phase 66.1 in `.planning/ROADMAP.md`.
 
 ### Validated
 
@@ -757,6 +769,8 @@ The following backlog items are formally retired in v0.9.45rc1. Better external 
 | Keep Jev optional and bounded | A typed model answer can still be wrong; the LLM and FSB mechanics retain planning, text, execution, and safety authority | Planned in Phases 67-70 with shadow calibration and fallback |
 | FSB provides Jev without a user key | The user wants one Advanced Settings switch and no provider setup | Phase 67 holds the upstream credential on the FSB server; Phase 68 adds the switch; Phase 70 follows it for MCP |
 | Offer hosted Jev to every install without a usage quota | The owner chose open access for now | Phase 67 measures aggregate usage and cost and includes an operator-wide disable switch |
+| Add one MCP settings tool | The owner wants MCP clients to view settings and change any of them efficiently, including the Jev switch | Phase 66.1: secrets are masked and never writable, every other setting can be written, and only MCP clients get the tool |
+| Backwards compatible with Jev off | The owner requires FSB to behave as before whenever Jev is disabled | Milestone-wide: every change is additive, and the fast paths activate only with the switch on |
 
 ## Evolution
 
@@ -776,4 +790,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-28 -- defined v1.0.0 Jev Fast Mode requirements and Phases 66-71.*
+*Last updated: 2026-09-29 -- Phase 66 context gathered; inserted Phase 66.1 MCP Settings Tool (SET-01..02).*

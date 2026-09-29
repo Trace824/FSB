@@ -4,17 +4,17 @@ milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: planning
 stopped_at: Phase 66 context gathered (assumptions mode)
-last_updated: "2026-09-29T20:29:02.490Z"
-last_activity: 2026-09-29
+last_updated: "2026-09-29T20:32:09.809Z"
+last_activity: 2026-09-29 — Phase 66 context gathered (assumptions mode)
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
   percent: 0
 ---
 
-*Note: the `total_phases`/`completed_phases` counts above are scoped to the active v1.0.0 milestone (Phases 66-71) only. Some GSD tooling (`roadmap.analyze`, `phase.complete`) reports a noisy multi-phase count including collapsed `## Completed Milestones` archive entries and `## Backlog` sections — treat this file's own numbers as authoritative for v1.0.0 progress.*
+*Note: the `total_phases`/`completed_phases` counts above are scoped to the active v1.0.0 milestone (Phases 66-71 plus inserted 66.1) only. Some GSD tooling (`roadmap.analyze`, `phase.complete`) reports a noisy multi-phase count including collapsed `## Completed Milestones` archive entries and `## Backlog` sections — treat this file's own numbers as authoritative for v1.0.0 progress.*
 
 # Project State
 
@@ -45,13 +45,14 @@ Last activity: 2026-09-29 — Phase 66 context gathered (assumptions mode)
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 66 | Baseline and Session Timing | MEAS-01..03 | Context gathered |
+| 66.1 | MCP Settings Tool (inserted) | SET-01..02 | Not started |
 | 67 | Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01..07 | Not started |
 | 68 | Autopilot Fast Mode | AUTO-01..05 | Not started |
 | 69 | MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | Not started |
 | 70 | Bounded MCP Fast Task | MCP-03 | Not started |
 | 71 | Comparative Gate and Release | EVAL-01..02, REL-01..02 | Not started |
 
-Coverage: 23/23 v1.0.0 requirements mapped; 0/6 phases complete. See `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`. FSB supplies the Jev credential server-side to every install without a user usage quota; the only fast-mode toggle is in control-panel Advanced Settings.
+Coverage: 25/25 v1.0.0 requirements mapped; 0/7 phases complete. See `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`. FSB supplies the Jev credential server-side to every install without a user usage quota. The only fast-mode setting is the control-panel Advanced Settings switch, which the Phase 66.1 MCP settings tool can also read and write. With Jev disabled, FSB behaves as it did before this milestone.
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65 — archived 2026-09-28)
 
@@ -85,6 +86,10 @@ Coverage: 51/51 v0.9.91 requirements complete. The 48 deferred live UAT scenario
 - **Adapter breadth: Claude Code + OpenCode + Codex; NO Gemini.** GEMINI-FUTURE-01 defers Gemini until a live `--help` capture + JSONL schema pinning are done.
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 66.1 inserted after Phase 66: MCP Settings Tool: one MCP-only tool to view all control-panel settings and set one by key; secrets masked and never writable; approved 2026-09-29
 
 ### Decisions
 
