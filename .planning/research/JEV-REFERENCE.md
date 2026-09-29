@@ -1,6 +1,6 @@
 > Seed research for milestone v1.0.0 Jev Fast Mode: consolidated from a five-angle deep research pass on 2026-09-27 (core API, SDKs and access, design patterns, agent and browser evidence, company and alternatives). FSB-specific claims were spot-checked against the code.
 
-> **Milestone decision (2026-09-28):** The BYOK integration recommendation below is superseded. FSB supplies Jev through a server-held credential and a bounded authenticated gateway; the extension never receives the upstream key. The only user fast-mode switch is in control-panel Advanced Settings. See `.planning/PROJECT.md`, `.planning/REQUIREMENTS.md`, and Phase 67 of `.planning/ROADMAP.md`.
+> **Milestone decision (2026-09-28):** The BYOK integration recommendation below is superseded. FSB supplies Jev through a server-held credential and a bounded HTTPS gateway; the extension never receives the upstream key. Every install may use hosted Jev without sign-in or a usage quota for now. The only user fast-mode switch is in control-panel Advanced Settings. See `.planning/PROJECT.md`, `.planning/REQUIREMENTS.md`, and Phase 67 of `.planning/ROADMAP.md`.
 
 # Jev decides fast; FSB must verify
 

@@ -15,13 +15,13 @@
 
 ### JEV — Decision Provider and Safety
 
-- [ ] **JEV-01:** A user on any FSB install can use FSB-provided Jev without supplying or configuring a Jev or OpenRouter key, subject to the hosted service's published availability limits.
+- [ ] **JEV-01:** A user on any FSB install can use FSB-provided Jev without supplying or configuring a Jev or OpenRouter key, signing in, or receiving a per-user or per-install usage quota.
 - [ ] **JEV-02:** FSB's Jev credential stays in server-side secret storage; the extension sends bounded decision requests to the FSB server over HTTPS and never receives the upstream credential.
 - [ ] **JEV-03:** The extension and server omit secrets, credential values, password, file, and hidden inputs, and unnecessary page content from Jev requests; page text is treated as untrusted data rather than instructions.
 - [ ] **JEV-04:** An operator can inspect the actual returned model version, token usage, FSB-borne cost when available, and typed fallback reason for each Jev decision without exposing request bodies or credentials in logs.
 - [ ] **JEV-05:** Jev can evaluate labelled tasks in shadow mode without acting, so operation, target, completion, stuck, and risk thresholds are calibrated on a pinned model before live use.
 - [ ] **JEV-06:** Jev can add a confirmation requirement but cannot remove an existing confirmation, bypass an execution safety breaker, or authorize an action on its own.
-- [ ] **JEV-07:** The FSB server authorizes hosted decision requests and enforces bounded request size, per-install and abuse-aware network limits, and global rate and spend ceilings before spending the FSB-owned Jev quota; exhausted limits return a typed fallback.
+- [ ] **JEV-07:** The FSB server validates a fixed bounded decision schema, limits request size and concurrent upstream work, records aggregate usage and FSB-borne cost, and supports an operator-wide disable switch; malformed, unavailable, and disabled calls return typed fallbacks.
 
 ### AUTO — Autopilot Fast Mode
 
@@ -57,6 +57,7 @@
 | New MCP tools for Jev | Existing action tools and `run_task` cover the planned surface; add a tool only after a separately reviewed need. |
 | User-supplied Jev or OpenRouter keys | FSB provides Jev through its hosted server path. |
 | Further decision-model gateways or self-hosted models | The v1.0.0 server path uses a pinned Jev upstream. |
+| Per-user or per-install Jev usage quotas | The owner chose unrestricted availability for now; usage is monitored centrally. |
 
 ## Out of Scope
 
@@ -68,6 +69,7 @@
 | Sending passwords, credential values, or hidden fields to a decision provider | Violates the existing secret-handling boundary. |
 | Sending the FSB-owned Jev credential to extension code or storage | A shared credential cannot remain secret in a distributed client. |
 | A second user-facing fast-mode switch in an MCP argument or task surface | Advanced Settings is the only user toggle for this milestone. |
+| User sign-in or payment entitlement for Jev | FSB provides Jev to every installation in this milestone. |
 
 ## Traceability
 

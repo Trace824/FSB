@@ -20,7 +20,7 @@
 
 **Scope:** 23 requirements in `.planning/REQUIREMENTS.md`; Phases 66-71 continue numbering after the completed v0.9.91 milestone. The existing Phase 999.1 is a completed historical backlog item outside this milestone.
 
-**Provider decision:** FSB supplies Jev. The upstream credential stays on `showcase/server/` (or its server-side secret store); the extension never receives it. An authenticated, bounded HTTPS gateway carries redacted decision state. The only user-facing fast-mode switch is in control-panel Advanced Settings, default off; MCP `run_task` follows that switch. The server round trip is included in all speed measurements.
+**Provider decision:** FSB supplies Jev to every installation without user sign-in or usage quotas for now. The upstream credential stays on `showcase/server/` (or its server-side secret store); the extension never receives it. A bounded HTTPS gateway carries redacted decision state and monitors aggregate usage and cost. The only user-facing fast-mode switch is in control-panel Advanced Settings, default off; MCP `run_task` follows that switch. The server round trip is included in all speed measurements.
 
 **Release evidence:** Compare whole-task completion, wall time per completed task, and cost on the same task set. The project brief's 1.5-2x autopilot and 1.3-1.6x MCP speedups are targets to measure, not results already achieved. A path that fails its predeclared gate remains experimental or disabled.
 
@@ -38,12 +38,12 @@
 
 ### Phase 67: Hosted Jev Gateway, Policy, and Shadow Mode
 
-**Goal:** Provide version-pinned Jev through an FSB-owned server credential and a bounded, authenticated extension-to-server decision path; validate safe inputs, accounting, fallback, and calibration before live control.
+**Goal:** Provide version-pinned Jev through an FSB-owned server credential and a bounded, installation-associated HTTPS decision path; validate safe inputs, accounting, fallback, and calibration before live control.
 **Depends on:** Phase 66 (baseline and labelled task records).
 **Requirements:** JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07.
 **Success Criteria:**
 1. The FSB server holds the upstream Jev credential in server-side secret storage, calls a pinned model, and returns typed decisions; no extension bundle, message, response, or storage record contains that credential, and users enter no Jev or OpenRouter key.
-2. The HTTPS decision route supports all installs, validates a fixed bounded schema, and enforces per-install, abuse-aware network, and global request and spend limits before upstream use; the existing self-issued hash key alone is not treated as a sufficient billing safeguard. Quota exhaustion falls back with a typed reason.
+2. The HTTPS decision route is available to every install without sign-in or usage quotas. It validates a fixed bounded schema, limits body size and concurrent upstream work, records aggregate usage and FSB-borne cost, and supports an operator-wide disable switch. The existing self-issued hash key may identify a caller but is not treated as a secret protecting the Jev credential.
 3. Extension and server validation exclude secrets and sensitive form values, treat page content as data, and avoid raw request-body or credential logging across success and error paths.
 4. Timeout, rate-limit, invalid-response, unavailable-model, and key errors produce typed fallback results; actual model version, usage, and FSB-borne cost are recorded where supplied, without fabricated values.
 5. Shadow runs on labelled tasks produce operation, target, completion, stuck, and risk accuracy by confidence bucket; live thresholds are selected from that evidence and tied to the pinned model. Tests prove Jev cannot remove confirmation or bypass existing safety breakers.
