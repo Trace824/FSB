@@ -104,6 +104,7 @@ Out of scope:
   - host name, version and model
   - host tool-loading mode. For Claude Code: whether `init.tools` contains `ToolSearch` or `WaitForMcpServers`, plus the `ENABLE_TOOL_SEARCH` value it was launched with.
   - task ID and version, and a hash of the fixture content
+  - the MCP tool count and a hash of the `tools/list` payload, read by the runner through its own SDK client. The tool list changes in Phases 66.1 and 69, so later comparisons must account for it.
 
   In the extension, fix `_handleGetConfig` (`mcp-bridge-client.js` ~2702). It currently reads keys that nothing writes. It should return the keys that exist (`providerKind`/`modelProvider`/`modelName`, `extension/config/config.js` ~18-21) plus the manifest version. The change is read-only, and `fsb://config` is a resource, not a tool.
 - **D-19:** The autopilot baseline pins an explicit current xAI model ID instead of the retired `grok-4-1-fast` name, and records the model string xAI returns. Changing FSB's product default model is not part of this phase. (User: 4a.)
