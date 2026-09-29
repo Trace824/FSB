@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: planning
-last_updated: "2026-09-29T01:00:29Z"
+last_updated: "2026-09-29T01:11:53Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 6
@@ -37,20 +37,20 @@ See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIRE
 Phase: 66 of 71 — Baseline and Session Timing (not started)
 Plan: —
 Status: Roadmap defined; Phase 66 needs discussion and a plan
-Last activity: 2026-09-28 — v1.0.0 requirements and six-phase roadmap approved
+Last activity: 2026-09-28 — v1.0.0 roadmap approved, then amended for FSB-hosted Jev and one Advanced Settings toggle
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 66 | Baseline and Session Timing | MEAS-01..03 | Not started |
-| 67 | Jev Provider, Policy, and Shadow Mode | JEV-01..06 | Not started |
+| 67 | Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01..07 | Not started |
 | 68 | Autopilot Fast Mode | AUTO-01..05 | Not started |
 | 69 | MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | Not started |
 | 70 | Bounded MCP Fast Task | MCP-03 | Not started |
 | 71 | Comparative Gate and Release | EVAL-01..02, REL-01..02 | Not started |
 
-Coverage: 22/22 v1.0.0 requirements mapped; 0/6 phases complete. See `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`.
+Coverage: 23/23 v1.0.0 requirements mapped; 0/6 phases complete. See `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`. FSB supplies the Jev credential server-side; the only user fast-mode toggle is in control-panel Advanced Settings.
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65 — archived 2026-09-28)
 
@@ -436,7 +436,7 @@ v2 deferred (see REQUIREMENTS.md v0.9.91 v2 section): CHAT-FUTURE-01/02 (chat-mo
 ## Session Continuity
 
 Last session: 2026-09-28
-Stopped at: v1.0.0 roadmap approved; Phase 66 discussion and planning next
+Stopped at: v1.0.0 roadmap approved and hosted-Jev follow-up incorporated; Phase 66 discussion and planning next
 Resume file: None
 
 ## Next Actions

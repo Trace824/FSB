@@ -10,7 +10,7 @@ FSB is an AI-powered browser automation Chrome extension that executes tasks thr
 
 ## Current State
 
-**Active milestone:** v1.0.0 Jev Fast Mode — 22 requirements mapped to Phases 66-71; Phase 66 is ready for discussion and planning.
+**Active milestone:** v1.0.0 Jev Fast Mode — 23 requirements mapped to Phases 66-71; Phase 66 is ready for discussion and planning.
 
 **Last completed:** v0.9.91 MCP Clients as Providers — Phases 57-65 shipped 2026-09-28. Installed agent CLIs (Claude Code, OpenCode, Codex) became key-less side-panel providers that drive the live browser back through FSB's own MCP tools; 51/51 requirements complete with green automated/source verification. The 48 deferred live UAT scenarios were closed at the user's direction as waived, not executed. Backlog Phase 999.1 remains outside the milestone.
 
@@ -32,16 +32,17 @@ FSB is an AI-powered browser automation Chrome extension that executes tasks thr
 
 **Target features:**
 - **Speed baseline and measurement** -- per-call timing recorded for MCP and autopilot sessions, a working session-detail lookup for journal-backed MCP sessions, and a repeatable benchmark suite comparing wall time per completed task, success rate and cost before and after.
-- **Jev decision provider** -- an optional provider that reuses the OpenRouter key by default (pinned `typesafe/jev-1.13`), accepts a direct TypeSafe key, calls the API with a thin client from the MV3 service worker, never sends secrets or password fields, and falls back cleanly when Jev is unavailable.
-- **Autopilot fast mode (opt-in)** -- each step, Jev picks the operation and target from FSB's element snapshot and checks whether the task is done or stuck; the LLM handles the plan, typed text, extraction and any step below the confidence threshold.
-- **MCP speedups with minimal wire change** -- shorter descriptions for all 73 MCP tools; only additive optional parameters: `expect` on action tools (outcome checked in the same call) and a bounded fast mode on the existing `run_task`; no new tools unless planning proves one is needed.
+- **FSB-hosted Jev decision service** -- FSB keeps its upstream Jev credential on `showcase/server/` in server-side secret storage. The MV3 service worker sends bounded, redacted decision requests over HTTPS to an authenticated FSB gateway; the credential is never sent to the extension or entered by users. The server enforces request and spend limits and the extension falls back cleanly when Jev is unavailable.
+- **Autopilot fast mode (opt-in)** -- the only user switch lives in control-panel Advanced Settings and defaults off. Each simple step, Jev picks the operation and target from FSB's element snapshot and checks whether the task is done or stuck; the LLM handles the plan, typed text, extraction and any step below the confidence threshold.
+- **MCP speedups with minimal wire change** -- shorter descriptions for all 73 MCP tools; only `expect` is added as an optional action-tool parameter (outcome checked in the same call). Existing `run_task` follows the Advanced Settings switch and has a bounded fast path without a separate fast-mode argument; no new tools unless planning proves one is needed.
 - **Safety** -- Jev can only add confirmations, never remove them; page text is treated as untrusted; Jev is never the sole safety gate.
 - **Release** -- extension 1.0.0 via a `CHANGELOG.md` v1.0.0 entry and `npm run version:set:extension -- 1.0.0`; MCP gets a minor bump for the additive parameters (0.11.0 to 0.12.0).
 
 **Key context:**
 - Measured baseline (40 recorded MCP sessions, 2026-09-16 to 2026-09-21): median wall time per tool call is 9.5 s with Claude and 4.6 s with Cursor. FSB's own execution is roughly 0.3-1 s per call (a click waits for 300 ms of DOM stability plus 200 ms of network quiet, capped at 3 s), so the calling agent's turns are about 85-90% of MCP time. Autopilot defaults to xAI `grok-4-1-fast`; no recorded autopilot sessions exist to measure.
 - MCP tool surface today: 73 tools with about 54.5k characters of descriptions (median 730, longest 2,187 for `execute_js`) plus about 34k characters of parameter descriptions; no MCP `annotations` are defined.
-- Jev facts (`.planning/research/JEV-REFERENCE.md`): `POST /v1/systemone` with a `state` plus typed `questions` (Choice up to 255 options, Score 2-10 levels, Noul yes/no probability); about 100 ms server time; $0.042 per million input tokens, output free; 32k tokens for the state plus the longest question; 1,200 requests/min; no SLA. Direct TypeSafe signups have been paused since 2026-09-22; OpenRouter serves the same API with an OpenRouter key.
+- Jev facts (`.planning/research/JEV-REFERENCE.md`): `POST /v1/systemone` with a `state` plus typed `questions` (Choice up to 255 options, Score 2-10 levels, Noul yes/no probability); about 100 ms server time; $0.042 per million input tokens, output free; 32k tokens for the state plus the longest question; 1,200 requests/min; no SLA. Upstream access and model selection are FSB server responsibilities, not user configuration.
+- The user clarified that FSB provides Jev and owns the credential. The reference's BYOK recommendation is superseded. Hosted Jev is planned for all installs with bounded availability. `showcase/server/src/routes/auth.js` currently allows anyone to create a hash key, so that key alone cannot protect an unbounded billable Jev route; Phase 67 must enforce per-install, network-aware, and global limits. Server round-trip time belongs in the whole-task benchmark.
 - Evidence to respect: per-decision speed and cost wins are real, but whole-agent tests mostly cut cost without raising task success; a third-party benchmark scored Jev 25/49 on raw DOM controls; confidence ranks answers well, but thresholds must be tuned on FSB's own labelled tasks against a pinned model version.
 - Realistic targets: autopilot about 1.5-2x faster on mixed tasks; MCP about 1.3-1.6x on UAT/Jira-style sessions and 2-3x on click-heavy flows; MCP tool-list tokens cut by more than half.
 - INV-01 carries forward: MCP wire contracts stay byte-stable; only additive optional parameters.
@@ -342,7 +343,7 @@ Carry-forward backlog candidates:
 
 ### Active — v1.0.0 Jev Fast Mode
 
-The 22 testable active requirements are in `.planning/REQUIREMENTS.md`. They cover timing and a repeatable baseline (MEAS-01..03), the pinned Jev provider and safety policy (JEV-01..06), opt-in autopilot fast mode (AUTO-01..05), additive MCP speedups (MCP-01..04), comparative evaluation (EVAL-01..02), and versioned release (REL-01..02). Every requirement maps to exactly one of Phases 66-71 in `.planning/ROADMAP.md`.
+The 23 testable active requirements are in `.planning/REQUIREMENTS.md`. They cover timing and a repeatable baseline (MEAS-01..03), the hosted Jev gateway and safety policy (JEV-01..07), opt-in autopilot fast mode (AUTO-01..05), additive MCP speedups (MCP-01..04), comparative evaluation (EVAL-01..02), and versioned release (REL-01..02). Every requirement maps to exactly one of Phases 66-71 in `.planning/ROADMAP.md`.
 
 ### Validated
 
@@ -754,6 +755,7 @@ The following backlog items are formally retired in v0.9.45rc1. Better external 
 | Close v0.9.91 with every deferred human UAT waived | The user chose to close the milestone and mark all accumulated live UAT done without running it | Pending -- 48 live scenarios were never executed; the archived ledgers keep their pending entries as the record |
 | Baseline before Jev control | Whole-task speed and success must be measured before introducing a decision fast path | Planned in v1.0.0 Phase 66 before provider and loop work |
 | Keep Jev optional and bounded | A typed model answer can still be wrong; the LLM and FSB mechanics retain planning, text, execution, and safety authority | Planned in Phases 67-70 with shadow calibration and fallback |
+| FSB provides Jev without a user key | The user wants one Advanced Settings switch and no provider setup | Phase 67 holds the upstream credential on the FSB server; Phase 68 adds the switch; Phase 70 follows it for MCP |
 
 ## Evolution
 

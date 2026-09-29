@@ -8,7 +8,7 @@
 
 ## Milestones
 
-- 🚧 **v1.0.0 Jev Fast Mode** — Phases 66-71, planned 2026-09-28. Establish a whole-task speed and quality baseline, add a safe optional Jev decision provider, use it for bounded autopilot and MCP fast paths, shorten existing MCP tool descriptions, and release the extension as 1.0.0 only with honest comparative evidence.
+- 🚧 **v1.0.0 Jev Fast Mode** — Phases 66-71, planned 2026-09-28. Establish a whole-task speed and quality baseline, add FSB-hosted Jev with the credential held on the server, expose one opt-in switch in Advanced Settings, use bounded autopilot and MCP fast paths, shorten existing MCP tool descriptions, and release the extension as 1.0.0 only with honest comparative evidence.
 - ✅ **v0.9.91 MCP Clients as Providers** — Phases 57-65, shipped 2026-09-28. Installed agent CLIs (Claude Code, OpenCode, Codex) became key-less side-panel providers that drive the live browser through FSB's own MCP tools. Archive: `.planning/milestones/v0.9.91-ROADMAP.md`.
 - ✅ **v1.2.0 Showcase i18n Completeness** — Phases 52-56, shipped 2026-07-09. Archive: `.planning/milestones/v1.2.0-ROADMAP.md`. Closes the translation gap that reopened after v0.9.63 shipped: a full-page audit establishes the true drift/missing scope, resync + stats-page translation + transcreation review close it, a CI drift-detection gate lands on the clean baseline, and the long-deferred WARNING-02 locale-cookie redirect bug is fixed.
 - ✅ **v1.1.0 T1 App Execution Expansion** — Phases 44-51, shipped 2026-06-30; refreshed 2026-07-01 after post-closeout T1 ports. Expanded proven T1/guarded coverage from 26 baseline descriptors to 1,267 executable T1-ready descriptors plus 556 guarded fail-closed rows, and closed the remaining catalog tail with explicit terminal-state accounting. Archive: `.planning/milestones/v1.1.0-ROADMAP.md`.
@@ -18,7 +18,9 @@
 
 **Milestone goal:** Make FSB measurably faster on complete autopilot and MCP tasks by delegating bounded simple decisions to Jev while preserving the LLM's planning and writing roles and FSB's existing action and safety boundaries.
 
-**Scope:** 22 requirements in `.planning/REQUIREMENTS.md`; Phases 66-71 continue numbering after the completed v0.9.91 milestone. The existing Phase 999.1 is a completed historical backlog item outside this milestone.
+**Scope:** 23 requirements in `.planning/REQUIREMENTS.md`; Phases 66-71 continue numbering after the completed v0.9.91 milestone. The existing Phase 999.1 is a completed historical backlog item outside this milestone.
+
+**Provider decision:** FSB supplies Jev. The upstream credential stays on `showcase/server/` (or its server-side secret store); the extension never receives it. An authenticated, bounded HTTPS gateway carries redacted decision state. The only user-facing fast-mode switch is in control-panel Advanced Settings, default off; MCP `run_task` follows that switch. The server round trip is included in all speed measurements.
 
 **Release evidence:** Compare whole-task completion, wall time per completed task, and cost on the same task set. The project brief's 1.5-2x autopilot and 1.3-1.6x MCP speedups are targets to measure, not results already achieved. A path that fails its predeclared gate remains experimental or disabled.
 
@@ -34,17 +36,17 @@
 4. The suite records enough task and environment identity to compare later runs without counting Jev's own completion answer as proof.
 **Plans:** Not planned.
 
-### Phase 67: Jev Provider, Policy, and Shadow Mode
+### Phase 67: Hosted Jev Gateway, Policy, and Shadow Mode
 
-**Goal:** Add version-pinned Jev access behind existing credentials and validate safe inputs, accounting, fallback, and decision calibration before live control.
+**Goal:** Provide version-pinned Jev through an FSB-owned server credential and a bounded, authenticated extension-to-server decision path; validate safe inputs, accounting, fallback, and calibration before live control.
 **Depends on:** Phase 66 (baseline and labelled task records).
-**Requirements:** JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06.
+**Requirements:** JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07.
 **Success Criteria:**
-1. A user can select OpenRouter using the existing key (`typesafe/jev-1.13`) or direct TypeSafe using its key (`jev-1.13.0`); a thin MV3-compatible client sends typed questions and records the returned model version.
-2. Request construction excludes secrets and sensitive form values, treats page content as data, and avoids raw request-body or key logging across success and error paths.
-3. Timeout, rate-limit, invalid-response, unavailable-model, and key errors produce typed fallback results; actual usage and cost are recorded where supplied, without fabricated values.
-4. Shadow runs on labelled tasks produce operation, target, completion, stuck, and risk accuracy by confidence bucket; live thresholds are selected from that evidence and tied to the pinned model.
-5. Tests prove Jev cannot remove an existing confirmation, authorize a high-risk action alone, or bypass time and iteration breakers.
+1. The FSB server holds the upstream Jev credential in server-side secret storage, calls a pinned model, and returns typed decisions; no extension bundle, message, response, or storage record contains that credential, and users enter no Jev or OpenRouter key.
+2. The HTTPS decision route supports all installs, validates a fixed bounded schema, and enforces per-install, abuse-aware network, and global request and spend limits before upstream use; the existing self-issued hash key alone is not treated as a sufficient billing safeguard. Quota exhaustion falls back with a typed reason.
+3. Extension and server validation exclude secrets and sensitive form values, treat page content as data, and avoid raw request-body or credential logging across success and error paths.
+4. Timeout, rate-limit, invalid-response, unavailable-model, and key errors produce typed fallback results; actual model version, usage, and FSB-borne cost are recorded where supplied, without fabricated values.
+5. Shadow runs on labelled tasks produce operation, target, completion, stuck, and risk accuracy by confidence bucket; live thresholds are selected from that evidence and tied to the pinned model. Tests prove Jev cannot remove confirmation or bypass existing safety breakers.
 **Plans:** Not planned.
 
 ### Phase 68: Autopilot Fast Mode
@@ -53,7 +55,7 @@
 **Depends on:** Phase 67 (safe provider and calibrated thresholds).
 **Requirements:** AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05.
 **Success Criteria:**
-1. A user can opt into fast mode; an ordinary task with fast mode off follows the existing autopilot path.
+1. A user can enable or disable fast mode only in control-panel Advanced Settings; the default is off, the setting explains the bounded FSB-to-Jev page-context transfer, and an ordinary task with it off follows the existing autopilot path.
 2. On a supported simple step, Jev chooses only among operations and current elements offered by FSB; FSB rechecks target freshness and executes through its existing action machinery.
 3. Planning, generated text, extraction, unsupported steps, and below-threshold decisions route to the LLM without the Jev loop fabricating arguments or page understanding.
 4. Completion and stuck decisions are checked against observable page evidence; action, request, and wall-clock budgets stop repeated or runaway loops with a truthful outcome.
@@ -74,11 +76,11 @@
 
 ### Phase 70: Bounded MCP Fast Task
 
-**Goal:** Expose the Jev fast loop through the existing `run_task` entry point with minimal additive wire change.
+**Goal:** Let the existing `run_task` use the bounded Jev fast loop when the extension's Advanced Settings switch is enabled.
 **Depends on:** Phases 67, 68, and 69 (provider policy, fast-loop mechanics, and additive contract gate).
 **Requirements:** MCP-03.
 **Success Criteria:**
-1. A caller can opt into fast mode on existing `run_task` with a bounded action, Jev-call, and wall-clock budget; omission preserves current behavior.
+1. Existing `run_task` reads the extension's Advanced Settings switch and uses a bounded action, Jev-call, and wall-clock budget only when enabled; it has no separate fast-mode argument or toggle.
 2. The MCP result distinguishes done, ambiguous, blocked, and needs-confirmation using verified effects and task state, not Jev's answer alone.
 3. Provider failures, uncertain targets, and safety gates exit through typed fallback or escalation without duplicate side effects.
 4. Existing MCP clients continue to parse responses and invoke tools without any new required argument or new tool.
@@ -93,7 +95,7 @@
 1. The same outcome-checked corpus compares baseline, fast mode, and a non-Jev control on completion rate, wall time per completed task, and cost, with uncertainty and failure cases included.
 2. A predeclared gate reports pass or fail for speed, success, and safety; any failing path remains experimental or disabled and no per-decision timing is presented as whole-task speedup.
 3. `CHANGELOG.md` has a v1.0.0 entry before `npm run version:set:extension -- 1.0.0` succeeds, and product version checks agree across extension surfaces.
-4. The MCP package receives its planned additive-parameter minor bump, with compatibility checks for existing callers and no unreviewed tool additions.
+4. The MCP package receives its planned minor bump for optional `expect`, with compatibility checks for existing callers and no unreviewed tool additions.
 **Plans:** Not planned.
 
 ## Completed Milestones

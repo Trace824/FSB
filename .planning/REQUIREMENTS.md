@@ -15,16 +15,17 @@
 
 ### JEV — Decision Provider and Safety
 
-- [ ] **JEV-01:** A user with a configured OpenRouter key can enable a version-pinned Jev decision provider without entering a second key.
-- [ ] **JEV-02:** A user with an existing TypeSafe key can select direct TypeSafe access to the same decision interface.
-- [ ] **JEV-03:** Jev requests omit secrets, credential values, password, file, and hidden inputs, and unnecessary page content; page text is treated as untrusted data rather than instructions.
-- [ ] **JEV-04:** An operator can inspect the actual returned model version, token usage, cost when available, and typed fallback reason for each Jev decision without exposing request bodies or keys in logs.
+- [ ] **JEV-01:** A user on any FSB install can use FSB-provided Jev without supplying or configuring a Jev or OpenRouter key, subject to the hosted service's published availability limits.
+- [ ] **JEV-02:** FSB's Jev credential stays in server-side secret storage; the extension sends bounded decision requests to the FSB server over HTTPS and never receives the upstream credential.
+- [ ] **JEV-03:** The extension and server omit secrets, credential values, password, file, and hidden inputs, and unnecessary page content from Jev requests; page text is treated as untrusted data rather than instructions.
+- [ ] **JEV-04:** An operator can inspect the actual returned model version, token usage, FSB-borne cost when available, and typed fallback reason for each Jev decision without exposing request bodies or credentials in logs.
 - [ ] **JEV-05:** Jev can evaluate labelled tasks in shadow mode without acting, so operation, target, completion, stuck, and risk thresholds are calibrated on a pinned model before live use.
 - [ ] **JEV-06:** Jev can add a confirmation requirement but cannot remove an existing confirmation, bypass an execution safety breaker, or authorize an action on its own.
+- [ ] **JEV-07:** The FSB server authorizes hosted decision requests and enforces bounded request size, per-install and abuse-aware network limits, and global rate and spend ceilings before spending the FSB-owned Jev quota; exhausted limits return a typed fallback.
 
 ### AUTO — Autopilot Fast Mode
 
-- [ ] **AUTO-01:** A user can opt into Jev fast mode for autopilot; existing autopilot behavior remains available when fast mode is off.
+- [ ] **AUTO-01:** A user can enable or disable Jev fast mode only in the control panel's Advanced Settings; it is off by default, explains that bounded page context is sent through FSB to Jev, and existing autopilot behavior remains available when off.
 - [ ] **AUTO-02:** For a supported simple step, Jev can choose only an offered operation and element from FSB's filtered current snapshot; FSB validates target freshness and executes the action through its existing mechanics.
 - [ ] **AUTO-03:** The LLM retains planning, generated text, page reading, unsupported actions, and decisions below calibrated thresholds.
 - [ ] **AUTO-04:** The fast loop uses observable page evidence for completion and stuck checks, enforces task time, action, and Jev-call budgets, and reports the actual terminal state.
@@ -34,8 +35,8 @@
 
 - [ ] **MCP-01:** MCP clients receive shorter descriptions for all 73 existing tools while retaining enough argument and safety guidance to use them correctly.
 - [ ] **MCP-02:** Action tools accept an optional `expect` value and return a bounded outcome check in the same call, so the caller can distinguish verified effect from uncertainty.
-- [ ] **MCP-03:** Existing `run_task` accepts an optional bounded Jev fast mode and reports done, ambiguous, blocked, or needs-confirmation outcomes without claiming success from Jev's answer alone.
-- [ ] **MCP-04:** Existing MCP tool names, required arguments, and wire contracts remain byte-stable; this milestone adds only optional parameters unless a new tool is separately justified and approved.
+- [ ] **MCP-03:** Existing `run_task` honors the extension's Advanced Settings fast-mode toggle, applies bounded Jev decisions when enabled, and reports done, ambiguous, blocked, or needs-confirmation outcomes without claiming success from Jev's answer alone.
+- [ ] **MCP-04:** Existing MCP tool names, required arguments, and wire contracts remain byte-stable; this milestone adds only the optional `expect` parameter on action tools unless a new tool is separately justified and approved.
 
 ### EVAL — Comparative Release Gate
 
@@ -54,7 +55,8 @@
 | A Jev-generated plan, typed prose, or page summary | Jev returns typed decisions; the LLM owns writing and reading. |
 | Automatic fast mode for every task | This milestone gathers task-level evidence and keeps activation opt-in. |
 | New MCP tools for Jev | Existing action tools and `run_task` cover the planned surface; add a tool only after a separately reviewed need. |
-| Further provider gateways or self-hosted decision models | OpenRouter and direct TypeSafe cover the v1.0.0 provider contract. |
+| User-supplied Jev or OpenRouter keys | FSB provides Jev through its hosted server path. |
+| Further decision-model gateways or self-hosted models | The v1.0.0 server path uses a pinned Jev upstream. |
 
 ## Out of Scope
 
@@ -64,16 +66,18 @@
 | Jev inventing selectors or arbitrary tool arguments | It may choose only code-offered options; FSB mechanics validate and execute. |
 | Reducing existing purchase, account, publication, or other confirmation gates | Jev can only tighten confirmations. |
 | Sending passwords, credential values, or hidden fields to a decision provider | Violates the existing secret-handling boundary. |
+| Sending the FSB-owned Jev credential to extension code or storage | A shared credential cannot remain secret in a distributed client. |
+| A second user-facing fast-mode switch in an MCP argument or task surface | Advanced Settings is the only user toggle for this milestone. |
 
 ## Traceability
 
 | Phase | Requirements | Count |
 | --- | --- | ---: |
 | 66 — Baseline and Session Timing | MEAS-01, MEAS-02, MEAS-03 | 3 |
-| 67 — Jev Provider, Policy, and Shadow Mode | JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06 | 6 |
+| 67 — Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07 | 7 |
 | 68 — Autopilot Fast Mode | AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05 | 5 |
 | 69 — MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | 3 |
 | 70 — Bounded MCP Fast Task | MCP-03 | 1 |
 | 71 — Comparative Gate and Release | EVAL-01, EVAL-02, REL-01, REL-02 | 4 |
 
-**Coverage:** 22/22 requirements mapped exactly once.
+**Coverage:** 23/23 requirements mapped exactly once.
