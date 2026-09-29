@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: planning
-last_updated: "2026-09-28T07:15:37.981Z"
+last_updated: "2026-09-29T01:00:29Z"
 last_activity: 2026-09-28
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
   percent: 0
 ---
 
-*Note: the `total_phases`/`completed_phases` counts above are scoped to the active v1.0.0 milestone (phases from 66) only. Some GSD tooling (`roadmap.analyze`, `phase.complete`) reports a noisy multi-phase count including collapsed `## Completed Milestones` archive entries and `## Backlog` sections — treat this file's own numbers as authoritative for v1.0.0 progress.*
+*Note: the `total_phases`/`completed_phases` counts above are scoped to the active v1.0.0 milestone (Phases 66-71) only. Some GSD tooling (`roadmap.analyze`, `phase.complete`) reports a noisy multi-phase count including collapsed `## Completed Milestones` archive entries and `## Backlog` sections — treat this file's own numbers as authoritative for v1.0.0 progress.*
 
 # Project State
 
@@ -30,14 +30,27 @@ See: .planning/milestones/v0.9.91-ROADMAP.md, .planning/milestones/v0.9.91-REQUI
 See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIREMENTS.md, .planning/v1.2.0-MILESTONE-AUDIT.md (archived Showcase i18n Completeness milestone)
 
 **Core value:** Reliable single-attempt execution — the AI decides correctly, the mechanics execute precisely.
-**Current focus:** Planning the next milestone (v1.0.0 Jev Fast Mode)
+**Current focus:** Planning Phase 66 of v1.0.0 Jev Fast Mode.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 66 of 71 — Baseline and Session Timing (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-09-28 — Milestone v1.0.0 started
+Status: Roadmap defined; Phase 66 needs discussion and a plan
+Last activity: 2026-09-28 — v1.0.0 requirements and six-phase roadmap approved
+
+## Roadmap At A Glance (v1.0.0, Phases 66-71)
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 66 | Baseline and Session Timing | MEAS-01..03 | Not started |
+| 67 | Jev Provider, Policy, and Shadow Mode | JEV-01..06 | Not started |
+| 68 | Autopilot Fast Mode | AUTO-01..05 | Not started |
+| 69 | MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | Not started |
+| 70 | Bounded MCP Fast Task | MCP-03 | Not started |
+| 71 | Comparative Gate and Release | EVAL-01..02, REL-01..02 | Not started |
+
+Coverage: 22/22 v1.0.0 requirements mapped; 0/6 phases complete. See `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`.
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65 — archived 2026-09-28)
 
@@ -423,12 +436,12 @@ v2 deferred (see REQUIREMENTS.md v0.9.91 v2 section): CHAT-FUTURE-01/02 (chat-mo
 ## Session Continuity
 
 Last session: 2026-09-28
-Stopped at: v0.9.91 archived; all human UAT closed as waived by the user
+Stopped at: v1.0.0 roadmap approved; Phase 66 discussion and planning next
 Resume file: None
 
 ## Next Actions
 
-Start milestone v1.0.0 Jev Fast Mode with `/gsd-new-milestone`.
+Discuss Phase 66 Baseline and Session Timing, then plan it. Its baseline must precede Jev integration.
 
 ## Performance Metrics
 
@@ -470,4 +483,4 @@ Start milestone v1.0.0 Jev Fast Mode with `/gsd-new-milestone`.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Discuss and plan Phase 66 Baseline and Session Timing.

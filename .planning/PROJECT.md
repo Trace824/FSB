@@ -10,7 +10,7 @@ FSB is an AI-powered browser automation Chrome extension that executes tasks thr
 
 ## Current State
 
-**Active milestone:** v1.0.0 Jev Fast Mode — defining requirements.
+**Active milestone:** v1.0.0 Jev Fast Mode — 22 requirements mapped to Phases 66-71; Phase 66 is ready for discussion and planning.
 
 **Last completed:** v0.9.91 MCP Clients as Providers — Phases 57-65 shipped 2026-09-28. Installed agent CLIs (Claude Code, OpenCode, Codex) became key-less side-panel providers that drive the live browser back through FSB's own MCP tools; 51/51 requirements complete with green automated/source verification. The 48 deferred live UAT scenarios were closed at the user's direction as waived, not executed. Backlog Phase 999.1 remains outside the milestone.
 
@@ -339,6 +339,10 @@ Carry-forward backlog candidates:
 **Shipped:** Canonical dashboard surface, task lifecycle bridge, DOM stream forwarding, dashboard result UI (result cards, action feed, AI summary), stream quality & resilience. 5 phases, 6 plans.
 
 ## Requirements
+
+### Active — v1.0.0 Jev Fast Mode
+
+The 22 testable active requirements are in `.planning/REQUIREMENTS.md`. They cover timing and a repeatable baseline (MEAS-01..03), the pinned Jev provider and safety policy (JEV-01..06), opt-in autopilot fast mode (AUTO-01..05), additive MCP speedups (MCP-01..04), comparative evaluation (EVAL-01..02), and versioned release (REL-01..02). Every requirement maps to exactly one of Phases 66-71 in `.planning/ROADMAP.md`.
 
 ### Validated
 
@@ -748,6 +752,8 @@ The following backlog items are formally retired in v0.9.45rc1. Better external 
 | Background-tab-by-default for MCP-routed surfaces | MCP agents must not steal focus from the user or other agents | Good -- v0.9.60 (Phase 246) `open_tab` defaults background; agent-scoped tab resolution replaces `chrome.tabs.query({active:true})` everywhere except synthesized `legacy:*` agents |
 | Security-first reverse channel before any spawn code | Turning a browser click into an agent CLI process is RCE-adjacent | Good -- v0.9.91 Phase 59 landed CHAN-01..07 before Phase 60's spawn code, with a permanent forbidden-flag CI gate |
 | Close v0.9.91 with every deferred human UAT waived | The user chose to close the milestone and mark all accumulated live UAT done without running it | Pending -- 48 live scenarios were never executed; the archived ledgers keep their pending entries as the record |
+| Baseline before Jev control | Whole-task speed and success must be measured before introducing a decision fast path | Planned in v1.0.0 Phase 66 before provider and loop work |
+| Keep Jev optional and bounded | A typed model answer can still be wrong; the LLM and FSB mechanics retain planning, text, execution, and safety authority | Planned in Phases 67-70 with shadow calibration and fallback |
 
 ## Evolution
 
@@ -767,4 +773,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-28 -- started milestone v1.0.0 Jev Fast Mode after closing v0.9.91.*
+*Last updated: 2026-09-28 -- defined v1.0.0 Jev Fast Mode requirements and Phases 66-71.*
