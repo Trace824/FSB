@@ -44,7 +44,7 @@ Plans:
 **Wave 1**
 
 - [ ] 66-01-PLAN.md — Export the 2026-09-16..21 MCP sessions (H1) and commit sanitized history metrics (wave 1, human)
-- [ ] 66-02-PLAN.md — Install the worktree, record the start-commit test and regression-sweep baselines, add bench statistics, outcome and identity libraries (wave 1)
+- [x] 66-02-PLAN.md — Install the worktree, record the start-commit test and regression-sweep baselines, add bench statistics, outcome and identity libraries (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
