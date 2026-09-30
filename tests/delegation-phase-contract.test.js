@@ -152,6 +152,7 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node tests/lattice-replay-background-contract.test.js',
   'node --test tests/google-sheets-session.test.js tests/google-sheets-content-actions.test.js tests/gsheets-handler.test.js tests/google-sheets-wiring.test.js tests/spreadsheet-record-redaction.test.js',
   'node tests/sidepanel-automation-runner.test.js',
+  'node --test tests/bench-export-history.test.mjs tests/bench-stats.test.mjs tests/bench-outcome.test.mjs tests/bench-identity.test.mjs tests/bench-tasks.test.mjs tests/bench-fixture-server.test.mjs tests/bench-claude-stream.test.mjs tests/bench-corpus.test.mjs tests/bench-report.test.mjs tests/bench-drivers.test.mjs',
 ]);
 
 const PHASE64_RETAINED_ROOT_COMMANDS = Object.freeze([
