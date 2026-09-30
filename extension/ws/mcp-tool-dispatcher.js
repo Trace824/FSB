@@ -158,6 +158,8 @@ const MCP_PHASE199_MESSAGE_ROUTES = {
 // caller from spoofing the resolved tab/origin metadata and keeps it out of
 // the bridge response JSON.
 const MCP_REPLAY_RECORD_CONTEXT = Symbol('fsb-mcp-replay-record-context');
+// Ingress stamp { receivedAt } from the bridge client (Phase 66, D-04): the same registry symbol under this file's own name.
+const MCP_DISPATCHER_CALL_TIMING = Symbol.for('fsb.mcp.call-timing');
 
 const MCP_VISUAL_SESSION_TASK_STATUS_TOOLS = new Set([
   'report_progress',
@@ -636,6 +638,36 @@ function canonicalizeVisualSessionTaskParams(tool, params, payload) {
   };
 }
 
+// Phase 66 (MEAS-01, D-04): per-call timing on the dispatcher's own recording
+// paths. The stamp is read only from the symbol property, so a caller-supplied
+// string key named timing is never trusted. Date.now() only.
+function readDispatcherCallStamp(payload) {
+  try {
+    if (!payload || typeof payload !== 'object') return null;
+    const stamp = payload[MCP_DISPATCHER_CALL_TIMING];
+    if (!stamp || typeof stamp !== 'object') return null;
+    const receivedAt = stamp.receivedAt;
+    if (!Number.isSafeInteger(receivedAt) || receivedAt < 0) return null;
+    return { receivedAt };
+  } catch (_error) {
+    return null;
+  }
+}
+
+// Completion is taken synchronously at the recorder call site. No stamp, or a
+// wall clock that stepped backwards, gives null: never an invented 0.
+function buildDispatcherCallTiming(stamp) {
+  try {
+    const receivedAt = stamp ? stamp.receivedAt : null;
+    if (!Number.isSafeInteger(receivedAt) || receivedAt < 0) return null;
+    const completedAt = Date.now();
+    if (!Number.isSafeInteger(completedAt) || completedAt < receivedAt) return null;
+    return { v: 1, receivedAt, completedAt, fsbMs: completedAt - receivedAt };
+  } catch (_error) {
+    return null;
+  }
+}
+
 async function dispatchMcpToolRoute({ tool, params = {}, client = null, tab = null, payload = {} }) {
   const route = MCP_PHASE199_TOOL_ROUTES[tool];
   if (!route) {
@@ -646,6 +678,9 @@ async function dispatchMcpToolRoute({ tool, params = {}, client = null, tab = nu
     return createMcpRouteError(tool, route.routeFamily, MCP_ROUTE_RECOVERY_HINT);
   }
 
+  // Canonicalization may hand back a spread copy of the payload, which drops
+  // the symbol stamp, so the timing stamp is read from the original first.
+  const callTimingStamp = readDispatcherCallStamp(payload);
   const canonicalized = canonicalizeVisualSessionTaskParams(tool, params, payload);
   if (canonicalized.error) return canonicalized.error;
   params = canonicalized.params;
@@ -719,7 +754,7 @@ async function dispatchMcpToolRoute({ tool, params = {}, client = null, tab = nu
         globalThis.fsbMcpSessionRecorder &&
         typeof globalThis.fsbMcpSessionRecorder.recordTaskOutcome === 'function'
       ) {
-        globalThis.fsbMcpSessionRecorder.recordTaskOutcome({ tool, params, payload, response });
+        globalThis.fsbMcpSessionRecorder.recordTaskOutcome({ tool, params, payload, response, timing: buildDispatcherCallTiming(callTimingStamp) });
       }
     } catch (_e) { /* never let task-memory recording break dispatch */ }
     // NOTE (260707-7id review fix): the session-recorder sibling hook that
@@ -847,7 +882,8 @@ async function dispatchMcpMessageRoute({ type, payload = {}, client = null, mcpM
               : false,
             replayContext: payload && payload[MCP_REPLAY_RECORD_CONTEXT]
               ? Object.assign({}, payload[MCP_REPLAY_RECORD_CONTEXT], { routeFamily: route.routeFamily })
-              : Object.assign({}, readRouteInspection.recordContext || {}, { routeFamily: route.routeFamily })
+              : Object.assign({}, readRouteInspection.recordContext || {}, { routeFamily: route.routeFamily }),
+            timing: buildDispatcherCallTiming(readDispatcherCallStamp(payload))
           };
           var spreadsheetRedactor = globalThis.FsbSpreadsheetRecordRedaction;
           var spreadsheetInvoke = type === 'mcp:capabilities-invoke'
@@ -3956,7 +3992,10 @@ const _mcp_dispatcher_exports = {
   // client-label cache to chrome.storage.session so popup + sidepanel
   // surfaces (different contexts from the SW where _agentClientLabelCache
   // lives) can read it and render "owned by <ClientName>" in the chip.
-  FSB_AGENT_CLIENT_LABELS_KEY
+  FSB_AGENT_CLIENT_LABELS_KEY,
+  // Phase 66 call timing (test-only)
+  readDispatcherCallStamp,
+  buildDispatcherCallTiming
 };
 
 if (typeof globalThis !== 'undefined') {
