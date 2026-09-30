@@ -60,7 +60,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 66-09-PLAN.md — Register bench suites in the test chain; full-chain, Node 20, timing and mcp/ audits (wave 4)
+- [x] 66-09-PLAN.md — Register bench suites in the test chain; full-chain, Node 20, timing and mcp/ audits (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
