@@ -32,11 +32,43 @@
 **Depends on:** None.
 **Requirements:** MEAS-01, MEAS-02, MEAS-03.
 **Success Criteria:**
+
 1. An operator can see per-call wall, FSB execution, and model time, plus tokens and cost where available, for MCP and autopilot sessions; absent values are explicit.
 2. Journal-backed MCP sessions resolve to session details with tool-call timing rather than an empty or broken lookup.
 3. A reproducible suite runs representative mixed and click-heavy tasks, verifies outcomes from page evidence, and saves completion, wall-time, and cost baselines before fast mode is enabled.
 4. The suite records enough task and environment identity to compare later runs without counting Jev's own completion answer as proof.
-**Plans:** Not planned.
+
+**Plans:** 11 plans in 6 waves
+
+Plans:
+**Wave 1**
+
+- [ ] 66-01-PLAN.md — Export the 2026-09-16..21 MCP sessions (H1) and commit sanitized history metrics (wave 1, human)
+- [ ] 66-02-PLAN.md — Install the worktree, record the start-commit test and regression-sweep baselines, add bench statistics, outcome and identity libraries (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 66-03-PLAN.md — MCP call timing at ingress through recorder and journal, text-export timing, allowlisted fsb://config identity (wave 2)
+- [ ] 66-04-PLAN.md — Autopilot model and tool timing, provider-first cost labels, grok-4.3 price rows, history persistence (wave 2)
+- [ ] 66-05-PLAN.md — Bench task schema, loopback fixture server, Claude Code and Cursor stream parsers (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 66-06-PLAN.md — Journal-backed get_session_detail with sanitized timing rows and a filter-proof measurement block (wave 3)
+- [ ] 66-07-PLAN.md — Frozen 12-task core corpus (6 mixed, 6 click-heavy), live reading set, corpus lock and self-check (wave 3)
+- [ ] 66-08-PLAN.md — Benchmark runner (preflight, ABBA schedule, per-run saves, CDP pairing), arm drivers, baseline report (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 66-09-PLAN.md — Register bench suites in the test chain; full-chain, Node 20, timing and mcp/ audits (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 66-10-PLAN.md — Bench profile setup (H2/H3), CDP pairing, preflight, all-task smoke and live smoke, live operator timing check (wave 5, human)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 66-11-PLAN.md — Approved baseline campaign (H4), committed sanitized results, restore (H5) (wave 6, human)
 
 ### Phase 66.1: MCP Settings Tool (INSERTED)
 
@@ -44,14 +76,18 @@
 **Depends on:** Phase 66 (the baseline records the MCP tool list before this phase changes it).
 **Requirements:** SET-01, SET-02.
 **Success Criteria:**
+
 1. One new MCP tool returns every control-panel setting as compact key-value data in a single call, and changes one setting by key in a single call.
 2. Secret values (API keys, hash keys, and credential and payment data) are masked on read and refused on write. Every other setting is writable, as the owner chose on 2026-09-29.
 3. A write goes through the control panel's own validation and storage, so the control panel, autopilot, and `run_task` all see the new value. An invalid key or value returns a typed error and changes nothing.
 4. The Jev fast-mode switch becomes reachable through the same tool once Phase 68 adds it. It stays one stored value shared with Advanced Settings.
 5. Only MCP clients get the tool. The autopilot model's tool list and prompt are unchanged, and existing tool names, arguments, and responses stay byte-stable.
+
 **Open questions for discussion:**
+
 - Should endpoint settings that receive API keys or page data (custom endpoint, sync server URL, LM Studio URL) count as secrets?
 - Should settings changed over MCP be logged for the operator?
+
 **Plans:** Not planned.
 
 ### Phase 67: Hosted Jev Gateway, Policy, and Shadow Mode
@@ -60,11 +96,13 @@
 **Depends on:** Phase 66 (baseline and labelled task records).
 **Requirements:** JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07.
 **Success Criteria:**
+
 1. The FSB server holds the upstream Jev credential in server-side secret storage, calls a pinned model, and returns typed decisions; no extension bundle, message, response, or storage record contains that credential, and users enter no Jev or OpenRouter key.
 2. The HTTPS decision route is available to every install without sign-in or usage quotas. It validates a fixed bounded schema, limits body size and concurrent upstream work, records aggregate usage and FSB-borne cost, and supports an operator-wide disable switch. The existing self-issued hash key may identify a caller but is not treated as a secret protecting the Jev credential.
 3. Extension and server validation exclude secrets and sensitive form values, treat page content as data, and avoid raw request-body or credential logging across success and error paths.
 4. Timeout, rate-limit, invalid-response, unavailable-model, and key errors produce typed fallback results; actual model version, usage, and FSB-borne cost are recorded where supplied, without fabricated values.
 5. Shadow runs on labelled tasks produce operation, target, completion, stuck, and risk accuracy by confidence bucket; live thresholds are selected from that evidence and tied to the pinned model. Tests prove Jev cannot remove confirmation or bypass existing safety breakers.
+
 **Plans:** Not planned.
 
 ### Phase 68: Autopilot Fast Mode
@@ -73,11 +111,13 @@
 **Depends on:** Phase 67 (safe provider and calibrated thresholds).
 **Requirements:** AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05.
 **Success Criteria:**
+
 1. A user can enable or disable fast mode in control-panel Advanced Settings or through the Phase 66.1 settings tool, which changes the same stored value; the default is off, the setting explains the bounded FSB-to-Jev page-context transfer, and an ordinary task with it off follows the existing autopilot path.
 2. On a supported simple step, Jev chooses only among operations and current elements offered by FSB; FSB rechecks target freshness and executes through its existing action machinery.
 3. Planning, generated text, extraction, unsupported steps, and below-threshold decisions route to the LLM without the Jev loop fabricating arguments or page understanding.
 4. Completion and stuck decisions are checked against observable page evidence; action, request, and wall-clock budgets stop repeated or runaway loops with a truthful outcome.
 5. Ambiguous, changed, or failed decisions escalate once to the existing path or stop as blocked, with no duplicated side effect or weakened confirmation.
+
 **Plans:** Not planned.
 
 ### Phase 69: MCP Descriptions and Same-Call Checks
@@ -86,10 +126,12 @@
 **Depends on:** Phase 66 (tool-call measurement baseline).
 **Requirements:** MCP-01, MCP-02, MCP-04.
 **Success Criteria:**
+
 1. All 73 existing tool descriptions are shortened and a repeatable token-count check shows the aggregate tool-list reduction against the Phase 66 baseline while preserving action and safety guidance.
 2. Supported action tools accept an optional `expect` and report verified, unmet, or uncertain effects within the same call using a bounded post-action observation.
 3. Contract tests prove existing tool names, required arguments, default behavior, and serialized wire shapes remain unchanged when `expect` is omitted.
 4. A representative MCP caller can complete an action and read its effect without an extra verification call when the outcome is observable.
+
 **Plans:** Not planned.
 
 ### Phase 70: Bounded MCP Fast Task
@@ -98,10 +140,12 @@
 **Depends on:** Phases 67, 68, and 69 (provider policy, fast-loop mechanics, and additive contract gate).
 **Requirements:** MCP-03.
 **Success Criteria:**
+
 1. Existing `run_task` reads the extension's Advanced Settings switch and uses a bounded action, Jev-call, and wall-clock budget only when enabled; it has no separate fast-mode argument or toggle.
 2. The MCP result distinguishes done, ambiguous, blocked, and needs-confirmation using verified effects and task state, not Jev's answer alone.
 3. Provider failures, uncertain targets, and safety gates exit through typed fallback or escalation without duplicate side effects.
 4. Existing MCP clients continue to parse responses and invoke tools without any new required argument or new tool.
+
 **Plans:** Not planned.
 
 ### Phase 71: Comparative Gate and Release
@@ -110,10 +154,12 @@
 **Depends on:** Phases 66-70.
 **Requirements:** EVAL-01, EVAL-02, REL-01, REL-02.
 **Success Criteria:**
+
 1. The same outcome-checked corpus compares baseline, fast mode, and a non-Jev control on completion rate, wall time per completed task, and cost, with uncertainty and failure cases included.
 2. A predeclared gate reports pass or fail for speed, success, and safety; any failing path remains experimental or disabled and no per-decision timing is presented as whole-task speedup.
 3. `CHANGELOG.md` has a v1.0.0 entry before `npm run version:set:extension -- 1.0.0` succeeds, and product version checks agree across extension surfaces.
 4. The MCP package receives its planned minor bump for optional `expect` and the approved settings tool, with compatibility checks for existing callers and no unreviewed tool additions.
+
 **Plans:** Not planned.
 
 ## Completed Milestones
@@ -185,65 +231,81 @@ Outcome: 13/13 v1.2.0 requirements satisfied; audit passed. Phase 52's audit est
 - Search distinguished "directly invocable T1" from "discovery-pending DOM/T2."
 
 ### Phase 44: T1 Readiness Inventory + Status Surface
+
 **Goal:** Create the authoritative T1 readiness matrix for all 2,314 descriptors and make status visible to developers and users so "catalog supported" is never confused with "direct API-ready."
 **Requirements:** T1R-01, T1R-02, T1R-03.
 **Plans:**
+
 - [x] 44-01: T1 readiness matrix generator and evidence report.
 - [x] 44-02: Status-surface and documentation honesty pass.
 - [x] 44-03: T1 readiness CI guard and phase closeout.
 
 ### Phase 45: T1 Porting Scaffold + Handler Contract Hardening
+
 **Goal:** Build the reusable test and implementation scaffold for app ports so each new T1 handler has origin-pin, logged-out guard, shape guard, no-secret logging, consent classification, and byte-stable fallback behavior by default.
 **Requirements:** T1R-04, T1R-05, T1R-09.
 **Plans:**
+
 - [x] 45-01: Port contract library and scaffold CLI.
 - [x] 45-02: Current-catalog contract verifier.
 - [x] 45-03: Documentation and phase closeout.
 
 ### Phase 46: Same-Origin Read Ports — First High-Value Batch
+
 **Goal:** Convert a first batch of high-value read descriptors from T3 to executable T1 where the app's authenticated web runtime uses same-origin APIs and can be proven without weakening Wall 2.
 **Requirements:** T1R-06.
 **Plans:**
+
 - [x] 46-01: Candidate selection and Netlify/Bitbucket/CircleCI handler ports.
 - [x] 46-02: Catalog wiring, search readiness, and same-origin classifier gates.
 - [x] 46-03: Verification, UAT notes, and phase closeout.
 
 ### Phase 47: Pattern-D + GAPI Bridge Architecture
+
 **Goal:** Design and prove the missing architecture for apps whose useful APIs are separate-origin, per-org-subdomain, or page-bridge mediated, without breaking the active-tab credential boundary.
 **Requirements:** T1R-07, T1R-08.
 **Plans:**
+
 - [x] 47-01: Pattern-D decision for separate-origin and per-org APIs.
 - [x] 47-02: GAPI bridge decision for Google Workspace APIs.
 - [x] 47-03: CI gate, negative controls, and closeout.
 
 ### Phase 48: High-Value Read Ports — Second Batch
+
 **Goal:** Use the Phase 47 outcome to port another batch of read descriptors, including Pattern-D/GAPI candidates if the architecture is proven.
 **Requirements:** T1R-06, T1R-07, T1R-08.
 **Plans:**
+
 - [x] 48-01: Vercel same-origin read head.
 - [x] 48-02: CircleCI same-origin read expansion.
 - [x] 48-03: Gate, search, and readiness-report closeout.
 
 ### Phase 49: Guarded Writes Activation Pipeline
+
 **Goal:** Turn fail-closed write/destructive candidates into executable T1 only after live mutation-body capture, consent gate verification, and redacted audit proof.
 **Requirements:** T1R-10, T1R-11.
 **Plans:**
+
 - [x] 49-01: Write activation evidence ledger.
 - [x] 49-02: Evidence verifier and validation gate.
 - [x] 49-03: Live-UAT template and closeout decision.
 
 ### Phase 50: T1 Expansion Gate + Next-Batch Plan
+
 **Goal:** Close the milestone with an honest T1 coverage gate, full regression suite, and a prioritized backlog for the remaining 2,288-descendant tail.
 **Requirements:** T1R-12.
 **Plans:**
+
 - [x] 50-01: Regenerate readiness evidence and closeout counts.
 - [x] 50-02: Full regression gate.
 - [x] 50-03: Next-batch backlog and milestone closeout.
 
 ### Phase 51: Full T1 Tail Migration Across Remaining Catalog
+
 **Goal:** Convert the Phase 51 catalog-tail descriptors to explicit terminal states: executable T1/T1b where safe and technically provable, guarded fail-closed where write/destructive UAT is still required, or blocked where denylist/product/legal policy says no.
 **Requirements:** T1ALL-01, T1ALL-02, T1ALL-03, T1ALL-04, T1ALL-05.
 **Plans:**
+
 - [x] 51-01: Full-tail worklist generator, acceptance gate, and batch scheduler.
 - [x] 51-02: Existing-head and low-risk same-origin read bulk port.
 - [x] 51-03: Retool CSRF same-origin read head.

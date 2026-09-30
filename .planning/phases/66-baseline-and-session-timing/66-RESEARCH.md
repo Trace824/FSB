@@ -776,14 +776,50 @@ function formatCallTimingSuffix(metadata, previousCompletedAt) {
 | A8 | Campaign cost and duration: autopilot on grok-4.3 roughly $0.05-0.40 per run (≈$6-50 for 120 runs); the Claude arm consumes subscription usage and may hit 5-hour windows; 240 runs take roughly 5-8 hours of wall time | Plan Decomposition | Budget or scheduling surprises; run the smoke first and extrapolate. |
 | A9 | The 9.5 s / 4.6 s per-call medians in PROJECT.md were computed from journal timestamps or session spans; the method is not recorded in the repo | Pattern 10 | The history analyzer may not reproduce them exactly; report its method explicitly. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Retirement date discrepancy.** CONTEXT D-11 says xAI retired `grok-4-1-fast` on 2026-08-15; the official page says May 15, 2026 12:00 PT. The decision is unaffected; fix the wording when the deferred default-model fix is written.
+   **RESOLVED:** No Phase 66 change. The prices D-11 uses stand, and the date is corrected in the deferred default-model fix.
 2. **Other Grok price tables.** `extension/utils/analytics.js:28-36` and `extension/background.js:10867` keep $0.20/$0.50. D-11 names only `cost-tracker.js`, and updating the dashboard tables changes displayed numbers. Recommendation: leave them in Phase 66 and add them to the deferred default-model fix; ask the user only if they want dashboard parity now.
+   **RESOLVED:** Both tables stay unchanged in Phase 66 and move to the deferred default-model fix (orchestrator decision 6).
 3. **Which Claude model for the MCP arm.** The v0.9.91 profile passes no `--model`. For reproducibility add `--model <id>` in the bench driver and record `init.model`/`modelUsage`. The user should pick the model (the 40-session baseline used whatever each session used).
+   **RESOLVED:** Explicit `--claude-model`, with no default. It is required for `--smoke`/`--campaign` and recorded in run identity. The user picks it at H2/H4 (decision 3).
 4. **Should `createActionEvent`'s default change to `null`?** Recommended (D-05 wording) with the paired `tests/action-history.test.js:67` update; it only affects the fallback path. Low risk either way.
+   **RESOLVED:** Yes. The default becomes `null`, with the paired test update in the same task (decision 5).
 5. **Live-site set membership and logins.** D-15 wants UAT- and Jira-style reading tasks; they need accounts in the bench profile. Recommend 2-4 tasks, reported separately, optional for completing the phase if logins are unavailable.
+   **RESOLVED:** The live set keeps both categories and needs no logins (decision 8):
+   - 2 public Jira-style reads
+   - 2 UAT-style reads against FSB's own public production showcase, `https://full-selfbrowsing.com`. These check that deployed pages show the expected content, as a UAT pass would.
+
+   It stays 2-4 tasks, reported separately and excluded from the release gate. A task whose site is unreachable is recorded as skipped and does not block the phase.
 6. **Cursor arm.** Optional per D-14; recommend implementing the parser/driver but not running it in the Phase 66 baseline (D-16 sizes two arms).
+   **RESOLVED:** Build and unit-test the driver and parser, but keep them out of the Phase 66 baseline campaign (decision 7).
+
+### Orchestrator decisions recorded for the plans (2026-09-30)
+
+Plans cite these as "orchestrator decision N". They are Claude's-discretion choices made within the locked D-01..D-21.
+
+1. **Plan split:** follows the research decomposition, adjusted by the planner (11 plans, 6 waves). No two plans in the same wave share a file.
+2. **H1 export first:** 66-01 is non-autonomous; H2-H5 live in the live plans. Every spend-bearing or everyday-setup-changing step is a blocking `checkpoint:human-action`, because `auto_advance` is on.
+3. **Claude model for the MCP arm:** an explicit `--claude-model` with no default, recorded in identity.
+4. **Autopilot model:** pinned to `grok-4.3`. Preflight refuses any other model, and the model string xAI returns is recorded.
+5. **`createActionEvent`:** `durationMs` defaults to `null`, with the paired test updated.
+6. **Other Grok price tables:** `analytics.js` and `background.js` stay unchanged.
+7. **Cursor arm:** built and tested, but not part of the baseline campaign.
+8. **Live set:** 2 public Jira reads plus 2 UAT-style reads on `https://full-selfbrowsing.com`. It is reported separately and optional if a site is unreachable.
+9. **Pattern-map findings are honored:**
+   - Sheets entries keep `timing`.
+   - The new Claude fixture lives under `tests/fixtures/bench/`.
+   - Timing rows carry no `stepName` key.
+   - Comments use fresh wording that avoids pinned text.
+   - The cost-tracker unknown-model path is decoupled from the Grok row.
+   - `_handleExecuteAction` stays within its size budget.
+
+   **D-02/D-10 reconciliation:** the legacy numeric totals (`totalCost`, `totalInputTokens`, …) keep their existing values for backward compatibility (D-02). The new labelled fields are the authoritative measurement (D-10), and the MCP `measurement` projection adds a basis label next to each legacy total so a bare number is never shown unlabelled.
+10. **No `mcp/` source changes (D-01):** bench scripts may import read-only from `mcp/node_modules` and `mcp/build` and may spawn `mcp/build/index.js`.
+11. **Commit messages:** never add `Co-Authored-By` or any AI attribution line.
+12. **Tripwires:** every extension edit runs its paired pinned tests. New chain entries are appended to `REFINEMENT_ROOT_TEST_COMMANDS`, and the historical hashes are never edited.
+13. **Environment:** the first autonomous plan installs dependencies and records the start-commit `npm test` baseline with port 7225 free. Pre-existing failures are recorded, not fixed.
 
 ## Environment Availability
 
