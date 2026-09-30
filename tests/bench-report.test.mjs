@@ -853,8 +853,11 @@ const REPORT = path.join(ROOT, 'scripts', 'bench', 'report.mjs');
 const loadReport = () => import('../scripts/bench/report.mjs');
 const stats = await import('../scripts/bench/lib/stats.mjs');
 
-const REPORT_TASKS = ['core-alpha-one', 'core-bravo-two', 'core-charlie-three'];
-const BASE_WALL = { 'core-alpha-one': 40000, 'core-bravo-two': 90000, 'core-charlie-three': 150000 };
+const REPORT_TASKS = ['core-alpha-one', 'core-bravo-two', 'core-charlie-three', 'core-delta-four', 'core-echo-five', 'core-foxtrot-six'];
+const BASE_WALL = {
+  'core-alpha-one': 40000, 'core-bravo-two': 90000, 'core-charlie-three': 150000,
+  'core-delta-four': 60000, 'core-echo-five': 75000, 'core-foxtrot-six': 120000,
+};
 
 function reportRow({ campaignId = 'cmp-report', taskId, round, arm, order, pass = true, wallMs, infraError = null, set = 'core', costUsd = 0.03, attempts = 1 }) {
   const isClaude = arm === 'claude';
@@ -888,7 +891,7 @@ function reportRow({ campaignId = 'cmp-report', taskId, round, arm, order, pass 
   return row;
 }
 
-// 3 tasks x 10 rounds x 2 arms = 120 rows: three task failures and two infra errors.
+// 6 tasks x 10 rounds x 2 arms = 120 rows: three task failures and two infra errors.
 function baselineRows({ rounds = 10, tasks = REPORT_TASKS, set = 'core', campaignId = 'cmp-report' } = {}) {
   const rows = [];
   let order = 0;
@@ -919,7 +922,7 @@ const REPORT_IDENTITY = Object.freeze({
   campaignId: 'cmp-report',
   mode: 'campaign',
   set: 'core',
-  schedule: { runs: 60, rounds: 10, arms: ['autopilot', 'claude'], seed: 66, cooldownMs: 3000 },
+  schedule: { runs: 120, rounds: 10, arms: ['autopilot', 'claude'], seed: 66, cooldownMs: 3000 },
   git: { sha: 'a'.repeat(40), dirty: false },
   extension: { id: VALID_EXTENSION_ID, version: '0.9.91', measurement: { callTiming: 1, sessionDetailJournal: 1 }, telemetryOptOut: true, startTabActive: true },
   mcp: { serverName: 'fsb-mcp-server', serverVersion: '0.11.0', sdkVersion: '1.29.0', toolsList: { count: 60, sha256: 'b'.repeat(64) } },
@@ -942,15 +945,16 @@ test('buildSummary: per set and arm, infra errors leave the denominator and comp
   assert.equal(summary.kind, 'baseline');
   assert.equal(summary.rounds, 10);
   const autopilot = summary.sets.core.arms.autopilot;
-  assert.equal(autopilot.runs, 30);
+  assert.equal(autopilot.runs, 60);
   assert.deepEqual(autopilot.infraErrors, { count: 1, byCode: { provider_error: 1 }, runIds: ['cmp-report-r2-core-alpha-one-autopilot'] });
-  assert.equal(autopilot.denominator, 29);
-  assert.equal(autopilot.completed, 27);
-  assert.equal(autopilot.completionRate, 27 / 29);
-  assert.deepEqual(autopilot.completionCi95, stats.wilson(27, 29));
-  assert.equal(autopilot.attempts, 31, 'total attempts include the infra retry');
+  assert.equal(autopilot.denominator, 59);
+  assert.equal(autopilot.completed, 57);
+  assert.equal(autopilot.completionRate, 57 / 59);
+  assert.deepEqual(autopilot.completionCi95, stats.wilson(57, 59));
+  assert.equal(autopilot.attempts, 61, 'total attempts include the infra retry');
   const claude = summary.sets.core.arms.claude;
-  assert.equal(claude.completed, 28);
+  assert.equal(claude.runs, 60);
+  assert.equal(claude.completed, 58);
   assert.deepEqual(claude.infraErrors.byCode, { agent_cap: 1 });
   assert.deepEqual(summary.infraErrors.byCode, { agent_cap: 1, provider_error: 1 });
   assert.equal(summary.infraErrors.total, 2);
@@ -978,8 +982,8 @@ test('buildSummary: per-task medians and p90 over completed runs, the geometric 
 
   const counted = rows.filter((row) => row.arm === 'autopilot' && row.infraError === null);
   const total = counted.reduce((sum, row) => sum + row.cost.usd, 0);
-  assert.ok(Math.abs(autopilot.costPerCompletedTask.usd - total / 27) < 1e-12);
-  assert.deepEqual(autopilot.costPerCompletedTask.sources, { provider: 29 });
+  assert.ok(Math.abs(autopilot.costPerCompletedTask.usd - total / 57) < 1e-12);
+  assert.deepEqual(autopilot.costPerCompletedTask.sources, { provider: 59 });
   assert.equal(autopilot.costPerCompletedTask.label, 'provider-reported (xAI cost ticks)');
   assert.equal(summary.sets.core.arms.claude.costPerCompletedTask.label, 'list-price estimate, not billed');
 });
@@ -1009,8 +1013,8 @@ test('buildSummary: fewer than 10 rounds is a smoke, and live rows never change 
   assert.equal(smoke.kind, 'smoke (not a baseline)');
   const coreOnly = buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows() }, { iterations: 200 });
   const live = [
-    reportRow({ taskId: 'live-jira-read', round: 1, arm: 'autopilot', order: 121, pass: true, wallMs: 30000, set: 'live' }),
-    reportRow({ taskId: 'live-jira-read', round: 1, arm: 'claude', order: 122, pass: false, wallMs: 50000, set: 'live' }),
+    reportRow({ taskId: 'live-jira-read', round: 1, arm: 'autopilot', order: 1, pass: true, wallMs: 30000, set: 'live' }),
+    reportRow({ taskId: 'live-jira-read', round: 1, arm: 'claude', order: 2, pass: false, wallMs: 50000, set: 'live' }),
   ];
   const withLive = buildSummary({ identity: REPORT_IDENTITY, runs: [...baselineRows(), ...live] }, { iterations: 200 });
   assert.deepEqual(withLive.sets.core, coreOnly.sets.core);
@@ -1032,7 +1036,7 @@ test('buildSummary: fsb per-call medians, the labelled caller gap and call inter
   assert.ok(Math.abs(claude.host.durationApiShareMedian - 0.6) < 0.001);
   assert.equal(claude.host.numTurnsMedian, 9);
   assert.equal(claude.host.costLabel, 'list-price estimate, not billed');
-  assert.deepEqual(claude.host.toolLoading, { eager: 29 });
+  assert.deepEqual(claude.host.toolLoading, { eager: 59 });
   const autopilot = summary.sets.core.arms.autopilot;
   assert.equal(autopilot.fsb.callIntervalMsMedian, null, 'autopilot rows have no MCP call interval');
   assert.equal(autopilot.fsb.iterationsMedian, 4);
