@@ -845,3 +845,275 @@ test('a failed post-window evidence read is an infra error, never a task failure
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// --- Report (Task 3): completion CIs, wall per completed task, labelled cost, --
+// --- host metrics and the A/A noise floor (D-12, D-15, D-16, W4, W6, I-C) ------
+
+const REPORT = path.join(ROOT, 'scripts', 'bench', 'report.mjs');
+const loadReport = () => import('../scripts/bench/report.mjs');
+const stats = await import('../scripts/bench/lib/stats.mjs');
+
+const REPORT_TASKS = ['core-alpha-one', 'core-bravo-two', 'core-charlie-three'];
+const BASE_WALL = { 'core-alpha-one': 40000, 'core-bravo-two': 90000, 'core-charlie-three': 150000 };
+
+function reportRow({ campaignId = 'cmp-report', taskId, round, arm, order, pass = true, wallMs, infraError = null, set = 'core', costUsd = 0.03, attempts = 1 }) {
+  const isClaude = arm === 'claude';
+  const raw = rawRecord({
+    campaignId,
+    runId: `${campaignId}-r${round}-${taskId}-${arm}`,
+    attempt: attempts,
+    set,
+    taskId,
+    category: set === 'live' ? 'reading' : 'click-heavy',
+    arm,
+    round,
+    order,
+    wallMs,
+    wallFromInitMs: isClaude ? wallMs - 500 : null,
+    timedOut: false,
+    outcome: { pass, checks: [{ kind: 'request', pass }, { kind: 'marker', pass }] },
+    infraError,
+    measurement: isClaude ? MCP_MEASUREMENT : { ...AUTOPILOT_MEASUREMENT, costUsd },
+    sessionMatch: 'unique',
+    hostSummary: isClaude
+      ? { ...CLAUDE_OK_SUMMARY, result: { ...CLAUDE_OK_SUMMARY.result, totalCostUsd: costUsd, durationMs: wallMs, durationApiMs: Math.round(wallMs * 0.6) } }
+      : null,
+    claimed: isClaude
+      ? { status: null, partialOutcome: null, isError: false, subtype: 'success', completeTask: true }
+      : { status: 'completed', partialOutcome: null, isError: false, subtype: null, completeTask: null },
+    flags: set === 'live' ? ['live_task'] : [],
+  });
+  const row = toCommittedRow(raw);
+  assert.equal(validateCommittedRow(row).ok, true, `synthetic row ${row.runId}`);
+  return row;
+}
+
+// 3 tasks x 10 rounds x 2 arms = 120 rows: three task failures and two infra errors.
+function baselineRows({ rounds = 10, tasks = REPORT_TASKS, set = 'core', campaignId = 'cmp-report' } = {}) {
+  const rows = [];
+  let order = 0;
+  for (let round = 1; round <= rounds; round += 1) {
+    for (const [taskIndex, taskId] of tasks.entries()) {
+      const arms = round % 2 === 1 ? ['autopilot', 'claude'] : ['claude', 'autopilot'];
+      for (const arm of arms) {
+        order += 1;
+        const wobble = 1 + (((round * 7 + taskIndex * 3) % 5) - 2) * 0.05;
+        const base = BASE_WALL[taskId] || 60000;
+        const wallMs = Math.round(base * wobble * (arm === 'claude' ? 1.5 : 1));
+        let pass = true;
+        let infraError = null;
+        let attempts = 1;
+        if (arm === 'autopilot' && taskId === 'core-bravo-two' && (round === 3 || round === 7)) pass = false;
+        if (arm === 'claude' && taskId === 'core-charlie-three' && round === 5) pass = false;
+        if (arm === 'autopilot' && taskId === 'core-alpha-one' && round === 2) { infraError = 'provider_error'; pass = false; attempts = 2; }
+        if (arm === 'claude' && taskId === 'core-bravo-two' && round === 9) { infraError = 'agent_cap'; pass = false; }
+        rows.push(reportRow({ campaignId, taskId, round, arm, order, pass, wallMs, infraError, set, attempts, costUsd: arm === 'claude' ? 0.4 : 0.03 }));
+      }
+    }
+  }
+  return rows;
+}
+
+const REPORT_IDENTITY = Object.freeze({
+  schemaVersion: 1,
+  campaignId: 'cmp-report',
+  mode: 'campaign',
+  set: 'core',
+  schedule: { runs: 60, rounds: 10, arms: ['autopilot', 'claude'], seed: 66, cooldownMs: 3000 },
+  git: { sha: 'a'.repeat(40), dirty: false },
+  extension: { id: VALID_EXTENSION_ID, version: '0.9.91', measurement: { callTiming: 1, sessionDetailJournal: 1 }, telemetryOptOut: true, startTabActive: true },
+  mcp: { serverName: 'fsb-mcp-server', serverVersion: '0.11.0', sdkVersion: '1.29.0', toolsList: { count: 60, sha256: 'b'.repeat(64) } },
+  provider: { kind: 'api', name: 'xai', requestedModel: 'grok-4.3', pinnedModel: 'grok-4.3' },
+  hosts: { claude: { name: 'claude-code', version: '2.1.283 (Claude Code)', model: 'claude-model-fixture', toolSearchEnv: 'unset', toolLoadingObserved: ['eager'], envKeyNames: ['HOME', 'PATH'], envKeyNamesSha256: 'd'.repeat(64) } },
+  chrome: { browser: 'Chrome/146.0.7680.0', protocolVersion: '1.3', launchFlags: ['--disable-renderer-backgrounding', '--user-data-dir'], launchRecord: 'present' },
+  tasks: REPORT_TASKS.map((id) => ({ id, version: 1, fixtureSha256: HEX64 })),
+});
+
+test('report.mjs exports loadCampaign, buildSummary, renderMarkdown and writeReport', async () => {
+  const report = await loadReport();
+  for (const name of ['loadCampaign', 'buildSummary', 'renderMarkdown', 'writeReport']) assert.equal(typeof report[name], 'function', name);
+});
+
+test('buildSummary: per set and arm, infra errors leave the denominator and completion carries a Wilson CI', async () => {
+  const { buildSummary } = await loadReport();
+  const rows = baselineRows();
+  assert.equal(rows.length, 120);
+  const summary = buildSummary({ identity: REPORT_IDENTITY, runs: rows }, { iterations: 300, seed: 66 });
+  assert.equal(summary.kind, 'baseline');
+  assert.equal(summary.rounds, 10);
+  const autopilot = summary.sets.core.arms.autopilot;
+  assert.equal(autopilot.runs, 30);
+  assert.deepEqual(autopilot.infraErrors, { count: 1, byCode: { provider_error: 1 }, runIds: ['cmp-report-r2-core-alpha-one-autopilot'] });
+  assert.equal(autopilot.denominator, 29);
+  assert.equal(autopilot.completed, 27);
+  assert.equal(autopilot.completionRate, 27 / 29);
+  assert.deepEqual(autopilot.completionCi95, stats.wilson(27, 29));
+  assert.equal(autopilot.attempts, 31, 'total attempts include the infra retry');
+  const claude = summary.sets.core.arms.claude;
+  assert.equal(claude.completed, 28);
+  assert.deepEqual(claude.infraErrors.byCode, { agent_cap: 1 });
+  assert.deepEqual(summary.infraErrors.byCode, { agent_cap: 1, provider_error: 1 });
+  assert.equal(summary.infraErrors.total, 2);
+  assert.equal(summary.attempts, 121);
+  assert.equal(summary.sets.live, null);
+});
+
+test('buildSummary: per-task medians and p90 over completed runs, the geometric mean of task medians, and cost per completed task', async () => {
+  const { buildSummary } = await loadReport();
+  const rows = baselineRows();
+  const summary = buildSummary({ identity: REPORT_IDENTITY, runs: rows }, { iterations: 300, seed: 66 });
+  const autopilot = summary.sets.core.arms.autopilot;
+  const medians = [];
+  for (const taskId of REPORT_TASKS) {
+    const walls = rows.filter((row) => row.arm === 'autopilot' && row.taskId === taskId && row.infraError === null && row.pass).map((row) => row.wallMs);
+    const perTask = autopilot.perTask.find((entry) => entry.taskId === taskId);
+    assert.equal(perTask.wallMs.median, stats.median(walls));
+    assert.equal(perTask.wallMs.p90, stats.quantile(walls, 0.9));
+    assert.equal(perTask.completed, walls.length);
+    medians.push(stats.median(walls));
+  }
+  const geo = Math.exp(medians.reduce((sum, value) => sum + Math.log(value), 0) / medians.length);
+  assert.ok(Math.abs(autopilot.wallPerCompletedTask.geoMeanOfTaskMediansMs - geo) < 1e-6);
+  assert.deepEqual(autopilot.wallPerCompletedTask.tasksUsed, REPORT_TASKS);
+
+  const counted = rows.filter((row) => row.arm === 'autopilot' && row.infraError === null);
+  const total = counted.reduce((sum, row) => sum + row.cost.usd, 0);
+  assert.ok(Math.abs(autopilot.costPerCompletedTask.usd - total / 27) < 1e-12);
+  assert.deepEqual(autopilot.costPerCompletedTask.sources, { provider: 29 });
+  assert.equal(autopilot.costPerCompletedTask.label, 'provider-reported (xAI cost ticks)');
+  assert.equal(summary.sets.core.arms.claude.costPerCompletedTask.label, 'list-price estimate, not billed');
+});
+
+test('buildSummary: the A/A noise floor comes from stats.aaNoiseFloor over completed runs by round', async () => {
+  const { buildSummary } = await loadReport();
+  const rows = baselineRows();
+  const summary = buildSummary({ identity: REPORT_IDENTITY, runs: rows }, { iterations: 300, seed: 66 });
+  const floor = summary.sets.core.arms.claude.aaNoiseFloor;
+  const tasks = REPORT_TASKS.map((id) => ({
+    id,
+    runs: rows.filter((row) => row.arm === 'claude' && row.taskId === id && row.infraError === null && row.pass)
+      .map((row) => ({ round: row.round, wallMs: row.wallMs })),
+  }));
+  const expected = stats.aaNoiseFloor(tasks, { iterations: 300, seed: 66 });
+  assert.equal(floor.status, 'ok');
+  assert.equal(floor.estimate, expected.estimate);
+  assert.deepEqual(floor.ci, expected.ci);
+  assert.equal(floor.verdict, expected.verdict);
+  assert.equal(floor.label, stats.AA_NOISE_FLOOR_LABEL);
+  assert.ok(floor.ciWidth > 0);
+});
+
+test('buildSummary: fewer than 10 rounds is a smoke, and live rows never change the core aggregates', async () => {
+  const { buildSummary } = await loadReport();
+  const smoke = buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows({ rounds: 9 }) }, { iterations: 200 });
+  assert.equal(smoke.kind, 'smoke (not a baseline)');
+  const coreOnly = buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows() }, { iterations: 200 });
+  const live = [
+    reportRow({ taskId: 'live-jira-read', round: 1, arm: 'autopilot', order: 121, pass: true, wallMs: 30000, set: 'live' }),
+    reportRow({ taskId: 'live-jira-read', round: 1, arm: 'claude', order: 122, pass: false, wallMs: 50000, set: 'live' }),
+  ];
+  const withLive = buildSummary({ identity: REPORT_IDENTITY, runs: [...baselineRows(), ...live] }, { iterations: 200 });
+  assert.deepEqual(withLive.sets.core, coreOnly.sets.core);
+  assert.equal(withLive.sets.live.arms.autopilot.completed, 1);
+  assert.equal(withLive.sets.live.arms.claude.completed, 0);
+  assert.equal(withLive.sets.live.runs, 2);
+});
+
+test('buildSummary: fsb per-call medians, the labelled caller gap and call interval, and Claude host metrics (D-12, W6)', async () => {
+  const { buildSummary } = await loadReport();
+  const summary = buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows() }, { iterations: 200 });
+  const claude = summary.sets.core.arms.claude;
+  assert.equal(claude.fsb.fsbMsMedianPerCall, 310);
+  assert.equal(claude.fsb.callerGapMsMedianPerCall, 8200);
+  assert.equal(claude.fsb.callerGapLabel, 'upper bound on host thinking time');
+  assert.equal(claude.fsb.callIntervalMsMedian, 8600);
+  assert.match(claude.fsb.callIntervalLabel, /66-01 history deltas/);
+  assert.equal(claude.fsb.queueWait, 'not measured');
+  assert.ok(Math.abs(claude.host.durationApiShareMedian - 0.6) < 0.001);
+  assert.equal(claude.host.numTurnsMedian, 9);
+  assert.equal(claude.host.costLabel, 'list-price estimate, not billed');
+  assert.deepEqual(claude.host.toolLoading, { eager: 29 });
+  const autopilot = summary.sets.core.arms.autopilot;
+  assert.equal(autopilot.fsb.callIntervalMsMedian, null, 'autopilot rows have no MCP call interval');
+  assert.equal(autopilot.fsb.iterationsMedian, 4);
+  assert.equal(autopilot.fsb.modelMsTotalMedian, 9100);
+  assert.equal(autopilot.host, null);
+});
+
+test('renderMarkdown: the required headings, the Method statements, n/a for missing numbers, and no URL', async () => {
+  const { buildSummary, renderMarkdown } = await loadReport();
+  const markdown = renderMarkdown(buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows() }, { iterations: 200 }));
+  for (const heading of ['## Identity', '## Core set', '## A/A noise floor', '## Costs', '## Host metrics', '## Live set (reported separately)', '## Method']) {
+    assert.ok(markdown.includes(`\n${heading}\n`), heading);
+  }
+  const method = markdown.slice(markdown.indexOf('## Method'));
+  assert.match(method, /runner's own clock/);
+  assert.match(method, /[Cc]laims? .*not counted|never counted/);
+  assert.match(method, /upper bound/);
+  assert.match(method, /queue wait is not measured/i);
+  assert.match(method, /list-price estimate, not billed/);
+  assert.match(method, /not compared with each other/);
+  assert.match(markdown, /agent_cap: 1/);
+  assert.match(markdown, /provider_error: 1/);
+  assert.equal(markdown.includes('://'), false);
+  assert.equal(/NaN|null%|Infinity|undefined/.test(markdown), false);
+});
+
+test('a one-round smoke (12 tasks x 1 round x 2 arms) reports A/A as n/a and still renders the per-task table (I-C)', async () => {
+  const { buildSummary, renderMarkdown } = await loadReport();
+  const tasks = Array.from({ length: 12 }, (_, i) => `core-smoke-task-${String.fromCharCode(97 + i)}`);
+  const rows = baselineRows({ rounds: 1, tasks, campaignId: 'smoke-20260930' });
+  assert.equal(rows.length, 24);
+  const summary = buildSummary({ identity: { ...REPORT_IDENTITY, campaignId: 'smoke-20260930', mode: 'smoke' }, runs: rows });
+  assert.equal(summary.kind, 'smoke (not a baseline)');
+  for (const arm of ['autopilot', 'claude']) {
+    assert.deepEqual(summary.sets.core.arms[arm].aaNoiseFloor, { status: 'n/a', reason: 'needs at least 2 rounds' });
+    assert.equal(summary.sets.core.arms[arm].perTask.length, 12);
+  }
+  const markdown = renderMarkdown(summary);
+  const aa = markdown.slice(markdown.indexOf('## A/A noise floor'), markdown.indexOf('## Costs'));
+  assert.match(aa, /n\/a/);
+  for (const text of [markdown, JSON.stringify(summary)]) {
+    assert.equal(/NaN|null%|Infinity/.test(text), false);
+  }
+  for (const taskId of tasks) assert.ok(markdown.includes(taskId), `per-task row for ${taskId}`);
+});
+
+test('the report CLI writes summary.json and report.md, and exits 1 on an invalid row', async () => {
+  const dir = tempDir('report-cli');
+  try {
+    fs.writeFileSync(path.join(dir, 'identity.json'), `${JSON.stringify(REPORT_IDENTITY, null, 2)}\n`);
+    fs.writeFileSync(path.join(dir, 'runs.jsonl'), `${baselineRows().map((row) => JSON.stringify(row)).join('\n')}\n`);
+    const ok = spawnSync(process.execPath, [REPORT, dir], { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
+    assert.equal(ok.status, 0, `${ok.stdout}\n${ok.stderr}`);
+    const summary = JSON.parse(fs.readFileSync(path.join(dir, 'summary.json'), 'utf8'));
+    assert.equal(summary.kind, 'baseline');
+    const markdown = fs.readFileSync(path.join(dir, 'report.md'), 'utf8');
+    assert.match(markdown, /## Core set/);
+    for (const file of ['summary.json', 'report.md']) {
+      assert.equal(fs.readFileSync(path.join(dir, file), 'utf8').includes('://'), false, `${file} carries no URL`);
+    }
+
+    const { loadCampaign } = await loadReport();
+    assert.equal(loadCampaign(dir).runs.length, 120);
+    const bad = { ...baselineRows()[0], runId: 'cmp-report-extra-row', pageText: 'x' };
+    fs.appendFileSync(path.join(dir, 'runs.jsonl'), `${JSON.stringify(bad)}\n`);
+    assert.throws(() => loadCampaign(dir), /invalid/);
+    const failed = spawnSync(process.execPath, [REPORT, dir], { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
+    assert.equal(failed.status, 1);
+    assert.match(failed.stderr, /extra_key/);
+    assert.equal(failed.stderr.includes('pageText') && failed.stderr.includes('"x"'), false, 'errors never echo row values');
+
+    const usage = spawnSync(process.execPath, [REPORT], { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
+    assert.equal(usage.status, 2);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('report.mjs labels smoke campaigns and passes the Claude list-price label through', () => {
+  const source = fs.readFileSync(REPORT, 'utf8');
+  assert.match(source, /smoke \(not a baseline\)/);
+  assert.ok(/list-price estimate/.test(source) || /COST_LABEL_LIST_PRICE/.test(source));
+  assert.equal(/geoMeanMedianRatio\(|cross-arm|autopilot.*\/.*claude.*ratio/i.test(source.replace(/\/\/.*$/gm, '')), false, 'no cross-arm speed ratio');
+});
