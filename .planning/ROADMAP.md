@@ -49,7 +49,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 66-03-PLAN.md — MCP call timing at ingress through recorder and journal, text-export timing, allowlisted fsb://config identity (wave 2)
-- [ ] 66-04-PLAN.md — Autopilot model and tool timing, provider-first cost labels, grok-4.3 price rows, history persistence (wave 2)
+- [x] 66-04-PLAN.md — Autopilot model and tool timing, provider-first cost labels, grok-4.3 price rows, history persistence (wave 2)
 - [ ] 66-05-PLAN.md — Bench task schema, loopback fixture server, Claude Code and Cursor stream parsers (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
