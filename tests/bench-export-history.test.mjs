@@ -288,13 +288,23 @@ test('allowlisted enum values in raw payloads are exempt from the leak check (W1
   assert.equal(metrics.sessions[1].toolCounts.navigate, 1);
   assert.doesNotThrow(() => assertNoLeak(sample, metrics));
 
+  // Legitimate values also leave the forbidden set: session B's task equals
+  // the tool name "navigate", so mentioning that tool elsewhere is no leak.
+  const mention = copyOf(metrics);
+  mention.note = 'first tool: navigate';
+  assert.doesNotThrow(() => assertNoLeak(sample, mention));
+
   // Widen the raw sample: inline payload strings exactly equal to the method
-  // string, a client label, outcome/storage enum values and a tool name.
+  // string, a client label, outcome/storage enum values and a tool name, plus
+  // page strings that only happen to sit inside a legitimate token (a tool
+  // name, the method sentence).
   const widened = loadSample();
   sessionEntry(widened, SESSION_B).events.find((event) => event.sequence === 3).metadata.result.inline = {
     client: 'Claude',
+    fragment: 'read-page',
     method: HISTORY_METRICS_METHOD,
     outcome: 'completed',
+    phrase: 'IndexedDB write-queue delay',
     storage: 'journal',
     tool: 'mcp:read-page',
   };

@@ -76,3 +76,6 @@ graphify-out/.graphify_uncached.txt
 
 # local secrets directory
 .secrets/
+
+# Phase 66 -- raw benchmark captures (may contain page content; D-21)
+scripts/bench/.local/
