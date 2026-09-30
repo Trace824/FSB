@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { pathToFileURL } = require('url');
 
 let passed = 0;
 let failed = 0;
@@ -31,7 +32,7 @@ function assert(cond, msg) {
   }
 }
 
-function buildHarness({ activeSessionEntries = [], historicalSession = null, stopHandler = null } = {}) {
+function buildHarness({ activeSessionEntries = [], historicalSession = null, stopHandler = null, journal = undefined, listSessions = null } = {}) {
   const dispatcherSource = fs.readFileSync(
     path.join(__dirname, '..', 'extension', 'ws', 'mcp-tool-dispatcher.js'),
     'utf8',
@@ -55,7 +56,7 @@ function buildHarness({ activeSessionEntries = [], historicalSession = null, sto
     activeSessions: undefined, // populated inside vm to use the same Map class
     automationLogger: {
       loadSession: async (sessionId) => (historicalSession && historicalSession.sessionId === sessionId ? historicalSession : null),
-      listSessions: async () => [],
+      listSessions: listSessions || (async () => []),
       info: () => {},
       debug: () => {},
       warn: () => {},
@@ -82,6 +83,9 @@ function buildHarness({ activeSessionEntries = [], historicalSession = null, sto
   };
   context.globalThis = context;
   context.module.exports = {};
+  // Phase 66: the journal module is absent unless a case injects one, so the
+  // default harness keeps the pre-journal lookup order.
+  if (journal !== undefined) context.FsbMcpLatticeJournal = journal;
 
   // Initialize activeSessions as a Map constructed inside the vm so
   // dispatcher's `instanceof Map` check passes against the vm's Map class.
@@ -357,6 +361,447 @@ function runDispatcherTimingSourceContractCase() {
     'the two metrics recordDispatch sites are unchanged');
 }
 
+// ---- Journal-backed get_session_detail (real journal, memory backend) --------
+
+const CALL_TIMING_LEGEND_TEXT = 'Timing: fsb = extension receive to completion; ' +
+  'caller gap = receive(n) - completion(n-1), an upper bound on host thinking time; MCP queue wait not measured';
+const SECRET_URL = 'https://intranet.example.test/secret-path?token=abc';
+
+function makeJournalLocalStorage() {
+  const state = {};
+  return {
+    state,
+    async get(keys) {
+      const names = Array.isArray(keys) ? keys : [keys];
+      const out = {};
+      names.forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(state, key)) out[key] = structuredClone(state[key]);
+      });
+      return out;
+    },
+    async set(values) {
+      Object.keys(values || {}).forEach((key) => { state[key] = structuredClone(values[key]); });
+    }
+  };
+}
+
+// Resets the real journal exactly as tests/mcp-lattice-journal.test.js setup() does.
+function setupRealJournal(startAt = 1800000000000) {
+  const journal = require('../extension/utils/mcp-lattice-journal.js');
+  journal._resetForTests();
+  const local = makeJournalLocalStorage();
+  const alarms = new Map();
+  let now = startAt;
+  journal._setLocalStorageShim(local);
+  journal._setTimeShim({ now: () => now });
+  journal._setAlarmShim({
+    async create(name, info) { alarms.set(name, { name, ...info }); },
+    async clear(name) { return alarms.delete(name); }
+  });
+  globalThis.FsbLatticeReplay = null;
+  return { journal, local, alarms, advance(ms) { now += ms; } };
+}
+
+let journalCallNumber = 0;
+function journalEntry(overrides = {}) {
+  journalCallNumber += 1;
+  const agentId = overrides.agentId || 'agent-detail';
+  const recordingRunId = overrides.recordingRunId || 'recording-run-detail';
+  const recordingCallId = overrides.recordingCallId || ('detail-call-' + journalCallNumber);
+  const tool = overrides.tool || 'click';
+  return {
+    agentId,
+    recordingRunId,
+    recordingCallId,
+    client: 'Claude',
+    task: 'Save the intranet form',
+    tool,
+    requestPayload: {
+      agentId,
+      recordingRunId,
+      recordingCallId,
+      tool,
+      params: overrides.params || { selector: '#save', url: SECRET_URL }
+    },
+    response: Object.prototype.hasOwnProperty.call(overrides, 'response') ? overrides.response : { success: true },
+    success: overrides.success !== false,
+    dispatcher_route: overrides.dispatcher_route || 'bridge-action',
+    tabId: 11,
+    replayContext: {
+      targetUrl: SECRET_URL,
+      targetOrigin: 'https://intranet.example.test',
+      sideEffectClass: 'write'
+    },
+    ...(Object.prototype.hasOwnProperty.call(overrides, 'timing') ? { timing: overrides.timing } : {})
+  };
+}
+
+function timingOf(receivedAt, completedAt) {
+  return { v: 1, receivedAt, completedAt, fsbMs: completedAt - receivedAt };
+}
+
+async function recordJournalCalls(fixture, entries) {
+  let sessionId = null;
+  for (const entry of entries) {
+    fixture.advance(1000);
+    sessionId = (await fixture.journal.recordDispatch(entry)).sessionId;
+  }
+  return sessionId;
+}
+
+async function runJournalSessionDetailCase() {
+  console.log('\n--- get_session_detail resolves a journal-backed MCP session (sanitized, timed) ---');
+
+  const fixture = setupRealJournal();
+  const journal = fixture.journal;
+  const sessionId = await recordJournalCalls(fixture, [
+    journalEntry({ tool: 'click', timing: timingOf(1000, 1120) }),
+    journalEntry({
+      tool: 'type',
+      timing: timingOf(1620, 1700),
+      response: { success: true, text: 'PAGE_TEXT_SENTINEL_5d2c appears on the page' }
+    }),
+    journalEntry({ tool: 'read_page' }),
+    journalEntry({ tool: 'click', timing: timingOf(3000, 3050) })
+  ]);
+  const indexEntry = (await journal.getSessionDetail({ sessionId, afterSequence: -1, limit: 1 })).session;
+
+  const { dispatcher } = buildHarness({ journal });
+  const response = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId } });
+  assert(response && response.success === true && !!response.session,
+    'a journal session resolves with the {success, session} envelope');
+  assert(response && response.inFlight === undefined, 'the journal branch is not the in-flight fallback');
+  const session = (response && response.session) || {};
+  assert(session.id === sessionId, 'session.id is the journal session id');
+  assert(session.storageBackend === indexEntry.storageBackend && session.storageBackend === 'journal-v2',
+    'session.storageBackend is the index entry value');
+
+  const rows = Array.isArray(session.actionHistory) ? session.actionHistory : [];
+  assert(rows.length === 4, 'actionHistory has one row per tool.call');
+  assert(rows.map((row) => row.tool).join(',') === 'click,type,read_page,click', 'rows keep call order');
+  assert(rows.every((row, index) => Number.isInteger(row.sequence) && (index === 0 || row.sequence > rows[index - 1].sequence)),
+    'rows carry increasing journal sequences');
+  assert(rows.every((row) => typeof row.timestamp === 'number' && Number.isFinite(row.timestamp)),
+    'every row has a numeric timestamp');
+  assert(rows.every((row) => row.domain === 'intranet.example.test' && row.selector === '#save'),
+    'rows keep the selector and only the domain of the request URL');
+  assert(rows.every((row) => row.result && row.result.success === true), 'rows keep result.success');
+  assert(rows.every((row) => row.route === 'bridge-action' && row.logicalTab === 'primary'),
+    'rows carry the route and logical tab');
+  const timed = [rows[0], rows[1], rows[3]].filter(Boolean);
+  assert(timed.length === 3 && timed.every((row) => row.timing && row.timing.v === 1 && row.durationMs === row.timing.fsbMs),
+    'timed rows carry timing and durationMs === timing.fsbMs');
+  assert(!!rows[3] && rows[0].durationMs === 120 && rows[1].durationMs === 80 && rows[3].durationMs === 50,
+    'durationMs is the recorded fsb time');
+  assert(!!rows[2] && !Object.prototype.hasOwnProperty.call(rows[2], 'timing') &&
+    !Object.prototype.hasOwnProperty.call(rows[2], 'durationMs'), 'the untimed row has neither timing nor durationMs');
+
+  const serialized = JSON.stringify(response);
+  for (const sentinel of ['PAGE_TEXT_SENTINEL_5d2c', '/secret-path', 'token=abc']) {
+    assert(!serialized.includes(sentinel), 'the response never contains ' + sentinel);
+  }
+  assert(!serialized.includes('"inline"') && !serialized.includes('"events"') && !serialized.includes('"metadata"'),
+    'no raw journal event or payload descriptor is returned');
+  assert(Array.isArray(session.logs) && session.logs.length === 0, 'journal sessions return an empty logs array');
+  assert(session.callsTotal === 4 && session.actionHistoryTruncated === false, 'callsTotal counts every call; nothing truncated');
+
+  const m = session.measurement || {};
+  assert(m.v === 1 && m.kind === 'mcp' && m.source === 'journal', 'measurement is the v1 journal MCP block');
+  assert(m.calls === 4 && m.callsWithTiming === 3, 'measurement counts calls and timed calls');
+  assert(!!m.fsbMs && m.fsbMs.total === 250 && m.fsbMs.median === 80, 'fsbMs total and median cover the timed calls');
+  assert(!!m.callerGapMs && m.callerGapMs.count === 1 && m.callerGapMs.total === 500 && m.callerGapMs.overlapped === 0 &&
+    m.callerGapMs.label === 'upper bound on host thinking time', 'the untimed call breaks the caller-gap chain');
+  assert(!!m.callIntervalMs && m.callIntervalMs.count === 1 && m.callIntervalMs.median === 620,
+    'call interval is receive-to-receive over consecutive timed calls');
+  assert(m.activeSpanMs === 2050, 'activeSpanMs = last completedAt - first receivedAt over timed calls');
+  assert(m.endReason === null && m.idleTimeout === false && m.idleTailExcluded === true,
+    'a running session has no end reason yet');
+  assert(m.queueWaitMs === null && m.queueWaitStatus === 'not_measured', 'MCP queue wait is labelled not measured');
+  assert(!!m.host && m.host.modelMs === null && m.host.inputTokens === null && m.host.outputTokens === null &&
+    m.host.costUsd === null && m.host.status === 'unavailable' && m.host.reason === 'host does not report to FSB',
+    'host model time, tokens and cost are labelled unavailable');
+  assert(m.truncated === false && m.pagesRead === 1, 'one page read and nothing truncated');
+
+  const text = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId, format: 'text' } });
+  assert(text && text.success === true && text.format === 'text' && typeof text.text === 'string',
+    'format text returns {success, format: text, text}');
+  const report = (text && text.text) || '';
+  assert(report.includes('FSB MCP SESSION REPORT'), 'the text is the journal session report');
+  assert(report.includes(CALL_TIMING_LEGEND_TEXT), 'the text carries the per-call timing legend');
+  assert(report.includes('| fsb '), 'the text carries per-call fsb milliseconds');
+  assert(report === await journal.exportHumanReadable(sessionId), 'the text is exportHumanReadable output verbatim');
+  assert(!report.includes('PAGE_TEXT_SENTINEL_5d2c') && !report.includes('/secret-path'), 'the text carries no page content');
+}
+
+async function runJournalArtifactResultCase() {
+  console.log('\n--- artifact-stored journal results contribute nothing but keep the call outcome ---');
+
+  const fixture = setupRealJournal();
+  const bulky = 'ARTIFACT_SENTINEL_7a1f ' + 'x'.repeat(70 * 1024);
+  const sessionId = await recordJournalCalls(fixture, [
+    journalEntry({ tool: 'read_page', params: { url: SECRET_URL }, response: { success: true, text: bulky } }),
+    journalEntry({ tool: 'click', success: false, response: { success: false, error: 'Element not clickable' } })
+  ]);
+  const detail = await fixture.journal.getSessionDetail({ sessionId, afterSequence: -1, limit: 500 });
+  const calls = detail.events.filter((event) => event.kind === 'tool.call');
+  assert(calls[0] && calls[0].metadata.result.storage === 'artifact', 'the bulky result is stored as an artifact');
+
+  const { dispatcher } = buildHarness({ journal: fixture.journal });
+  const response = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId } });
+  const rows = (response && response.session && response.session.actionHistory) || [];
+  assert(rows.length === 2 && rows[0].result.success === true && rows[0].domain === 'intranet.example.test',
+    'an artifact result keeps the journal success flag and the request domain');
+  assert(!!rows[1] && rows[1].result.success === false && rows[1].result.error === 'Element not clickable',
+    'an inline failure keeps its bounded error');
+  assert(!JSON.stringify(response).includes('ARTIFACT_SENTINEL_7a1f'), 'artifact content never appears');
+}
+
+async function runJournalSessionPagingCase() {
+  console.log('\n--- get_session_detail pages the journal internally (1203 calls) ---');
+
+  const fixture = setupRealJournal();
+  let sessionId = null;
+  for (let index = 0; index < 1203; index++) {
+    const receivedAt = 10000 + index * 1000;
+    sessionId = (await fixture.journal.recordDispatch(journalEntry({
+      recordingRunId: 'recording-run-long',
+      recordingCallId: 'long-call-' + index,
+      tool: 'step_' + index,
+      params: { selector: '#row-' + index },
+      response: { success: true, value: index },
+      timing: timingOf(receivedAt, receivedAt + 100 + (index % 7))
+    }))).sessionId;
+  }
+  const limits = [];
+  const countingJournal = {
+    hasSession: (id) => fixture.journal.hasSession(id),
+    getSessionDetail: (input) => {
+      limits.push(input.limit);
+      return fixture.journal.getSessionDetail(input);
+    },
+    exportHumanReadable: (id) => fixture.journal.exportHumanReadable(id)
+  };
+
+  const { dispatcher } = buildHarness({ journal: countingJournal });
+  const response = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId } });
+  const session = (response && response.session) || {};
+  const rows = Array.isArray(session.actionHistory) ? session.actionHistory : [];
+  assert(rows.length === 100, 'actionHistory keeps the last 100 calls');
+  assert(rows.length === 100 && rows[0].tool === 'step_1103' && rows[99].tool === 'step_1202',
+    'the rows are the last 100 calls, ending with the last call');
+  assert(session.callsTotal === 1203 && session.actionHistoryTruncated === true,
+    'callsTotal and actionHistoryTruncated make the row cap visible');
+  const m = session.measurement || {};
+  assert(m.calls === 1203 && m.callsWithTiming === 1203, 'measurement covers all 1203 calls');
+  assert(m.truncated === false && m.pagesRead === 3, 'three 500-event pages, nothing truncated');
+  assert(limits.length === 3 && limits.every((limit) => limit === 500), 'every page asks for 500 events');
+  assert(!!m.callIntervalMs && m.callIntervalMs.count === 1202 && m.callIntervalMs.median === 1000 && m.callIntervalMs.p90 === 1000,
+    'call intervals span page boundaries');
+  assert(!!m.callerGapMs && m.callerGapMs.count === 1202 && m.callerGapMs.overlapped === 0,
+    'caller gaps span page boundaries');
+  assert(m.activeSpanMs === 1202000 + 100 + (1202 % 7), 'activeSpanMs runs from the first receive to the last completion');
+}
+
+async function runJournalSessionPageBoundCase() {
+  console.log('\n--- journal paging stops at 20 pages and reports truncation ---');
+
+  const afters = [];
+  const stub = {
+    async hasSession() { return true; },
+    async getSessionDetail(input) {
+      afters.push(input.afterSequence);
+      const sequence = input.afterSequence + 1;
+      return {
+        session: { id: 'stub-session', task: 'Endless session', status: 'running', mode: 'mcp-agent', storageBackend: 'journal-v2' },
+        events: [{
+          sequence,
+          kind: 'tool.call',
+          timestamp: new Date(1800000000000 + sequence * 1000).toISOString(),
+          metadata: {
+            tool: 'read_page',
+            route: 'message',
+            logicalTab: 'primary',
+            success: true,
+            request: { storage: 'inline', inline: { params: {} } },
+            result: { storage: 'inline', inline: { success: true } },
+            timing: timingOf(1000 + sequence * 1000, 1040 + sequence * 1000)
+          }
+        }],
+        nextSequence: sequence,
+        hasMore: true
+      };
+    },
+    async exportHumanReadable() { return 'stub report'; }
+  };
+  const { dispatcher } = buildHarness({ journal: stub });
+  const response = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'stub-session' } });
+  const m = (response && response.session && response.session.measurement) || {};
+  assert(response && response.success === true, 'a never-ending journal still resolves');
+  assert(afters.length === 20, 'paging stops after 20 pages');
+  assert(afters.join(',') === [-1].concat(Array.from({ length: 19 }, (_v, index) => index)).join(','),
+    'each page continues after the previous nextSequence');
+  assert(m.truncated === true && m.pagesRead === 20 && m.calls === 20, 'measurement reports truncated: true');
+}
+
+async function runJournalLookupErrorCases() {
+  console.log('\n--- journal lookup failures: hasSession falls through, detail errors are route errors ---');
+
+  const brokenLookup = {
+    async hasSession() { throw new Error('journal database closed'); },
+    async getSessionDetail() { throw new Error('unreachable'); },
+    async exportHumanReadable() { return 'unreachable'; }
+  };
+  const liveId = 'session_live_while_journal_down';
+  const liveSession = { sessionId: liveId, status: 'running', task: 'live task', startTime: Date.now(), actionHistory: [] };
+  let harness = buildHarness({ journal: brokenLookup, activeSessionEntries: [[liveId, liveSession]] });
+  let result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: liveId } });
+  assert(result && result.success === true && result.inFlight === true, 'a throwing hasSession falls through to in-flight sessions');
+
+  const historicalSession = { sessionId: 'session_history_1', task: 'History task', status: 'completed', actionHistory: [] };
+  harness = buildHarness({ journal: brokenLookup, historicalSession });
+  result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'session_history_1' } });
+  assert(result && result.success === true && result.session && result.session.task === 'History task',
+    'a throwing hasSession falls through to the history store');
+
+  harness = buildHarness({ journal: brokenLookup });
+  result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'nope' } });
+  assert(result && result.errorCode === 'session_not_found', 'a throwing hasSession still ends in session_not_found');
+
+  const brokenDetail = {
+    async hasSession() { return true; },
+    async getSessionDetail() { throw new Error('indexeddb read failed at cursor 7'); },
+    async exportHumanReadable() { throw new Error('indexeddb export failed'); }
+  };
+  harness = buildHarness({ journal: brokenDetail });
+  result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'journal-1' } });
+  assert(result && result.success === false && result.errorCode !== 'session_not_found' &&
+    typeof result.error === 'string' && result.error.includes('Journal session detail unavailable'),
+    'a throwing getSessionDetail returns a route error, not session_not_found');
+  assert(!JSON.stringify(result).includes('cursor 7'), 'the route error does not echo the internal failure');
+  result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'journal-1', format: 'text' } });
+  assert(result && result.success === false && String(result.error).includes('Journal session detail unavailable'),
+    'a throwing text exporter returns the same route error');
+
+  const vanished = { async hasSession() { return true; }, async getSessionDetail() { return null; } };
+  harness = buildHarness({ journal: vanished });
+  result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'journal-2' } });
+  assert(result && result.success === false && String(result.error).includes('Journal session detail unavailable'),
+    'a session that vanishes between hasSession and getSessionDetail returns the route error');
+  result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'journal-2', format: 'text' } });
+  assert(result && result.success === false && result.error === 'Human-readable session exporter unavailable',
+    'a journal without exportHumanReadable returns the existing exporter error');
+}
+
+async function runJournalFallthroughIsUnchangedCase() {
+  console.log('\n--- sessions the journal does not hold resolve exactly as before ---');
+
+  const fixture = setupRealJournal();
+  await recordJournalCalls(fixture, [journalEntry({ tool: 'click', timing: timingOf(1000, 1100) })]);
+  const historicalSession = {
+    sessionId: 'session_legacy_1',
+    task: 'Legacy autopilot',
+    status: 'completed',
+    actionHistory: [{ tool: 'click', timestamp: 1, iteration: 1, params: { selector: '#a' }, result: { success: true } }]
+  };
+  const liveId = 'session_live_1';
+  const liveSession = { sessionId: liveId, status: 'running', task: 'live', startTime: 5, iterationCount: 1, actionHistory: [] };
+  const options = { historicalSession, activeSessionEntries: [[liveId, liveSession]] };
+  const without = buildHarness(options).dispatcher;
+  const withJournal = buildHarness(Object.assign({ journal: fixture.journal }, options)).dispatcher;
+  for (const payload of [
+    { sessionId: 'session_legacy_1' },
+    { sessionId: 'session_legacy_1', format: 'text' },
+    { sessionId: liveId },
+    { sessionId: 'session_unknown' }
+  ]) {
+    const a = await without.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: Object.assign({}, payload) });
+    const b = await withJournal.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: Object.assign({}, payload) });
+    assert(JSON.stringify(a) === JSON.stringify(b), 'identical response with and without the journal for ' + JSON.stringify(payload));
+  }
+}
+
+async function runJournalListRoundTripCase() {
+  console.log('\n--- a list_sessions id resolves through get_session_detail ---');
+
+  const fixture = setupRealJournal();
+  const sessionId = await recordJournalCalls(fixture, [
+    journalEntry({ tool: 'navigate', timing: timingOf(1000, 1300) }),
+    journalEntry({ tool: 'click', timing: timingOf(2000, 2100) })
+  ]);
+  const { dispatcher } = buildHarness({
+    journal: fixture.journal,
+    listSessions: async () => (Array.isArray(fixture.local.state.fsbSessionIndex) ? fixture.local.state.fsbSessionIndex : [])
+  });
+  const list = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:list-sessions', payload: {} });
+  const listed = ((list && list.sessions) || []).find((entry) => entry && entry.id === sessionId);
+  assert(!!listed && listed.storageBackend === 'journal-v2', 'list_sessions returns the journal session id');
+  const detail = await dispatcher.dispatchMcpMessageRoute({
+    type: 'mcp:get-session',
+    payload: { sessionId: listed ? listed.id : 'missing' }
+  });
+  assert(detail && detail.success === true && detail.session && detail.session.id === sessionId &&
+    detail.session.actionHistory.length === 2, 'the listed id resolves with its calls');
+}
+
+async function runJournalIdleTimeoutMeasurementCase() {
+  console.log('\n--- idle-timeout journal sessions: flagged, idle tail excluded, overlaps counted ---');
+
+  const fixture = setupRealJournal();
+  const sessionId = await recordJournalCalls(fixture, [
+    journalEntry({ tool: 'click_a', timing: timingOf(1000, 1120) }),
+    journalEntry({ tool: 'click_b', timing: timingOf(1620, 1700) }),
+    journalEntry({ tool: 'click_c', timing: timingOf(1650, 1800) })
+  ]);
+  fixture.advance(fixture.journal.IDLE_MS + 1);
+  const closed = await fixture.journal.handleAlarm({ name: fixture.journal.IDLE_ALARM_PREFIX + sessionId });
+  assert(closed && closed.action === 'closed', 'the idle alarm closes the run');
+
+  const { dispatcher } = buildHarness({ journal: fixture.journal });
+  const response = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId } });
+  const session = (response && response.session) || {};
+  const m = session.measurement || {};
+  assert(session.outcomeDetails && session.outcomeDetails.reason === 'idle_timeout', 'the index entry records idle_timeout');
+  assert(m.endReason === 'idle_timeout' && m.idleTimeout === true && m.idleTailExcluded === true,
+    'measurement flags the idle timeout and excludes the idle tail');
+  assert(m.activeSpanMs === 800, 'activeSpanMs = last completedAt - first receivedAt');
+  assert(Number.isFinite(session.endTime) && Number.isFinite(session.startTime) &&
+    session.endTime - session.startTime > fixture.journal.IDLE_MS, 'the session span includes the idle tail that activeSpanMs leaves out');
+  assert(m.queueWaitMs === null && m.queueWaitStatus === 'not_measured', 'queue wait stays not measured');
+  assert(!!m.callerGapMs && m.callerGapMs.count === 1 && m.callerGapMs.total === 500 && m.callerGapMs.overlapped === 1,
+    'an overlapping call counts as overlapped and stays out of the gap statistics');
+}
+
+async function runJournalCallIntervalCase() {
+  console.log('\n--- call intervals: receive-to-receive over consecutive timed calls ---');
+
+  const benchStats = await import(pathToFileURL(path.join(__dirname, '..', 'scripts', 'bench', 'lib', 'stats.mjs')).href);
+  let fixture = setupRealJournal();
+  let sessionId = await recordJournalCalls(fixture, [
+    journalEntry({ tool: 'a', timing: timingOf(1000, 1100) }),
+    journalEntry({ tool: 'b', timing: timingOf(1600, 1650) }),
+    journalEntry({ tool: 'c', timing: timingOf(2600, 2900) })
+  ]);
+  let dispatcher = buildHarness({ journal: fixture.journal }).dispatcher;
+  let m = ((await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId } })).session || {}).measurement || {};
+  assert(!!m.callIntervalMs && m.callIntervalMs.count === 2 && m.callIntervalMs.median === 800 &&
+    m.callIntervalMs.p90 === benchStats.quantile([600, 1000], 0.9), 'intervals 600 and 1000 give median 800 and the bench p90');
+  assert(!!m.fsbMs && m.fsbMs.median === benchStats.median([100, 50, 300]) && m.fsbMs.p90 === benchStats.quantile([100, 50, 300], 0.9),
+    'fsbMs median and p90 match the bench statistics library');
+
+  fixture = setupRealJournal();
+  sessionId = await recordJournalCalls(fixture, [
+    journalEntry({ tool: 'a', timing: timingOf(1000, 1100) }),
+    journalEntry({ tool: 'b', timing: timingOf(1600, 1650) }),
+    journalEntry({ tool: 'untimed' }),
+    journalEntry({ tool: 'c', timing: timingOf(2600, 2900) })
+  ]);
+  dispatcher = buildHarness({ journal: fixture.journal }).dispatcher;
+  m = ((await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId } })).session || {}).measurement || {};
+  assert(!!m.callIntervalMs && m.callIntervalMs.count === 1 && m.callIntervalMs.median === 600,
+    'an untimed call between two timed calls breaks the interval chain');
+  assert(!!m.callerGapMs && m.callerGapMs.count === 1 && m.callerGapMs.total === 500, 'and the caller-gap chain');
+}
+
 async function run() {
   await runGetSessionDetailFallbackCase();
   await runGetSessionDetailMissingCase();
@@ -366,6 +811,15 @@ async function run() {
   await runDispatcherTimingHelpersCase();
   await runDispatcherTaskOutcomeTimingCase();
   runDispatcherTimingSourceContractCase();
+  await runJournalSessionDetailCase();
+  await runJournalArtifactResultCase();
+  await runJournalSessionPagingCase();
+  await runJournalSessionPageBoundCase();
+  await runJournalLookupErrorCases();
+  await runJournalFallthroughIsUnchangedCase();
+  await runJournalListRoundTripCase();
+  await runJournalIdleTimeoutMeasurementCase();
+  await runJournalCallIntervalCase();
 
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);
