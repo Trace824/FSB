@@ -804,3 +804,44 @@ test('the provider-error fixture is classified in memory and its text never reac
     harness.cleanup();
   }
 });
+
+test('a failed post-window evidence read is an infra error, never a task failure', async () => {
+  const campaignId = 'cmp-evidence-lost';
+  const schedule = buildSchedule({ campaignId, taskIds: LOOP_TASK_IDS, rounds: 1, arms: ['autopilot'], seed: 66 });
+  const dir = tempDir('evidence');
+  try {
+    const tasks = LOOP_TASK_IDS.map((id) => ({ ...SAMPLE_TASK, id }));
+    const base = {
+      campaignId,
+      tasksById: new Map(tasks.map((task) => [task.id, task])),
+      fixtureSha256ById: new Map(tasks.map((task) => [task.id, HEX64])),
+      fixtureServer: { newRunToken: () => 'tokenEvidence1', runUrl: (t, p) => `http://127.0.0.1:1/r/${t}${p}`, evidence: () => ({ requests: [] }), clear: () => {} },
+      cdpPort: 9222,
+      arms: {
+        autopilot: async () => ({
+          t0: 1, t1: 2, timedOut: false, aborted: false, startFailed: false,
+          runTask: { isError: false, status: 'completed', partialOutcome: null, swEvicted: false, sessionIdSource: 'run_task' },
+          taskJson: null, errorText: null, sessionId: 's', sessionDetail: { success: true, session: { measurement: AUTOPILOT_MEASUREMENT } },
+        }),
+      },
+      cleanup: async () => {},
+      streamsDir: dir,
+    };
+    const thrown = await createRunExecutor({ ...base, collectEvidence: async () => { throw new Error('cdp_http_failed'); } })(schedule[0], { attempt: 1 });
+    assert.equal(thrown.record.infraError, 'extension_not_connected');
+    assert.equal(thrown.record.evidence.collected, false);
+    const flagged = await createRunExecutor({
+      ...base,
+      collectEvidence: async () => ({ requests: [], finalUrl: null, markers: {}, text: null, targetIds: [], collectionFailed: true }),
+    })(schedule[0], { attempt: 1 });
+    assert.equal(flagged.record.infraError, 'extension_not_connected');
+    const fine = await createRunExecutor({
+      ...base,
+      collectEvidence: async () => ({ requests: [], finalUrl: null, markers: {}, text: null, targetIds: [] }),
+    })(schedule[0], { attempt: 1 });
+    assert.equal(fine.record.infraError, null, 'an empty but successful read is an ordinary task failure');
+    assert.equal(fine.record.outcome.pass, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
