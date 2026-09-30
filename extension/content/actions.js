@@ -132,10 +132,15 @@ async function clickAtCoordinates(params) {
 
   const element = validation.element;
 
-  // Dispatch full mouse event sequence (proven pattern from existing click tool)
+  // Capture state first so the trusted CDP click only runs when the DOM click had no effect
+  const preState = captureActionState(element, 'click');
+
+  // Dispatch full mouse event sequence (proven pattern from existing click tool).
+  // The synthetic click is the only DOM activation.
   const mouseEventInit = {
     bubbles: true,
     cancelable: true,
+    composed: true,
     view: window,
     clientX: viewportCenterX,
     clientY: viewportCenterY,
@@ -149,29 +154,29 @@ async function clickAtCoordinates(params) {
   element.dispatchEvent(new MouseEvent('mouseup', mouseEventInit));
   element.dispatchEvent(new MouseEvent('click', mouseEventInit));
 
-  // Also call native click as fallback
-  if (typeof element.click === 'function') {
-    element.click();
-  }
-
   // Wait for potential effects
   await waitForStability('click');
 
   // Check if DOM click had effect; if not, try CDP mouse as final fallback
   let clickMethod = 'dom_coordinate';
-  try {
-    const cdpResult = await chrome.runtime.sendMessage({
-      action: 'cdpMouseClick',
-      x: viewportCenterX,
-      y: viewportCenterY
-    });
-    if (cdpResult?.success) {
-      clickMethod = 'cdp_coordinate';
-      await waitForStability('click');
+  let verification = verifyActionEffect(preState, captureActionState(element, 'click'), 'click');
+  if (!verification.verified) {
+    try {
+      const cdpResult = await chrome.runtime.sendMessage({
+        action: 'cdpMouseClick',
+        x: viewportCenterX,
+        y: viewportCenterY
+      });
+      if (cdpResult?.success) {
+        clickMethod = 'cdp_coordinate';
+        await waitForStability('click');
+        verification = verifyActionEffect(preState, captureActionState(element, 'click'), 'click');
+      }
+    } catch (e) {
+      // CDP unavailable, DOM click already dispatched
     }
-  } catch (e) {
-    // CDP unavailable, DOM click already dispatched
   }
+  const hadEffect = verification.verified;
 
   logger.log('info', 'Coordinate fallback click executed', {
     sessionId: FSB.sessionId,
@@ -182,11 +187,13 @@ async function clickAtCoordinates(params) {
     },
     coordinates: { x: viewportCenterX, y: viewportCenterY },
     scrolled: scrollResult.scrolled,
-    method: clickMethod
+    method: clickMethod,
+    hadEffect
   });
 
   return {
     success: true,
+    hadEffect,
     fallbackUsed: true,
     clickedElement: {
       tag: element.tagName,
@@ -207,6 +214,58 @@ async function clickAtCoordinates(params) {
 // =============================================================================
 // ACTION VERIFICATION UTILITIES
 // =============================================================================
+
+// ARIA attributes whose value a click on a toggle-like control is expected to flip.
+const TOGGLE_STATE_ATTRIBUTES = ['aria-checked', 'aria-pressed', 'aria-selected', 'aria-expanded'];
+
+/**
+ * Finds the element whose state a click is expected to change when that state
+ * does not live on the clicked element itself: the control of a clicked label,
+ * the details element of a clicked summary, or the nearest toggle-like ancestor
+ * of a clicked child (for example the text span inside a role="switch" row).
+ * @param {Element} element - The clicked element
+ * @returns {Element|null} The associated state element, or null when there is none
+ */
+function getAssociatedStateElement(element) {
+  try {
+    let node = element;
+    for (let depth = 0; node && depth <= 5; depth++, node = node.parentElement) {
+      if (node.tagName === 'LABEL') {
+        const control = node.control;
+        return control && control !== element ? control : null;
+      }
+      if (node.tagName === 'SUMMARY' && node.parentElement && node.parentElement.tagName === 'DETAILS') {
+        return node.parentElement;
+      }
+      if (node !== element && typeof node.hasAttribute === 'function' &&
+          (TOGGLE_STATE_ATTRIBUTES.some(attr => node.hasAttribute(attr)) || node.hasAttribute('data-state'))) {
+        return node;
+      }
+    }
+  } catch (e) {
+    // A failed state lookup must never break the action itself
+  }
+  return null;
+}
+
+/**
+ * Summarizes the toggle state of an element as a comparable string.
+ * @param {Element|null} el - Element to describe
+ * @returns {string|null} State summary, or null when there is no element
+ */
+function describeToggleState(el) {
+  if (!el) return null;
+  try {
+    return [
+      el.checked !== undefined ? String(el.checked) : '',
+      el.open !== undefined ? String(el.open) : '',
+      ...TOGGLE_STATE_ATTRIBUTES.map(attr => el.getAttribute(attr) ?? ''),
+      el.getAttribute('data-state') ?? ''
+    ].join('|');
+  } catch (e) {
+    return null;
+  }
+}
 
 /**
  * Captures comprehensive state before/after an action for verification
@@ -246,7 +305,9 @@ function captureActionState(element, actionType) {
       dataState: element.getAttribute('data-state'),
       // Additional element state
       open: element.open !== undefined ? element.open : null,
-      disabled: element.disabled !== undefined ? element.disabled : null
+      disabled: element.disabled !== undefined ? element.disabled : null,
+      // State of an associated control (label target, details, toggle-like ancestor)
+      controlState: describeToggleState(getAssociatedStateElement(element))
     };
 
     // For click actions, capture related elements that might change
@@ -296,7 +357,9 @@ function captureActionState(element, actionType) {
 const EXPECTED_EFFECTS = {
   click: {
     anyOf: ['urlChanged', 'contentChanged', 'elementCountChanged', 'ariaExpandedChanged',
-            'focusChanged', 'classChanged', 'relatedVisibilityChanged', 'loadingDetected'],
+            'focusChanged', 'classChanged', 'relatedVisibilityChanged', 'loadingDetected',
+            'checkedChanged', 'controlStateChanged', 'ariaCheckedChanged', 'ariaPressedChanged',
+            'ariaSelectedChanged', 'dataStateChanged', 'openChanged', 'innerTextChanged'],
     timeout: 300
   },
   type: {
@@ -359,6 +422,8 @@ function detectChanges(preState, postState) {
     changes.ariaPressedChanged = preState.element.ariaPressed !== postState.element.ariaPressed;
     changes.dataStateChanged = preState.element.dataState !== postState.element.dataState;
     changes.openChanged = preState.element.open !== postState.element.open;
+    changes.innerTextChanged = preState.element.innerText !== postState.element.innerText;
+    changes.controlStateChanged = preState.element.controlState !== postState.element.controlState;
   } else {
     // Element became unavailable - treat as a change
     changes.elementLost = preState.element.exists && !postState.element.exists;
@@ -372,6 +437,8 @@ function detectChanges(preState, postState) {
     changes.ariaPressedChanged = false;
     changes.dataStateChanged = false;
     changes.openChanged = false;
+    changes.innerTextChanged = false;
+    changes.controlStateChanged = false;
   }
 
   // Related element visibility changes (for click/hover actions)
@@ -417,6 +484,18 @@ function verifyActionEffect(preState, postState, actionType) {
     }
     if (preState.element.ariaChecked !== postState.element.ariaChecked) {
       localChanges.push({ type: 'aria_checked_changed', detail: `aria-checked: ${preState.element.ariaChecked} -> ${postState.element.ariaChecked}` });
+    }
+    if (preState.element.ariaPressed !== postState.element.ariaPressed) {
+      localChanges.push({ type: 'aria_pressed_changed', detail: `aria-pressed: ${preState.element.ariaPressed} -> ${postState.element.ariaPressed}` });
+    }
+    if (preState.element.ariaSelected !== postState.element.ariaSelected) {
+      localChanges.push({ type: 'aria_selected_changed', detail: `aria-selected: ${preState.element.ariaSelected} -> ${postState.element.ariaSelected}` });
+    }
+    if (preState.element.checked !== postState.element.checked) {
+      localChanges.push({ type: 'checked_changed', detail: `checked: ${preState.element.checked} -> ${postState.element.checked}` });
+    }
+    if (preState.element.controlState !== postState.element.controlState) {
+      localChanges.push({ type: 'control_state_changed', detail: 'Associated control state changed' });
     }
     if (preState.element.dataState !== postState.element.dataState) {
       localChanges.push({ type: 'data_state_changed', detail: `data-state: ${preState.element.dataState} -> ${postState.element.dataState}` });
@@ -2423,6 +2502,7 @@ const tools = {
       const mouseEventInit = {
         bubbles: true,
         cancelable: true,
+        composed: true,
         view: window,
         clientX: centerX,
         clientY: centerY,
@@ -2432,13 +2512,12 @@ const tools = {
         buttons: 1
       };
 
-      // Dispatch full mouse event sequence for proper JS handler triggering
+      // Dispatch full mouse event sequence for proper JS handler triggering.
+      // The synthetic click is the only activation: a second one would flip
+      // toggles back and submit forms twice.
       element.dispatchEvent(new MouseEvent('mousedown', mouseEventInit));
       element.dispatchEvent(new MouseEvent('mouseup', mouseEventInit));
       element.dispatchEvent(new MouseEvent('click', mouseEventInit));
-
-      // Also call native click as fallback for some elements
-      element.click();
 
       // VERIFY-04: Wait for page stability (REPLACE fixed 300ms with dynamic stability detection)
       await waitForPageStability({ maxWait: 1000, stableTime: 200 });
@@ -2449,6 +2528,13 @@ const tools = {
 
       // Check for loading indicators (not captured by standard verification)
       const loadingDetected = !!document.querySelector('.loading, .spinner, [class*="load"], [aria-busy="true"]');
+
+      // Toggle-like controls report their effect through state, not navigation
+      const toggledState = !!(verification.changes && (
+        verification.changes.checkedChanged || verification.changes.controlStateChanged ||
+        verification.changes.ariaCheckedChanged || verification.changes.ariaPressedChanged ||
+        verification.changes.ariaSelectedChanged || verification.changes.dataStateChanged ||
+        verification.changes.openChanged));
 
       // Determine if click had an effect
       // For anchor tags, require URL change or significant DOM change (not just focus)
@@ -2477,7 +2563,7 @@ const tools = {
             : isAnchorElement
               ? (verification.changes?.urlChanged || verification.changes?.contentChanged ||
                  verification.changes?.elementCountChanged || verification.changes?.ariaExpandedChanged ||
-                 verification.changes?.relatedVisibilityChanged || loadingDetected || false)
+                 verification.changes?.relatedVisibilityChanged || loadingDetected || toggledState || false)
               : (verification.verified || loadingDetected);
 
       // CRITICAL FIX: Return success=false when click has no effect
