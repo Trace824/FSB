@@ -5,7 +5,7 @@ milestone_name: Jev Fast Mode
 status: executing
 stopped_at: Phase 66: code complete (66-02..66-09); waiting on human checkpoints H1 (66-01), then 66-10/66-11
 last_updated: "2026-09-30T10:45:22.528Z"
-last_activity: 2026-09-30
+last_activity: 2026-09-30 -- quick 260930-f7j complete
 progress:
   total_phases: 7
   completed_phases: 0
@@ -38,7 +38,7 @@ See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIRE
 Phase: 66 (Baseline and Session Timing) — EXECUTING
 Plan: 8 of 11 complete (66-02..66-09). Remaining plans are human-gated: 66-01 paused at H1 (export of the 40 recorded MCP sessions), then 66-10 (H2/H3 bench profile, smoke) and 66-11 (H4 campaign approval, H5 restore)
 Status: Executing Phase 66: code and integration complete, awaiting operator checkpoints
-Last activity: 2026-09-30 -- 66-09 complete (10 bench suites in the chain; 312/312 chain green in tolerant mode; Node 20 bench run 338/338)
+Last activity: 2026-09-30 -- quick 260930-f7j: FSB content click now activates its target once (fixes the double activation found in 66-07)
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
@@ -280,6 +280,7 @@ Phase 60 resolved the static inline-agent/profile and Windows shell-free resolut
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 260930-f7j | Make FSB content click activate its target once (no double activation; toggle-aware click verification) | 2026-09-30 | da7e484f | Verified | [260930-f7j-make-fsb-content-click-activate-its-targ](./quick/260930-f7j-make-fsb-content-click-activate-its-targ/) |
 | 260728-k2v | Replace the chrome.action connection badge with a state-driven animated toolbar icon | 2026-07-28 | 45aa40e1 |  | [260728-k2v-animated-toolbar-icon](./quick/260728-k2v-animated-toolbar-icon/) |
 | 260720-jb5 | Patch Sheets session redaction and multi-tab visual-session token finalization | 2026-07-20 | 2f8359b2 | Verified | [260720-jb5-patch-sheets-session-redaction-and-multi](./quick/260720-jb5-patch-sheets-session-redaction-and-multi/) |
 | 260715-hs1 | Replace Google Sheets OAuth with a zero-extra-auth signed-in tab session | 2026-07-15 | 9ab3d40d | Needs Review | [260715-hs1-replace-google-sheets-oauth-with-a-signe](./quick/260715-hs1-replace-google-sheets-oauth-with-a-signe/) |

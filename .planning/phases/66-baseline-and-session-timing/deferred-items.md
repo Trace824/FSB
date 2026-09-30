@@ -6,6 +6,8 @@ Out-of-scope discoveries logged by plan executors. Nothing here was fixed in the
 
 ### FSB's content click activates the target twice
 
+**RESOLVED in 260930-f7j (commit da7e484f):** the click tool and `clickAtCoordinates` now dispatch one composed synthetic click. Click verification counts toggle state (ARIA/data-state/open/checked, a label's control, a toggle-like ancestor, the target's text), so the CDP fallback no longer undoes a correct toggle. Regression test: `tests/content-click-single-activation.test.js`. The bench guard in `scripts/bench/fixtures/_shared/bench.js` was left untouched and is now a no-op.
+
 - **Where:** `extension/content/actions.js`.
   - The `click` tool (lines ~2436-2441) dispatches synthetic `mousedown`, `mouseup` and `click` events, then also calls `element.click()`, unconditionally.
   - `clickAtCoordinates` (lines ~148-155) does the same.
