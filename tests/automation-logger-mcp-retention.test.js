@@ -849,6 +849,28 @@ const PRE_PHASE66_INDEX_FIELDS = [
     });
     check(basis.full === 'estimate' && basis.indexed === 'estimate', 'a priced summary is estimate even when totalCost is 0');
 
+    // LM Studio rows carry the local $0 estimate, but the legacy record()
+    // call does not pass the provider, so a positive legacy total beside
+    // them was priced at the unknown-model display fallback (66-06).
+    const lmstudioRow = timingRow(1, {
+      costUsd: 0, costSource: 'estimate', estimateUsd: 0, estimateDeltaPct: null, pricingKey: 'lmstudio-local',
+      requestedModel: 'qwen2.5-7b-instruct', servedModel: 'qwen2.5-7b-instruct', provider: 'lmstudio'
+    });
+    const lmstudioSummary = measurementSummary({
+      costUsd: 0, costSource: 'estimate', requestedModel: 'qwen2.5-7b-instruct', servedModels: ['qwen2.5-7b-instruct']
+    });
+    basis = await saveBasis('basis-lmstudio-fallback', {
+      totalCost: 0.35, iterationTiming: [lmstudioRow], measurementSummary: lmstudioSummary
+    });
+    check(basis.full === 'unavailable' && basis.indexed === 'unavailable',
+      'LM Studio rows with a positive (fallback-priced) legacy total -> unavailable (record and index)');
+    basis = await saveBasis('basis-lmstudio-zero', {
+      totalCost: 0, iterationTiming: [lmstudioRow], measurementSummary: lmstudioSummary
+    });
+    check(basis.full === 'estimate' && basis.indexed === 'estimate', 'LM Studio rows with a legacy total of 0 -> estimate');
+    check(storage.store.fsbSessionLogs['basis-lmstudio-fallback'].totalCost === 0.35,
+      'the LM Studio legacy totalCost keeps its value (D-02)');
+
     basis = await saveBasis('basis-no-summary-cost', { totalCost: 0.12 });
     check(basis.full === 'estimate' && basis.indexed === 'estimate', 'no summary with totalCost 0.12 -> estimate');
 

@@ -279,13 +279,19 @@ if (globalThis.__FSB_AUTOMATION_LOGGER_LOADED__) {
   // never 'provider'. With a measurement summary it is 'unavailable' when the
   // summary cost is unavailable or any stored row had no price row (the legacy
   // total then holds the unknown-model display fallback), else 'estimate' even
-  // at 0. Without a summary it is 'estimate' only for a positive finite total.
+  // at 0. LM Studio rows carry the local $0 estimate, but the legacy total is
+  // recorded without the provider, so a positive legacy total beside them is
+  // that same fallback and is 'unavailable' too. Without a summary it is
+  // 'estimate' only for a positive finite total. The MCP dispatcher applies
+  // the same rule to records saved without a label.
   function computeLegacyCostBasis(session) {
     const summary = session?.measurementSummary;
     if (summary && typeof summary === 'object' && !Array.isArray(summary)) {
       const rows = Array.isArray(session.iterationTiming) ? session.iterationTiming : [];
       const unpriced = rows.some(row => !!row && typeof row === 'object' && row.pricingKey === null);
-      return (summary.costSource === 'unavailable' || unpriced) ? 'unavailable' : 'estimate';
+      const localFallback = Number.isFinite(session.totalCost) && session.totalCost > 0 &&
+        rows.some(row => !!row && typeof row === 'object' && row.pricingKey === 'lmstudio-local');
+      return (summary.costSource === 'unavailable' || unpriced || localFallback) ? 'unavailable' : 'estimate';
     }
     return Number.isFinite(session?.totalCost) && session.totalCost > 0 ? 'estimate' : 'unavailable';
   }
