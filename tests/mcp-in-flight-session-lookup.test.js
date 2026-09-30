@@ -802,6 +802,444 @@ async function runJournalCallIntervalCase() {
   assert(!!m.callerGapMs && m.callerGapMs.count === 1 && m.callerGapMs.total === 500, 'and the caller-gap chain');
 }
 
+// ---- Measurement projection for history sessions (autopilot, legacy MCP) -----
+
+function hasOwn(object, key) {
+  return !!object && typeof object === 'object' && Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function autopilotTimingRow(iteration, overrides) {
+  return Object.assign({
+    v: 1,
+    iteration,
+    startedAt: 1790726400000 + iteration * 1000,
+    modelMs: 2000 + iteration * 500,
+    modelRetried: iteration === 2,
+    toolMs: 400 + iteration * 50,
+    toolCount: iteration === 1 ? 1 : 2,
+    usage: { input: 9000, output: 350, reasoning: 150, cachedInput: 4500 },
+    usageSource: 'provider',
+    costUsd: 0.01605,
+    costSource: 'provider',
+    estimateUsd: 0.0125,
+    estimateDeltaPct: -0.2212,
+    pricingKey: 'grok-4.3',
+    requestedModel: 'grok-4.3',
+    servedModel: 'grok-4.3',
+    provider: 'xai'
+  }, overrides || {});
+}
+
+function autopilotSummary(overrides) {
+  return Object.assign({
+    v: 1,
+    iterations: 2,
+    modelMsTotal: 5000,
+    toolMsTotal: 900,
+    toolCount: 3,
+    usage: { input: 18000, output: 700, reasoning: 300, cachedInput: 9000 },
+    usageIterations: 2,
+    usageSource: 'provider',
+    costUsd: 0.0321,
+    costIterations: 2,
+    costSource: 'provider',
+    requestedModel: 'grok-4.3',
+    servedModels: ['grok-4.3']
+  }, overrides || {});
+}
+
+function autopilotSession(sessionId, overrides) {
+  return Object.assign({
+    sessionId,
+    id: sessionId,
+    task: 'Fill the order form',
+    status: 'completed',
+    mode: 'autopilot',
+    startTime: 1790726400000,
+    endTime: 1790726460000,
+    totalCost: 0.03,
+    totalInputTokens: 18000,
+    totalOutputTokens: 700,
+    actionHistory: [
+      { tool: 'click', timestamp: 1790726401000, iteration: 1, params: { selector: '#go' }, result: { success: true }, durationMs: 412 }
+    ]
+  }, overrides || {});
+}
+
+async function getHistorySession(session, extra) {
+  const { dispatcher } = buildHarness(Object.assign({ historicalSession: session }, extra || {}));
+  return dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: session.sessionId } });
+}
+
+// Path of the first object that carries totalCost without a totalCostBasis
+// sibling, or null when every totalCost is labelled.
+function findBareTotalCost(value, trail) {
+  if (!value || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index++) {
+      const hit = findBareTotalCost(value[index], trail + '[' + index + ']');
+      if (hit) return hit;
+    }
+    return null;
+  }
+  if (hasOwn(value, 'totalCost') && !hasOwn(value, 'totalCostBasis')) return trail || '(root)';
+  for (const [key, item] of Object.entries(value)) {
+    const hit = findBareTotalCost(item, trail + '.' + key);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+async function runAutopilotMeasurementCase() {
+  console.log('\n--- autopilot sessions: filter-proof tokens, provider-first cost, per-iteration rows ---');
+
+  const rows = [autopilotTimingRow(1), autopilotTimingRow(2)];
+  const response = await getHistorySession(autopilotSession('session_autopilot_measured', {
+    iterationTiming: rows,
+    measurementSummary: autopilotSummary(),
+    totalCostBasis: 'estimate'
+  }));
+  const session = (response && response.session) || {};
+  const m = session.measurement || {};
+  assert(response && response.success === true && m.v === 1 && m.kind === 'autopilot' && m.recorded === true,
+    'an autopilot session carries the v1 autopilot measurement block');
+  assert(m.inputTokens === 18000 && m.outputTokens === 700 && m.reasoningTokens === 300 && m.cachedInputTokens === 9000,
+    'token counts survive the /token/i key filter');
+  assert(m.usageSource === 'provider' && m.costUsd === 0.0321 && m.costSource === 'provider' && m.costIterations === 2,
+    'provider-reported usage and cost come with their sources');
+  assert(m.iterations === 2 && !!m.modelMs && m.modelMs.total === 5000 && !!m.toolMs && m.toolMs.total === 900 && m.toolMs.calls === 3,
+    'model and tool totals come from the stored summary');
+  assert(!!m.modelMs && m.modelMs.median === 2750 && m.modelMs.p90 === 2500 + 0.9 * 500,
+    'model median and p90 cover the stored iteration rows');
+  assert(!!m.toolMs && m.toolMs.median === 475, 'tool median covers the stored iteration rows');
+  assert(m.requestedModel === 'grok-4.3' && Array.isArray(m.servedModels) && m.servedModels.join(',') === 'grok-4.3',
+    'requested and served models are reported');
+  const perIteration = Array.isArray(m.perIteration) ? m.perIteration : [];
+  assert(perIteration.length === 2, 'perIteration has one row per stored iteration');
+  assert(perIteration.every((row, index) => row.startedAt === rows[index].startedAt && row.modelMs === rows[index].modelMs &&
+    row.iteration === rows[index].iteration && row.toolMs === rows[index].toolMs && row.toolCount === rows[index].toolCount),
+    'perIteration rows carry startedAt, model and tool time from the stored rows');
+  assert(perIteration.length === 2 && perIteration[1].modelRetried === true && perIteration[0].modelRetried === false,
+    'perIteration rows keep the retry mark');
+  assert(perIteration.every((row) => row.inputTokens === 9000 && row.outputTokens === 350 && row.reasoningTokens === 150 &&
+    row.cachedInputTokens === 4500 && row.usageSource === 'provider' && row.costUsd === 0.01605 &&
+    row.costSource === 'provider' && row.servedModel === 'grok-4.3' && row.estimateDeltaPct === -0.2212),
+    'perIteration rows carry usage, cost, served model and the estimate delta');
+  assert(!hasOwn(perIteration[0], 'pricingKey') && !hasOwn(perIteration[0], 'provider') && !hasOwn(perIteration[0], 'usage'),
+    'perIteration rows are the flat projection only');
+  assert(!hasOwn(session, 'iterationTiming') && !hasOwn(session, 'measurementSummary'),
+    'raw iterationTiming and measurementSummary are absent from the generic output');
+  assert(!JSON.stringify(m).includes('[object]'), 'nothing in the measurement block is flattened');
+  assert(!hasOwn(session, 'totalInputTokens') && !hasOwn(session, 'totalOutputTokens'),
+    'bare legacy token totals stay filtered out of the generic output');
+  const legacy = m.legacyTotals || {};
+  assert(legacy.costUsd === 0.03 && legacy.costBasis === 'estimate' && legacy.inputTokens === 18000 && legacy.outputTokens === 700 &&
+    legacy.usageBasis === 'provider' && legacy.label === 'legacy price-table total; not provider-reported',
+    'legacyTotals carry the labelled legacy numbers');
+  assert(session.totalCost === 0.03 && session.totalCostBasis === 'estimate', 'the legacy totalCost keeps its value and gains a basis');
+  assert(session.actionHistory && session.actionHistory[0] && session.actionHistory[0].durationMs === 412,
+    'executed actions keep their measured durationMs');
+}
+
+async function runAutopilotUnrecordedCase() {
+  console.log('\n--- pre-Phase-66 autopilot sessions: recorded false, labelled legacy totals, nothing invented ---');
+
+  let response = await getHistorySession(autopilotSession('session_pre66_cost', {
+    totalCost: 0.12,
+    totalInputTokens: 5000,
+    totalOutputTokens: 200
+  }));
+  let session = (response && response.session) || {};
+  let m = session.measurement || {};
+  assert(m.kind === 'autopilot' && m.recorded === false, 'a session without a summary reports recorded: false');
+  assert(m.iterations === null && m.modelMs && m.modelMs.total === null && m.modelMs.median === null && m.modelMs.p90 === null &&
+    m.toolMs && m.toolMs.total === null && m.toolMs.median === null && m.toolMs.calls === null,
+    'unmeasured times are null, never 0');
+  assert(m.inputTokens === null && m.outputTokens === null && m.reasoningTokens === null && m.cachedInputTokens === null,
+    'unmeasured token counts are null');
+  assert(m.usageSource === 'unavailable' && m.costUsd === null && m.costSource === 'unavailable' && m.costIterations === null,
+    'cost and usage sources are unavailable');
+  assert(m.requestedModel === null && Array.isArray(m.servedModels) && m.servedModels.length === 0 &&
+    Array.isArray(m.perIteration) && m.perIteration.length === 0, 'no models and no rows are invented');
+  let legacy = m.legacyTotals || {};
+  assert(legacy.costUsd === 0.12 && legacy.label === 'legacy price-table total; not provider-reported',
+    'legacyTotals keeps the legacy 0.12 with its label');
+  assert(session.totalCostBasis === 'estimate' && legacy.costBasis === 'estimate' && legacy.usageBasis === 'provider' &&
+    legacy.inputTokens === 5000 && legacy.outputTokens === 200,
+    'W1: totalCost 0.12 without a summary is an estimate, and its token totals are provider-based');
+
+  response = await getHistorySession(autopilotSession('session_pre66_zero', {
+    totalCost: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0
+  }));
+  session = (response && response.session) || {};
+  m = session.measurement || {};
+  legacy = m.legacyTotals || {};
+  assert(legacy.costUsd === null && legacy.inputTokens === null && legacy.outputTokens === null,
+    'legacyTotals values are null unless greater than 0');
+  assert(session.totalCost === 0 && session.totalCostBasis === 'unavailable' && legacy.costBasis === 'unavailable' &&
+    legacy.usageBasis === 'unavailable', 'W1: totalCost 0 without a summary is unavailable for both bases');
+}
+
+async function runActionDurationAllowlistCase() {
+  console.log('\n--- action allowlist: measured durationMs and valid timing only ---');
+
+  const response = await getHistorySession(autopilotSession('session_durations', {
+    actionHistory: [
+      { tool: 'click', timestamp: 1, iteration: 1, params: { selector: '#a' }, result: { success: true }, durationMs: 412 },
+      { tool: 'type', timestamp: 2, iteration: 1, params: {}, result: { success: true } },
+      { tool: 'scroll', timestamp: 3, iteration: 1, params: {}, result: { success: true }, durationMs: null },
+      { tool: 'hover', timestamp: 4, iteration: 2, params: {}, result: { success: true }, durationMs: NaN },
+      { tool: 'press', timestamp: 5, iteration: 2, params: {}, result: { success: true }, durationMs: -5 },
+      { tool: 'get_site_guide', timestamp: 6, iteration: 2, params: {}, result: { success: true }, durationMs: 0 },
+      { tool: 'navigate', timestamp: 7, iteration: 3, params: {}, result: { success: true }, timing: { v: 1, receivedAt: 1000, completedAt: 1400, fsbMs: 1 } },
+      { tool: 'navigate', timestamp: 8, iteration: 3, params: {}, result: { success: true }, timing: { v: 1, receivedAt: 1400, completedAt: 1000, fsbMs: 1 } }
+    ]
+  }));
+  const rows = (response && response.session && response.session.actionHistory) || [];
+  assert(rows.length === 8 && rows[0].durationMs === 412, 'a measured durationMs of 412 is kept');
+  assert(rows.length === 8 && [1, 2, 3, 4].every((index) => !hasOwn(rows[index], 'durationMs')),
+    'missing, null, NaN and negative durations leave no durationMs key (never 0)');
+  assert(rows.length === 8 && rows[5].durationMs === 0, 'a measured sub-millisecond 0 is kept');
+  assert(rows.length === 8 && rows[6].timing && rows[6].timing.fsbMs === 400 && rows[6].timing.completedAt === 1400,
+    'a valid timing is kept with fsbMs recomputed');
+  assert(rows.length === 8 && !hasOwn(rows[7], 'timing'), 'an invalid timing is dropped');
+
+  const liveId = 'session_live_duration';
+  const live = (durationMs) => ({
+    sessionId: liveId,
+    status: 'running',
+    task: 'live',
+    startTime: 5,
+    iterationCount: 1,
+    actionHistory: [{ tool: 'click', timestamp: 9, iteration: 1, params: { selector: '#go' }, result: { success: true }, durationMs }]
+  });
+  let harness = buildHarness({ activeSessionEntries: [[liveId, live(250)]] });
+  let result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: liveId } });
+  let current = result && result.session && result.session.currentAction;
+  assert(!!current && current.durationMs === 250 &&
+    Object.keys(current).join(',') === 'tool,timestamp,iteration,selector,result,durationMs',
+    'the in-flight currentAction gains durationMs when the live action measured one');
+  harness = buildHarness({ activeSessionEntries: [[liveId, live(null)]] });
+  result = await harness.dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: liveId } });
+  current = result && result.session && result.session.currentAction;
+  assert(!!current && Object.keys(current).join(',') === 'tool,timestamp,iteration,selector,result',
+    'an unmeasured live action keeps the pre-Phase-66 currentAction shape');
+}
+
+async function runLegacyMcpMeasurementCase() {
+  console.log('\n--- legacy MCP sessions: measurement from stored row timing ---');
+
+  const legacyMcp = (sessionId, actionHistory) => ({
+    sessionId,
+    id: sessionId,
+    task: 'MCP legacy session',
+    status: 'stopped',
+    mode: 'mcp-agent',
+    mcpClient: 'Codex',
+    startTime: 500,
+    endTime: 99999,
+    totalCost: 0,
+    outcomeDetails: { outcome: 'stopped', reason: 'idle_timeout' },
+    actionHistory
+  });
+  const timedRow = (tool, receivedAt, completedAt) => ({
+    tool,
+    timestamp: completedAt,
+    params: { selector: '#x' },
+    result: { success: true },
+    timing: timingOf(receivedAt, completedAt),
+    durationMs: completedAt - receivedAt
+  });
+
+  let response = await getHistorySession(legacyMcp('session_legacy_mcp', [
+    timedRow('click_a', 1000, 1120),
+    timedRow('click_b', 1620, 1700),
+    timedRow('click_c', 1650, 1800)
+  ]));
+  let session = (response && response.session) || {};
+  let m = session.measurement || {};
+  assert(m.v === 1 && m.kind === 'mcp' && m.source === 'legacy', 'a legacy MCP session carries the MCP block with source legacy');
+  assert(m.calls === 3 && m.callsWithTiming === 3 && m.fsbMs && m.fsbMs.total === 350 && m.fsbMs.median === 120,
+    'fsbMs is computed from the stored row timing');
+  assert(m.callerGapMs && m.callerGapMs.count === 1 && m.callerGapMs.total === 500 && m.callerGapMs.overlapped === 1,
+    'caller gaps: A to B is 500 ms, and C overlapping B counts as overlapped');
+  assert(m.callIntervalMs && m.callIntervalMs.count === 2 && m.callIntervalMs.median === 325,
+    'call intervals are receive-to-receive (620 and 30)');
+  assert(m.activeSpanMs === 800 && m.endReason === 'idle_timeout' && m.idleTimeout === true && m.idleTailExcluded === true,
+    'activeSpanMs spans the timed calls and the idle timeout is flagged');
+  assert(m.host && m.host.status === 'unavailable' && m.queueWaitStatus === 'not_measured' && m.queueWaitMs === null,
+    'host metrics are unavailable and queue wait is not measured');
+  assert(m.truncated === false && m.pagesRead === 0 && !hasOwn(m, 'legacyTotals'), 'no paging applies to history rows');
+  const rows = session.actionHistory || [];
+  assert(rows.length === 3 && rows.every((row) => row.timing && row.durationMs === row.timing.fsbMs),
+    'legacy MCP rows keep timing and durationMs');
+  assert(session.totalCost === 0 && session.totalCostBasis === 'unavailable', 'the MCP session totalCost 0 is labelled unavailable');
+
+  response = await getHistorySession(legacyMcp('session_legacy_intervals', [
+    timedRow('a', 1000, 1100),
+    timedRow('b', 1600, 1650),
+    timedRow('c', 2600, 2900)
+  ]));
+  m = ((response && response.session) || {}).measurement || {};
+  assert(m.callIntervalMs && m.callIntervalMs.count === 2 && m.callIntervalMs.median === 800 && m.callIntervalMs.p90 === 960,
+    'receives at 1000, 1600 and 2600 give intervals with median 800 and p90 960');
+
+  response = await getHistorySession(legacyMcp('session_legacy_break', [
+    timedRow('a', 1000, 1100),
+    timedRow('b', 1600, 1650),
+    { tool: 'untimed', timestamp: 2000, params: {}, result: { success: true } },
+    timedRow('c', 2600, 2900)
+  ]));
+  m = ((response && response.session) || {}).measurement || {};
+  assert(m.calls === 4 && m.callsWithTiming === 3 && m.callIntervalMs && m.callIntervalMs.count === 1 &&
+    m.callIntervalMs.median === 600, 'an untimed row between two timed rows breaks the chain');
+}
+
+async function runLegacyCostBasisCases() {
+  console.log('\n--- basis labels: legacy totalCost is never shown unlabelled ---');
+
+  const noUsageRow = autopilotTimingRow(1, {
+    usage: { input: null, output: null, reasoning: null, cachedInput: null },
+    usageSource: 'unavailable',
+    costUsd: null,
+    costSource: 'unavailable',
+    estimateUsd: null,
+    estimateDeltaPct: null
+  });
+  const unpricedRow = autopilotTimingRow(2, {
+    pricingKey: null,
+    costUsd: null,
+    costSource: 'unavailable',
+    estimateUsd: null,
+    estimateDeltaPct: null,
+    requestedModel: 'totally-unknown-model'
+  });
+  const lmstudioRow = (iteration) => autopilotTimingRow(iteration, {
+    costUsd: 0,
+    costSource: 'estimate',
+    estimateUsd: 0,
+    estimateDeltaPct: null,
+    pricingKey: 'lmstudio-local',
+    requestedModel: 'qwen2.5-7b-instruct',
+    servedModel: 'qwen2.5-7b-instruct',
+    provider: 'lmstudio'
+  });
+  const lmstudioSummary = autopilotSummary({ costUsd: 0, costSource: 'estimate', requestedModel: 'qwen2.5-7b-instruct', servedModels: ['qwen2.5-7b-instruct'] });
+  const cases = [
+    {
+      name: 'I-B: totalCost 0.70 with summary costSource unavailable -> unavailable',
+      session: { totalCost: 0.70, iterationTiming: [noUsageRow], measurementSummary: autopilotSummary({ costUsd: null, costIterations: 0, costSource: 'unavailable' }) },
+      expected: 'unavailable'
+    },
+    {
+      name: 'I-B: a pricingKey null row makes an estimate summary unavailable',
+      session: { totalCost: 0.40, iterationTiming: [autopilotTimingRow(1, { costSource: 'estimate' }), unpricedRow], measurementSummary: autopilotSummary({ costSource: 'estimate' }) },
+      expected: 'unavailable'
+    },
+    {
+      name: 'I-B: provider summary with every row priced -> estimate (the legacy total is a price-table sum)',
+      session: { totalCost: 0.03, iterationTiming: [autopilotTimingRow(1), autopilotTimingRow(2)], measurementSummary: autopilotSummary() },
+      expected: 'estimate'
+    },
+    {
+      name: 'a priced summary is estimate even when totalCost is 0',
+      session: { totalCost: 0, iterationTiming: [autopilotTimingRow(1)], measurementSummary: autopilotSummary() },
+      expected: 'estimate'
+    },
+    {
+      name: 'LM Studio: a fallback-priced legacy total (> 0) is unavailable, never estimate',
+      session: { totalCost: 0.35, iterationTiming: [lmstudioRow(1), lmstudioRow(2)], measurementSummary: lmstudioSummary },
+      expected: 'unavailable'
+    },
+    {
+      name: 'LM Studio: a legacy total of 0 matches the local $0 rule and stays estimate',
+      session: { totalCost: 0, iterationTiming: [lmstudioRow(1)], measurementSummary: lmstudioSummary },
+      expected: 'estimate'
+    },
+    {
+      name: 'a stored provider label is ignored and recomputed',
+      session: { totalCost: 0.12, totalCostBasis: 'provider' },
+      expected: 'estimate'
+    },
+    {
+      name: 'I-2: a stored unavailable is used as is',
+      session: { totalCost: 0.03, totalCostBasis: 'unavailable', iterationTiming: [autopilotTimingRow(1)], measurementSummary: autopilotSummary() },
+      expected: 'unavailable'
+    },
+    {
+      name: 'I-2: a stored estimate is used as is',
+      session: { totalCost: 0, totalCostBasis: 'estimate' },
+      expected: 'estimate'
+    }
+  ];
+  for (const [index, entry] of cases.entries()) {
+    const response = await getHistorySession(autopilotSession('session_basis_' + index, entry.session));
+    const session = (response && response.session) || {};
+    const legacy = (session.measurement && session.measurement.legacyTotals) || {};
+    assert(session.totalCostBasis === entry.expected && legacy.costBasis === entry.expected, entry.name);
+    assert(findBareTotalCost(response, '') === null, 'no bare totalCost in the response: ' + entry.name);
+  }
+}
+
+async function runListSessionsBasisCase() {
+  console.log('\n--- list_sessions: totalCostBasis beside every totalCost, and agreement with get_session_detail ---');
+
+  const index = [
+    { id: 'idx-journal', task: 'journal run', storageBackend: 'journal-v2', mode: 'mcp-agent', startTime: 50 },
+    { id: 'idx-stored-unavailable', task: 'stored unavailable', mode: 'autopilot', totalCost: 0.70, totalCostBasis: 'unavailable', startTime: 40 },
+    { id: 'idx-pre66-cost', task: 'pre-66 with cost', mode: 'autopilot', totalCost: 0.70, startTime: 30 },
+    { id: 'idx-pre66-zero', task: 'pre-66 zero', mode: 'autopilot', totalCost: 0, startTime: 20 },
+    { id: 'idx-stored-provider', task: 'bad stored label', mode: 'autopilot', totalCost: 0.12, totalCostBasis: 'provider', startTime: 10 }
+  ];
+  const record = autopilotSession('idx-stored-unavailable', {
+    totalCost: 0.70,
+    totalCostBasis: 'unavailable',
+    iterationTiming: [autopilotTimingRow(1, {
+      usage: { input: null, output: null, reasoning: null, cachedInput: null },
+      usageSource: 'unavailable',
+      costUsd: null,
+      costSource: 'unavailable',
+      estimateUsd: null,
+      estimateDeltaPct: null
+    })],
+    measurementSummary: autopilotSummary({ costUsd: null, costIterations: 0, costSource: 'unavailable' })
+  });
+  const { dispatcher } = buildHarness({
+    historicalSession: record,
+    listSessions: async () => JSON.parse(JSON.stringify(index))
+  });
+
+  const list = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:list-sessions', payload: {} });
+  const sessions = (list && list.sessions) || [];
+  const byId = Object.fromEntries(sessions.map((entry) => [entry.id, entry]));
+  assert(list && list.success === true && sessions.map((entry) => entry.id).join(',') === index.map((entry) => entry.id).join(','),
+    'list_sessions keeps its order and entries');
+  assert(!hasOwn(byId['idx-journal'], 'totalCostBasis'), 'an entry without totalCost gains nothing');
+  assert(byId['idx-stored-unavailable'] && byId['idx-stored-unavailable'].totalCostBasis === 'unavailable',
+    'I-2: a stored unavailable is listed as is');
+  assert(byId['idx-pre66-cost'] && byId['idx-pre66-cost'].totalCostBasis === 'estimate',
+    'a pre-Phase-66 entry with a cost computes estimate (what the stored label prevents for 66+ records)');
+  assert(byId['idx-pre66-zero'] && byId['idx-pre66-zero'].totalCostBasis === 'unavailable', 'a pre-Phase-66 zero is unavailable');
+  assert(byId['idx-stored-provider'] && byId['idx-stored-provider'].totalCostBasis === 'estimate',
+    'a stored provider label is ignored and recomputed');
+  assert(sessions.every((entry) => entry.totalCost === (index.find((row) => row.id === entry.id) || {}).totalCost),
+    'no legacy totalCost value changes');
+  assert(findBareTotalCost(list, '') === null, 'no bare totalCost in the list response');
+
+  const limited = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:list-sessions', payload: { limit: 2 } });
+  assert(limited && limited.sessions && limited.sessions.length === 2 && limited.sessions[1].id === 'idx-stored-unavailable',
+    'the limit still applies');
+
+  const detail = await dispatcher.dispatchMcpMessageRoute({ type: 'mcp:get-session', payload: { sessionId: 'idx-stored-unavailable' } });
+  const session = (detail && detail.session) || {};
+  assert(session.totalCostBasis === 'unavailable' &&
+    session.measurement && session.measurement.legacyTotals && session.measurement.legacyTotals.costBasis === 'unavailable',
+    'I-2: get_session_detail agrees with list_sessions for the same session');
+  assert(findBareTotalCost(detail, '') === null, 'no bare totalCost in the detail response');
+}
+
 async function run() {
   await runGetSessionDetailFallbackCase();
   await runGetSessionDetailMissingCase();
@@ -820,6 +1258,12 @@ async function run() {
   await runJournalListRoundTripCase();
   await runJournalIdleTimeoutMeasurementCase();
   await runJournalCallIntervalCase();
+  await runAutopilotMeasurementCase();
+  await runAutopilotUnrecordedCase();
+  await runActionDurationAllowlistCase();
+  await runLegacyMcpMeasurementCase();
+  await runLegacyCostBasisCases();
+  await runListSessionsBasisCase();
 
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);

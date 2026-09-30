@@ -2117,7 +2117,10 @@ function sanitizeActionHistoryEntry(action) {
     result: {
       success: Boolean(result.success),
       ...(result.error ? { error: boundedString(result.error, 500) } : {})
-    }
+    },
+    // Phase 66 (D-05): only measured values; an unmeasured call has no key.
+    ...(Number.isFinite(action?.durationMs) && action.durationMs >= 0 ? { durationMs: action.durationMs } : {}),
+    ...(validProjectionTiming(action?.timing) ? { timing: validProjectionTiming(action.timing) } : {})
   };
 }
 
@@ -2148,6 +2151,15 @@ function sanitizeSessionDetail(session) {
   if (Array.isArray(session.toolCallLog)) {
     sanitized.toolCallLog = session.toolCallLog.slice(-200);
   }
+  // Phase 66 (MEAS-01; D-05, D-10, D-12): stored measurement fields leave only
+  // through the explicit block below. The generic sanitizer drops every
+  // /token/i key and flattens deep objects, so it would mangle them.
+  delete sanitized.iterationTiming;
+  delete sanitized.measurementSummary;
+  sanitized.measurement = session.mode === 'mcp-agent'
+    ? buildMcpMeasurementFromLegacy(session)
+    : buildAutopilotMeasurement(session);
+  withLegacyCostBasis(sanitized, session);
   return sanitized;
 }
 
@@ -2383,6 +2395,166 @@ function projectJournalSessionForMcp(collected) {
   sanitized.actionHistoryTruncated = collected.stats.calls > collected.rows.length;
   sanitized.measurement = buildMcpMeasurementFromStats(collected.stats, collected.session, 'journal');
   return sanitized;
+}
+
+// Legacy (history-store) MCP sessions: the same statistics over the timing
+// stored on their actionHistory rows. No paging applies.
+function buildMcpMeasurementFromLegacy(session) {
+  const stats = createMcpCallStats();
+  const actions = Array.isArray(session && session.actionHistory) ? session.actionHistory : [];
+  for (const action of actions) {
+    addMcpCallToStats(stats, validProjectionTiming(action && action.timing));
+  }
+  delete stats.previousTiming;
+  return buildMcpMeasurementFromStats(stats, session, 'legacy');
+}
+
+function measurementNumberOrNull(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function measurementCountOrNull(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function measurementPositiveOrNull(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function measurementSourceLabel(value, allowed) {
+  return allowed.indexOf(value) !== -1 ? value : 'unavailable';
+}
+
+function measurementModelName(value) {
+  return typeof value === 'string' && value ? value.slice(0, 128) : null;
+}
+
+// Basis of the legacy totalCost (BASIS LABELS, W1/I-B). The legacy total is
+// always a price-table sum, so it is never 'provider'. With a measurement
+// summary it is 'unavailable' when the measured cost is unavailable or any
+// stored row had no price row, because the legacy total then holds the
+// unknown-model display fallback. LM Studio rows are priced by a local $0
+// rule that the legacy total never applied, so a positive legacy total next
+// to them is that same fallback and is 'unavailable' too. Otherwise
+// 'estimate', even at 0. Without a summary (pre-Phase-66 sessions) it is
+// 'estimate' only for a positive total. automation-logger.js applies the same
+// rule at save time.
+function legacyCostBasisFor(session) {
+  const source = session && typeof session === 'object' ? session : {};
+  const summary = source.measurementSummary;
+  const positiveTotal = measurementPositiveOrNull(source.totalCost) !== null;
+  if (summary && typeof summary === 'object' && !Array.isArray(summary)) {
+    const rows = Array.isArray(source.iterationTiming) ? source.iterationTiming : [];
+    const isRow = (row) => !!row && typeof row === 'object';
+    const unpriced = rows.some((row) => isRow(row) && row.pricingKey === null);
+    const localFallback = positiveTotal && rows.some((row) => isRow(row) && row.pricingKey === 'lmstudio-local');
+    return (summary.costSource === 'unavailable' || unpriced || localFallback) ? 'unavailable' : 'estimate';
+  }
+  return positiveTotal ? 'estimate' : 'unavailable';
+}
+
+// The label stored at save time wins when it is valid (I-2): index entries
+// never carry the summary, so list_sessions could not recompute the rule, and
+// both routes must agree. Anything else is recomputed.
+function resolveLegacyCostBasis(session) {
+  const stored = session && typeof session === 'object' ? session.totalCostBasis : null;
+  if (stored === 'estimate' || stored === 'unavailable') return stored;
+  return legacyCostBasisFor(session);
+}
+
+// Legacy token totals sum provider-reported usage.
+function legacyUsageBasisFor(session) {
+  const source = session && typeof session === 'object' ? session : {};
+  return measurementPositiveOrNull(source.totalInputTokens) !== null ||
+    measurementPositiveOrNull(source.totalOutputTokens) !== null ? 'provider' : 'unavailable';
+}
+
+// Adds totalCostBasis beside an existing totalCost key; changes no value.
+function withLegacyCostBasis(target, source) {
+  if (target && typeof target === 'object' && Object.prototype.hasOwnProperty.call(target, 'totalCost')) {
+    target.totalCostBasis = resolveLegacyCostBasis(source);
+  }
+  return target;
+}
+
+function projectAutopilotIterationRow(row) {
+  const usage = row.usage && typeof row.usage === 'object' ? row.usage : {};
+  return {
+    iteration: measurementCountOrNull(row.iteration),
+    startedAt: measurementNumberOrNull(row.startedAt),
+    modelMs: measurementNumberOrNull(row.modelMs),
+    modelRetried: row.modelRetried === true,
+    toolMs: measurementNumberOrNull(row.toolMs),
+    toolCount: measurementCountOrNull(row.toolCount),
+    inputTokens: measurementNumberOrNull(usage.input),
+    outputTokens: measurementNumberOrNull(usage.output),
+    reasoningTokens: measurementNumberOrNull(usage.reasoning),
+    cachedInputTokens: measurementNumberOrNull(usage.cachedInput),
+    usageSource: measurementSourceLabel(row.usageSource, ['provider', 'unavailable']),
+    costUsd: measurementNumberOrNull(row.costUsd),
+    costSource: measurementSourceLabel(row.costSource, ['provider', 'estimate', 'unavailable']),
+    servedModel: measurementModelName(row.servedModel),
+    estimateDeltaPct: typeof row.estimateDeltaPct === 'number' && Number.isFinite(row.estimateDeltaPct)
+      ? row.estimateDeltaPct
+      : null
+  };
+}
+
+// The autopilot measurement block (v1), built from the flat stored fields
+// (D-05, D-10). Stored usage.input/output/reasoning/cachedInput become the
+// *Tokens names only here, after the key filter. Model and tool median and
+// p90 cover the stored per-iteration rows (the last 100). A session saved
+// before Phase 66 reports recorded: false with every measured value null.
+function buildAutopilotMeasurement(session) {
+  const source = session && typeof session === 'object' ? session : {};
+  const rawSummary = source.measurementSummary;
+  const summary = rawSummary && typeof rawSummary === 'object' && !Array.isArray(rawSummary) && rawSummary.v === 1
+    ? rawSummary
+    : null;
+  const rows = summary && Array.isArray(source.iterationTiming)
+    ? source.iterationTiming.filter((row) => !!row && typeof row === 'object' && !Array.isArray(row)).slice(-100)
+    : [];
+  const usage = summary && summary.usage && typeof summary.usage === 'object' ? summary.usage : {};
+  const model = summarizeMeasurementValues(rows.map((row) => measurementNumberOrNull(row.modelMs)));
+  const tool = summarizeMeasurementValues(rows.map((row) => measurementNumberOrNull(row.toolMs)));
+  return {
+    v: 1,
+    kind: 'autopilot',
+    recorded: !!summary,
+    iterations: summary ? measurementCountOrNull(summary.iterations) : null,
+    modelMs: {
+      total: summary ? measurementNumberOrNull(summary.modelMsTotal) : null,
+      median: model.median,
+      p90: model.p90
+    },
+    toolMs: {
+      total: summary ? measurementNumberOrNull(summary.toolMsTotal) : null,
+      median: tool.median,
+      p90: tool.p90,
+      calls: summary ? measurementCountOrNull(summary.toolCount) : null
+    },
+    inputTokens: measurementNumberOrNull(usage.input),
+    outputTokens: measurementNumberOrNull(usage.output),
+    reasoningTokens: measurementNumberOrNull(usage.reasoning),
+    cachedInputTokens: measurementNumberOrNull(usage.cachedInput),
+    usageSource: summary ? measurementSourceLabel(summary.usageSource, ['provider', 'mixed', 'unavailable']) : 'unavailable',
+    costUsd: summary ? measurementNumberOrNull(summary.costUsd) : null,
+    costSource: summary ? measurementSourceLabel(summary.costSource, ['provider', 'estimate', 'mixed', 'unavailable']) : 'unavailable',
+    costIterations: summary ? measurementCountOrNull(summary.costIterations) : null,
+    requestedModel: summary ? measurementModelName(summary.requestedModel) : null,
+    servedModels: summary && Array.isArray(summary.servedModels)
+      ? summary.servedModels.map(measurementModelName).filter(Boolean).slice(0, 10)
+      : [],
+    perIteration: rows.map(projectAutopilotIterationRow),
+    legacyTotals: {
+      costUsd: measurementPositiveOrNull(source.totalCost),
+      costBasis: resolveLegacyCostBasis(source),
+      inputTokens: measurementPositiveOrNull(source.totalInputTokens),
+      outputTokens: measurementPositiveOrNull(source.totalOutputTokens),
+      usageBasis: legacyUsageBasisFor(source),
+      label: 'legacy price-table total; not provider-reported'
+    }
+  };
 }
 
 function sanitizeMemoryEntry(memory) {
@@ -3146,7 +3318,10 @@ async function handleListSessionsMessageRoute({ payload }) {
   const sessions = await automationLogger.listSessions();
   return {
     success: true,
+    // Phase 66 (I-2): an entry's totalCost gains the same basis label that
+    // get_session_detail returns for that session.
     sessions: (Array.isArray(sessions) ? sessions : []).slice(0, limit).map(sanitizeSessionMetadata).filter(Boolean)
+      .map((entry) => withLegacyCostBasis(entry, entry))
   };
 }
 
