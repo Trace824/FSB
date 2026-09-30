@@ -50,7 +50,7 @@ const mcpRequire = createRequire(path.join(ROOT, 'mcp', 'package.json'));
 const { WebSocketServer } = mcpRequire('ws');
 
 const EXTENSION_ID = 'abcdefghijklmnopabcdefghijklmnop';
-const PAIRING_CODE = `fsb-auth.PAIRCODE_SENTINEL_${'q'.repeat(24)}`;
+const PAIRING_CODE = `fsb-auth.PAIRCODE_SENTINEL_${'q'.repeat(25)}`;
 const MODEL = 'claude-model-fixture';
 
 function delay(ms) {
@@ -115,8 +115,9 @@ test('buildBenchChildEnv copies only the allowlist and drops CLAUDE_* and every 
 
   // Metadata carries names and a digest only, never a value.
   const metadata = JSON.stringify({ keyNames: unset.keyNames, keyNamesSha256: unset.keyNamesSha256 });
-  for (const value of Object.values(parent)) {
-    if (!expected.includes(value)) assert.equal(metadata.includes(value), false, 'no env value in the metadata');
+  for (const valueText of ['/home/bench', '/usr/bin:/bin', 'en_US.UTF-8', 'proxy-upper-value', 'proxy-lower-value',
+    '/secret/claude-config', 'ANTHROPIC_VALUE_SENTINEL', 'XAI_VALUE_SENTINEL', 'OPENAI_VALUE_SENTINEL', 'PROVIDER_VALUE_']) {
+    assert.equal(metadata.includes(valueText), false, `no env value in the metadata (${valueText})`);
   }
 
   const withSearch = buildBenchChildEnv(parent, { toolSearch: 'true', providerKeyNames });
