@@ -54,7 +54,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 66-06-PLAN.md — Journal-backed get_session_detail with sanitized timing rows and a filter-proof measurement block (wave 3)
+- [x] 66-06-PLAN.md — Journal-backed get_session_detail with sanitized timing rows and a filter-proof measurement block (wave 3)
 - [ ] 66-07-PLAN.md — Frozen 12-task core corpus (6 mixed, 6 click-heavy), live reading set, corpus lock and self-check (wave 3)
 - [ ] 66-08-PLAN.md — Benchmark runner (preflight, ABBA schedule, per-run saves, CDP pairing), arm drivers, baseline report (wave 3)
 
