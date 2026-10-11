@@ -25,7 +25,7 @@
 
 ### Settings
 
-- [ ] **SET-01**: Options and control-panel package-owned labels, buttons, hints, and status text render in the active locale.
+- [x] **SET-01**: Options and control-panel package-owned labels, buttons, hints, and status text render in the active locale.
 
 ### Entry and overlay
 
@@ -87,7 +87,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHELL-01 | Phase 67 | Complete |
 | SHELL-02 | Phase 67 | Complete |
 | SHELL-03 | Phase 67 | Complete |
-| SET-01 | Phase 68 | Pending |
+| SET-01 | Phase 68 | Complete |
 | ENTRY-01 | Phase 69 | Pending |
 | ENTRY-02 | Phase 69 | Pending |
 | ENTRY-03 | Phase 69 | Pending |

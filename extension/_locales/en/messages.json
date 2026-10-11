@@ -396,5 +396,1259 @@
   },
   "shell_error_status": {
     "message": "Error"
+  },
+  "panel_67b6964686": {
+    "message": "Dashboard"
+  },
+  "panel_8ad747d05c": {
+    "message": "API Configuration"
+  },
+  "panel_8d261a372f": {
+    "message": "Sync"
+  },
+  "panel_703390318b": {
+    "message": "Beta"
+  },
+  "panel_be146b37a0": {
+    "message": "Passwords"
+  },
+  "panel_632e1c5839": {
+    "message": "Payments"
+  },
+  "panel_22d4f6088b": {
+    "message": "Advanced Settings"
+  },
+  "panel_c3963aedaa": {
+    "message": "Memory"
+  },
+  "panel_480d3c119a": {
+    "message": "Logs & Debugging"
+  },
+  "panel_2ccff1d108": {
+    "message": "Help & Documentation"
+  },
+  "panel_db17c74beb": {
+    "message": "Monitor your AI usage, costs, and automation performance"
+  },
+  "panel_cd41bf0d3e": {
+    "message": "Total Tokens"
+  },
+  "panel_dfa5cc738d": {
+    "message": "Total Cost"
+  },
+  "panel_ada27592c9": {
+    "message": "Requests"
+  },
+  "panel_5068c6c343": {
+    "message": "Success Rate"
+  },
+  "panel_d909750b1b": {
+    "message": "Automation"
+  },
+  "panel_cddf50281d": {
+    "message": "Token Usage Over Time"
+  },
+  "panel_615c5daff4": {
+    "message": "Last 24 Hours"
+  },
+  "panel_b84372e5cb": {
+    "message": "Last 7 Days"
+  },
+  "panel_e9ddf63b38": {
+    "message": "Last 30 Days"
+  },
+  "panel_5e4bc34faf": {
+    "message": "Configure your AI model provider and API settings"
+  },
+  "panel_9b3cf4a154": {
+    "message": "AI Model Configuration"
+  },
+  "panel_84e1ec2c5b": {
+    "message": "AI Provider"
+  },
+  "panel_994f468aae": {
+    "message": "Choose another provider"
+  },
+  "panel_e65d5614f4": {
+    "message": "Custom (OpenAI Compatible)"
+  },
+  "panel_e69daa3849": {
+    "message": "API providers use local keys. Agent CLIs use their existing local sign-in."
+  },
+  "panel_daa5fed227": {
+    "message": "Choose another AI provider"
+  },
+  "panel_822a9fabc1": {
+    "message": "This provider is no longer available for Autopilot. Select and save another provider before starting a new task."
+  },
+  "panel_5e2c614c23": {
+    "message": "Model"
+  },
+  "panel_dfa17046ae": {
+    "message": "Provide API key to list models"
+  },
+  "panel_00889a77ec": {
+    "message": "Select the AI model to use"
+  },
+  "panel_bc3286fa36": {
+    "message": "xAI API Key"
+  },
+  "panel_a3fb46f4c6": {
+    "message": "Get your API key from"
+  },
+  "panel_8e9faa30de": {
+    "message": ". Your key is stored locally in your browser."
+  },
+  "panel_53bca734db": {
+    "message": "Gemini API Key"
+  },
+  "panel_8418bdbdcd": {
+    "message": "OpenAI API Key"
+  },
+  "panel_e07165f5ce": {
+    "message": "OpenAI Platform"
+  },
+  "panel_959bc25166": {
+    "message": "Anthropic API Key"
+  },
+  "panel_c481af39b2": {
+    "message": "Anthropic Console"
+  },
+  "panel_36e0497429": {
+    "message": "OpenRouter API Key"
+  },
+  "panel_84de34181d": {
+    "message": ". Access 200+ models with a single key."
+  },
+  "panel_018833a024": {
+    "message": "LM Studio Server URL"
+  },
+  "panel_3efaf1b1c1": {
+    "message": "Uses LM Studio's local OpenAI-compatible server. No API key required. Models are discovered live from"
+  },
+  "panel_83419f15b8": {
+    "message": "Custom API Endpoint"
+  },
+  "panel_cfb67fffe3": {
+    "message": "Enter the full URL for your OpenAI-compatible API endpoint"
+  },
+  "panel_acb781f972": {
+    "message": "Custom API Key"
+  },
+  "panel_5e2e7207a6": {
+    "message": "Your key is stored locally in your browser."
+  },
+  "panel_abfe6d40e5": {
+    "message": "Speech-to-Text"
+  },
+  "panel_5303c4374c": {
+    "message": "Use OpenAI Whisper"
+  },
+  "panel_14e36783b5": {
+    "message": "Requires an OpenAI API key. When disabled, uses browser's built-in speech recognition."
+  },
+  "panel_e1461bf33a": {
+    "message": "CAPTCHA Solver"
+  },
+  "panel_2909841c62": {
+    "message": "Enable CAPTCHA Solving"
+  },
+  "panel_1955b2ec44": {
+    "message": "Use 2Captcha service to solve reCAPTCHA v2, hCaptcha, and Cloudflare Turnstile challenges"
+  },
+  "panel_5ac544cb2f": {
+    "message": "2Captcha API Key"
+  },
+  "panel_a003f76423": {
+    "message": "Sign up at"
+  },
+  "panel_b6ff7ee96e": {
+    "message": "Agent CLI"
+  },
+  "panel_a1272b91cf": {
+    "message": "Checking sign-in..."
+  },
+  "panel_d696a35bdd": {
+    "message": "Profile"
+  },
+  "panel_3ac8bbca9a": {
+    "message": "Billing"
+  },
+  "panel_cec3a9b89b": {
+    "message": "Data"
+  },
+  "panel_ccf75fb483": {
+    "message": "Connect SuperGrok"
+  },
+  "panel_acfc5be785": {
+    "message": "Disconnect"
+  },
+  "panel_1771a5d0f6": {
+    "message": "Continue sign-in"
+  },
+  "panel_888a2f4fc6": {
+    "message": "Review SuperGrok usage"
+  },
+  "panel_d334745b85": {
+    "message": "Installation guide"
+  },
+  "panel_adadface01": {
+    "message": "Not reported"
+  },
+  "panel_5bbbe53187": {
+    "message": "Sign-in"
+  },
+  "panel_774bf7db76": {
+    "message": "Auth state"
+  },
+  "panel_2e5f79bb94": {
+    "message": "Checking..."
+  },
+  "panel_02600e6189": {
+    "message": "Verifying API connection"
+  },
+  "panel_c02977b07e": {
+    "message": "Test Connection"
+  },
+  "panel_3907fa7f80": {
+    "message": "Appearance"
+  },
+  "panel_efb52e7172": {
+    "message": "Theme"
+  },
+  "panel_6725e7bbcd": {
+    "message": "System"
+  },
+  "panel_60acc53f13": {
+    "message": "Dark"
+  },
+  "panel_dbcd5e7bb7": {
+    "message": "Light"
+  },
+  "panel_19766ed6cc": {
+    "message": "Cancel"
+  },
+  "panel_1509f561f2": {
+    "message": "Save"
+  },
+  "panel_35322b5bb5": {
+    "message": "Save Changes"
+  },
+  "panel_eb1a70e392": {
+    "message": "Discard"
+  },
+  "panel_49e49bb440": {
+    "message": "Generate"
+  },
+  "panel_0e91610117": {
+    "message": "Refresh"
+  },
+  "panel_3664895579": {
+    "message": "Export"
+  },
+  "panel_2cff9baabf": {
+    "message": "Import"
+  },
+  "panel_78b7d0379d": {
+    "message": "Grant"
+  },
+  "panel_05a2d7332e": {
+    "message": "Deny"
+  },
+  "panel_ca7981b46e": {
+    "message": "Off"
+  },
+  "panel_b8c209cdea": {
+    "message": "Ask"
+  },
+  "panel_0286249762": {
+    "message": "Auto"
+  },
+  "panel_1a3a4b99db": {
+    "message": "Users haven't reported a single instance of FSB being detected as a bot and interrupting their workflow. That said, not every day is sunshine. This is here for when one isn't."
+  },
+  "panel_1a187ac034": {
+    "message": ", add balance, then copy your API key from the dashboard. Solves reCAPTCHA v2, hCaptcha, and Turnstile."
+  },
+  "panel_92f1115a37": {
+    "message": "FSB uses this CLI's existing local sign-in. Test Connection sends one small no-tools validation request."
+  },
+  "panel_cfaa352b86": {
+    "message": "xAI · local harness"
+  },
+  "panel_fd05c3a95a": {
+    "message": "Requires the reviewed Grok Build 1.0.4 profile. Test Connection verifies installation, version, isolation, ACP, and cached OAuth without sending a prompt."
+  },
+  "panel_ce4f452059": {
+    "message": "Uses your signed-in Grok account. SuperGrok usage draws from its shared weekly allowance; extra usage may apply."
+  },
+  "panel_ba5c14963d": {
+    "message": "Browser task text and FSB MCP results are sent to Grok for inference. FSB disables secondary telemetry and trace uploads for this private profile."
+  },
+  "panel_baf4338a6f": {
+    "message": "Anthropic · local harness"
+  },
+  "panel_7b14b6ca11": {
+    "message": "Uses the account signed into Claude Code. FSB does not need your Anthropic credential."
+  },
+  "panel_8cceeb4d83": {
+    "message": "Usage and charges follow that account's Claude plan or API configuration."
+  },
+  "panel_d9daa99f67": {
+    "message": "Claude Code does not report an auth state that FSB can safely read."
+  },
+  "panel_00604d2592": {
+    "message": "Review Claude plans and billing"
+  },
+  "panel_b9f2d95fd0": {
+    "message": "Fine-tune automation behavior and performance"
+  },
+  "panel_d987fa1b93": {
+    "message": "Appearance of the control panel"
+  },
+  "panel_1b0daa3cbf": {
+    "message": "System follows your operating system appearance. Default: System."
+  },
+  "panel_0c2634ded4": {
+    "message": "Execution & Limits"
+  },
+  "panel_a429108292": {
+    "message": "Automation Limits"
+  },
+  "panel_a6db09cd31": {
+    "message": "Control task execution boundaries"
+  },
+  "panel_7f9bd64777": {
+    "message": "Max Iterations"
+  },
+  "panel_efb8da8405": {
+    "message": "Prevents runaway automation loops"
+  },
+  "panel_217a08135e": {
+    "message": "DOM Analysis"
+  },
+  "panel_f57d34cd62": {
+    "message": "Optimize page element processing"
+  },
+  "panel_f239d1c5e2": {
+    "message": "Element Limit"
+  },
+  "panel_a0981cec31": {
+    "message": "Balance between coverage and speed"
+  },
+  "panel_44551744d4": {
+    "message": "Element Cache Size"
+  },
+  "panel_bc63ff6878": {
+    "message": "50 (Minimal - simple pages)"
+  },
+  "panel_6e13b13acc": {
+    "message": "100 (Light - standard pages)"
+  },
+  "panel_f5e5f028c7": {
+    "message": "200 (Standard - recommended)"
+  },
+  "panel_51a4656787": {
+    "message": "500 (Heavy - complex SPAs)"
+  },
+  "panel_b497c0b77d": {
+    "message": "Custom..."
+  },
+  "panel_3bba622285": {
+    "message": "Cached element lookups for faster repeated queries. Higher = faster on complex pages, more memory."
+  },
+  "panel_964b6d2feb": {
+    "message": "Agent Concurrency"
+  },
+  "panel_93bdf716dc": {
+    "message": "Maximum simultaneous agents"
+  },
+  "panel_05f46c29ed": {
+    "message": "Concurrency Cap"
+  },
+  "panel_599bc7e4ae": {
+    "message": "Reset to recommended (8)"
+  },
+  "panel_26f41aac5c": {
+    "message": "Must be between 1 and 64"
+  },
+  "panel_dd39c865d3": {
+    "message": "0 of 8 active"
+  },
+  "panel_8b2e97f4e5": {
+    "message": "Trigger Concurrency"
+  },
+  "panel_1844d05c26": {
+    "message": "Maximum simultaneous trigger watches"
+  },
+  "panel_5aa4aff46c": {
+    "message": "Reset to default (8)"
+  },
+  "panel_4f6e909317": {
+    "message": "Automation Behavior"
+  },
+  "panel_87fb620509": {
+    "message": "Action Change Reports"
+  },
+  "panel_8807532414": {
+    "message": "Inline diff returned with each action"
+  },
+  "panel_5d2f08be69": {
+    "message": "Return action change reports (recommended)"
+  },
+  "panel_814f4c658e": {
+    "message": "MCP Session Replay"
+  },
+  "panel_d93120e9c3": {
+    "message": "Local, exact-fidelity history for MCP agent actions"
+  },
+  "panel_e3d0d26ac8": {
+    "message": "Record MCP sessions for replay"
+  },
+  "panel_8c338dcb22": {
+    "message": "MCP replay retention (days)"
+  },
+  "panel_a3a33e657a": {
+    "message": "Performance Optimizations"
+  },
+  "panel_318ba4fefb": {
+    "message": "Enable smart features to improve speed and accuracy"
+  },
+  "panel_718ec50194": {
+    "message": "Delta Diffing"
+  },
+  "panel_4df3ccd4f7": {
+    "message": "Send only DOM changes after first scan (70-90% context reduction)"
+  },
+  "panel_386c10cfbb": {
+    "message": "Viewport Priority"
+  },
+  "panel_55b7c33a00": {
+    "message": "Focus on visible elements for faster, more relevant results"
+  },
+  "panel_56cb122532": {
+    "message": "AI Site Map Refinement"
+  },
+  "panel_bbabb56b4f": {
+    "message": "Automatically refine site maps with AI for navigation strategies and workflow detection"
+  },
+  "panel_6a63ec792f": {
+    "message": "Visual Feedback"
+  },
+  "panel_d9db4fd5a6": {
+    "message": "Control visual indicators during automation"
+  },
+  "panel_882726c86c": {
+    "message": "Animated Action Highlights"
+  },
+  "panel_525c3926bb": {
+    "message": "Show a pulsing glow around elements while actions are being performed"
+  },
+  "panel_b8c545e36f": {
+    "message": "Sidepanel Step Progress"
+  },
+  "panel_cd7487b136": {
+    "message": "Show action steps in the side panel during automation"
+  },
+  "panel_915c0ef81c": {
+    "message": "Privacy & Developer"
+  },
+  "panel_02d7d5cfae": {
+    "message": "Voice Input"
+  },
+  "panel_936f490e8e": {
+    "message": "Control microphone input in the FSB side panel"
+  },
+  "panel_92f7b96921": {
+    "message": "Enable microphone voice input"
+  },
+  "panel_e007c1f5fd": {
+    "message": "Checking microphone permission…"
+  },
+  "panel_7df7702416": {
+    "message": "Chrome manages the extension-wide microphone grant."
+  },
+  "panel_5e09a0b0eb": {
+    "message": "Enable microphone"
+  },
+  "panel_2c0acdeddf": {
+    "message": "Open Chrome settings"
+  },
+  "panel_d7de9cfa12": {
+    "message": "Developer Options"
+  },
+  "panel_fef2fc10ae": {
+    "message": "Tools for debugging and troubleshooting"
+  },
+  "panel_5f75368293": {
+    "message": "Debug Mode"
+  },
+  "panel_64b2d259ae": {
+    "message": "Enable verbose console logging for troubleshooting automation issues"
+  },
+  "panel_38d35a351e": {
+    "message": "Privacy & Telemetry"
+  },
+  "panel_21bf1bebea": {
+    "message": "Anonymous usage data"
+  },
+  "panel_451d787c00": {
+    "message": "Send anonymous usage data"
+  },
+  "panel_57f9a109d4": {
+    "message": "Tokens used, MCP client name, active agent count. No URLs, prompts, or DOM."
+  },
+  "panel_9ec9376910": {
+    "message": "Read full policy →"
+  },
+  "panel_04dfac3671": {
+    "message": "Disconnected"
+  },
+  "panel_acf2db1614": {
+    "message": "Server Sync"
+  },
+  "panel_609bbbdf07": {
+    "message": "Hash Key"
+  },
+  "panel_534803768c": {
+    "message": "Pair Dashboard"
+  },
+  "panel_9a177de63c": {
+    "message": "Scan to Pair"
+  },
+  "panel_43e3ece73f": {
+    "message": "remaining"
+  },
+  "panel_5ad3dbd124": {
+    "message": "Got it"
+  },
+  "panel_c9b3c38247": {
+    "message": "Total"
+  },
+  "panel_a69c4dece1": {
+    "message": "Storage"
+  },
+  "panel_ae65d09655": {
+    "message": "Capacity"
+  },
+  "panel_a039dfb962": {
+    "message": "Tokens"
+  },
+  "panel_4bc74b2135": {
+    "message": "Task"
+  },
+  "panel_2f36130ebc": {
+    "message": "Consolidate"
+  },
+  "panel_ddceb7adfd": {
+    "message": "Clear All"
+  },
+  "panel_6cc8519b91": {
+    "message": "Go"
+  },
+  "panel_d3f7409ad7": {
+    "message": "Stop All"
+  },
+  "panel_f00611c47f": {
+    "message": "Automatically recommended for your system. Range 1 to 64. Lower = predictable resource use; higher = more parallel agents. Lowering this value while active agents are running does not evict them; new claims past the new cap are rejected (grandfather behavior)."
+  },
+  "panel_bfd6b0808c": {
+    "message": "Default 8. Range 1 to 64. Lower = predictable resource use; higher = more parallel watches. Lowering this value while triggers are active does not stop existing watches; new triggers past the new cap are rejected."
+  },
+  "panel_552aa7152b": {
+    "message": "Returns a compact diff describing what each action changed, so the AI doesn't need to re-read the page. Default on."
+  },
+  "panel_bb0522a484": {
+    "message": "Default 30. Range 1 to 365 days. This automatically deletes expired MCP replay sessions only; Autopilot history is never pruned by this setting."
+  },
+  "panel_77f6039567": {
+    "message": "Show the microphone in the side panel and allow browser speech recognition or OpenAI Whisper. Default on."
+  },
+  "panel_509f0b9d50": {
+    "message": "Turning voice input off stops FSB from using your microphone, but does not revoke Chrome's saved permission."
+  },
+  "panel_76e917ee87": {
+    "message": "Pair this extension with the FSB dashboard for remote control and result storage"
+  },
+  "panel_c11de3bb2e": {
+    "message": "Connect to FSB server for result storage and dashboard access"
+  },
+  "panel_097b5fa7f6": {
+    "message": "Generate a key, then pair the dashboard to link this browser to the FSB server."
+  },
+  "panel_75d0625c55": {
+    "message": "Background agents have left the building"
+  },
+  "panel_d17d0cfd98": {
+    "message": "FSB stays focused on precise single-attempt browser execution. Scheduled and recurring task work is better served by tools built for it:"
+  },
+  "panel_5a694f4532": {
+    "message": "for an open-source agent loop, and"
+  },
+  "panel_6e34781c2f": {
+    "message": "for managed long-running automations. Pick whichever fits the way you work."
+  },
+  "panel_e76c360683": {
+    "message": "Try OpenClaw"
+  },
+  "panel_1a58d9154d": {
+    "message": "Try Claude Routines"
+  },
+  "panel_582ba53e9e": {
+    "message": "Retired in v0.9.45rc1 · April 2026"
+  },
+  "panel_daa7068396": {
+    "message": "Your previous agents"
+  },
+  "panel_3107f72f47": {
+    "message": "Names of agents that lived on this profile, kept here so nothing feels lost. Definitions remain in chrome.storage.local['bgAgents'] (untouched)."
+  },
+  "panel_9f83a0b7bf": {
+    "message": "Long-term memory learned from past automation sessions"
+  },
+  "panel_76a6bcf157": {
+    "message": "Auto-Analyze"
+  },
+  "panel_50d0c5511b": {
+    "message": "Episodic"
+  },
+  "panel_9c11c99c77": {
+    "message": "Semantic"
+  },
+  "panel_2e3e91ffbd": {
+    "message": "Procedural"
+  },
+  "panel_ee6cfab445": {
+    "message": "Cost (30d)"
+  },
+  "panel_bc01325482": {
+    "message": "All Types"
+  },
+  "panel_96452046b5": {
+    "message": "No memories stored yet. Memories are automatically extracted from completed automation sessions."
+  },
+  "panel_ba7fab765c": {
+    "message": "Reconnaissance"
+  },
+  "panel_cf0e1ec867": {
+    "message": "Crawl a website to map its interactive structure, navigation, and selectors"
+  },
+  "panel_ad2f160b7b": {
+    "message": "Max Depth"
+  },
+  "panel_53e4d8efcc": {
+    "message": "Max Pages"
+  },
+  "panel_8ccc2c0e78": {
+    "message": "Research Results"
+  },
+  "panel_452d842e33": {
+    "message": "View and download site reconnaissance data, or save as site map memories"
+  },
+  "panel_df63a2da5f": {
+    "message": "No research results yet. Use Reconnaissance above to crawl a website."
+  },
+  "panel_30c19209ac": {
+    "message": "Consolidated Memory"
+  },
+  "panel_ba41142e62": {
+    "message": "Site Maps"
+  },
+  "panel_bb501d7877": {
+    "message": "Community"
+  },
+  "panel_d4b1ea5708": {
+    "message": "Overview"
+  },
+  "panel_e72d5d8d0b": {
+    "message": "Expanded"
+  },
+  "panel_73cde2ba51": {
+    "message": "E-Commerce & Shopping"
+  },
+  "panel_8dfdbc2ef4": {
+    "message": "Social Media"
+  },
+  "panel_6c335e2a76": {
+    "message": "Finance & Trading"
+  },
+  "panel_822c302ddc": {
+    "message": "Travel & Booking"
+  },
+  "panel_7b1b7b315b": {
+    "message": "Email Platforms"
+  },
+  "panel_cbb811ada2": {
+    "message": "Coding Platforms"
+  },
+  "panel_c47f423a0a": {
+    "message": "Career & Job Search"
+  },
+  "panel_08cf7301b0": {
+    "message": "Gaming Platforms"
+  },
+  "panel_2d995d5860": {
+    "message": "Productivity Tools"
+  },
+  "panel_95bfe584eb": {
+    "message": "Design & Whiteboard"
+  },
+  "panel_d9dae78103": {
+    "message": "Games"
+  },
+  "panel_d357175cfe": {
+    "message": "Media"
+  },
+  "panel_6eb00b4b26": {
+    "message": "Music"
+  },
+  "panel_69752f2313": {
+    "message": "News"
+  },
+  "panel_71bf90935f": {
+    "message": "Reference"
+  },
+  "panel_9b1f5daf0a": {
+    "message": "Sports"
+  },
+  "panel_0a035c2b85": {
+    "message": "Utilities"
+  },
+  "panel_4b7ef9d8cd": {
+    "message": "Monitor automation activity and troubleshoot issues"
+  },
+  "panel_65e5078378": {
+    "message": "Clear Logs"
+  },
+  "panel_5ddbf16ab1": {
+    "message": "Export Logs"
+  },
+  "panel_03f1acb9e6": {
+    "message": "All Logs"
+  },
+  "panel_ee585cc4bd": {
+    "message": "Errors Only"
+  },
+  "panel_0b3ff2c6ee": {
+    "message": "Warnings & Errors"
+  },
+  "panel_2d9e112fc2": {
+    "message": "Info & Above"
+  },
+  "panel_122df75095": {
+    "message": "FSB Control Panel loaded successfully"
+  },
+  "panel_edeead3f19": {
+    "message": "Session History"
+  },
+  "panel_fba294fa8b": {
+    "message": "View and export logs from past automation sessions"
+  },
+  "panel_7a28e26099": {
+    "message": "Clear All Sessions"
+  },
+  "panel_600cf8138b": {
+    "message": "No sessions recorded yet. Run an automation task to see session logs here."
+  },
+  "panel_e38737d4e5": {
+    "message": "Analytics Debug Tools"
+  },
+  "panel_c0b1dd0e52": {
+    "message": "Test and verify analytics data collection"
+  },
+  "panel_bc93dddbb3": {
+    "message": "Test Token Tracking"
+  },
+  "panel_4267998cbe": {
+    "message": "View Storage Data"
+  },
+  "panel_056a9215e5": {
+    "message": "Clear Analytics Data"
+  },
+  "panel_2ed2274015": {
+    "message": "Export Data"
+  },
+  "panel_a239457076": {
+    "message": "Debug Output:"
+  },
+  "panel_38b6a17864": {
+    "message": "Consent & Audit"
+  },
+  "panel_94ef5e0fd6": {
+    "message": "The default below applies to every site you have not configured; the per-origin list lets you opt individual sites out."
+  },
+  "panel_6e133ee86d": {
+    "message": "Default for New Sites"
+  },
+  "panel_9693a6dbf3": {
+    "message": "Financial and government services are always blocked regardless of this setting. Shipped as Auto; set to Off to restore strict opt-in."
+  },
+  "panel_01914d2038": {
+    "message": "Per-Origin Consent"
+  },
+  "panel_96db3ff001": {
+    "message": "Every site follows the default above unless you override it here. Set a site to Off to stop FSB acting on it."
+  },
+  "panel_48cfb671aa": {
+    "message": "No sites yet. Every site FSB acts on appears here so you can set it to Off (opt out). New sites follow the default above."
+  },
+  "panel_2c64c030d4": {
+    "message": "Sensitive"
+  },
+  "panel_18f2a0947f": {
+    "message": "Blocked"
+  },
+  "panel_5f351832fd": {
+    "message": "Allow mutating (write) calls"
+  },
+  "panel_45a8c38cdf": {
+    "message": "Compatibility metadata for POST/PUT/PATCH/DELETE. Under Auto, FSB can perform reads and writes on non-blocked origins."
+  },
+  "panel_87b1794408": {
+    "message": "Pending Requests"
+  },
+  "panel_0334c4fb39": {
+    "message": "0 pending"
+  },
+  "panel_10fd874b68": {
+    "message": "write"
+  },
+  "panel_47751f88ed": {
+    "message": "Audit Log"
+  },
+  "panel_818cb91030": {
+    "message": "Export Log"
+  },
+  "panel_533e26bdcc": {
+    "message": "Clear Log"
+  },
+  "panel_33b93476cf": {
+    "message": "Time"
+  },
+  "panel_d3e1c5f8a6": {
+    "message": "Origin"
+  },
+  "panel_5faf58a69d": {
+    "message": "Capability"
+  },
+  "panel_52a0f9b65b": {
+    "message": "Method"
+  },
+  "panel_bce87826df": {
+    "message": "Side Effect"
+  },
+  "panel_d37e0cd00f": {
+    "message": "Consent"
+  },
+  "panel_4e80abb5b1": {
+    "message": "Outcome"
+  },
+  "panel_5934628d0f": {
+    "message": "Legal & Service Policy"
+  },
+  "panel_fea0aab06e": {
+    "message": "Read the legal posture →"
+  },
+  "panel_4fc14539b2": {
+    "message": "View blocked services →"
+  },
+  "panel_efc0b9cac2": {
+    "message": "Privacy policy →"
+  },
+  "panel_bfe73827c5": {
+    "message": "Enable Auto-Login"
+  },
+  "panel_bbf6a83734": {
+    "message": "Credential Vault"
+  },
+  "panel_07dd5f0064": {
+    "message": "Checking vault status..."
+  },
+  "panel_50b231118c": {
+    "message": "Lock Vault"
+  },
+  "panel_ac22d297f8": {
+    "message": "Choose PIN length"
+  },
+  "panel_3e785bbc44": {
+    "message": "4 digits"
+  },
+  "panel_7856e511a2": {
+    "message": "6 digits"
+  },
+  "panel_f246c76813": {
+    "message": "Enter PIN"
+  },
+  "panel_4fa10c7baa": {
+    "message": "Confirm PIN"
+  },
+  "panel_73134c8143": {
+    "message": "Set Up Vault"
+  },
+  "panel_872ac152d2": {
+    "message": "Enter your PIN to unlock"
+  },
+  "panel_b41986e3f5": {
+    "message": "Unlock Vault"
+  },
+  "panel_c1dc92c680": {
+    "message": "Add New"
+  },
+  "panel_35d74dfd8d": {
+    "message": "Add Credential"
+  },
+  "panel_85a85dc9a2": {
+    "message": "Website / Domain"
+  },
+  "panel_657144f3f7": {
+    "message": "Username / Email"
+  },
+  "panel_e7cf3ef4f1": {
+    "message": "Password"
+  },
+  "panel_6239b93e96": {
+    "message": "Notes (optional)"
+  },
+  "panel_9caa27b9d0": {
+    "message": "Allow this credential on subdomains"
+  },
+  "panel_8816182605": {
+    "message": "Example: a credential saved for"
+  },
+  "panel_eb1c90412b": {
+    "message": "can also be used on"
+  },
+  "panel_195ab9772f": {
+    "message": "Enable Saved Payment Methods"
+  },
+  "panel_b45d64e4a3": {
+    "message": "Saved Payment Methods"
+  },
+  "panel_a92743920d": {
+    "message": "Checking payment method status..."
+  },
+  "panel_bbc3d7eb41": {
+    "message": "Lock Payment Methods"
+  },
+  "panel_24e06db48e": {
+    "message": "Open Passwords"
+  },
+  "panel_186f818f5f": {
+    "message": "Unlock Saved Payment Methods"
+  },
+  "panel_82f87079c6": {
+    "message": "Add Card"
+  },
+  "panel_b610b1ecca": {
+    "message": "Add Payment Method"
+  },
+  "panel_7cbcb92acd": {
+    "message": "Nickname (optional)"
+  },
+  "panel_85dfa9ba97": {
+    "message": "Shown in the card picker and saved-cards list."
+  },
+  "panel_d6bc26851d": {
+    "message": "Cardholder Name"
+  },
+  "panel_4566e068a2": {
+    "message": "Card Number"
+  },
+  "panel_b764cdc0ea": {
+    "message": "Unknown"
+  },
+  "panel_25ec19a82f": {
+    "message": "Card brand is detected automatically as you type."
+  },
+  "panel_43533009b2": {
+    "message": "Expiry Month"
+  },
+  "panel_310ca503ef": {
+    "message": "Month"
+  },
+  "panel_ca7aaef8c5": {
+    "message": "Expiry Year"
+  },
+  "panel_8a944d3d0e": {
+    "message": "Billing Name"
+  },
+  "panel_1b77352e0b": {
+    "message": "Billing Address Line 1"
+  },
+  "panel_ff2bc02380": {
+    "message": "Billing Address Line 2 (optional)"
+  },
+  "panel_fc33f73246": {
+    "message": "City"
+  },
+  "panel_9630a4b030": {
+    "message": "State / Region"
+  },
+  "panel_8198b202a8": {
+    "message": "Postal Code"
+  },
+  "panel_701d021d08": {
+    "message": "Country"
+  },
+  "panel_d00eca1bae": {
+    "message": "Getting Started"
+  },
+  "panel_c772928cb0": {
+    "message": "Learn the basics of browser automation with FSB"
+  },
+  "panel_584aa47f13": {
+    "message": "Visit Website"
+  },
+  "panel_b50c780ec8": {
+    "message": "Guided Setup"
+  },
+  "panel_01c470e51f": {
+    "message": "Restart Setup"
+  },
+  "panel_c205924de0": {
+    "message": "Documentation"
+  },
+  "panel_ed16cec106": {
+    "message": "View Repository"
+  },
+  "panel_4c4a152a2b": {
+    "message": "Support & FAQ"
+  },
+  "panel_7302582a6f": {
+    "message": "Open Support"
+  },
+  "panel_d4a48a753a": {
+    "message": "MCP Setup"
+  },
+  "panel_2df575344e": {
+    "message": "View MCP Guide"
+  },
+  "panel_506ff39462": {
+    "message": "Privacy Policy"
+  },
+  "panel_377733b622": {
+    "message": "View Privacy Policy"
+  },
+  "panel_666067dd37": {
+    "message": "Issues"
+  },
+  "panel_cf82dd02e8": {
+    "message": "View Issues"
+  },
+  "panel_bc47da663d": {
+    "message": "Source Code"
+  },
+  "panel_6209d4d395": {
+    "message": "View GitHub"
+  },
+  "panel_bd4702c187": {
+    "message": "Release Notes"
+  },
+  "panel_1705ccc5a5": {
+    "message": "View Releases"
+  },
+  "panel_c011d6097b": {
+    "message": "License"
+  },
+  "panel_b392d33f2e": {
+    "message": "View License"
+  },
+  "panel_a4b17bc7db": {
+    "message": "You have unsaved changes"
+  },
+  "panel_8e0f9288e2": {
+    "message": "How FSB treats a site you have not configured. Auto lets FSB call any non-blocked site's authenticated API (reads and writes). Off requires you to enable each site first. Ask queues a request for your approval."
+  },
+  "panel_811f8544eb": {
+    "message": "Requests waiting on your decision. Granting one lets the caller retry; FSB never acts without your approval."
+  },
+  "panel_b04eb08367": {
+    "message": "No pending requests. When a tool needs consent it appears here. You can also grant access ahead of time from the list above."
+  },
+  "panel_1fdd802663": {
+    "message": "A redacted, append-only record of capability calls. No arguments, tokens, cookies, or response bodies are ever stored."
+  },
+  "panel_787513f4fd": {
+    "message": "No audit entries yet. Capability calls are recorded here once you allow an origin. Entries are redacted and stored locally only."
+  },
+  "panel_323d6ff1f1": {
+    "message": "FSB's automation posture, audit retention, and the consent model are documented in LEGAL.md. Some origins are blocked from automation by the service denylist."
+  },
+  "panel_e31b2a3d3f": {
+    "message": "Manage saved credentials and the shared credential vault for assisted sign-in"
+  },
+  "panel_93f508370d": {
+    "message": "When enabled, FSB will detect login pages and offer to sign in automatically using saved credentials"
+  },
+  "panel_10f7c25d31": {
+    "message": "Choose a PIN to protect saved credentials. Existing legacy credentials will be migrated automatically."
+  },
+  "panel_50c3db852a": {
+    "message": "Unlock to view, edit, autofill, or save passwords."
+  },
+  "panel_b6680d54b2": {
+    "message": "Vault unlocked for this browser session. Saved credentials are available below."
+  },
+  "panel_8d5ab0fe44": {
+    "message": "Auto-Login is currently disabled. You can still manage saved credentials here, but FSB will not use or save them automatically until you enable it."
+  },
+  "panel_c533cc0b87": {
+    "message": "No saved credentials yet. Credentials will be saved automatically when you sign in during automation, or you can add them manually."
+  },
+  "panel_0153e2da59": {
+    "message": "Enter the website domain (e.g., github.com, mail.google.com)"
+  },
+  "panel_83c6ad5aef": {
+    "message": "Manage saved cards for assisted checkout. Payment methods share the credential vault configured in Passwords."
+  },
+  "panel_ff7378d58d": {
+    "message": "When enabled, FSB can prompt to fill a saved card on checkout pages. It never submits the final payment automatically."
+  },
+  "panel_7d1624ea92": {
+    "message": "Unlock the credential vault before managing saved payment methods."
+  },
+  "panel_ad5f8e8263": {
+    "message": "Enter your vault PIN to unlock payment methods"
+  },
+  "panel_2035e1f48d": {
+    "message": "Saved cards use the same encrypted vault but require a separate unlock before checkout fills in this browser session."
+  },
+  "panel_0ec4dc2534": {
+    "message": "Saved payment methods are unlocked for this browser session. FSB can prompt to fill a saved card on detected checkout pages, but it will never submit the final payment automatically."
+  },
+  "panel_5d38d8a7cf": {
+    "message": "Saved Payment Methods is currently disabled. You can still manage stored cards here, but FSB will not offer them during checkout until you enable the feature."
+  },
+  "panel_2fd67f06e0": {
+    "message": "No saved payment methods yet. Add a card here so FSB can offer it on checkout pages after you unlock payment access."
+  },
+  "panel_928895f662": {
+    "message": "CVV and billing profile data are stored encrypted inside your local vault. Review local device security before using this feature."
+  },
+  "panel_39d561254a": {
+    "message": "Save Card"
+  },
+  "panel_e4d896bcce": {
+    "message": "Get help and learn more about FSB features"
+  },
+  "panel_32623395c6": {
+    "message": "Re-run the onboarding walkthrough to change your provider or MCP setup"
+  },
+  "panel_db4cec18bf": {
+    "message": "Complete documentation and setup guides for FSB"
+  },
+  "panel_63dfe63d28": {
+    "message": "Browse FAQs and fix common connection issues"
+  },
+  "panel_d2286811e6": {
+    "message": "Connect MCP clients like Claude Code and Cursor, then verify with the doctor command"
+  },
+  "panel_f3cb441c27": {
+    "message": "Read how FSB handles data, storage, and optional server sync"
+  },
+  "panel_476481e410": {
+    "message": "Report bugs, request features, and track development progress"
+  },
+  "panel_89b47ad370": {
+    "message": "View the source code and contribute to FSB development"
+  },
+  "panel_f775bb5cbf": {
+    "message": "See what's new and changed in each FSB release"
+  },
+  "panel_8abc0aef4e": {
+    "message": "FSB is open source under the MIT license"
+  },
+  "panel_e235f8135c": {
+    "message": "Join other FSB users and follow along for updates"
+  },
+  "panel_53e5555e9a": {
+    "message": "Stores replay data locally while redacting secret-bearing fields and sensitive inputs. Ordinary typed text and action results remain available for replay. MCP clients can save a local task memory by providing a secret-free completion, partial, or failure summary; no separate AI-provider call is made. Turning this off stops future MCP recording and saves any open recording. Existing MCP replay history stores up to the 50 most recent sessions, and no session is kept longer than the configured retention period. Autopilot history is unaffected."
+  },
+  "panel_65b7096b6d": {
+    "message": "Automation prohibited for this origin. "
+  },
+  "panel_d50f8b527c": {
+    "message": "Sensitive origin. Capability invocations can run under Auto; network-capture discovery still requires confirmation."
+  },
+  "panel_47d2a515ef": {
+    "message": "Loading..."
+  },
+  "panel_90e89ecfe7": {
+    "message": "Load next 500 events"
+  },
+  "panel_935f2565d7": {
+    "message": "Retry loading events"
+  },
+  "panel_4eee87e82f": {
+    "message": "Unable to reach vault service"
+  },
+  "panel_08bf951eda": {
+    "message": "No vault configured. Create one to protect saved credentials."
+  },
+  "panel_949bcb5f38": {
+    "message": "Vault is locked."
+  },
+  "panel_30cef3bfb8": {
+    "message": "Vault unlocked for this session."
+  },
+  "panel_05dc3c4c0a": {
+    "message": "Error checking vault status."
+  },
+  "panel_890a216b7c": {
+    "message": "Unlocking..."
+  },
+  "panel_def70944c9": {
+    "message": "Creating..."
+  },
+  "panel_93ad91e855": {
+    "message": "Unlock the credential vault first."
+  },
+  "panel_8221f05f8b": {
+    "message": "Payment methods are locked."
+  },
+  "panel_0b4ba676b0": {
+    "message": "Payment methods unlocked for this session."
+  },
+  "panel_b82d31b688": {
+    "message": "Error checking payment status."
+  },
+  "panel_b197ab1d9b": {
+    "message": "Configure a vault PIN in Passwords first."
+  },
+  "panel_160419ae70": {
+    "message": "Payment methods are unlocked."
+  },
+  "panel_507fc32dc5": {
+    "message": "Edit Agent"
+  },
+  "panel_fb25598ed0": {
+    "message": "Create New Agent"
+  },
+  "panel_6c02a28421": {
+    "message": "Testing..."
+  },
+  "panel_22965568d2": {
+    "message": "Connected"
+  },
+  "panel_ee172faa9c": {
+    "message": "Invalid key"
+  },
+  "panel_031a8f0f65": {
+    "message": "Failed"
+  },
+  "panel_424a2551d3": {
+    "message": "Expired"
+  },
+  "panel_c7730178f4": {
+    "message": "Generate new code"
+  },
+  "panel_ac116124f7": {
+    "message": "Could not generate pairing code. Try again."
+  },
+  "panel_d03fd96d28": {
+    "message": "Choose a loaded model..."
+  },
+  "panel_e189657f5a": {
+    "message": "No models match"
   }
 }

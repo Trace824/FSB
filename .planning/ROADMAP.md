@@ -32,7 +32,7 @@
 
 - [x] **Phase 66: Locale plumbing and CI gate** - Seed catalogs, the runtime resolver, manifest `default_locale`, and a CI gate that fails on a missing key, an empty message, a placeholder change, or copied English (completed 2026-10-11)
 - [x] **Phase 67: Manifest, side panel, and popup** - Localized store identity plus side-panel and popup chrome, with all six translations in the same change
-- [ ] **Phase 68: Options and control panel** - Localized options and control-panel chrome, the largest surface
+- [x] **Phase 68: Options and control panel** - Localized options and control-panel chrome, the largest surface
 - [ ] **Phase 69: Onboarding, entry pages, and overlay chrome** - Localized onboarding, unlock, microphone permission, and FSB-authored overlay labels
 - [ ] **Phase 70: Coverage audit** - CI fails if in-scope files still contain package-owned English prose outside the catalog
 - [ ] **Phase 71: Language control** - A persistent seven-locale control that applies without restarting Chrome
@@ -73,7 +73,8 @@
   1. Opening the control panel in German shows German labels, buttons, hints, and status text for package-owned chrome.
   2. Provider names, model ids, storage keys, and error codes that are protocol identifiers remain unchanged.
   3. Every key added in this phase exists in all seven catalogs, and the Phase 66 gate stays green.
-**Plans**: TBD
+**Plans**: 1/1 complete
+- [x] 68-01: Control-panel catalogs and runtime status text.
 **UI hint**: yes
 
 ### Phase 69: Onboarding, entry pages, and overlay chrome
@@ -119,3 +120,4 @@
 ---
 *Roadmap created: 2026-10-11*
 *Phase 67 passed: 2026-10-11*
+*Phase 68 passed: 2026-10-11*

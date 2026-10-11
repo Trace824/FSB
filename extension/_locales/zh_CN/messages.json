@@ -396,5 +396,1259 @@
   },
   "shell_error_status": {
     "message": "错误"
+  },
+  "panel_67b6964686": {
+    "message": "仪表盘"
+  },
+  "panel_8ad747d05c": {
+    "message": "API 配置"
+  },
+  "panel_8d261a372f": {
+    "message": "同步"
+  },
+  "panel_703390318b": {
+    "message": "测试版"
+  },
+  "panel_be146b37a0": {
+    "message": "密码"
+  },
+  "panel_632e1c5839": {
+    "message": "付款"
+  },
+  "panel_22d4f6088b": {
+    "message": "高级设置"
+  },
+  "panel_c3963aedaa": {
+    "message": "记忆"
+  },
+  "panel_480d3c119a": {
+    "message": "日志与调试"
+  },
+  "panel_2ccff1d108": {
+    "message": "帮助与文档"
+  },
+  "panel_db17c74beb": {
+    "message": "查看 AI 用量、费用和自动化表现"
+  },
+  "panel_cd41bf0d3e": {
+    "message": "总 Token 数"
+  },
+  "panel_dfa5cc738d": {
+    "message": "总费用"
+  },
+  "panel_ada27592c9": {
+    "message": "请求"
+  },
+  "panel_5068c6c343": {
+    "message": "成功率"
+  },
+  "panel_d909750b1b": {
+    "message": "自动化"
+  },
+  "panel_cddf50281d": {
+    "message": "Token 用量随时间变化"
+  },
+  "panel_615c5daff4": {
+    "message": "过去 24 小时"
+  },
+  "panel_b84372e5cb": {
+    "message": "过去 7 天"
+  },
+  "panel_e9ddf63b38": {
+    "message": "过去 30 天"
+  },
+  "panel_5e4bc34faf": {
+    "message": "配置 AI 模型提供方和 API 设置"
+  },
+  "panel_9b3cf4a154": {
+    "message": "AI 模型配置"
+  },
+  "panel_84e1ec2c5b": {
+    "message": "AI 提供方"
+  },
+  "panel_994f468aae": {
+    "message": "选择其他提供方"
+  },
+  "panel_e65d5614f4": {
+    "message": "自定义（兼容 OpenAI）"
+  },
+  "panel_e69daa3849": {
+    "message": "API 提供方使用本地密钥。代理 CLI 使用现有的本地登录。"
+  },
+  "panel_daa5fed227": {
+    "message": "选择其他 AI 提供方"
+  },
+  "panel_822a9fabc1": {
+    "message": "此提供方已不能用于自动驾驶。开始新任务前，请选择并保存其他提供方。"
+  },
+  "panel_5e2c614c23": {
+    "message": "模型"
+  },
+  "panel_dfa17046ae": {
+    "message": "提供 API 密钥以列出模型"
+  },
+  "panel_00889a77ec": {
+    "message": "选择要使用的 AI 模型"
+  },
+  "panel_bc3286fa36": {
+    "message": "xAI API 密钥"
+  },
+  "panel_a3fb46f4c6": {
+    "message": "在此获取 API 密钥"
+  },
+  "panel_8e9faa30de": {
+    "message": "。密钥保存在此浏览器本地。"
+  },
+  "panel_53bca734db": {
+    "message": "Gemini API 密钥"
+  },
+  "panel_8418bdbdcd": {
+    "message": "OpenAI API 密钥"
+  },
+  "panel_e07165f5ce": {
+    "message": "OpenAI 平台"
+  },
+  "panel_959bc25166": {
+    "message": "Anthropic API 密钥"
+  },
+  "panel_c481af39b2": {
+    "message": "Anthropic 控制台"
+  },
+  "panel_36e0497429": {
+    "message": "OpenRouter API 密钥"
+  },
+  "panel_84de34181d": {
+    "message": "。一把密钥即可使用 200 多种模型。"
+  },
+  "panel_018833a024": {
+    "message": "LM Studio 服务器 URL"
+  },
+  "panel_3efaf1b1c1": {
+    "message": "使用 LM Studio 的本地 OpenAI 兼容服务器。不需要 API 密钥。模型实时发现自"
+  },
+  "panel_83419f15b8": {
+    "message": "自定义 API 端点"
+  },
+  "panel_cfb67fffe3": {
+    "message": "输入兼容 OpenAI 的 API 端点完整 URL"
+  },
+  "panel_acb781f972": {
+    "message": "自定义 API 密钥"
+  },
+  "panel_5e2e7207a6": {
+    "message": "密钥保存在此浏览器本地。"
+  },
+  "panel_abfe6d40e5": {
+    "message": "语音转文字"
+  },
+  "panel_5303c4374c": {
+    "message": "使用 OpenAI Whisper"
+  },
+  "panel_14e36783b5": {
+    "message": "需要 OpenAI API 密钥。关闭后使用浏览器自带的语音识别。"
+  },
+  "panel_e1461bf33a": {
+    "message": "CAPTCHA 求解"
+  },
+  "panel_2909841c62": {
+    "message": "启用 CAPTCHA 求解"
+  },
+  "panel_1955b2ec44": {
+    "message": "使用 2Captcha 解决 reCAPTCHA v2、hCaptcha 和 Cloudflare Turnstile"
+  },
+  "panel_5ac544cb2f": {
+    "message": "2Captcha API 密钥"
+  },
+  "panel_a003f76423": {
+    "message": "在此注册"
+  },
+  "panel_b6ff7ee96e": {
+    "message": "代理 CLI"
+  },
+  "panel_a1272b91cf": {
+    "message": "正在检查登录..."
+  },
+  "panel_d696a35bdd": {
+    "message": "配置文件"
+  },
+  "panel_3ac8bbca9a": {
+    "message": "账单"
+  },
+  "panel_cec3a9b89b": {
+    "message": "数据"
+  },
+  "panel_ccf75fb483": {
+    "message": "连接 SuperGrok"
+  },
+  "panel_acfc5be785": {
+    "message": "断开连接"
+  },
+  "panel_1771a5d0f6": {
+    "message": "继续登录"
+  },
+  "panel_888a2f4fc6": {
+    "message": "查看 SuperGrok 用量"
+  },
+  "panel_d334745b85": {
+    "message": "安装指南"
+  },
+  "panel_adadface01": {
+    "message": "未报告"
+  },
+  "panel_5bbbe53187": {
+    "message": "登录"
+  },
+  "panel_774bf7db76": {
+    "message": "认证状态"
+  },
+  "panel_2e5f79bb94": {
+    "message": "正在检查..."
+  },
+  "panel_02600e6189": {
+    "message": "正在验证 API 连接"
+  },
+  "panel_c02977b07e": {
+    "message": "测试连接"
+  },
+  "panel_3907fa7f80": {
+    "message": "外观"
+  },
+  "panel_efb52e7172": {
+    "message": "主题"
+  },
+  "panel_6725e7bbcd": {
+    "message": "跟随系统"
+  },
+  "panel_60acc53f13": {
+    "message": "深色"
+  },
+  "panel_dbcd5e7bb7": {
+    "message": "浅色"
+  },
+  "panel_19766ed6cc": {
+    "message": "取消"
+  },
+  "panel_1509f561f2": {
+    "message": "保存"
+  },
+  "panel_35322b5bb5": {
+    "message": "保存更改"
+  },
+  "panel_eb1a70e392": {
+    "message": "放弃"
+  },
+  "panel_49e49bb440": {
+    "message": "生成"
+  },
+  "panel_0e91610117": {
+    "message": "刷新"
+  },
+  "panel_3664895579": {
+    "message": "导出"
+  },
+  "panel_2cff9baabf": {
+    "message": "导入"
+  },
+  "panel_78b7d0379d": {
+    "message": "授予"
+  },
+  "panel_05a2d7332e": {
+    "message": "拒绝"
+  },
+  "panel_ca7981b46e": {
+    "message": "关闭"
+  },
+  "panel_b8c209cdea": {
+    "message": "询问"
+  },
+  "panel_0286249762": {
+    "message": "自动"
+  },
+  "panel_1a3a4b99db": {
+    "message": "还没有人报告 FSB 被识别为机器人并打断工作。不过并非每天都顺利。这是为不顺利的时候准备的。"
+  },
+  "panel_1a187ac034": {
+    "message": "，充值后从仪表盘复制 API 密钥。可解决 reCAPTCHA v2、hCaptcha 和 Turnstile。"
+  },
+  "panel_92f1115a37": {
+    "message": "FSB 使用此 CLI 现有的本地登录。测试连接会发送一个不含工具的小型验证请求。"
+  },
+  "panel_cfaa352b86": {
+    "message": "xAI · 本地工具"
+  },
+  "panel_fd05c3a95a": {
+    "message": "需要已审核的 Grok Build 1.0.4 配置。测试连接会核对安装、版本、隔离、ACP 和缓存的 OAuth，且不发送提示。"
+  },
+  "panel_ce4f452059": {
+    "message": "使用已登录的 Grok 账户。SuperGrok 用量来自共享的每周额度；可能产生额外用量。"
+  },
+  "panel_ba5c14963d": {
+    "message": "浏览器任务文本和 FSB 的 MCP 结果会发送给 Grok 做推理。FSB 会为这个私有配置关闭次要遥测和跟踪上传。"
+  },
+  "panel_baf4338a6f": {
+    "message": "Anthropic · 本地工具"
+  },
+  "panel_7b14b6ca11": {
+    "message": "使用已登录 Claude Code 的账户。FSB 不需要你的 Anthropic 凭据。"
+  },
+  "panel_8cceeb4d83": {
+    "message": "用量和费用遵循该账户的 Claude 方案或 API 配置。"
+  },
+  "panel_d9daa99f67": {
+    "message": "Claude Code 不会报告 FSB 可以安全读取的认证状态。"
+  },
+  "panel_00604d2592": {
+    "message": "查看 Claude 方案和账单"
+  },
+  "panel_b9f2d95fd0": {
+    "message": "微调自动化行为和性能"
+  },
+  "panel_d987fa1b93": {
+    "message": "控制面板的外观"
+  },
+  "panel_1b0daa3cbf": {
+    "message": "跟随操作系统外观。默认：跟随系统。"
+  },
+  "panel_0c2634ded4": {
+    "message": "执行与限制"
+  },
+  "panel_a429108292": {
+    "message": "自动化限制"
+  },
+  "panel_a6db09cd31": {
+    "message": "控制任务执行边界"
+  },
+  "panel_7f9bd64777": {
+    "message": "最大迭代次数"
+  },
+  "panel_efb8da8405": {
+    "message": "防止自动化循环失控"
+  },
+  "panel_217a08135e": {
+    "message": "DOM 分析"
+  },
+  "panel_f57d34cd62": {
+    "message": "优化页面元素处理"
+  },
+  "panel_f239d1c5e2": {
+    "message": "元素上限"
+  },
+  "panel_a0981cec31": {
+    "message": "覆盖范围与速度的平衡"
+  },
+  "panel_44551744d4": {
+    "message": "元素缓存大小"
+  },
+  "panel_bc63ff6878": {
+    "message": "50（最小：简单页面）"
+  },
+  "panel_6e13b13acc": {
+    "message": "100（轻量：普通页面）"
+  },
+  "panel_f5e5f028c7": {
+    "message": "200（标准：推荐）"
+  },
+  "panel_51a4656787": {
+    "message": "500（较重：复杂 SPA）"
+  },
+  "panel_b497c0b77d": {
+    "message": "自定义..."
+  },
+  "panel_3bba622285": {
+    "message": "缓存元素查找，加快重复查询。数值越高，复杂页面越快，内存占用也越高。"
+  },
+  "panel_964b6d2feb": {
+    "message": "代理并发"
+  },
+  "panel_93bdf716dc": {
+    "message": "同时运行的代理上限"
+  },
+  "panel_05f46c29ed": {
+    "message": "并发上限"
+  },
+  "panel_599bc7e4ae": {
+    "message": "恢复为建议值 (8)"
+  },
+  "panel_26f41aac5c": {
+    "message": "必须在 1 到 64 之间"
+  },
+  "panel_dd39c865d3": {
+    "message": "8 个中有 0 个在运行"
+  },
+  "panel_8b2e97f4e5": {
+    "message": "触发器并发"
+  },
+  "panel_1844d05c26": {
+    "message": "同时监视的触发器上限"
+  },
+  "panel_5aa4aff46c": {
+    "message": "恢复为默认值 (8)"
+  },
+  "panel_4f6e909317": {
+    "message": "自动化行为"
+  },
+  "panel_87fb620509": {
+    "message": "操作变更报告"
+  },
+  "panel_8807532414": {
+    "message": "每次操作附带返回的行内差异"
+  },
+  "panel_5d2f08be69": {
+    "message": "返回操作变更报告（推荐）"
+  },
+  "panel_814f4c658e": {
+    "message": "MCP 会话重放"
+  },
+  "panel_d93120e9c3": {
+    "message": "MCP 代理操作的本地精确历史"
+  },
+  "panel_e3d0d26ac8": {
+    "message": "记录 MCP 会话以便重放"
+  },
+  "panel_8c338dcb22": {
+    "message": "MCP 重放保留天数"
+  },
+  "panel_a3a33e657a": {
+    "message": "性能优化"
+  },
+  "panel_318ba4fefb": {
+    "message": "启用智能功能以提高速度和准确性"
+  },
+  "panel_718ec50194": {
+    "message": "增量差异"
+  },
+  "panel_4df3ccd4f7": {
+    "message": "首次扫描后只发送 DOM 变化（上下文减少 70-90%）"
+  },
+  "panel_386c10cfbb": {
+    "message": "视口优先"
+  },
+  "panel_55b7c33a00": {
+    "message": "聚焦可见元素，获得更快、更相关的结果"
+  },
+  "panel_56cb122532": {
+    "message": "AI 站点地图优化"
+  },
+  "panel_bbabb56b4f": {
+    "message": "用 AI 自动优化站点地图，以发现导航策略和工作流"
+  },
+  "panel_6a63ec792f": {
+    "message": "视觉反馈"
+  },
+  "panel_d9db4fd5a6": {
+    "message": "控制自动化期间的视觉提示"
+  },
+  "panel_882726c86c": {
+    "message": "操作的动画高亮"
+  },
+  "panel_525c3926bb": {
+    "message": "执行操作时在元素周围显示脉动光晕"
+  },
+  "panel_b8c545e36f": {
+    "message": "侧边栏步骤进度"
+  },
+  "panel_cd7487b136": {
+    "message": "自动化期间在侧边栏显示操作步骤"
+  },
+  "panel_915c0ef81c": {
+    "message": "隐私与开发者"
+  },
+  "panel_02d7d5cfae": {
+    "message": "语音输入"
+  },
+  "panel_936f490e8e": {
+    "message": "控制 FSB 侧边栏中的麦克风输入"
+  },
+  "panel_92f7b96921": {
+    "message": "启用麦克风语音输入"
+  },
+  "panel_e007c1f5fd": {
+    "message": "正在检查麦克风权限…"
+  },
+  "panel_7df7702416": {
+    "message": "Chrome 管理整个扩展程序的麦克风授权。"
+  },
+  "panel_5e09a0b0eb": {
+    "message": "启用麦克风"
+  },
+  "panel_2c0acdeddf": {
+    "message": "打开 Chrome 设置"
+  },
+  "panel_d7de9cfa12": {
+    "message": "开发者选项"
+  },
+  "panel_fef2fc10ae": {
+    "message": "用于调试和排查的工具"
+  },
+  "panel_5f75368293": {
+    "message": "调试模式"
+  },
+  "panel_64b2d259ae": {
+    "message": "启用详细控制台日志，以便排查自动化问题"
+  },
+  "panel_38d35a351e": {
+    "message": "隐私与遥测"
+  },
+  "panel_21bf1bebea": {
+    "message": "匿名使用数据"
+  },
+  "panel_451d787c00": {
+    "message": "发送匿名使用数据"
+  },
+  "panel_57f9a109d4": {
+    "message": "已用 Token、MCP 客户端名称、活动代理数量。不含网址、提示或 DOM。"
+  },
+  "panel_9ec9376910": {
+    "message": "阅读完整政策 →"
+  },
+  "panel_04dfac3671": {
+    "message": "未连接"
+  },
+  "panel_acf2db1614": {
+    "message": "服务器同步"
+  },
+  "panel_609bbbdf07": {
+    "message": "哈希密钥"
+  },
+  "panel_534803768c": {
+    "message": "配对仪表盘"
+  },
+  "panel_9a177de63c": {
+    "message": "扫码配对"
+  },
+  "panel_43e3ece73f": {
+    "message": "剩余"
+  },
+  "panel_5ad3dbd124": {
+    "message": "知道了"
+  },
+  "panel_c9b3c38247": {
+    "message": "合计"
+  },
+  "panel_a69c4dece1": {
+    "message": "存储"
+  },
+  "panel_ae65d09655": {
+    "message": "容量"
+  },
+  "panel_a039dfb962": {
+    "message": "Token 数"
+  },
+  "panel_4bc74b2135": {
+    "message": "任务"
+  },
+  "panel_2f36130ebc": {
+    "message": "合并"
+  },
+  "panel_ddceb7adfd": {
+    "message": "全部清除"
+  },
+  "panel_6cc8519b91": {
+    "message": "开始"
+  },
+  "panel_d3f7409ad7": {
+    "message": "全部停止"
+  },
+  "panel_f00611c47f": {
+    "message": "按你的系统自动建议。范围 1 到 64。较低则资源使用更可预期，较高则并行代理更多。运行中降低此值不会赶走现有代理；超出新上限的新请求会被拒绝。"
+  },
+  "panel_bfd6b0808c": {
+    "message": "默认 8。范围 1 到 64。较低则资源使用更可预期，较高则并行监视更多。监视中降低此值不会停止现有监视；超出新上限的新触发器会被拒绝。"
+  },
+  "panel_552aa7152b": {
+    "message": "返回紧凑差异，说明每次操作改变了什么，这样 AI 不必重新阅读页面。默认开启。"
+  },
+  "panel_bb0522a484": {
+    "message": "默认 30。范围 1 到 365 天。只会自动删除过期的 MCP 重放会话；自动驾驶历史不会因此被裁剪。"
+  },
+  "panel_77f6039567": {
+    "message": "在侧边栏显示麦克风，并允许浏览器语音识别或 OpenAI Whisper。默认开启。"
+  },
+  "panel_509f0b9d50": {
+    "message": "关闭语音输入后，FSB 不再使用麦克风，但不会撤销 Chrome 已保存的权限。"
+  },
+  "panel_76e917ee87": {
+    "message": "将此扩展程序与 FSB 仪表盘配对，以便远程控制和保存结果"
+  },
+  "panel_c11de3bb2e": {
+    "message": "连接 FSB 服务器以保存结果并访问仪表盘"
+  },
+  "panel_097b5fa7f6": {
+    "message": "生成密钥，然后配对仪表盘，将此浏览器连到 FSB 服务器。"
+  },
+  "panel_75d0625c55": {
+    "message": "后台代理已经离开"
+  },
+  "panel_d17d0cfd98": {
+    "message": "FSB 专注于一次到位的精确浏览器执行。定时和重复任务更适合专为此设计的工具："
+  },
+  "panel_5a694f4532": {
+    "message": "用于开源代理循环，以及"
+  },
+  "panel_6e34781c2f": {
+    "message": "用于托管的长时间自动化。选择适合你工作方式的那个。"
+  },
+  "panel_e76c360683": {
+    "message": "试用 OpenClaw"
+  },
+  "panel_1a58d9154d": {
+    "message": "试用 Claude Routines"
+  },
+  "panel_582ba53e9e": {
+    "message": "已在 v0.9.45rc1 停用 · 2026 年 4 月"
+  },
+  "panel_daa7068396": {
+    "message": "你以前的代理"
+  },
+  "panel_3107f72f47": {
+    "message": "曾在此配置中的代理名称保留在这里，以免感觉丢失。定义仍在 chrome.storage.local['bgAgents']（未改动）。"
+  },
+  "panel_9f83a0b7bf": {
+    "message": "从过往自动化会话中学到的长期记忆"
+  },
+  "panel_76a6bcf157": {
+    "message": "自动分析"
+  },
+  "panel_50d0c5511b": {
+    "message": "情景"
+  },
+  "panel_9c11c99c77": {
+    "message": "语义"
+  },
+  "panel_2e3e91ffbd": {
+    "message": "程序"
+  },
+  "panel_ee6cfab445": {
+    "message": "费用（30 天）"
+  },
+  "panel_bc01325482": {
+    "message": "所有类型"
+  },
+  "panel_96452046b5": {
+    "message": "还没有保存的记忆。记忆会从已完成的自动化会话中自动提取。"
+  },
+  "panel_ba7fab765c": {
+    "message": "侦察"
+  },
+  "panel_cf0e1ec867": {
+    "message": "抓取网站，绘制其交互结构、导航和选择器"
+  },
+  "panel_ad2f160b7b": {
+    "message": "最大深度"
+  },
+  "panel_53e4d8efcc": {
+    "message": "最大页数"
+  },
+  "panel_8ccc2c0e78": {
+    "message": "研究结果"
+  },
+  "panel_452d842e33": {
+    "message": "查看并下载站点侦察数据，或保存为站点地图记忆"
+  },
+  "panel_df63a2da5f": {
+    "message": "还没有研究结果。使用上方的侦察来抓取网站。"
+  },
+  "panel_30c19209ac": {
+    "message": "合并记忆"
+  },
+  "panel_ba41142e62": {
+    "message": "站点地图"
+  },
+  "panel_bb501d7877": {
+    "message": "社区"
+  },
+  "panel_d4b1ea5708": {
+    "message": "概览"
+  },
+  "panel_e72d5d8d0b": {
+    "message": "展开"
+  },
+  "panel_73cde2ba51": {
+    "message": "电商与购物"
+  },
+  "panel_8dfdbc2ef4": {
+    "message": "社交媒体"
+  },
+  "panel_6c335e2a76": {
+    "message": "金融与交易"
+  },
+  "panel_822c302ddc": {
+    "message": "旅行与预订"
+  },
+  "panel_7b1b7b315b": {
+    "message": "电子邮件平台"
+  },
+  "panel_cbb811ada2": {
+    "message": "编程平台"
+  },
+  "panel_c47f423a0a": {
+    "message": "职业与求职"
+  },
+  "panel_08cf7301b0": {
+    "message": "游戏平台"
+  },
+  "panel_2d995d5860": {
+    "message": "效率工具"
+  },
+  "panel_95bfe584eb": {
+    "message": "设计与白板"
+  },
+  "panel_d9dae78103": {
+    "message": "游戏"
+  },
+  "panel_d357175cfe": {
+    "message": "媒体"
+  },
+  "panel_6eb00b4b26": {
+    "message": "音乐"
+  },
+  "panel_69752f2313": {
+    "message": "新闻"
+  },
+  "panel_71bf90935f": {
+    "message": "参考"
+  },
+  "panel_9b1f5daf0a": {
+    "message": "体育"
+  },
+  "panel_0a035c2b85": {
+    "message": "工具"
+  },
+  "panel_4b7ef9d8cd": {
+    "message": "监视自动化活动并排查问题"
+  },
+  "panel_65e5078378": {
+    "message": "清除日志"
+  },
+  "panel_5ddbf16ab1": {
+    "message": "导出日志"
+  },
+  "panel_03f1acb9e6": {
+    "message": "全部日志"
+  },
+  "panel_ee585cc4bd": {
+    "message": "仅错误"
+  },
+  "panel_0b3ff2c6ee": {
+    "message": "警告与错误"
+  },
+  "panel_2d9e112fc2": {
+    "message": "信息及以上"
+  },
+  "panel_122df75095": {
+    "message": "FSB 控制面板已成功加载"
+  },
+  "panel_edeead3f19": {
+    "message": "会话历史"
+  },
+  "panel_fba294fa8b": {
+    "message": "查看并导出过往自动化会话的日志"
+  },
+  "panel_7a28e26099": {
+    "message": "清除所有会话"
+  },
+  "panel_600cf8138b": {
+    "message": "还没有记录的会话。运行自动化任务后，会话日志会显示在这里。"
+  },
+  "panel_e38737d4e5": {
+    "message": "分析调试工具"
+  },
+  "panel_c0b1dd0e52": {
+    "message": "测试并验证分析数据收集"
+  },
+  "panel_bc93dddbb3": {
+    "message": "测试 Token 跟踪"
+  },
+  "panel_4267998cbe": {
+    "message": "查看存储数据"
+  },
+  "panel_056a9215e5": {
+    "message": "清除分析数据"
+  },
+  "panel_2ed2274015": {
+    "message": "导出数据"
+  },
+  "panel_a239457076": {
+    "message": "调试输出："
+  },
+  "panel_38b6a17864": {
+    "message": "同意与审计"
+  },
+  "panel_94ef5e0fd6": {
+    "message": "下面的默认值适用于你尚未配置的每个网站；按来源列表可以把个别网站排除。"
+  },
+  "panel_6e133ee86d": {
+    "message": "新网站的默认值"
+  },
+  "panel_9693a6dbf3": {
+    "message": "金融和政府服务始终被阻止，与此设置无关。出厂为自动；设为关闭可恢复严格的逐项启用。"
+  },
+  "panel_01914d2038": {
+    "message": "按来源同意"
+  },
+  "panel_96db3ff001": {
+    "message": "除非你在这里覆盖，否则每个网站都遵循上面的默认值。把网站设为关闭后，FSB 不再在该网站上操作。"
+  },
+  "panel_48cfb671aa": {
+    "message": "还没有网站。FSB 操作过的每个网站都会出现在这里，你可以设为关闭。新网站遵循上面的默认值。"
+  },
+  "panel_2c64c030d4": {
+    "message": "敏感"
+  },
+  "panel_18f2a0947f": {
+    "message": "已阻止"
+  },
+  "panel_5f351832fd": {
+    "message": "允许会修改的（写入）调用"
+  },
+  "panel_45a8c38cdf": {
+    "message": "POST/PUT/PATCH/DELETE 的兼容元数据。在自动模式下，FSB 可以对未阻止的来源进行读写。"
+  },
+  "panel_87b1794408": {
+    "message": "待处理请求"
+  },
+  "panel_0334c4fb39": {
+    "message": "0 个待处理"
+  },
+  "panel_10fd874b68": {
+    "message": "写入"
+  },
+  "panel_47751f88ed": {
+    "message": "审计日志"
+  },
+  "panel_818cb91030": {
+    "message": "导出日志"
+  },
+  "panel_533e26bdcc": {
+    "message": "清除日志"
+  },
+  "panel_33b93476cf": {
+    "message": "时间"
+  },
+  "panel_d3e1c5f8a6": {
+    "message": "来源"
+  },
+  "panel_5faf58a69d": {
+    "message": "能力"
+  },
+  "panel_52a0f9b65b": {
+    "message": "方法"
+  },
+  "panel_bce87826df": {
+    "message": "副作用"
+  },
+  "panel_d37e0cd00f": {
+    "message": "同意"
+  },
+  "panel_4e80abb5b1": {
+    "message": "结果"
+  },
+  "panel_5934628d0f": {
+    "message": "法律与服务政策"
+  },
+  "panel_fea0aab06e": {
+    "message": "阅读法律立场 →"
+  },
+  "panel_4fc14539b2": {
+    "message": "查看已阻止的服务 →"
+  },
+  "panel_efc0b9cac2": {
+    "message": "隐私政策 →"
+  },
+  "panel_bfe73827c5": {
+    "message": "启用自动登录"
+  },
+  "panel_bbf6a83734": {
+    "message": "凭据保险库"
+  },
+  "panel_07dd5f0064": {
+    "message": "正在检查保险库状态..."
+  },
+  "panel_50b231118c": {
+    "message": "锁定保险库"
+  },
+  "panel_ac22d297f8": {
+    "message": "选择 PIN 长度"
+  },
+  "panel_3e785bbc44": {
+    "message": "4 位"
+  },
+  "panel_7856e511a2": {
+    "message": "6 位"
+  },
+  "panel_f246c76813": {
+    "message": "输入 PIN"
+  },
+  "panel_4fa10c7baa": {
+    "message": "确认 PIN"
+  },
+  "panel_73134c8143": {
+    "message": "设置保险库"
+  },
+  "panel_872ac152d2": {
+    "message": "输入 PIN 以解锁"
+  },
+  "panel_b41986e3f5": {
+    "message": "解锁保险库"
+  },
+  "panel_c1dc92c680": {
+    "message": "新增"
+  },
+  "panel_35d74dfd8d": {
+    "message": "添加凭据"
+  },
+  "panel_85a85dc9a2": {
+    "message": "网站 / 域名"
+  },
+  "panel_657144f3f7": {
+    "message": "用户名 / 邮箱"
+  },
+  "panel_e7cf3ef4f1": {
+    "message": "密码"
+  },
+  "panel_6239b93e96": {
+    "message": "备注（可选）"
+  },
+  "panel_9caa27b9d0": {
+    "message": "允许此凭据用于子域名"
+  },
+  "panel_8816182605": {
+    "message": "例如：为以下地址保存的凭据"
+  },
+  "panel_eb1c90412b": {
+    "message": "也可用于"
+  },
+  "panel_195ab9772f": {
+    "message": "启用已保存的付款方式"
+  },
+  "panel_b45d64e4a3": {
+    "message": "已保存的付款方式"
+  },
+  "panel_a92743920d": {
+    "message": "正在检查付款方式状态..."
+  },
+  "panel_bbc3d7eb41": {
+    "message": "锁定付款方式"
+  },
+  "panel_24e06db48e": {
+    "message": "打开密码"
+  },
+  "panel_186f818f5f": {
+    "message": "解锁已保存的付款方式"
+  },
+  "panel_82f87079c6": {
+    "message": "添加卡片"
+  },
+  "panel_b610b1ecca": {
+    "message": "添加付款方式"
+  },
+  "panel_7cbcb92acd": {
+    "message": "昵称（可选）"
+  },
+  "panel_85dfa9ba97": {
+    "message": "显示在卡片选择器和已保存卡片列表中。"
+  },
+  "panel_d6bc26851d": {
+    "message": "持卡人姓名"
+  },
+  "panel_4566e068a2": {
+    "message": "卡号"
+  },
+  "panel_b764cdc0ea": {
+    "message": "未知"
+  },
+  "panel_25ec19a82f": {
+    "message": "输入时会自动识别卡组织。"
+  },
+  "panel_43533009b2": {
+    "message": "到期月份"
+  },
+  "panel_310ca503ef": {
+    "message": "月"
+  },
+  "panel_ca7aaef8c5": {
+    "message": "到期年份"
+  },
+  "panel_8a944d3d0e": {
+    "message": "账单姓名"
+  },
+  "panel_1b77352e0b": {
+    "message": "账单地址第 1 行"
+  },
+  "panel_ff2bc02380": {
+    "message": "账单地址第 2 行（可选）"
+  },
+  "panel_fc33f73246": {
+    "message": "城市"
+  },
+  "panel_9630a4b030": {
+    "message": "州 / 地区"
+  },
+  "panel_8198b202a8": {
+    "message": "邮政编码"
+  },
+  "panel_701d021d08": {
+    "message": "国家"
+  },
+  "panel_d00eca1bae": {
+    "message": "入门"
+  },
+  "panel_c772928cb0": {
+    "message": "了解使用 FSB 进行浏览器自动化的基础"
+  },
+  "panel_584aa47f13": {
+    "message": "访问网站"
+  },
+  "panel_b50c780ec8": {
+    "message": "引导式设置"
+  },
+  "panel_01c470e51f": {
+    "message": "重新开始设置"
+  },
+  "panel_c205924de0": {
+    "message": "文档"
+  },
+  "panel_ed16cec106": {
+    "message": "查看仓库"
+  },
+  "panel_4c4a152a2b": {
+    "message": "支持与常见问题"
+  },
+  "panel_7302582a6f": {
+    "message": "打开支持"
+  },
+  "panel_d4a48a753a": {
+    "message": "MCP 设置"
+  },
+  "panel_2df575344e": {
+    "message": "查看 MCP 指南"
+  },
+  "panel_506ff39462": {
+    "message": "隐私政策"
+  },
+  "panel_377733b622": {
+    "message": "查看隐私政策"
+  },
+  "panel_666067dd37": {
+    "message": "议题"
+  },
+  "panel_cf82dd02e8": {
+    "message": "查看议题"
+  },
+  "panel_bc47da663d": {
+    "message": "源代码"
+  },
+  "panel_6209d4d395": {
+    "message": "查看 GitHub"
+  },
+  "panel_bd4702c187": {
+    "message": "发行说明"
+  },
+  "panel_1705ccc5a5": {
+    "message": "查看版本"
+  },
+  "panel_c011d6097b": {
+    "message": "许可证"
+  },
+  "panel_b392d33f2e": {
+    "message": "查看许可证"
+  },
+  "panel_a4b17bc7db": {
+    "message": "你有未保存的更改"
+  },
+  "panel_8e0f9288e2": {
+    "message": "FSB 如何对待你尚未配置的网站。自动允许 FSB 调用任何未阻止网站的已认证 API（读取和写入）。关闭要求你先逐个启用网站。询问会把请求排队等待你批准。"
+  },
+  "panel_811f8544eb": {
+    "message": "等待你决定的请求。授予后调用方可以重试；未经你批准，FSB 不会行动。"
+  },
+  "panel_b04eb08367": {
+    "message": "没有待处理请求。工具需要同意时会显示在这里。你也可以从上方列表提前授予访问。"
+  },
+  "panel_1fdd802663": {
+    "message": "能力调用的经脱敏、只追加记录。从不保存参数、Token、Cookie 或响应正文。"
+  },
+  "panel_787513f4fd": {
+    "message": "还没有审计条目。允许某个来源后，能力调用会记录在这里。条目已脱敏，且只保存在本地。"
+  },
+  "panel_323d6ff1f1": {
+    "message": "FSB 的自动化立场、审计保留和同意模型记录在 LEGAL.md 中。部分来源被服务拒绝列表排除在自动化之外。"
+  },
+  "panel_e31b2a3d3f": {
+    "message": "管理已保存的凭据和用于辅助登录的共享保险库"
+  },
+  "panel_93f508370d": {
+    "message": "启用后，FSB 会检测登录页，并用已保存的凭据提议自动登录"
+  },
+  "panel_10f7c25d31": {
+    "message": "选择 PIN 以保护已保存的凭据。现有旧凭据会自动迁移。"
+  },
+  "panel_50c3db852a": {
+    "message": "解锁后可查看、编辑、自动填写或保存密码。"
+  },
+  "panel_b6680d54b2": {
+    "message": "此浏览器会话的保险库已解锁。已保存的凭据显示在下方。"
+  },
+  "panel_8d5ab0fe44": {
+    "message": "自动登录目前已关闭。你仍可在此管理已保存的凭据，但在启用之前，FSB 不会自动使用或保存它们。"
+  },
+  "panel_c533cc0b87": {
+    "message": "还没有已保存的凭据。自动化期间登录时会自动保存，也可以手动添加。"
+  },
+  "panel_0153e2da59": {
+    "message": "输入网站域名（例如 github.com、mail.google.com）"
+  },
+  "panel_83c6ad5aef": {
+    "message": "管理用于辅助结账的已保存卡片。付款方式共用在密码中配置的凭据保险库。"
+  },
+  "panel_ff7378d58d": {
+    "message": "启用后，FSB 可以在结账页提示填写已保存的卡片。它从不会自动提交最终付款。"
+  },
+  "panel_7d1624ea92": {
+    "message": "管理已保存的付款方式之前，请先解锁凭据保险库。"
+  },
+  "panel_ad5f8e8263": {
+    "message": "输入保险库 PIN 以解锁付款方式"
+  },
+  "panel_2035e1f48d": {
+    "message": "已保存的卡片使用同一个加密保险库，但在此浏览器会话中填写结账前需要单独解锁。"
+  },
+  "panel_0ec4dc2534": {
+    "message": "此浏览器会话的已保存付款方式已解锁。FSB 可以在检测到的结账页提示填写已保存卡片，但从不会自动提交最终付款。"
+  },
+  "panel_5d38d8a7cf": {
+    "message": "已保存的付款方式目前已关闭。你仍可在此管理已存卡片，但在启用该功能之前，FSB 不会在结账时提供它们。"
+  },
+  "panel_2fd67f06e0": {
+    "message": "还没有已保存的付款方式。在此添加卡片后，解锁付款访问，FSB 就可以在结账页提供它。"
+  },
+  "panel_928895f662": {
+    "message": "CVV 和账单资料以加密形式保存在本地保险库中。使用此功能前，请检查本机设备的安全。"
+  },
+  "panel_39d561254a": {
+    "message": "保存卡片"
+  },
+  "panel_e4d896bcce": {
+    "message": "获取帮助并进一步了解 FSB 功能"
+  },
+  "panel_32623395c6": {
+    "message": "重新运行新手引导，以更改提供方或 MCP 设置"
+  },
+  "panel_db4cec18bf": {
+    "message": "FSB 的完整文档和设置指南"
+  },
+  "panel_63dfe63d28": {
+    "message": "浏览常见问题并修复常见连接问题"
+  },
+  "panel_d2286811e6": {
+    "message": "连接 Claude Code 和 Cursor 等 MCP 客户端，然后用 doctor 命令验证"
+  },
+  "panel_f3cb441c27": {
+    "message": "阅读 FSB 如何处理数据、存储和可选的服务器同步"
+  },
+  "panel_476481e410": {
+    "message": "报告缺陷、请求功能并跟踪开发进度"
+  },
+  "panel_89b47ad370": {
+    "message": "查看源代码并为 FSB 开发做贡献"
+  },
+  "panel_f775bb5cbf": {
+    "message": "查看每个 FSB 版本的新增和变更"
+  },
+  "panel_8abc0aef4e": {
+    "message": "FSB 以 MIT 许可证开源"
+  },
+  "panel_e235f8135c": {
+    "message": "加入其他 FSB 用户并关注更新"
+  },
+  "panel_53e5555e9a": {
+    "message": "在脱敏含密字段和敏感输入后，将重放数据保存在本地。普通输入文本和操作结果仍可用于重放。MCP 客户端可以提供不含机密的完成、部分或失败摘要，以保存本地任务记忆；不会另外调用 AI 提供方。关闭后会停止以后的 MCP 录制，并保存任何未结束的录制。现有 MCP 重放历史最多保留最近 50 个会话，且不会超过所配置的保留期。自动驾驶历史不受影响。"
+  },
+  "panel_65b7096b6d": {
+    "message": "此来源禁止自动化。"
+  },
+  "panel_d50f8b527c": {
+    "message": "敏感来源。能力调用可以在自动模式下运行；网络捕获发现仍需要确认。"
+  },
+  "panel_47d2a515ef": {
+    "message": "正在加载..."
+  },
+  "panel_90e89ecfe7": {
+    "message": "加载接下来的 500 条事件"
+  },
+  "panel_935f2565d7": {
+    "message": "重试加载事件"
+  },
+  "panel_4eee87e82f": {
+    "message": "无法连接保险库服务"
+  },
+  "panel_08bf951eda": {
+    "message": "尚未配置保险库。请创建一个以保护已保存的凭据。"
+  },
+  "panel_949bcb5f38": {
+    "message": "保险库已锁定。"
+  },
+  "panel_30cef3bfb8": {
+    "message": "此会话的保险库已解锁。"
+  },
+  "panel_05dc3c4c0a": {
+    "message": "检查保险库状态时出错。"
+  },
+  "panel_890a216b7c": {
+    "message": "正在解锁..."
+  },
+  "panel_def70944c9": {
+    "message": "正在创建..."
+  },
+  "panel_93ad91e855": {
+    "message": "请先解锁凭据保险库。"
+  },
+  "panel_8221f05f8b": {
+    "message": "付款方式已锁定。"
+  },
+  "panel_0b4ba676b0": {
+    "message": "此会话的付款方式已解锁。"
+  },
+  "panel_b82d31b688": {
+    "message": "检查付款状态时出错。"
+  },
+  "panel_b197ab1d9b": {
+    "message": "请先在密码中设置保险库 PIN。"
+  },
+  "panel_160419ae70": {
+    "message": "付款方式已解锁。"
+  },
+  "panel_507fc32dc5": {
+    "message": "编辑代理"
+  },
+  "panel_fb25598ed0": {
+    "message": "创建新代理"
+  },
+  "panel_6c02a28421": {
+    "message": "正在测试..."
+  },
+  "panel_22965568d2": {
+    "message": "已连接"
+  },
+  "panel_ee172faa9c": {
+    "message": "无效密钥"
+  },
+  "panel_031a8f0f65": {
+    "message": "失败"
+  },
+  "panel_424a2551d3": {
+    "message": "已过期"
+  },
+  "panel_c7730178f4": {
+    "message": "生成新代码"
+  },
+  "panel_ac116124f7": {
+    "message": "无法生成配对码。请重试。"
+  },
+  "panel_d03fd96d28": {
+    "message": "选择已加载的模型..."
+  },
+  "panel_e189657f5a": {
+    "message": "没有匹配的模型"
   }
 }

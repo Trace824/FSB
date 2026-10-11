@@ -396,5 +396,1259 @@
   },
   "shell_error_status": {
     "message": "Fehler"
+  },
+  "panel_67b6964686": {
+    "message": "Übersicht"
+  },
+  "panel_8ad747d05c": {
+    "message": "API-Konfiguration"
+  },
+  "panel_8d261a372f": {
+    "message": "Synchronisierung"
+  },
+  "panel_703390318b": {
+    "message": "Betaversion"
+  },
+  "panel_be146b37a0": {
+    "message": "Passwörter"
+  },
+  "panel_632e1c5839": {
+    "message": "Zahlungen"
+  },
+  "panel_22d4f6088b": {
+    "message": "Erweiterte Einstellungen"
+  },
+  "panel_c3963aedaa": {
+    "message": "Gedächtnis"
+  },
+  "panel_480d3c119a": {
+    "message": "Protokolle und Fehlersuche"
+  },
+  "panel_2ccff1d108": {
+    "message": "Hilfe und Dokumentation"
+  },
+  "panel_db17c74beb": {
+    "message": "Beobachte AI-Nutzung, Kosten und die Leistung der Automatisierung"
+  },
+  "panel_cd41bf0d3e": {
+    "message": "Tokens insgesamt"
+  },
+  "panel_dfa5cc738d": {
+    "message": "Gesamtkosten"
+  },
+  "panel_ada27592c9": {
+    "message": "Anfragen"
+  },
+  "panel_5068c6c343": {
+    "message": "Erfolgsquote"
+  },
+  "panel_d909750b1b": {
+    "message": "Automatisierung"
+  },
+  "panel_cddf50281d": {
+    "message": "Tokenverbrauch im Zeitverlauf"
+  },
+  "panel_615c5daff4": {
+    "message": "Letzte 24 Stunden"
+  },
+  "panel_b84372e5cb": {
+    "message": "Letzte 7 Tage"
+  },
+  "panel_e9ddf63b38": {
+    "message": "Letzte 30 Tage"
+  },
+  "panel_5e4bc34faf": {
+    "message": "Richte den AI-Modellanbieter und die API-Einstellungen ein"
+  },
+  "panel_9b3cf4a154": {
+    "message": "AI-Modellkonfiguration"
+  },
+  "panel_84e1ec2c5b": {
+    "message": "AI-Anbieter"
+  },
+  "panel_994f468aae": {
+    "message": "Anderen Anbieter wählen"
+  },
+  "panel_e65d5614f4": {
+    "message": "Benutzerdefiniert (OpenAI-kompatibel)"
+  },
+  "panel_e69daa3849": {
+    "message": "API-Anbieter verwenden lokale Schlüssel. Agenten-CLIs verwenden die vorhandene lokale Anmeldung."
+  },
+  "panel_daa5fed227": {
+    "message": "Anderen AI-Anbieter wählen"
+  },
+  "panel_822a9fabc1": {
+    "message": "Dieser Anbieter ist für die Automatik nicht mehr verfügbar. Wähle und speichere einen anderen Anbieter, bevor du eine neue Aufgabe startest."
+  },
+  "panel_5e2c614c23": {
+    "message": "Modell"
+  },
+  "panel_dfa17046ae": {
+    "message": "API-Schlüssel angeben, um Modelle aufzulisten"
+  },
+  "panel_00889a77ec": {
+    "message": "Wähle das zu verwendende AI-Modell"
+  },
+  "panel_bc3286fa36": {
+    "message": "xAI-API-Schlüssel"
+  },
+  "panel_a3fb46f4c6": {
+    "message": "Hol deinen API-Schlüssel von"
+  },
+  "panel_8e9faa30de": {
+    "message": ". Dein Schlüssel wird lokal im Browser gespeichert."
+  },
+  "panel_53bca734db": {
+    "message": "Gemini-API-Schlüssel"
+  },
+  "panel_8418bdbdcd": {
+    "message": "OpenAI-API-Schlüssel"
+  },
+  "panel_e07165f5ce": {
+    "message": "OpenAI-Plattform"
+  },
+  "panel_959bc25166": {
+    "message": "Anthropic-API-Schlüssel"
+  },
+  "panel_c481af39b2": {
+    "message": "Anthropic-Konsole"
+  },
+  "panel_36e0497429": {
+    "message": "OpenRouter-API-Schlüssel"
+  },
+  "panel_84de34181d": {
+    "message": ". Mit einem Schlüssel auf über 200 Modelle zugreifen."
+  },
+  "panel_018833a024": {
+    "message": "LM-Studio-Server-URL"
+  },
+  "panel_3efaf1b1c1": {
+    "message": "Verwendet den lokalen OpenAI-kompatiblen Server von LM Studio. Kein API-Schlüssel nötig. Modelle werden live ermittelt von"
+  },
+  "panel_83419f15b8": {
+    "message": "Benutzerdefinierter API-Endpunkt"
+  },
+  "panel_cfb67fffe3": {
+    "message": "Gib die vollständige URL deines OpenAI-kompatiblen API-Endpunkts ein"
+  },
+  "panel_acb781f972": {
+    "message": "Benutzerdefinierter API-Schlüssel"
+  },
+  "panel_5e2e7207a6": {
+    "message": "Dein Schlüssel wird lokal im Browser gespeichert."
+  },
+  "panel_abfe6d40e5": {
+    "message": "Sprache zu Text"
+  },
+  "panel_5303c4374c": {
+    "message": "OpenAI Whisper verwenden"
+  },
+  "panel_14e36783b5": {
+    "message": "Erfordert einen OpenAI-API-Schlüssel. Wenn deaktiviert, wird die Spracherkennung des Browsers verwendet."
+  },
+  "panel_e1461bf33a": {
+    "message": "CAPTCHA-Löser"
+  },
+  "panel_2909841c62": {
+    "message": "CAPTCHA-Lösung aktivieren"
+  },
+  "panel_1955b2ec44": {
+    "message": "Nutzt den Dienst 2Captcha für reCAPTCHA v2, hCaptcha und Cloudflare Turnstile"
+  },
+  "panel_5ac544cb2f": {
+    "message": "2Captcha-API-Schlüssel"
+  },
+  "panel_a003f76423": {
+    "message": "Registriere dich bei"
+  },
+  "panel_b6ff7ee96e": {
+    "message": "Agenten-CLI"
+  },
+  "panel_a1272b91cf": {
+    "message": "Anmeldung wird geprüft..."
+  },
+  "panel_d696a35bdd": {
+    "message": "Profil"
+  },
+  "panel_3ac8bbca9a": {
+    "message": "Abrechnung"
+  },
+  "panel_cec3a9b89b": {
+    "message": "Daten"
+  },
+  "panel_ccf75fb483": {
+    "message": "SuperGrok verbinden"
+  },
+  "panel_acfc5be785": {
+    "message": "Trennen"
+  },
+  "panel_1771a5d0f6": {
+    "message": "Anmeldung fortsetzen"
+  },
+  "panel_888a2f4fc6": {
+    "message": "SuperGrok-Nutzung prüfen"
+  },
+  "panel_d334745b85": {
+    "message": "Installationsanleitung"
+  },
+  "panel_adadface01": {
+    "message": "Nicht gemeldet"
+  },
+  "panel_5bbbe53187": {
+    "message": "Anmeldung"
+  },
+  "panel_774bf7db76": {
+    "message": "Authentifizierungsstatus"
+  },
+  "panel_2e5f79bb94": {
+    "message": "Wird geprüft..."
+  },
+  "panel_02600e6189": {
+    "message": "API-Verbindung wird geprüft"
+  },
+  "panel_c02977b07e": {
+    "message": "Verbindung testen"
+  },
+  "panel_3907fa7f80": {
+    "message": "Erscheinungsbild"
+  },
+  "panel_efb52e7172": {
+    "message": "Design"
+  },
+  "panel_6725e7bbcd": {
+    "message": "Systemstandard"
+  },
+  "panel_60acc53f13": {
+    "message": "Dunkel"
+  },
+  "panel_dbcd5e7bb7": {
+    "message": "Hell"
+  },
+  "panel_19766ed6cc": {
+    "message": "Abbrechen"
+  },
+  "panel_1509f561f2": {
+    "message": "Speichern"
+  },
+  "panel_35322b5bb5": {
+    "message": "Änderungen speichern"
+  },
+  "panel_eb1a70e392": {
+    "message": "Verwerfen"
+  },
+  "panel_49e49bb440": {
+    "message": "Erzeugen"
+  },
+  "panel_0e91610117": {
+    "message": "Aktualisieren"
+  },
+  "panel_3664895579": {
+    "message": "Exportieren"
+  },
+  "panel_2cff9baabf": {
+    "message": "Importieren"
+  },
+  "panel_78b7d0379d": {
+    "message": "Gewähren"
+  },
+  "panel_05a2d7332e": {
+    "message": "Ablehnen"
+  },
+  "panel_ca7981b46e": {
+    "message": "Aus"
+  },
+  "panel_b8c209cdea": {
+    "message": "Fragen"
+  },
+  "panel_0286249762": {
+    "message": "Automatisch"
+  },
+  "panel_1a3a4b99db": {
+    "message": "Es gibt keinen gemeldeten Fall, in dem FSB als Bot erkannt wurde und die Arbeit unterbrochen hat. Trotzdem ist nicht jeder Tag einfach. Das hier ist für die anderen Tage."
+  },
+  "panel_1a187ac034": {
+    "message": ", lade Guthaben auf und kopiere den API-Schlüssel aus dem Dashboard. Löst reCAPTCHA v2, hCaptcha und Turnstile."
+  },
+  "panel_92f1115a37": {
+    "message": "FSB verwendet die vorhandene lokale Anmeldung dieser CLI. Verbindung testen sendet eine kleine Prüfanfrage ohne Werkzeuge."
+  },
+  "panel_cfaa352b86": {
+    "message": "xAI · lokale Anbindung"
+  },
+  "panel_fd05c3a95a": {
+    "message": "Erfordert das geprüfte Profil Grok Build 1.0.4. Verbindung testen prüft Installation, Version, Isolation, ACP und zwischengespeichertes OAuth, ohne einen Prompt zu senden."
+  },
+  "panel_ce4f452059": {
+    "message": "Verwendet dein angemeldetes Grok-Konto. SuperGrok-Nutzung kommt aus dem gemeinsamen Wochenkontingent; zusätzliche Nutzung kann anfallen."
+  },
+  "panel_ba5c14963d": {
+    "message": "Aufgabentext aus dem Browser und FSB-MCP-Ergebnisse werden zur Inferenz an Grok gesendet. FSB deaktiviert sekundäre Telemetrie und Trace-Uploads für dieses private Profil."
+  },
+  "panel_baf4338a6f": {
+    "message": "Anthropic · lokale Anbindung"
+  },
+  "panel_7b14b6ca11": {
+    "message": "Verwendet das in Claude Code angemeldete Konto. FSB braucht deine Anthropic-Zugangsdaten nicht."
+  },
+  "panel_8cceeb4d83": {
+    "message": "Nutzung und Kosten folgen dem Claude-Tarif oder der API-Konfiguration dieses Kontos."
+  },
+  "panel_d9daa99f67": {
+    "message": "Claude Code meldet keinen Authentifizierungsstatus, den FSB sicher lesen kann."
+  },
+  "panel_00604d2592": {
+    "message": "Claude-Tarife und Abrechnung prüfen"
+  },
+  "panel_b9f2d95fd0": {
+    "message": "Feinabstimmung von Verhalten und Leistung der Automatisierung"
+  },
+  "panel_d987fa1b93": {
+    "message": "Erscheinungsbild des Kontrollzentrums"
+  },
+  "panel_1b0daa3cbf": {
+    "message": "Systemstandard folgt dem Erscheinungsbild des Betriebssystems. Standard: Systemstandard."
+  },
+  "panel_0c2634ded4": {
+    "message": "Ausführung und Grenzen"
+  },
+  "panel_a429108292": {
+    "message": "Automatisierungsgrenzen"
+  },
+  "panel_a6db09cd31": {
+    "message": "Grenzen der Aufgabenausführung steuern"
+  },
+  "panel_7f9bd64777": {
+    "message": "Maximale Iterationen"
+  },
+  "panel_efb8da8405": {
+    "message": "Verhindert ausufernde Automatisierungsschleifen"
+  },
+  "panel_217a08135e": {
+    "message": "DOM-Analyse"
+  },
+  "panel_f57d34cd62": {
+    "message": "Verarbeitung der Seitenelemente optimieren"
+  },
+  "panel_f239d1c5e2": {
+    "message": "Elementgrenze"
+  },
+  "panel_a0981cec31": {
+    "message": "Balance zwischen Abdeckung und Geschwindigkeit"
+  },
+  "panel_44551744d4": {
+    "message": "Größe des Elementcaches"
+  },
+  "panel_bc63ff6878": {
+    "message": "50 (minimal, einfache Seiten)"
+  },
+  "panel_6e13b13acc": {
+    "message": "100 (leicht, übliche Seiten)"
+  },
+  "panel_f5e5f028c7": {
+    "message": "200 (Standard, empfohlen)"
+  },
+  "panel_51a4656787": {
+    "message": "500 (schwer, komplexe SPAs)"
+  },
+  "panel_b497c0b77d": {
+    "message": "Benutzerdefiniert..."
+  },
+  "panel_3bba622285": {
+    "message": "Zwischengespeicherte Elementsuchen für schnellere Wiederholungen. Höher bedeutet schneller auf komplexen Seiten und mehr Speicher."
+  },
+  "panel_964b6d2feb": {
+    "message": "Agenten-Parallelität"
+  },
+  "panel_93bdf716dc": {
+    "message": "Maximal gleichzeitige Agenten"
+  },
+  "panel_05f46c29ed": {
+    "message": "Parallelitätsgrenze"
+  },
+  "panel_599bc7e4ae": {
+    "message": "Auf empfohlen (8) zurücksetzen"
+  },
+  "panel_26f41aac5c": {
+    "message": "Muss zwischen 1 und 64 liegen"
+  },
+  "panel_dd39c865d3": {
+    "message": "0 von 8 aktiv"
+  },
+  "panel_8b2e97f4e5": {
+    "message": "Auslöser-Parallelität"
+  },
+  "panel_1844d05c26": {
+    "message": "Maximal gleichzeitige Auslöserüberwachungen"
+  },
+  "panel_5aa4aff46c": {
+    "message": "Auf Standard (8) zurücksetzen"
+  },
+  "panel_4f6e909317": {
+    "message": "Automatisierungsverhalten"
+  },
+  "panel_87fb620509": {
+    "message": "Aktionsänderungsberichte"
+  },
+  "panel_8807532414": {
+    "message": "Inline-Diff, der mit jeder Aktion zurückkommt"
+  },
+  "panel_5d2f08be69": {
+    "message": "Aktionsänderungsberichte zurückgeben (empfohlen)"
+  },
+  "panel_814f4c658e": {
+    "message": "MCP-Sitzungswiedergabe"
+  },
+  "panel_d93120e9c3": {
+    "message": "Lokaler, originalgetreuer Verlauf der MCP-Agentenaktionen"
+  },
+  "panel_e3d0d26ac8": {
+    "message": "MCP-Sitzungen für die Wiedergabe aufzeichnen"
+  },
+  "panel_8c338dcb22": {
+    "message": "Aufbewahrung der MCP-Wiedergabe (Tage)"
+  },
+  "panel_a3a33e657a": {
+    "message": "Leistungsoptimierungen"
+  },
+  "panel_318ba4fefb": {
+    "message": "Intelligente Funktionen für mehr Geschwindigkeit und Genauigkeit aktivieren"
+  },
+  "panel_718ec50194": {
+    "message": "Delta-Vergleich"
+  },
+  "panel_4df3ccd4f7": {
+    "message": "Sendet nach dem ersten Scan nur DOM-Änderungen (70–90 % weniger Kontext)"
+  },
+  "panel_386c10cfbb": {
+    "message": "Sichtfeldpriorität"
+  },
+  "panel_55b7c33a00": {
+    "message": "Sichtbare Elemente bevorzugen, für schnellere und passendere Ergebnisse"
+  },
+  "panel_56cb122532": {
+    "message": "AI-Verfeinerung der Sitemap"
+  },
+  "panel_bbabb56b4f": {
+    "message": "Sitemaps automatisch mit AI für Navigationsstrategien und Ablauferkennung verfeinern"
+  },
+  "panel_6a63ec792f": {
+    "message": "Visuelle Rückmeldung"
+  },
+  "panel_d9db4fd5a6": {
+    "message": "Visuelle Hinweise während der Automatisierung steuern"
+  },
+  "panel_882726c86c": {
+    "message": "Animierte Aktionsmarkierungen"
+  },
+  "panel_525c3926bb": {
+    "message": "Zeigt einen pulsierenden Schein um Elemente, während Aktionen laufen"
+  },
+  "panel_b8c545e36f": {
+    "message": "Schrittfortschritt im Seitenpanel"
+  },
+  "panel_cd7487b136": {
+    "message": "Zeigt Aktionsschritte während der Automatisierung im Seitenpanel"
+  },
+  "panel_915c0ef81c": {
+    "message": "Datenschutz und Entwicklung"
+  },
+  "panel_02d7d5cfae": {
+    "message": "Spracheingabe"
+  },
+  "panel_936f490e8e": {
+    "message": "Steuert die Mikrofoneingabe im FSB-Seitenpanel"
+  },
+  "panel_92f7b96921": {
+    "message": "Mikrofoneingabe aktivieren"
+  },
+  "panel_e007c1f5fd": {
+    "message": "Mikrofonberechtigung wird geprüft…"
+  },
+  "panel_7df7702416": {
+    "message": "Chrome verwaltet die Mikrofonfreigabe für die ganze Erweiterung."
+  },
+  "panel_5e09a0b0eb": {
+    "message": "Mikrofon aktivieren"
+  },
+  "panel_2c0acdeddf": {
+    "message": "Chrome-Einstellungen öffnen"
+  },
+  "panel_d7de9cfa12": {
+    "message": "Entwickleroptionen"
+  },
+  "panel_fef2fc10ae": {
+    "message": "Werkzeuge zur Fehlersuche"
+  },
+  "panel_5f75368293": {
+    "message": "Debug-Modus"
+  },
+  "panel_64b2d259ae": {
+    "message": "Ausführliche Konsolenprotokolle zur Fehlersuche bei der Automatisierung aktivieren"
+  },
+  "panel_38d35a351e": {
+    "message": "Datenschutz und Telemetrie"
+  },
+  "panel_21bf1bebea": {
+    "message": "Anonyme Nutzungsdaten"
+  },
+  "panel_451d787c00": {
+    "message": "Anonyme Nutzungsdaten senden"
+  },
+  "panel_57f9a109d4": {
+    "message": "Verbrauchte Tokens, Name des MCP-Clients, Anzahl aktiver Agenten. Keine URLs, Prompts oder DOM."
+  },
+  "panel_9ec9376910": {
+    "message": "Vollständige Richtlinie lesen →"
+  },
+  "panel_04dfac3671": {
+    "message": "Getrennt"
+  },
+  "panel_acf2db1614": {
+    "message": "Serversynchronisierung"
+  },
+  "panel_609bbbdf07": {
+    "message": "Hash-Schlüssel"
+  },
+  "panel_534803768c": {
+    "message": "Dashboard koppeln"
+  },
+  "panel_9a177de63c": {
+    "message": "Zum Koppeln scannen"
+  },
+  "panel_43e3ece73f": {
+    "message": "verbleibend"
+  },
+  "panel_5ad3dbd124": {
+    "message": "Verstanden"
+  },
+  "panel_c9b3c38247": {
+    "message": "Summe"
+  },
+  "panel_a69c4dece1": {
+    "message": "Speicher"
+  },
+  "panel_ae65d09655": {
+    "message": "Kapazität"
+  },
+  "panel_a039dfb962": {
+    "message": "Tokenzahl"
+  },
+  "panel_4bc74b2135": {
+    "message": "Aufgabe"
+  },
+  "panel_2f36130ebc": {
+    "message": "Zusammenführen"
+  },
+  "panel_ddceb7adfd": {
+    "message": "Alles löschen"
+  },
+  "panel_6cc8519b91": {
+    "message": "Start"
+  },
+  "panel_d3f7409ad7": {
+    "message": "Alles stoppen"
+  },
+  "panel_f00611c47f": {
+    "message": "Automatisch für dein System empfohlen. Bereich 1 bis 64. Niedriger bedeutet planbare Ressourcennutzung, höher mehr parallele Agenten. Eine Senkung bei laufenden Agenten beendet sie nicht; neue Ansprüche über der Grenze werden abgelehnt."
+  },
+  "panel_bfd6b0808c": {
+    "message": "Standard 8. Bereich 1 bis 64. Niedriger bedeutet planbare Ressourcennutzung, höher mehr parallele Überwachungen. Eine Senkung bei aktiven Auslösern stoppt bestehende Überwachungen nicht; neue Auslöser über der Grenze werden abgelehnt."
+  },
+  "panel_552aa7152b": {
+    "message": "Gibt einen kompakten Diff zurück, der beschreibt, was jede Aktion geändert hat, damit die AI die Seite nicht neu lesen muss. Standardmäßig an."
+  },
+  "panel_bb0522a484": {
+    "message": "Standard 30. Bereich 1 bis 365 Tage. Es werden nur abgelaufene MCP-Wiedergabesitzungen automatisch gelöscht; der Automatikverlauf wird durch diese Einstellung nie gekürzt."
+  },
+  "panel_77f6039567": {
+    "message": "Zeigt das Mikrofon im Seitenpanel und erlaubt die Spracherkennung des Browsers oder OpenAI Whisper. Standardmäßig an."
+  },
+  "panel_509f0b9d50": {
+    "message": "Spracheingabe auszuschalten hindert FSB daran, das Mikrofon zu nutzen, widerruft aber nicht die von Chrome gespeicherte Berechtigung."
+  },
+  "panel_76e917ee87": {
+    "message": "Kopple diese Erweiterung mit dem FSB-Dashboard für Fernsteuerung und Ergebnisspeicherung"
+  },
+  "panel_c11de3bb2e": {
+    "message": "Mit dem FSB-Server verbinden, um Ergebnisse zu speichern und das Dashboard zu öffnen"
+  },
+  "panel_097b5fa7f6": {
+    "message": "Erzeuge einen Schlüssel und kopple dann das Dashboard, um diesen Browser mit dem FSB-Server zu verbinden."
+  },
+  "panel_75d0625c55": {
+    "message": "Hintergrundagenten haben das Gebäude verlassen"
+  },
+  "panel_d17d0cfd98": {
+    "message": "FSB bleibt bei präziser Browserausführung in einem Versuch. Geplante und wiederkehrende Aufgaben passen besser zu Werkzeugen, die dafür gebaut sind:"
+  },
+  "panel_5a694f4532": {
+    "message": "für eine quelloffene Agentenschleife, und"
+  },
+  "panel_6e34781c2f": {
+    "message": "für verwaltete, lang laufende Automatisierungen. Wähle, was zu deiner Arbeitsweise passt."
+  },
+  "panel_e76c360683": {
+    "message": "OpenClaw ausprobieren"
+  },
+  "panel_1a58d9154d": {
+    "message": "Claude Routines ausprobieren"
+  },
+  "panel_582ba53e9e": {
+    "message": "Eingestellt in v0.9.45rc1 · April 2026"
+  },
+  "panel_daa7068396": {
+    "message": "Deine früheren Agenten"
+  },
+  "panel_3107f72f47": {
+    "message": "Namen der Agenten, die auf diesem Profil gelebt haben, damit nichts verloren wirkt. Die Definitionen bleiben in chrome.storage.local['bgAgents'] (unverändert)."
+  },
+  "panel_9f83a0b7bf": {
+    "message": "Langzeitgedächtnis aus früheren Automatisierungssitzungen"
+  },
+  "panel_76a6bcf157": {
+    "message": "Automatisch analysieren"
+  },
+  "panel_50d0c5511b": {
+    "message": "Episodisch"
+  },
+  "panel_9c11c99c77": {
+    "message": "Semantisch"
+  },
+  "panel_2e3e91ffbd": {
+    "message": "Prozedural"
+  },
+  "panel_ee6cfab445": {
+    "message": "Kosten (30 Tage)"
+  },
+  "panel_bc01325482": {
+    "message": "Alle Typen"
+  },
+  "panel_96452046b5": {
+    "message": "Noch keine Erinnerungen gespeichert. Sie werden automatisch aus abgeschlossenen Automatisierungssitzungen gewonnen."
+  },
+  "panel_ba7fab765c": {
+    "message": "Erkundung"
+  },
+  "panel_cf0e1ec867": {
+    "message": "Eine Website durchsuchen, um interaktive Struktur, Navigation und Selektoren abzubilden"
+  },
+  "panel_ad2f160b7b": {
+    "message": "Maximale Tiefe"
+  },
+  "panel_53e4d8efcc": {
+    "message": "Maximale Seiten"
+  },
+  "panel_8ccc2c0e78": {
+    "message": "Rechercheergebnisse"
+  },
+  "panel_452d842e33": {
+    "message": "Erkundungsdaten ansehen und herunterladen oder als Sitemap-Erinnerungen speichern"
+  },
+  "panel_df63a2da5f": {
+    "message": "Noch keine Rechercheergebnisse. Nutze die Erkundung oben, um eine Website zu durchsuchen."
+  },
+  "panel_30c19209ac": {
+    "message": "Zusammengeführtes Gedächtnis"
+  },
+  "panel_ba41142e62": {
+    "message": "Sitemaps"
+  },
+  "panel_bb501d7877": {
+    "message": "Gemeinschaft"
+  },
+  "panel_d4b1ea5708": {
+    "message": "Überblick"
+  },
+  "panel_e72d5d8d0b": {
+    "message": "Erweitert"
+  },
+  "panel_73cde2ba51": {
+    "message": "Handel und Einkauf"
+  },
+  "panel_8dfdbc2ef4": {
+    "message": "Soziale Medien"
+  },
+  "panel_6c335e2a76": {
+    "message": "Finanzen und Handel"
+  },
+  "panel_822c302ddc": {
+    "message": "Reisen und Buchung"
+  },
+  "panel_7b1b7b315b": {
+    "message": "E-Mail-Plattformen"
+  },
+  "panel_cbb811ada2": {
+    "message": "Programmierplattformen"
+  },
+  "panel_c47f423a0a": {
+    "message": "Karriere und Jobsuche"
+  },
+  "panel_08cf7301b0": {
+    "message": "Spieleplattformen"
+  },
+  "panel_2d995d5860": {
+    "message": "Produktivitätswerkzeuge"
+  },
+  "panel_95bfe584eb": {
+    "message": "Design und Whiteboard"
+  },
+  "panel_d9dae78103": {
+    "message": "Spiele"
+  },
+  "panel_d357175cfe": {
+    "message": "Medien"
+  },
+  "panel_6eb00b4b26": {
+    "message": "Musik"
+  },
+  "panel_69752f2313": {
+    "message": "Nachrichten"
+  },
+  "panel_71bf90935f": {
+    "message": "Nachschlagewerke"
+  },
+  "panel_9b1f5daf0a": {
+    "message": "Sport"
+  },
+  "panel_0a035c2b85": {
+    "message": "Hilfsprogramme"
+  },
+  "panel_4b7ef9d8cd": {
+    "message": "Automatisierungsaktivität beobachten und Probleme untersuchen"
+  },
+  "panel_65e5078378": {
+    "message": "Protokolle löschen"
+  },
+  "panel_5ddbf16ab1": {
+    "message": "Protokolle exportieren"
+  },
+  "panel_03f1acb9e6": {
+    "message": "Alle Protokolle"
+  },
+  "panel_ee585cc4bd": {
+    "message": "Nur Fehler"
+  },
+  "panel_0b3ff2c6ee": {
+    "message": "Warnungen und Fehler"
+  },
+  "panel_2d9e112fc2": {
+    "message": "Info und darüber"
+  },
+  "panel_122df75095": {
+    "message": "FSB-Kontrollzentrum erfolgreich geladen"
+  },
+  "panel_edeead3f19": {
+    "message": "Sitzungsverlauf"
+  },
+  "panel_fba294fa8b": {
+    "message": "Protokolle früherer Automatisierungssitzungen ansehen und exportieren"
+  },
+  "panel_7a28e26099": {
+    "message": "Alle Sitzungen löschen"
+  },
+  "panel_600cf8138b": {
+    "message": "Noch keine Sitzungen aufgezeichnet. Starte eine Automatisierungsaufgabe, um hier Sitzungsprotokolle zu sehen."
+  },
+  "panel_e38737d4e5": {
+    "message": "Analyse-Debug-Werkzeuge"
+  },
+  "panel_c0b1dd0e52": {
+    "message": "Erfassung der Analysedaten testen und prüfen"
+  },
+  "panel_bc93dddbb3": {
+    "message": "Tokenverfolgung testen"
+  },
+  "panel_4267998cbe": {
+    "message": "Speicherdaten ansehen"
+  },
+  "panel_056a9215e5": {
+    "message": "Analysedaten löschen"
+  },
+  "panel_2ed2274015": {
+    "message": "Daten exportieren"
+  },
+  "panel_a239457076": {
+    "message": "Debug-Ausgabe:"
+  },
+  "panel_38b6a17864": {
+    "message": "Einwilligung und Prüfung"
+  },
+  "panel_94ef5e0fd6": {
+    "message": "Die Vorgabe unten gilt für jede Website, die du nicht eingerichtet hast; die Liste je Ursprung lässt einzelne Websites ausnehmen."
+  },
+  "panel_6e133ee86d": {
+    "message": "Vorgabe für neue Websites"
+  },
+  "panel_9693a6dbf3": {
+    "message": "Finanz- und Behördendienste sind unabhängig von dieser Einstellung immer gesperrt. Ausgeliefert als Automatisch; auf Aus stellen, um die strenge Einwilligung wiederherzustellen."
+  },
+  "panel_01914d2038": {
+    "message": "Einwilligung je Ursprung"
+  },
+  "panel_96db3ff001": {
+    "message": "Jede Website folgt der Vorgabe oben, außer du überschreibst sie hier. Stelle eine Website auf Aus, damit FSB dort nicht mehr handelt."
+  },
+  "panel_48cfb671aa": {
+    "message": "Noch keine Websites. Jede Website, auf der FSB handelt, erscheint hier, damit du sie auf Aus stellen kannst. Neue Websites folgen der Vorgabe oben."
+  },
+  "panel_2c64c030d4": {
+    "message": "Sensibel"
+  },
+  "panel_18f2a0947f": {
+    "message": "Gesperrt"
+  },
+  "panel_5f351832fd": {
+    "message": "Ändernde (Schreib-)Aufrufe erlauben"
+  },
+  "panel_45a8c38cdf": {
+    "message": "Kompatibilitätsmetadaten für POST/PUT/PATCH/DELETE. Bei Automatisch kann FSB auf nicht gesperrten Ursprüngen lesen und schreiben."
+  },
+  "panel_87b1794408": {
+    "message": "Ausstehende Anfragen"
+  },
+  "panel_0334c4fb39": {
+    "message": "0 ausstehend"
+  },
+  "panel_10fd874b68": {
+    "message": "Schreiben"
+  },
+  "panel_47751f88ed": {
+    "message": "Prüfprotokoll"
+  },
+  "panel_818cb91030": {
+    "message": "Protokoll exportieren"
+  },
+  "panel_533e26bdcc": {
+    "message": "Protokoll löschen"
+  },
+  "panel_33b93476cf": {
+    "message": "Zeit"
+  },
+  "panel_d3e1c5f8a6": {
+    "message": "Ursprung"
+  },
+  "panel_5faf58a69d": {
+    "message": "Fähigkeit"
+  },
+  "panel_52a0f9b65b": {
+    "message": "Methode"
+  },
+  "panel_bce87826df": {
+    "message": "Nebenwirkung"
+  },
+  "panel_d37e0cd00f": {
+    "message": "Einwilligung"
+  },
+  "panel_4e80abb5b1": {
+    "message": "Ergebnis"
+  },
+  "panel_5934628d0f": {
+    "message": "Recht und Dienstrichtlinie"
+  },
+  "panel_fea0aab06e": {
+    "message": "Rechtliche Haltung lesen →"
+  },
+  "panel_4fc14539b2": {
+    "message": "Gesperrte Dienste ansehen →"
+  },
+  "panel_efc0b9cac2": {
+    "message": "Datenschutzrichtlinie →"
+  },
+  "panel_bfe73827c5": {
+    "message": "Automatische Anmeldung aktivieren"
+  },
+  "panel_bbf6a83734": {
+    "message": "Zugangsdatentresor"
+  },
+  "panel_07dd5f0064": {
+    "message": "Tresorstatus wird geprüft..."
+  },
+  "panel_50b231118c": {
+    "message": "Tresor sperren"
+  },
+  "panel_ac22d297f8": {
+    "message": "PIN-Länge wählen"
+  },
+  "panel_3e785bbc44": {
+    "message": "4 Ziffern"
+  },
+  "panel_7856e511a2": {
+    "message": "6 Ziffern"
+  },
+  "panel_f246c76813": {
+    "message": "PIN eingeben"
+  },
+  "panel_4fa10c7baa": {
+    "message": "PIN bestätigen"
+  },
+  "panel_73134c8143": {
+    "message": "Tresor einrichten"
+  },
+  "panel_872ac152d2": {
+    "message": "Gib deinen PIN zum Entsperren ein"
+  },
+  "panel_b41986e3f5": {
+    "message": "Tresor entsperren"
+  },
+  "panel_c1dc92c680": {
+    "message": "Neu hinzufügen"
+  },
+  "panel_35d74dfd8d": {
+    "message": "Zugangsdaten hinzufügen"
+  },
+  "panel_85a85dc9a2": {
+    "message": "Webseite / Domäne"
+  },
+  "panel_657144f3f7": {
+    "message": "Benutzername / E-Mail"
+  },
+  "panel_e7cf3ef4f1": {
+    "message": "Passwort"
+  },
+  "panel_6239b93e96": {
+    "message": "Notizen (optional)"
+  },
+  "panel_9caa27b9d0": {
+    "message": "Diese Zugangsdaten auf Subdomains erlauben"
+  },
+  "panel_8816182605": {
+    "message": "Beispiel: Zugangsdaten gespeichert für"
+  },
+  "panel_eb1c90412b": {
+    "message": "kann auch verwendet werden auf"
+  },
+  "panel_195ab9772f": {
+    "message": "Gespeicherte Zahlungsmethoden aktivieren"
+  },
+  "panel_b45d64e4a3": {
+    "message": "Gespeicherte Zahlungsmethoden"
+  },
+  "panel_a92743920d": {
+    "message": "Status der Zahlungsmethoden wird geprüft..."
+  },
+  "panel_bbc3d7eb41": {
+    "message": "Zahlungsmethoden sperren"
+  },
+  "panel_24e06db48e": {
+    "message": "Passwörter öffnen"
+  },
+  "panel_186f818f5f": {
+    "message": "Gespeicherte Zahlungsmethoden entsperren"
+  },
+  "panel_82f87079c6": {
+    "message": "Karte hinzufügen"
+  },
+  "panel_b610b1ecca": {
+    "message": "Zahlungsmethode hinzufügen"
+  },
+  "panel_7cbcb92acd": {
+    "message": "Spitzname (optional)"
+  },
+  "panel_85dfa9ba97": {
+    "message": "Wird in der Kartenauswahl und in der Liste gespeicherter Karten angezeigt."
+  },
+  "panel_d6bc26851d": {
+    "message": "Name der Karteninhaberin oder des Karteninhabers"
+  },
+  "panel_4566e068a2": {
+    "message": "Kartennummer"
+  },
+  "panel_b764cdc0ea": {
+    "message": "Unbekannt"
+  },
+  "panel_25ec19a82f": {
+    "message": "Die Kartenmarke wird beim Tippen automatisch erkannt."
+  },
+  "panel_43533009b2": {
+    "message": "Ablaufmonat"
+  },
+  "panel_310ca503ef": {
+    "message": "Monat"
+  },
+  "panel_ca7aaef8c5": {
+    "message": "Ablaufjahr"
+  },
+  "panel_8a944d3d0e": {
+    "message": "Rechnungsname"
+  },
+  "panel_1b77352e0b": {
+    "message": "Rechnungsadresse Zeile 1"
+  },
+  "panel_ff2bc02380": {
+    "message": "Rechnungsadresse Zeile 2 (optional)"
+  },
+  "panel_fc33f73246": {
+    "message": "Stadt"
+  },
+  "panel_9630a4b030": {
+    "message": "Bundesland / Region"
+  },
+  "panel_8198b202a8": {
+    "message": "Postleitzahl"
+  },
+  "panel_701d021d08": {
+    "message": "Land"
+  },
+  "panel_d00eca1bae": {
+    "message": "Erste Schritte"
+  },
+  "panel_c772928cb0": {
+    "message": "Lerne die Grundlagen der Browserautomatisierung mit FSB"
+  },
+  "panel_584aa47f13": {
+    "message": "Website besuchen"
+  },
+  "panel_b50c780ec8": {
+    "message": "Geführte Einrichtung"
+  },
+  "panel_01c470e51f": {
+    "message": "Einrichtung neu starten"
+  },
+  "panel_c205924de0": {
+    "message": "Dokumentation"
+  },
+  "panel_ed16cec106": {
+    "message": "Repository ansehen"
+  },
+  "panel_4c4a152a2b": {
+    "message": "Support und FAQ"
+  },
+  "panel_7302582a6f": {
+    "message": "Support öffnen"
+  },
+  "panel_d4a48a753a": {
+    "message": "MCP-Einrichtung"
+  },
+  "panel_2df575344e": {
+    "message": "MCP-Anleitung ansehen"
+  },
+  "panel_506ff39462": {
+    "message": "Datenschutzrichtlinie"
+  },
+  "panel_377733b622": {
+    "message": "Datenschutzrichtlinie ansehen"
+  },
+  "panel_666067dd37": {
+    "message": "Probleme"
+  },
+  "panel_cf82dd02e8": {
+    "message": "Probleme ansehen"
+  },
+  "panel_bc47da663d": {
+    "message": "Quellcode"
+  },
+  "panel_6209d4d395": {
+    "message": "GitHub ansehen"
+  },
+  "panel_bd4702c187": {
+    "message": "Versionshinweise"
+  },
+  "panel_1705ccc5a5": {
+    "message": "Versionen ansehen"
+  },
+  "panel_c011d6097b": {
+    "message": "Lizenz"
+  },
+  "panel_b392d33f2e": {
+    "message": "Lizenz ansehen"
+  },
+  "panel_a4b17bc7db": {
+    "message": "Du hast ungespeicherte Änderungen"
+  },
+  "panel_8e0f9288e2": {
+    "message": "Wie FSB eine Website behandelt, die du nicht eingerichtet hast. Automatisch lässt FSB die authentifizierte API jeder nicht gesperrten Website aufrufen (Lesen und Schreiben). Aus verlangt, dass du jede Website zuerst aktivierst. Fragen stellt eine Anfrage zur Freigabe in die Warteschlange."
+  },
+  "panel_811f8544eb": {
+    "message": "Anfragen, die auf deine Entscheidung warten. Eine Freigabe lässt den Aufrufer erneut versuchen; FSB handelt nie ohne deine Zustimmung."
+  },
+  "panel_b04eb08367": {
+    "message": "Keine ausstehenden Anfragen. Wenn ein Werkzeug eine Einwilligung braucht, erscheint es hier. Zugriff kannst du auch vorab über die Liste oben gewähren."
+  },
+  "panel_1fdd802663": {
+    "message": "Ein geschwärztes, nur anhängendes Protokoll der Fähigkeitsaufrufe. Argumente, Tokens, Cookies oder Antwortkörper werden nie gespeichert."
+  },
+  "panel_787513f4fd": {
+    "message": "Noch keine Prüfeinträge. Fähigkeitsaufrufe werden hier aufgezeichnet, sobald du einen Ursprung erlaubst. Einträge sind geschwärzt und werden nur lokal gespeichert."
+  },
+  "panel_323d6ff1f1": {
+    "message": "Automatisierungshaltung, Prüfaufbewahrung und Einwilligungsmodell von FSB sind in LEGAL.md dokumentiert. Einige Ursprünge sind durch die Dienstsperrliste von der Automatisierung ausgeschlossen."
+  },
+  "panel_e31b2a3d3f": {
+    "message": "Gespeicherte Zugangsdaten und den gemeinsamen Tresor für unterstütztes Anmelden verwalten"
+  },
+  "panel_93f508370d": {
+    "message": "Wenn aktiviert, erkennt FSB Anmeldeseiten und bietet an, sich automatisch mit gespeicherten Zugangsdaten anzumelden"
+  },
+  "panel_10f7c25d31": {
+    "message": "Wähle einen PIN, um gespeicherte Zugangsdaten zu schützen. Vorhandene ältere Zugangsdaten werden automatisch migriert."
+  },
+  "panel_50c3db852a": {
+    "message": "Entsperre, um Passwörter anzusehen, zu bearbeiten, automatisch auszufüllen oder zu speichern."
+  },
+  "panel_b6680d54b2": {
+    "message": "Tresor für diese Browsersitzung entsperrt. Gespeicherte Zugangsdaten stehen unten bereit."
+  },
+  "panel_8d5ab0fe44": {
+    "message": "Die automatische Anmeldung ist derzeit aus. Gespeicherte Zugangsdaten kannst du hier weiter verwalten, aber FSB nutzt oder speichert sie erst automatisch, wenn du sie aktivierst."
+  },
+  "panel_c533cc0b87": {
+    "message": "Noch keine gespeicherten Zugangsdaten. Sie werden automatisch gespeichert, wenn du dich während der Automatisierung anmeldest, oder du fügst sie manuell hinzu."
+  },
+  "panel_0153e2da59": {
+    "message": "Gib die Website-Domain ein (z. B. github.com, mail.google.com)"
+  },
+  "panel_83c6ad5aef": {
+    "message": "Gespeicherte Karten für unterstütztes Bezahlen verwalten. Zahlungsmethoden teilen den in Passwörter eingerichteten Tresor."
+  },
+  "panel_ff7378d58d": {
+    "message": "Wenn aktiviert, kann FSB anbieten, auf Bezahlseiten eine gespeicherte Karte auszufüllen. Die endgültige Zahlung wird nie automatisch abgeschickt."
+  },
+  "panel_7d1624ea92": {
+    "message": "Entsperre den Zugangsdatentresor, bevor du gespeicherte Zahlungsmethoden verwaltest."
+  },
+  "panel_ad5f8e8263": {
+    "message": "Gib deinen Tresor-PIN ein, um Zahlungsmethoden zu entsperren"
+  },
+  "panel_2035e1f48d": {
+    "message": "Gespeicherte Karten nutzen denselben verschlüsselten Tresor, brauchen aber eine separate Entsperrung, bevor in dieser Browsersitzung beim Bezahlen ausgefüllt wird."
+  },
+  "panel_0ec4dc2534": {
+    "message": "Gespeicherte Zahlungsmethoden sind für diese Browsersitzung entsperrt. FSB kann anbieten, auf erkannten Bezahlseiten eine gespeicherte Karte auszufüllen, schickt die endgültige Zahlung aber nie automatisch ab."
+  },
+  "panel_5d38d8a7cf": {
+    "message": "Gespeicherte Zahlungsmethoden sind derzeit aus. Gespeicherte Karten kannst du hier weiter verwalten, aber FSB bietet sie beim Bezahlen erst an, wenn du die Funktion aktivierst."
+  },
+  "panel_2fd67f06e0": {
+    "message": "Noch keine gespeicherten Zahlungsmethoden. Füge hier eine Karte hinzu, damit FSB sie auf Bezahlseiten anbieten kann, nachdem du den Zahlungszugriff entsperrt hast."
+  },
+  "panel_928895f662": {
+    "message": "CVV und Rechnungsprofildaten werden verschlüsselt in deinem lokalen Tresor gespeichert. Prüfe die Sicherheit des lokalen Geräts, bevor du diese Funktion nutzt."
+  },
+  "panel_39d561254a": {
+    "message": "Karte speichern"
+  },
+  "panel_e4d896bcce": {
+    "message": "Hilfe holen und mehr über FSB-Funktionen erfahren"
+  },
+  "panel_32623395c6": {
+    "message": "Die Einführung erneut starten, um Anbieter oder MCP-Einrichtung zu ändern"
+  },
+  "panel_db4cec18bf": {
+    "message": "Vollständige Dokumentation und Einrichtungsanleitungen für FSB"
+  },
+  "panel_63dfe63d28": {
+    "message": "FAQs durchsehen und häufige Verbindungsprobleme beheben"
+  },
+  "panel_d2286811e6": {
+    "message": "MCP-Clients wie Claude Code und Cursor verbinden und dann mit dem Befehl doctor prüfen"
+  },
+  "panel_f3cb441c27": {
+    "message": "Lies, wie FSB Daten, Speicher und optionale Serversynchronisierung behandelt"
+  },
+  "panel_476481e410": {
+    "message": "Fehler melden, Funktionen anfragen und den Entwicklungsfortschritt verfolgen"
+  },
+  "panel_89b47ad370": {
+    "message": "Quellcode ansehen und zur Entwicklung von FSB beitragen"
+  },
+  "panel_f775bb5cbf": {
+    "message": "Sieh, was in jeder FSB-Version neu oder geändert ist"
+  },
+  "panel_8abc0aef4e": {
+    "message": "FSB ist quelloffen unter der MIT-Lizenz"
+  },
+  "panel_e235f8135c": {
+    "message": "Schließe dich anderen FSB-Nutzerinnen und Nutzern an und folge den Aktualisierungen"
+  },
+  "panel_53e5555e9a": {
+    "message": "Speichert Wiedergabedaten lokal und schwärzt Felder mit Geheimnissen und sensible Eingaben. Gewöhnlicher getippter Text und Aktionsergebnisse bleiben für die Wiedergabe verfügbar. MCP-Clients können ein lokales Aufgabengedächtnis speichern, indem sie eine geheimnisfreie Abschluss-, Teil- oder Fehlerzusammenfassung liefern; es erfolgt kein separater Aufruf beim AI-Anbieter. Ausschalten beendet künftige MCP-Aufzeichnungen und speichert jede offene Aufzeichnung. Der vorhandene MCP-Wiedergabeverlauf behält bis zu die 50 neuesten Sitzungen, und keine Sitzung länger als die eingestellte Aufbewahrung. Der Automatikverlauf bleibt unberührt."
+  },
+  "panel_65b7096b6d": {
+    "message": "Automatisierung für diesen Ursprung untersagt. "
+  },
+  "panel_d50f8b527c": {
+    "message": "Sensibler Ursprung. Fähigkeitsaufrufe können unter Automatisch laufen; die Erkennung per Netzwerkmitschnitt braucht weiter eine Bestätigung."
+  },
+  "panel_47d2a515ef": {
+    "message": "Wird geladen..."
+  },
+  "panel_90e89ecfe7": {
+    "message": "Nächste 500 Ereignisse laden"
+  },
+  "panel_935f2565d7": {
+    "message": "Ereignisse erneut laden"
+  },
+  "panel_4eee87e82f": {
+    "message": "Tresordienst nicht erreichbar"
+  },
+  "panel_08bf951eda": {
+    "message": "Kein Tresor eingerichtet. Erstelle einen, um gespeicherte Zugangsdaten zu schützen."
+  },
+  "panel_949bcb5f38": {
+    "message": "Der Tresor ist gesperrt."
+  },
+  "panel_30cef3bfb8": {
+    "message": "Tresor für diese Sitzung entsperrt."
+  },
+  "panel_05dc3c4c0a": {
+    "message": "Fehler beim Prüfen des Tresorstatus."
+  },
+  "panel_890a216b7c": {
+    "message": "Wird entsperrt..."
+  },
+  "panel_def70944c9": {
+    "message": "Wird erstellt..."
+  },
+  "panel_93ad91e855": {
+    "message": "Entsperre zuerst den Zugangsdatentresor."
+  },
+  "panel_8221f05f8b": {
+    "message": "Zahlungsmethoden sind gesperrt."
+  },
+  "panel_0b4ba676b0": {
+    "message": "Zahlungsmethoden für diese Sitzung entsperrt."
+  },
+  "panel_b82d31b688": {
+    "message": "Fehler beim Prüfen des Zahlungsstatus."
+  },
+  "panel_b197ab1d9b": {
+    "message": "Richte zuerst einen Tresor-PIN unter Passwörter ein."
+  },
+  "panel_160419ae70": {
+    "message": "Zahlungsmethoden sind entsperrt."
+  },
+  "panel_507fc32dc5": {
+    "message": "Agent bearbeiten"
+  },
+  "panel_fb25598ed0": {
+    "message": "Neuen Agenten erstellen"
+  },
+  "panel_6c02a28421": {
+    "message": "Wird getestet..."
+  },
+  "panel_22965568d2": {
+    "message": "Verbunden"
+  },
+  "panel_ee172faa9c": {
+    "message": "Ungültiger Schlüssel"
+  },
+  "panel_031a8f0f65": {
+    "message": "Fehlgeschlagen"
+  },
+  "panel_424a2551d3": {
+    "message": "Abgelaufen"
+  },
+  "panel_c7730178f4": {
+    "message": "Neuen Code erzeugen"
+  },
+  "panel_ac116124f7": {
+    "message": "Kopplungscode konnte nicht erzeugt werden. Versuche es erneut."
+  },
+  "panel_d03fd96d28": {
+    "message": "Geladenes Modell wählen..."
+  },
+  "panel_e189657f5a": {
+    "message": "Keine Modelle passen"
   }
 }

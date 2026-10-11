@@ -1,5 +1,11 @@
 // FSB Modern Dashboard Control Panel Script
 
+function fsbUiSet(node, english) {
+  if (!node) return;
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(node, english);
+  else node.textContent = english;
+}
+
 // Default settings
 const defaultSettings = {
   providerKind: 'api',
@@ -2978,14 +2984,14 @@ function renderConsentOriginList(envelope, auditOrigins) {
       if (blockBadge) blockBadge.style.display = '';
       if (hint) {
         hint.style.display = '';
-        hint.textContent = 'Automation prohibited for this origin. '
+        fsbUiSet(hint, "Automation prohibited for this origin. ")
           + (classified.reason || '');
       }
     } else if (classified.sensitive) {
       if (sensBadge) sensBadge.style.display = '';
       if (hint) {
         hint.style.display = '';
-        hint.textContent = 'Sensitive origin. Capability invocations can run under Auto; network-capture discovery still requires confirmation.';
+        fsbUiSet(hint, "Sensitive origin. Capability invocations can run under Auto; network-capture discovery still requires confirmation.");
       }
     }
 
@@ -3894,7 +3900,7 @@ function attachInlinePanelListeners(wrapper, session) {
     loadMoreEventsBtn.addEventListener('click', async () => {
       if (!session._journalHasMore || !Number.isFinite(session._journalNextSequence)) return;
       loadMoreEventsBtn.disabled = true;
-      loadMoreEventsBtn.textContent = 'Loading...';
+      fsbUiSet(loadMoreEventsBtn, "Loading...");
       try {
         const page = await loadSessionDetail(session.id, session._journalNextSequence);
         if (!page) throw new Error('Session events could not be loaded');
@@ -3908,13 +3914,13 @@ function attachInlinePanelListeners(wrapper, session) {
         if (logsEl) logsEl.textContent = formatSessionLogsForDisplay(session);
         if (session._journalHasMore) {
           loadMoreEventsBtn.disabled = false;
-          loadMoreEventsBtn.textContent = 'Load next 500 events';
+          fsbUiSet(loadMoreEventsBtn, "Load next 500 events");
         } else {
           loadMoreEventsBtn.remove();
         }
       } catch (error) {
         loadMoreEventsBtn.disabled = false;
-        loadMoreEventsBtn.textContent = 'Retry loading events';
+        fsbUiSet(loadMoreEventsBtn, "Retry loading events");
         showToast('Failed to load more session events: ' + error.message, 'error');
       }
     });
@@ -4840,7 +4846,7 @@ async function loadCredentialVaultStatus() {
   try {
     const response = await chrome.runtime.sendMessage({ action: 'getCredentialVaultStatus' });
     if (!response) {
-      if (statusText) statusText.textContent = 'Unable to reach vault service';
+      if (statusText) fsbUiSet(statusText, "Unable to reach vault service");
       return;
     }
 
@@ -4851,7 +4857,7 @@ async function loadCredentialVaultStatus() {
     if (lockBtn) lockBtn.style.display = 'none';
 
     if (!response.configured) {
-      if (statusText) statusText.textContent = 'No vault configured. Create one to protect saved credentials.';
+      if (statusText) fsbUiSet(statusText, "No vault configured. Create one to protect saved credentials.");
       if (setupPanel) setupPanel.style.display = 'block';
       if (manager) manager.style.display = 'none';
       // Initialize setup PIN inputs
@@ -4862,7 +4868,7 @@ async function loadCredentialVaultStatus() {
         _vaultPinConfirm = createPinInput(confirmContainer, _vaultSetupDigits);
       }
     } else if (!response.unlocked) {
-      if (statusText) statusText.textContent = 'Vault is locked.';
+      if (statusText) fsbUiSet(statusText, "Vault is locked.");
       if (unlockPanel) unlockPanel.style.display = 'block';
       if (manager) manager.style.display = 'none';
       // Initialize unlock PIN input
@@ -4875,7 +4881,7 @@ async function loadCredentialVaultStatus() {
         });
       }
     } else {
-      if (statusText) statusText.textContent = 'Vault unlocked for this session.';
+      if (statusText) fsbUiSet(statusText, "Vault unlocked for this session.");
       if (unlockedPanel) unlockedPanel.style.display = 'block';
       if (lockBtn) lockBtn.style.display = 'inline-flex';
       if (manager) {
@@ -4885,7 +4891,7 @@ async function loadCredentialVaultStatus() {
     }
   } catch (error) {
     console.error('Failed to check vault status:', error);
-    if (statusText) statusText.textContent = 'Error checking vault status.';
+    if (statusText) fsbUiSet(statusText, "Error checking vault status.");
   }
 }
 
@@ -4893,7 +4899,7 @@ async function submitVaultUnlock(pin) {
   if (_unlockSubmitting) return;
   _unlockSubmitting = true;
   const unlockBtn = document.getElementById('unlockCredentialVaultBtn');
-  if (unlockBtn) { unlockBtn.disabled = true; unlockBtn.textContent = 'Unlocking...'; }
+  if (unlockBtn) { unlockBtn.disabled = true; fsbUiSet(unlockBtn, "Unlocking..."); }
   try {
     const response = await chrome.runtime.sendMessage({ action: 'unlockCredentialVault', passphrase: pin });
     if (response?.success) {
@@ -4909,7 +4915,7 @@ async function submitVaultUnlock(pin) {
     if (_vaultPinUnlock) _vaultPinUnlock.clear();
   } finally {
     _unlockSubmitting = false;
-    if (unlockBtn) { unlockBtn.disabled = false; unlockBtn.textContent = 'Unlock Vault'; }
+    if (unlockBtn) { unlockBtn.disabled = false; fsbUiSet(unlockBtn, "Unlock Vault"); }
   }
 }
 
@@ -4944,7 +4950,7 @@ function initCredentialVaultListeners() {
         return;
       }
       setupBtn.disabled = true;
-      setupBtn.textContent = 'Creating...';
+      fsbUiSet(setupBtn, "Creating...");
       try {
         const response = await chrome.runtime.sendMessage({ action: 'createCredentialVault', passphrase: pin });
         if (response?.success) {
@@ -4960,7 +4966,7 @@ function initCredentialVaultListeners() {
         showToast('Error creating vault: ' + error.message, 'error');
       } finally {
         setupBtn.disabled = false;
-        setupBtn.textContent = 'Set Up Vault';
+        fsbUiSet(setupBtn, "Set Up Vault");
       }
     });
   }
@@ -5004,7 +5010,7 @@ async function loadPaymentVaultStatus() {
   try {
     const response = await chrome.runtime.sendMessage({ action: 'getPaymentVaultStatus' });
     if (!response) {
-      if (statusText) statusText.textContent = 'Unable to reach vault service';
+      if (statusText) fsbUiSet(statusText, "Unable to reach vault service");
       return;
     }
 
@@ -5017,21 +5023,21 @@ async function loadPaymentVaultStatus() {
 
     if (!response.configured || !response.unlocked) {
       // Credential vault not configured or locked -- payment methods blocked
-      if (statusText) statusText.textContent = 'Unlock the credential vault first.';
+      if (statusText) fsbUiSet(statusText, "Unlock the credential vault first.");
       if (blockedPanel) blockedPanel.style.display = 'block';
     } else if (!response.paymentUnlocked) {
       // Credential vault unlocked but payment access locked
-      if (statusText) statusText.textContent = 'Payment methods are locked.';
+      if (statusText) fsbUiSet(statusText, "Payment methods are locked.");
       if (unlockPanel) unlockPanel.style.display = 'block';
     } else {
       // Payment methods fully unlocked
-      if (statusText) statusText.textContent = 'Payment methods unlocked for this session.';
+      if (statusText) fsbUiSet(statusText, "Payment methods unlocked for this session.");
       if (unlockedPanel) unlockedPanel.style.display = 'block';
       if (lockBtn) lockBtn.style.display = 'inline-flex';
     }
   } catch (error) {
     console.error('Failed to check payment vault status:', error);
-    if (statusText) statusText.textContent = 'Error checking payment status.';
+    if (statusText) fsbUiSet(statusText, "Error checking payment status.");
   }
 }
 
@@ -5433,11 +5439,11 @@ async function loadPaymentVaultStatus() {
 
     if (!response.configured) {
       // Vault not configured -- direct user to Passwords section
-      if (statusText) statusText.textContent = 'Configure a vault PIN in Passwords first.';
+      if (statusText) fsbUiSet(statusText, "Configure a vault PIN in Passwords first.");
       if (blockedPanel) blockedPanel.style.display = 'block';
     } else if (!response.paymentUnlocked) {
       // Vault configured but payment methods locked -- show PIN unlock
-      if (statusText) statusText.textContent = 'Payment methods are locked.';
+      if (statusText) fsbUiSet(statusText, "Payment methods are locked.");
       if (unlockPanel) unlockPanel.style.display = 'block';
 
       // Fetch pinLength and create PIN input
@@ -5452,7 +5458,7 @@ async function loadPaymentVaultStatus() {
       }
     } else {
       // Fully unlocked
-      if (statusText) statusText.textContent = 'Payment methods are unlocked.';
+      if (statusText) fsbUiSet(statusText, "Payment methods are unlocked.");
       if (unlockedPanel) unlockedPanel.style.display = 'block';
       if (lockBtn) lockBtn.style.display = 'inline-flex';
       if (paymentManager) paymentManager.style.display = 'block';
@@ -5472,7 +5478,7 @@ async function submitPaymentUnlock(pin) {
   const originalText = unlockBtn ? unlockBtn.textContent : '';
   if (unlockBtn) {
     unlockBtn.disabled = true;
-    unlockBtn.textContent = 'Unlocking...';
+    fsbUiSet(unlockBtn, "Unlocking...");
   }
 
   try {
@@ -5759,7 +5765,7 @@ async function showPaymentMethodModal(mode, id) {
 
   // Reset brand badge
   if (brandEl) {
-    brandEl.textContent = 'Unknown';
+    fsbUiSet(brandEl, "Unknown");
     brandEl.className = 'payment-card-brand unknown';
   }
 
@@ -6550,7 +6556,7 @@ function initializeSyncDeprecationAndButtons() {
 // 
 //   if (editAgent && typeof editAgent === 'object' && editAgent.agentId) {
 //     // Edit mode
-//     title.textContent = 'Edit Agent';
+//     fsbUiSet(title, "Edit Agent");
 //     document.getElementById('agentFormId').value = editAgent.agentId;
 //     document.getElementById('agentName').value = editAgent.name || '';
 //     document.getElementById('agentTask').value = editAgent.task || '';
@@ -6577,7 +6583,7 @@ function initializeSyncDeprecationAndButtons() {
 //     document.getElementById('agentScheduleType').dispatchEvent(new Event('change'));
 //   } else {
 //     // Create mode
-//     title.textContent = 'Create New Agent';
+//     fsbUiSet(title, "Create New Agent");
 //     document.getElementById('agentFormId').value = '';
 //     document.getElementById('agentName').value = '';
 //     document.getElementById('agentTask').value = '';
@@ -7089,7 +7095,7 @@ async function testServerConnection() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = 'Testing...';
+  if (statusEl) fsbUiSet(statusEl, "Testing...");
 
   try {
     const resp = await fetch(serverUrl + '/api/auth/validate', {
@@ -7097,16 +7103,16 @@ async function testServerConnection() {
     });
     const data = await resp.json();
     if (data.valid) {
-      if (statusEl) statusEl.textContent = 'Connected';
+      if (statusEl) fsbUiSet(statusEl, "Connected");
       if (statusEl) statusEl.className = 'connection-status connected';
       showToast('Server connection successful', 'success');
     } else {
-      if (statusEl) statusEl.textContent = 'Invalid key';
+      if (statusEl) fsbUiSet(statusEl, "Invalid key");
       if (statusEl) statusEl.className = 'connection-status error';
       showToast('Hash key is invalid', 'error');
     }
   } catch (error) {
-    if (statusEl) statusEl.textContent = 'Failed';
+    if (statusEl) fsbUiSet(statusEl, "Failed");
     if (statusEl) statusEl.className = 'connection-status error';
     showToast('Cannot connect to server', 'error');
   }
@@ -7192,13 +7198,13 @@ function renderExpiredState() {
   // D-02: replace countdown text with Expired indicator
   countdownEl.classList.remove('pairing-countdown-urgent');
   countdownEl.classList.add('pairing-qr-expired');
-  countdownEl.textContent = 'Expired';
+  fsbUiSet(countdownEl, "Expired");
   // D-02: replace QR slot with Generate new code button
   qrCodeEl.innerHTML = '';
   const regenBtn = document.createElement('button');
   regenBtn.type = 'button';
   regenBtn.className = 'control-btn accent';
-  regenBtn.textContent = 'Generate new code';
+  fsbUiSet(regenBtn, "Generate new code");
   regenBtn.addEventListener('click', regeneratePairingToken);
   qrCodeEl.appendChild(regenBtn);
   // Overlay stays open (D-02): do NOT touch overlay.style.display here.
@@ -7227,7 +7233,7 @@ async function regeneratePairingToken() {
   } catch (error) {
     if (messageEl) {
       messageEl.classList.add('pairing-qr-expired');
-      messageEl.textContent = 'Could not generate pairing code. Try again.';
+      fsbUiSet(messageEl, "Could not generate pairing code. Try again.");
     }
     showToast('Could not generate pairing code: ' + error.message, 'error');
   } finally {
@@ -8625,7 +8631,7 @@ function initializeSyncSection() {
     if (options.requireExplicit === true) {
       const prompt = doc.createElement('option');
       prompt.value = '';
-      prompt.textContent = 'Choose a loaded model...';
+      fsbUiSet(prompt, "Choose a loaded model...");
       prompt.disabled = true;
       sel.appendChild(prompt);
     }
@@ -8711,7 +8717,7 @@ function initializeSyncSection() {
       sel.value = '';
     }
     const description = doc.getElementById('modelDescription');
-    if (description) description.textContent = 'Select the AI model to use';
+    if (description) fsbUiSet(description, "Select the AI model to use");
     _setControlState({
       modelDisabled: true,
       refreshDisabled: options.refreshDisabled !== false,
@@ -9100,7 +9106,7 @@ function initializeSyncSection() {
       const empty = doc.createElement('li');
       empty.className = 'model-combobox__status';
       empty.setAttribute('role', 'presentation');
-      empty.textContent = 'No models match';
+      fsbUiSet(empty, "No models match");
       _listbox.appendChild(empty);
     }
 

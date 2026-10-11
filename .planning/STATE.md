@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3.0
 milestone_name: Extension multilingual UI
 status: executing
-last_updated: "2026-10-11T12:00:00.000Z"
+last_updated: "2026-10-11T13:30:00.000Z"
 last_activity: 2026-10-11
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 33
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 50
 ---
 
 *Note: progress counts in the frontmatter are for v1.3.0 only. v0.9.91 is paused, not shipped. Its snapshot is `.planning/milestones/v0.9.91-STATE.md`.*
@@ -29,7 +29,7 @@ See: showcase/angular/src/app/core/i18n/locale-constants.ts (the seven locale co
 See: showcase/angular/src/locale/DO-NOT-TRANSLATE.md (protected literals)
 
 **Core value:** Reliable single-attempt execution — the AI decides correctly, the mechanics execute precisely. v1.3.0 does not change automation or the MCP wire. It makes package-owned extension chrome render in the seven showcase locales.
-**Current focus:** Requirements and roadmap written. Execution has not started.
+**Current focus:** Phase 68 passed. Phase 69 has not started.
 
 ## Historical context (v0.9.91 and earlier)
 
@@ -37,10 +37,10 @@ The sections below this banner are accumulated decisions from earlier milestones
 
 ## Current Position
 
-Phase: 68 — Options and control panel (not started)
+Phase: 69 — Onboarding, entry pages, and overlay chrome (not started)
 Plan: —
-Status: Phase 67 passed. Execution continues.
-Last activity: 2026-10-11 — Phase 67 manifest, side panel, and popup chrome passed
+Status: Phase 68 passed. Execution continues.
+Last activity: 2026-10-11 — Phase 68 options and control panel chrome passed
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65)
 

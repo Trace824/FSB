@@ -207,6 +207,13 @@
     'Error': 'shell_error_status'
   };
 
+  function registerExact(map) {
+    if (!map) return;
+    Object.keys(map).forEach(function (english) {
+      EXACT[english] = map[english];
+    });
+  }
+
   function markExact(node, english) {
     var key = EXACT[english];
     if (!key) {
@@ -330,6 +337,7 @@
     text: text,
     fill: fill,
     markExact: markExact,
+    registerExact: registerExact,
     exact: EXACT,
     apply: apply,
     setCatalog: setCatalog,
