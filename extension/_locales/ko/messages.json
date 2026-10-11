@@ -1650,5 +1650,518 @@
   },
   "panel_e189657f5a": {
     "message": "일치하는 모델이 없습니다"
+  },
+  "entry_step": {
+    "message": "$TOTAL$단계 중 $CURRENT$단계",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_label_welcome": {
+    "message": "시작"
+  },
+  "entry_label_path": {
+    "message": "경로"
+  },
+  "entry_label_mcp": {
+    "message": "MCP 연결"
+  },
+  "entry_label_provider": {
+    "message": "공급자"
+  },
+  "entry_label_apikey": {
+    "message": "API 키"
+  },
+  "entry_label_setup": {
+    "message": "설정"
+  },
+  "entry_label_pin": {
+    "message": "고정"
+  },
+  "entry_label_done": {
+    "message": "완료"
+  },
+  "entry_future_lead": {
+    "message": "앞으로의"
+  },
+  "entry_future_word": {
+    "message": "자율"
+  },
+  "entry_future_tail": {
+    "message": "브라우징."
+  },
+  "entry_welcome_sub": {
+    "message": "좋은 선택입니다. 에이전트는 최고의 자율 브라우징 엔진을 쓰게 됩니다. DOM 정밀도뿐이고, 시각이나 추측은 없습니다. 보이지 않는 클릭으로는 돌아가지 않습니다."
+  },
+  "entry_feat_api": {
+    "message": "직접 API"
+  },
+  "entry_feat_api_sub": {
+    "message": "클릭만이 아니라 앱과 대화합니다"
+  },
+  "entry_feat_guides": {
+    "message": "130개 이상의 안내"
+  },
+  "entry_feat_guides_sub": {
+    "message": "17개 범주에 걸쳐 있습니다"
+  },
+  "entry_feat_tools": {
+    "message": "MCP 도구 68개"
+  },
+  "entry_feat_tools_sub": {
+    "message": "코딩 에이전트에서"
+  },
+  "entry_get_started": {
+    "message": "시작하기"
+  },
+  "entry_skip_setup": {
+    "message": "지금은 설정 건너뛰기"
+  },
+  "entry_pick_path": {
+    "message": "경로 선택"
+  },
+  "entry_how_run": {
+    "message": "FSB를 어떻게 실행할까요?"
+  },
+  "entry_two_ways": {
+    "message": "들어가는 방법은 두 가지입니다. 지금 하나를 설정하고 나머지는 설정에서 언제든 추가하세요."
+  },
+  "entry_agent": {
+    "message": "에이전트"
+  },
+  "entry_recommended": {
+    "message": "권장"
+  },
+  "entry_agent_desc": {
+    "message": "Claude Code, Cursor, VS Code, OpenClaw 등에서 FSB를 MCP 서버로 사용합니다. 도구 68개, API 키 없음, 브라우저 설정 없음."
+  },
+  "entry_in_browser": {
+    "message": "이 브라우저에서"
+  },
+  "entry_byok": {
+    "message": "내 키"
+  },
+  "entry_byok_desc": {
+    "message": "사이드 패널에서 FSB와 대화합니다. xAI, Anthropic, Google 키를 가져오거나 키 없는 로컬 모델을 실행합니다."
+  },
+  "entry_most_people": {
+    "message": "대부분 FSB를 가장 빠르고 저렴하게 쓰는 MCP로 시작합니다."
+  },
+  "entry_skip_mcp": {
+    "message": "MCP로 건너뛰기"
+  },
+  "entry_mcp_eyebrow": {
+    "message": "권장 경로 / MCP"
+  },
+  "entry_install_h": {
+    "message": "FSB MCP 서버 설치"
+  },
+  "entry_one_command": {
+    "message": "명령은 하나. 에이전트를 고르면 FSB가 자동으로 등록합니다. API 키는 필요 없습니다."
+  },
+  "entry_one_command_short": {
+    "message": "명령은 하나. 에이전트를 고르세요."
+  },
+  "entry_copy_command": {
+    "message": "명령 복사"
+  },
+  "entry_copy_install": {
+    "message": "설치 명령 복사"
+  },
+  "entry_mcp_1a": {
+    "message": "터미널에서 명령을 실행합니다."
+  },
+  "entry_mcp_1b": {
+    "message": "복사에 마우스를 올리기"
+  },
+  "entry_mcp_1c": {
+    "message": "하면 특정 클라이언트를 고를 수 있습니다."
+  },
+  "entry_mcp_2a": {
+    "message": "FSB가 에이전트의 MCP 구성에 자신을 기록합니다."
+  },
+  "entry_mcp_2b": {
+    "message": "도구 68개"
+  },
+  "entry_mcp_2c": {
+    "message": ", 수동 JSON은 없습니다."
+  },
+  "entry_mcp_3": {
+    "message": "에이전트에게 브라우징을 시키면 FSB의 DOM 엔진을 운전합니다."
+  },
+  "entry_claw_name": {
+    "message": "Claw용으로 설정"
+  },
+  "entry_claw_desc": {
+    "message": "제어판의 안내형 OpenClaw 설치"
+  },
+  "entry_prefer_key": {
+    "message": "내 키를 쓸까요?"
+  },
+  "entry_byok_eyebrow": {
+    "message": "브라우저 안 / 내 키"
+  },
+  "entry_choose_provider": {
+    "message": "AI 공급자 선택"
+  },
+  "entry_dont_need": {
+    "message": "이것은 사실 필요 없습니다."
+  },
+  "entry_best_way": {
+    "message": "FSB는 MCP로 실행하는 것이 가장 좋습니다. 키도 비용 상한도 없습니다."
+  },
+  "entry_setup_mcp": {
+    "message": "대신 MCP 설정"
+  },
+  "entry_once_key": {
+    "message": "키를 설정하면 FSB가 사용 가능한 텍스트 모델을 자동으로 나열합니다."
+  },
+  "entry_key_heading": {
+    "message": "$NAME$ 키 추가",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_optional": {
+    "message": "이 단계는 선택입니다."
+  },
+  "entry_shines": {
+    "message": "FSB는 MCP에서 가장 빛나므로 키를 완전히 건너뛸 수 있습니다."
+  },
+  "entry_skip_use_mcp": {
+    "message": "건너뛰고 MCP 사용"
+  },
+  "entry_checking": {
+    "message": "확인 중..."
+  },
+  "entry_continue": {
+    "message": "계속"
+  },
+  "entry_almost": {
+    "message": "거의 다 됐습니다"
+  },
+  "entry_pin_h": {
+    "message": "한 번의 클릭으로 열리도록 FSB를 고정"
+  },
+  "entry_pin_sub": {
+    "message": "단계는 이것뿐입니다. Chrome이 설치하는 순간 FSB 권한이 자동으로 켜집니다. 바꿀 스위치는 없습니다."
+  },
+  "entry_other_ext": {
+    "message": "다른 확장 프로그램"
+  },
+  "entry_pinned": {
+    "message": "FSB를 고정했습니다"
+  },
+  "entry_ive_pinned": {
+    "message": "FSB를 고정했습니다"
+  },
+  "entry_skip_step": {
+    "message": "이 단계 건너뛰기"
+  },
+  "entry_all_set": {
+    "message": "모두 준비되었습니다."
+  },
+  "entry_ready_sub": {
+    "message": "FSB가 준비되었습니다. 이것이 설정입니다. 나중에 설정에서 바꿀 수 있습니다."
+  },
+  "entry_running": {
+    "message": "FSB가 실행 중입니다"
+  },
+  "entry_open": {
+    "message": "FSB 열기"
+  },
+  "entry_more": {
+    "message": "FSB에 대해 알아볼 것이 아직 많습니다. 다음에서 확인하세요"
+  },
+  "entry_control_panel": {
+    "message": "제어판"
+  },
+  "entry_docs": {
+    "message": "문서"
+  },
+  "entry_back": {
+    "message": "뒤로"
+  },
+  "entry_sum_setup": {
+    "message": "설정"
+  },
+  "entry_sum_mcp": {
+    "message": "MCP 서버"
+  },
+  "entry_sum_command": {
+    "message": "명령"
+  },
+  "entry_sum_tools": {
+    "message": "도구"
+  },
+  "entry_sum_68": {
+    "message": "68개 사용 가능"
+  },
+  "entry_sum_access": {
+    "message": "접근"
+  },
+  "entry_sum_granted": {
+    "message": "설치 시 허용됨"
+  },
+  "entry_sum_version": {
+    "message": "버전"
+  },
+  "entry_sum_byok": {
+    "message": "브라우저 안의 내 키"
+  },
+  "entry_sum_provider": {
+    "message": "공급자"
+  },
+  "entry_sum_apikey": {
+    "message": "API 키"
+  },
+  "entry_sum_none": {
+    "message": "설정되지 않음"
+  },
+  "entry_sum_tip": {
+    "message": "팁"
+  },
+  "entry_sum_finish": {
+    "message": "설정에서 설정을 마치기"
+  },
+  "entry_free_tier": {
+    "message": "무료 등급"
+  },
+  "entry_local_nokey": {
+    "message": "로컬 / 키 없음"
+  },
+  "entry_all_clients": {
+    "message": "모든 클라이언트"
+  },
+  "entry_discovering": {
+    "message": "불러온 채팅 모델을 찾는 중..."
+  },
+  "entry_waiting_url": {
+    "message": "서버 URL이 안정되기를 기다리는 중..."
+  },
+  "entry_choose_model": {
+    "message": "불러온 모델 선택..."
+  },
+  "entry_paste_key": {
+    "message": "$NAME$ API 키 붙여넣기",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_toggle_key": {
+    "message": "키 표시 전환"
+  },
+  "entry_key_valid": {
+    "message": "끝이 $LAST$인 키는 유효합니다",
+    "placeholders": {
+      "last": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_get_key": {
+    "message": "키를 받는 곳"
+  },
+  "entry_stored_locally": {
+    "message": "브라우저에 로컬로 저장됩니다."
+  },
+  "entry_paste_clip": {
+    "message": "클립보드에서 붙여넣기"
+  },
+  "entry_unlock_title": {
+    "message": "FSB 잠금 해제"
+  },
+  "entry_unlock_h": {
+    "message": "보관함 잠금 해제"
+  },
+  "entry_unlock_sub": {
+    "message": "잠금 해제하려면 PIN을 입력"
+  },
+  "entry_unlock": {
+    "message": "잠금 해제"
+  },
+  "entry_unlocking": {
+    "message": "잠금 해제 중..."
+  },
+  "entry_unlock_failed": {
+    "message": "잠금 해제에 실패했습니다"
+  },
+  "entry_no_vault": {
+    "message": "보관함이 설정되지 않았습니다. 먼저 설정을 실행하세요."
+  },
+  "entry_bad_pin": {
+    "message": "PIN이 올바르지 않습니다"
+  },
+  "entry_comm_error": {
+    "message": "통신 오류입니다. 다시 시도하세요."
+  },
+  "entry_first_setup": {
+    "message": "처음이신가요? 설정 실행"
+  },
+  "entry_mic_title": {
+    "message": "FSB용 마이크 사용"
+  },
+  "entry_mic_brand": {
+    "message": "FSB 음성 입력"
+  },
+  "entry_mic_h": {
+    "message": "마이크 사용"
+  },
+  "entry_mic_intro": {
+    "message": "Chrome은 첫 마이크 승인을 일반 확장 프로그램 탭에서 요구합니다. 그 뒤에는 모든 사이트에서 FSB 사이드 패널의 음성 입력이 동작합니다."
+  },
+  "entry_mic_instruction": {
+    "message": "Chrome 안내에서 “방문하는 동안 허용”을 고르면 FSB 권한이 유지됩니다."
+  },
+  "entry_mic_waiting": {
+    "message": "Chrome 마이크 안내를 기다리는 중…"
+  },
+  "entry_mic_allow": {
+    "message": "마이크 허용"
+  },
+  "entry_mic_settings": {
+    "message": "마이크 설정 열기"
+  },
+  "entry_mic_footnote": {
+    "message": "이 권한은 활성 탭의 사이트가 아니라 FSB 확장 프로그램의 것입니다."
+  },
+  "entry_mic_try": {
+    "message": "다시 시도"
+  },
+  "entry_mic_no_api": {
+    "message": "이 Chrome 빌드는 확장 프로그램에 마이크 접근을 제공하지 않습니다."
+  },
+  "entry_mic_enabled": {
+    "message": "마이크를 사용하도록 설정했습니다. FSB로 돌아갑니다…"
+  },
+  "entry_mic_blocked": {
+    "message": "FSB의 마이크 접근이 차단되었습니다. Chrome 마이크 설정에서 차단된 FSB 항목을 제거한 뒤 다시 시도하세요."
+  },
+  "entry_mic_none": {
+    "message": "마이크를 찾지 못했습니다. 입력 장치를 연결하거나 켠 뒤 다시 시도하세요."
+  },
+  "entry_mic_busy": {
+    "message": "마이크가 사용 중이거나 사용할 수 없습니다. 다른 녹음 앱을 닫고 다시 시도하세요."
+  },
+  "entry_mic_macos": {
+    "message": "Chrome이 마이크에 접근하지 못했습니다. macOS에서는 시스템 설정 → 개인정보 보호 및 보안 → 마이크에서 Google Chrome을 켠 뒤 다시 시도하세요."
+  },
+  "entry_mic_generic": {
+    "message": "FSB가 마이크에 접근하지 못했습니다. Chrome과 macOS 마이크 설정을 확인한 뒤 다시 시도하세요."
+  },
+  "entry_mic_manual": {
+    "message": "주소창에서 chrome://settings/content/microphone 를 열고 차단된 FSB 항목을 제거하세요."
+  },
+  "entry_automating": {
+    "message": "FSB 자동화 중"
+  },
+  "entry_stop": {
+    "message": "중지"
+  },
+  "entry_planning": {
+    "message": "계획 중"
+  },
+  "entry_initializing": {
+    "message": "초기화 중..."
+  },
+  "entry_done_pill": {
+    "message": "완료"
+  },
+  "entry_actions": {
+    "message": "동작: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_replay_controls": {
+    "message": "재생 컨트롤"
+  },
+  "entry_pause_replay": {
+    "message": "재생 일시중지"
+  },
+  "entry_replay_position": {
+    "message": "재생 위치, 앞으로만 이동"
+  },
+  "entry_seek_forward": {
+    "message": "재생을 앞으로 이동"
+  },
+  "entry_replay_speed": {
+    "message": "재생 속도 $SPEED$. 활성화하면 $NEXT$(으)로 바뀝니다",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      },
+      "next": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_replay_speed_title": {
+    "message": "재생 속도: $SPEED$ (클릭하여 변경)",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_inspect": {
+    "message": "검사할 요소를 클릭"
+  },
+  "entry_selectors": {
+    "message": "FSB가 시도할 선택자"
+  },
+  "entry_attributes": {
+    "message": "속성"
+  },
+  "entry_interact": {
+    "message": "상호작용 가능 여부"
+  },
+  "entry_position": {
+    "message": "위치"
+  },
+  "entry_inspector": {
+    "message": "FSB 검사 모드 (종료는 Ctrl+Shift+E)"
+  },
+  "entry_crawling": {
+    "message": "$DOMAIN$ 순회 중",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_pages": {
+    "message": "$COLLECTED$ / $MAX$ 페이지",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_toast_ready": {
+    "message": "FSB가 준비되었습니다. 사이드 패널을 엽니다"
+  },
+  "entry_toast_opened": {
+    "message": "FSB 사이드 패널을 열었습니다"
+  },
+  "entry_toast_popup": {
+    "message": "팝업 창에서 FSB를 여는 중"
+  },
+  "entry_toast_copied": {
+    "message": "설치 명령을 복사했습니다"
   }
 }

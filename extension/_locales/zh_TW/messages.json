@@ -1650,5 +1650,518 @@
   },
   "panel_e189657f5a": {
     "message": "沒有相符的模型"
+  },
+  "entry_step": {
+    "message": "第 $CURRENT$ 步，共 $TOTAL$ 步",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_label_welcome": {
+    "message": "歡迎"
+  },
+  "entry_label_path": {
+    "message": "路徑"
+  },
+  "entry_label_mcp": {
+    "message": "MCP 連線"
+  },
+  "entry_label_provider": {
+    "message": "提供者"
+  },
+  "entry_label_apikey": {
+    "message": "API 金鑰"
+  },
+  "entry_label_setup": {
+    "message": "設定"
+  },
+  "entry_label_pin": {
+    "message": "釘選"
+  },
+  "entry_label_done": {
+    "message": "完成"
+  },
+  "entry_future_lead": {
+    "message": "未來的"
+  },
+  "entry_future_word": {
+    "message": "自主"
+  },
+  "entry_future_tail": {
+    "message": "瀏覽。"
+  },
+  "entry_welcome_sub": {
+    "message": "你選對了。你的代理將用上最好的自主瀏覽引擎。純 DOM 精度，不靠視覺，也不靠猜測。它們不會再盲目點擊。"
+  },
+  "entry_feat_api": {
+    "message": "直接 API"
+  },
+  "entry_feat_api_sub": {
+    "message": "與應用程式對話，不只是點擊"
+  },
+  "entry_feat_guides": {
+    "message": "130 多份指南"
+  },
+  "entry_feat_guides_sub": {
+    "message": "涵蓋 17 個類別"
+  },
+  "entry_feat_tools": {
+    "message": "68 個 MCP 工具"
+  },
+  "entry_feat_tools_sub": {
+    "message": "來自你的程式設計代理"
+  },
+  "entry_get_started": {
+    "message": "開始使用"
+  },
+  "entry_skip_setup": {
+    "message": "暫時跳過設定"
+  },
+  "entry_pick_path": {
+    "message": "選擇你的路徑"
+  },
+  "entry_how_run": {
+    "message": "你想如何執行 FSB？"
+  },
+  "entry_two_ways": {
+    "message": "兩種方式。現在設定一種，另一種可以隨時在設定裡新增。"
+  },
+  "entry_agent": {
+    "message": "代理"
+  },
+  "entry_recommended": {
+    "message": "建議"
+  },
+  "entry_agent_desc": {
+    "message": "在 Claude Code、Cursor、VS Code、OpenClaw 等中把 FSB 用作 MCP 伺服器。68 個工具，無需 API 金鑰，瀏覽器裡不用設定。"
+  },
+  "entry_in_browser": {
+    "message": "在此瀏覽器中"
+  },
+  "entry_byok": {
+    "message": "自備金鑰"
+  },
+  "entry_byok_desc": {
+    "message": "在側邊欄與 FSB 對話。使用 xAI、Anthropic 或 Google 的金鑰，或執行完全不需要金鑰的本機模型。"
+  },
+  "entry_most_people": {
+    "message": "大多數人從 MCP 開始，這是使用 FSB 最快、最省的方式。"
+  },
+  "entry_skip_mcp": {
+    "message": "跳到 MCP"
+  },
+  "entry_mcp_eyebrow": {
+    "message": "建議路徑 / MCP"
+  },
+  "entry_install_h": {
+    "message": "安裝 FSB 的 MCP 伺服器"
+  },
+  "entry_one_command": {
+    "message": "一條命令。選擇你的代理。FSB 會自動註冊。不需要 API 金鑰。"
+  },
+  "entry_one_command_short": {
+    "message": "一條命令。選擇你的代理。"
+  },
+  "entry_copy_command": {
+    "message": "複製命令"
+  },
+  "entry_copy_install": {
+    "message": "複製安裝命令"
+  },
+  "entry_mcp_1a": {
+    "message": "在終端機中執行該命令。"
+  },
+  "entry_mcp_1b": {
+    "message": "懸停複製"
+  },
+  "entry_mcp_1c": {
+    "message": "以選擇特定用戶端。"
+  },
+  "entry_mcp_2a": {
+    "message": "FSB 會把自己寫入代理的 MCP 設定。"
+  },
+  "entry_mcp_2b": {
+    "message": "68 個工具"
+  },
+  "entry_mcp_2c": {
+    "message": "，無需手寫 JSON。"
+  },
+  "entry_mcp_3": {
+    "message": "讓你的代理去瀏覽。它會為你驅動 FSB 的 DOM 引擎。"
+  },
+  "entry_claw_name": {
+    "message": "為你的 Claw 進行設定"
+  },
+  "entry_claw_desc": {
+    "message": "在控制面板中引導安裝 OpenClaw"
+  },
+  "entry_prefer_key": {
+    "message": "更想用自己的金鑰？"
+  },
+  "entry_byok_eyebrow": {
+    "message": "瀏覽器內 / 自備金鑰"
+  },
+  "entry_choose_provider": {
+    "message": "選擇你的 AI 提供者"
+  },
+  "entry_dont_need": {
+    "message": "你其實不需要這一步。"
+  },
+  "entry_best_way": {
+    "message": "執行 FSB 的最佳方式是 MCP。無需金鑰，也沒有費用上限。"
+  },
+  "entry_setup_mcp": {
+    "message": "改為設定 MCP"
+  },
+  "entry_once_key": {
+    "message": "設定金鑰後，FSB 會自動列出每個可用的文字模型。"
+  },
+  "entry_key_heading": {
+    "message": "新增你的 $NAME$ 金鑰",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_optional": {
+    "message": "此步驟是選填的。"
+  },
+  "entry_shines": {
+    "message": "FSB 透過 MCP 最出色，因此你可以完全跳過金鑰。"
+  },
+  "entry_skip_use_mcp": {
+    "message": "跳過並使用 MCP"
+  },
+  "entry_checking": {
+    "message": "正在檢查..."
+  },
+  "entry_continue": {
+    "message": "繼續"
+  },
+  "entry_almost": {
+    "message": "就快好了"
+  },
+  "entry_pin_h": {
+    "message": "釘選 FSB，讓它一鍵可達"
+  },
+  "entry_pin_sub": {
+    "message": "這是唯一的步驟。Chrome 安裝 FSB 時，權限會自動打開。你不用切換任何開關。"
+  },
+  "entry_other_ext": {
+    "message": "其他擴充功能"
+  },
+  "entry_pinned": {
+    "message": "已釘選 FSB"
+  },
+  "entry_ive_pinned": {
+    "message": "我已釘選 FSB"
+  },
+  "entry_skip_step": {
+    "message": "跳過此步驟"
+  },
+  "entry_all_set": {
+    "message": "一切就緒。"
+  },
+  "entry_ready_sub": {
+    "message": "FSB 已就緒。這是你的設定。以後可以在設定中變更。"
+  },
+  "entry_running": {
+    "message": "FSB 正在執行"
+  },
+  "entry_open": {
+    "message": "開啟 FSB"
+  },
+  "entry_more": {
+    "message": "關於 FSB 總有更多可發現的內容。請到"
+  },
+  "entry_control_panel": {
+    "message": "控制面板"
+  },
+  "entry_docs": {
+    "message": "文件"
+  },
+  "entry_back": {
+    "message": "返回"
+  },
+  "entry_sum_setup": {
+    "message": "設定"
+  },
+  "entry_sum_mcp": {
+    "message": "MCP 伺服器"
+  },
+  "entry_sum_command": {
+    "message": "命令"
+  },
+  "entry_sum_tools": {
+    "message": "工具"
+  },
+  "entry_sum_68": {
+    "message": "68 個可用"
+  },
+  "entry_sum_access": {
+    "message": "存取"
+  },
+  "entry_sum_granted": {
+    "message": "安裝時已授予"
+  },
+  "entry_sum_version": {
+    "message": "版本"
+  },
+  "entry_sum_byok": {
+    "message": "瀏覽器內自備金鑰"
+  },
+  "entry_sum_provider": {
+    "message": "提供者"
+  },
+  "entry_sum_apikey": {
+    "message": "API 金鑰"
+  },
+  "entry_sum_none": {
+    "message": "未設定"
+  },
+  "entry_sum_tip": {
+    "message": "提示"
+  },
+  "entry_sum_finish": {
+    "message": "在設定中完成設定"
+  },
+  "entry_free_tier": {
+    "message": "免費層級"
+  },
+  "entry_local_nokey": {
+    "message": "本機 / 無金鑰"
+  },
+  "entry_all_clients": {
+    "message": "所有用戶端"
+  },
+  "entry_discovering": {
+    "message": "正在發現已載入的聊天模型..."
+  },
+  "entry_waiting_url": {
+    "message": "正在等待伺服器 URL 穩定..."
+  },
+  "entry_choose_model": {
+    "message": "選擇已載入的模型..."
+  },
+  "entry_paste_key": {
+    "message": "貼上你的 $NAME$ API 金鑰",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_toggle_key": {
+    "message": "切換金鑰可見性"
+  },
+  "entry_key_valid": {
+    "message": "以 $LAST$ 結尾的金鑰有效",
+    "placeholders": {
+      "last": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_get_key": {
+    "message": "在此取得金鑰"
+  },
+  "entry_stored_locally": {
+    "message": "儲存在此瀏覽器本機。"
+  },
+  "entry_paste_clip": {
+    "message": "從剪貼簿貼上"
+  },
+  "entry_unlock_title": {
+    "message": "解除 FSB 鎖定"
+  },
+  "entry_unlock_h": {
+    "message": "解除保險庫鎖定"
+  },
+  "entry_unlock_sub": {
+    "message": "輸入 PIN 以解除鎖定"
+  },
+  "entry_unlock": {
+    "message": "解除鎖定"
+  },
+  "entry_unlocking": {
+    "message": "正在解除鎖定..."
+  },
+  "entry_unlock_failed": {
+    "message": "解除鎖定失敗"
+  },
+  "entry_no_vault": {
+    "message": "尚未設定保險庫。請先執行設定。"
+  },
+  "entry_bad_pin": {
+    "message": "PIN 不正確"
+  },
+  "entry_comm_error": {
+    "message": "通訊錯誤。請再試一次。"
+  },
+  "entry_first_setup": {
+    "message": "第一次使用？執行設定"
+  },
+  "entry_mic_title": {
+    "message": "為 FSB 啟用麥克風"
+  },
+  "entry_mic_brand": {
+    "message": "FSB 語音輸入"
+  },
+  "entry_mic_h": {
+    "message": "啟用你的麥克風"
+  },
+  "entry_mic_intro": {
+    "message": "Chrome 要求第一次麥克風核准發生在一般的擴充功能分頁。之後，每個網站上的 FSB 側邊欄都可以使用語音輸入。"
+  },
+  "entry_mic_instruction": {
+    "message": "在 Chrome 的提示中選擇「造訪時允許」，以便 FSB 獲得持久授權。"
+  },
+  "entry_mic_waiting": {
+    "message": "正在等待 Chrome 的麥克風提示…"
+  },
+  "entry_mic_allow": {
+    "message": "允許麥克風"
+  },
+  "entry_mic_settings": {
+    "message": "開啟麥克風設定"
+  },
+  "entry_mic_footnote": {
+    "message": "此權限屬於 FSB 擴充功能，不屬於目前分頁中的網站。"
+  },
+  "entry_mic_try": {
+    "message": "重試"
+  },
+  "entry_mic_no_api": {
+    "message": "此 Chrome 版本不向擴充功能提供麥克風存取。"
+  },
+  "entry_mic_enabled": {
+    "message": "麥克風已啟用。正在返回 FSB…"
+  },
+  "entry_mic_blocked": {
+    "message": "FSB 的麥克風存取已被封鎖。開啟 Chrome 麥克風設定，移除被封鎖的 FSB 項目，然後重試。"
+  },
+  "entry_mic_none": {
+    "message": "未找到麥克風。請連接或啟用輸入裝置，然後重試。"
+  },
+  "entry_mic_busy": {
+    "message": "麥克風正忙或無法使用。請關閉其他錄音應用程式，然後重試。"
+  },
+  "entry_mic_macos": {
+    "message": "Chrome 無法存取麥克風。在 macOS 上，請在系統設定 → 隱私權與安全性 → 麥克風中啟用 Google Chrome，然後重試。"
+  },
+  "entry_mic_generic": {
+    "message": "FSB 無法存取麥克風。請檢查 Chrome 和 macOS 的麥克風設定，然後重試。"
+  },
+  "entry_mic_manual": {
+    "message": "在網址列開啟 chrome://settings/content/microphone，然後移除被封鎖的 FSB 項目。"
+  },
+  "entry_automating": {
+    "message": "FSB 正在自動化"
+  },
+  "entry_stop": {
+    "message": "停止"
+  },
+  "entry_planning": {
+    "message": "規劃中"
+  },
+  "entry_initializing": {
+    "message": "正在初始化..."
+  },
+  "entry_done_pill": {
+    "message": "完成"
+  },
+  "entry_actions": {
+    "message": "操作：$COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_replay_controls": {
+    "message": "重播控制項"
+  },
+  "entry_pause_replay": {
+    "message": "暫停重播"
+  },
+  "entry_replay_position": {
+    "message": "重播位置，只能向前拖動"
+  },
+  "entry_seek_forward": {
+    "message": "在重播中向前跳轉"
+  },
+  "entry_replay_speed": {
+    "message": "重播速度 $SPEED$。啟用後改為 $NEXT$",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      },
+      "next": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_replay_speed_title": {
+    "message": "重播速度：$SPEED$（點擊變更）",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_inspect": {
+    "message": "點擊一個元素進行檢查"
+  },
+  "entry_selectors": {
+    "message": "FSB 會嘗試的選擇器"
+  },
+  "entry_attributes": {
+    "message": "屬性"
+  },
+  "entry_interact": {
+    "message": "可互動性"
+  },
+  "entry_position": {
+    "message": "位置"
+  },
+  "entry_inspector": {
+    "message": "FSB 檢查模式（按 Ctrl+Shift+E 結束）"
+  },
+  "entry_crawling": {
+    "message": "正在爬取 $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_pages": {
+    "message": "$COLLECTED$ / $MAX$ 頁",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_toast_ready": {
+    "message": "FSB 已就緒。正在開啟側邊欄"
+  },
+  "entry_toast_opened": {
+    "message": "已開啟 FSB 側邊欄"
+  },
+  "entry_toast_popup": {
+    "message": "正在彈出視窗中開啟 FSB"
+  },
+  "entry_toast_copied": {
+    "message": "已複製安裝命令"
   }
 }

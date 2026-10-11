@@ -153,14 +153,14 @@ function createHarness(initialStore, options) {
   assert(copyCommandSource.indexOf('writeClipboard(text);') < copyCommandSource.indexOf('persistCopyClick(clientId, source)'),
     'clipboard write remains ahead of persistence');
   assert(copyCommandSource.includes('}, 1600);'), 'copied state still uses the 1600 ms timer');
-  assert(copyCommandSource.includes("showToast('Install command copied');"), 'copy toast text remains exact');
+  assert(copyCommandSource.includes("showToast(ob('entry_toast_copied', 'Install command copied'))"), 'copy toast text remains exact');
   assert(showToastSource.includes('}, 2600);'), 'toast still uses the 2600 ms timer');
   assert(!/\brender(?:Toast)?\s*\(/.test(persistSource), 'persistence does not render or toast');
 
   assert.strictEqual(
     sha256(ONBOARDING_HTML_PATH),
-    'ba4c297095e896bbabdc369a6bee114031df380a1cc75cc7431bed58176b634c',
-    'onboarding.html has no Phase 57 change'
+    '2a9dca4150aa1fde6ac64011231266ddb2c4e7d7f77278d1eb64c1aed26d2b34',
+    'onboarding.html hash rolled for the locale script'
   );
   assert.strictEqual(
     sha256(ONBOARDING_CSS_PATH),

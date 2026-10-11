@@ -11,6 +11,44 @@
   const FSB = window.FSB;
   const logger = FSB.logger;
 
+  function ov(key, english, subs) {
+    var locale = globalThis.fsbUiLocale;
+    if (locale && typeof locale.text === 'function') return locale.text(key, english, subs);
+    return english;
+  }
+
+  var chromeRoots = [];
+  function refreshOwnedChrome(root) {
+    if (!root || typeof root.querySelector !== 'function') return;
+    var title = root.querySelector('.fsb-title');
+    if (title && title.textContent === 'FSB Automating') title.textContent = ov('entry_automating', 'FSB Automating');
+    var stop = root.querySelector('.fsb-stop');
+    if (stop && stop.getAttribute('aria-label') === 'Stop') stop.setAttribute('aria-label', ov('entry_stop', 'Stop'));
+    var step = root.querySelector('.fsb-step-number');
+    if (step && step.textContent === 'Planning') step.textContent = ov('entry_planning', 'Planning');
+    var detail = root.querySelector('.fsb-step-text');
+    if (detail && detail.textContent === 'Initializing...') detail.textContent = ov('entry_initializing', 'Initializing...');
+    if (root.getAttribute && root.getAttribute('aria-label') === 'Replay controls') {
+      root.setAttribute('aria-label', ov('entry_replay_controls', 'Replay controls'));
+    }
+    var pause = root.querySelector('.fsb-replay-toggle');
+    if (pause && pause.getAttribute('aria-label') === 'Pause replay') pause.setAttribute('aria-label', ov('entry_pause_replay', 'Pause replay'));
+    var scrubber = root.querySelector('.fsb-replay-scrubber');
+    if (scrubber && scrubber.getAttribute('aria-label') === 'Replay position, forward seek only') {
+      scrubber.setAttribute('aria-label', ov('entry_replay_position', 'Replay position, forward seek only'));
+      scrubber.setAttribute('title', ov('entry_seek_forward', 'Seek forward through the replay'));
+    }
+  }
+  function watchChrome(root) {
+    chromeRoots.push(root);
+    refreshOwnedChrome(root);
+  }
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
+    fsbUiLocale.boot().then(function () {
+      chromeRoots.forEach(refreshOwnedChrome);
+    });
+  }
+
   // ============================================================================
   // VISUAL FEEDBACK - Highlight Manager and Progress Overlay
   // ============================================================================
@@ -810,6 +848,7 @@
       }
 
       this.shadow.appendChild(this.container);
+      watchChrome(this.container);
 
       // Promote to top layer via Popover API for guaranteed rendering above all page content.
       // This bypasses stacking context issues on complex sites like Google Docs.
@@ -999,7 +1038,7 @@
       var etaEl = this.container.querySelector('.fsb-eta');
       if (etaEl && actionCount !== this._lastActionCount) {
         if (actionCount !== null && actionCount !== undefined) {
-          etaEl.textContent = 'Actions: ' + actionCount;
+          etaEl.textContent = ov('entry_actions', 'Actions: ' + actionCount, { count: actionCount });
         } else {
           etaEl.textContent = '';
         }
@@ -1062,7 +1101,7 @@
           // Green glow on overlay
           this.container.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(52, 211, 153, 0.3)';
           // Done pill
-          this.container.querySelector('.fsb-step-number').textContent = 'Done';
+          this.container.querySelector('.fsb-step-number').textContent = ov('entry_done_pill', 'Done');
         }
         // Failure: bar stays orange, pill keeps existing text (D-10) -- no action needed
 
@@ -1218,8 +1257,8 @@
       var button = this.container.querySelector('.fsb-replay-speed');
       if (!button) return;
       button.textContent = label;
-      button.setAttribute('aria-label', 'Replay speed ' + label + '. Activate to change to ' + nextLabel);
-      button.setAttribute('title', 'Replay speed: ' + label + ' (click to change)');
+      button.setAttribute('aria-label', ov('entry_replay_speed', 'Replay speed ' + label + '. Activate to change to ' + nextLabel, { speed: label, next: nextLabel }));
+      button.setAttribute('title', ov('entry_replay_speed_title', 'Replay speed: ' + label + ' (click to change)', { speed: label }));
     }
 
     _isTerminal(replay, lifecycle) {
@@ -1644,16 +1683,16 @@
       this.container = document.createElement('div');
       this.container.className = 'fsb-replay-shell';
       this.container.setAttribute('role', 'group');
-      this.container.setAttribute('aria-label', 'Replay controls');
+      this.container.setAttribute('aria-label', ov('entry_replay_controls', 'Replay controls'));
       this.container.innerHTML = `
       <div class="fsb-replay-controls">
-        <button type="button" class="fsb-replay-toggle" aria-label="Pause replay">&#10074;&#10074;</button>
+        <button type="button" class="fsb-replay-toggle" aria-label="${ov('entry_pause_replay', 'Pause replay')}">&#10074;&#10074;</button>
         <span class="fsb-replay-time">0:00 / 0:00</span>
         <div class="fsb-replay-timeline">
           <div class="fsb-replay-progress-track" aria-hidden="true">
             <div class="fsb-replay-progress-fill"></div>
           </div>
-          <input class="fsb-replay-scrubber" type="range" min="0" max="1" value="0" step="100" aria-label="Replay position, forward seek only" title="Seek forward through the replay">
+          <input class="fsb-replay-scrubber" type="range" min="0" max="1" value="0" step="100" aria-label="${ov('entry_replay_position', 'Replay position, forward seek only')}" title="${ov('entry_seek_forward', 'Seek forward through the replay')}">
         </div>
         <button type="button" class="fsb-replay-speed" aria-label="Replay speed 2\u00D7. Activate to change to 4\u00D7" title="Replay speed: 2\u00D7 (click to change)">2\u00D7</button>
       </div>
@@ -1776,6 +1815,7 @@
       });
 
       this.shadow.appendChild(this.container);
+      watchChrome(this.container);
       document.addEventListener('pointermove', this._handleDocumentPointerMove, { passive: true });
       document.addEventListener('pointerdown', this._handleDocumentPointerDown, { passive: true });
       this._listenersAttached = true;
@@ -3142,7 +3182,7 @@
       shadow.appendChild(style);
       const container = document.createElement('div');
       container.className = 'panel';
-      container.innerHTML = '<div class="section">Click an element to inspect</div>';
+      container.innerHTML = '<div class="section">' + ov('entry_inspect', 'Click an element to inspect') + '</div>';
       shadow.appendChild(container);
       this._panelInTopLayer = promoteToTopLayer(this.inspectionPanel);
       if (!this._panelInTopLayer) {
@@ -3156,7 +3196,7 @@
       this.activeIndicator.id = 'fsb-inspector-indicator';
       // z-index kept as fallback; top-layer via Popover API is the primary mechanism
       this.activeIndicator.style.cssText = 'all:initial!important;position:fixed!important;inset:auto!important;top:10px!important;left:50%!important;transform:translateX(-50%)!important;z-index:2147483647!important;background:#FF8C00!important;color:#fff!important;padding:6px 16px!important;border-radius:20px!important;font-family:system-ui,-apple-system,sans-serif!important;font-size:12px!important;font-weight:600!important;box-shadow:0 2px 10px rgba(0,0,0,0.3)!important;pointer-events:none!important;margin:0!important;border:none!important;';
-      this.activeIndicator.textContent = 'FSB Inspector Mode (Ctrl+Shift+E to exit)';
+      this.activeIndicator.textContent = ov('entry_inspector', 'FSB Inspector Mode (Ctrl+Shift+E to exit)');
       this._indicatorInTopLayer = promoteToTopLayer(this.activeIndicator);
       if (!this._indicatorInTopLayer) {
         document.documentElement.appendChild(this.activeIndicator);
@@ -3257,7 +3297,7 @@
       const positionHtml = '<span class="position-info">x: ' + pos.x + ', y: ' + pos.y + ', w: ' + pos.width + ', h: ' + pos.height + '</span>';
       let textHtml = '';
       if (inspection.text) textHtml = '<div class="section"><div class="section-title">Text Content</div><div class="text-preview">' + this.escapeHtml(inspection.text) + '</div></div>';
-      container.innerHTML = '<div class="header"><div>' + headerContent + '</div><button class="close-btn" id="fsb-close-panel">x</button></div><div class="section"><div class="section-title">Selectors FSB Would Try</div>' + selectorsHtml + '</div>' + (hasAttrs ? '<div class="section"><div class="section-title">Attributes</div>' + attrsHtml + '</div>' : '') + '<div class="section"><div class="section-title">Interactability</div>' + interactHtml + '</div><div class="section"><div class="section-title">Position</div>' + positionHtml + '</div>' + textHtml;
+      container.innerHTML = '<div class="header"><div>' + headerContent + '</div><button class="close-btn" id="fsb-close-panel">x</button></div><div class="section"><div class="section-title">' + ov('entry_selectors', 'Selectors FSB Would Try') + '</div>' + selectorsHtml + '</div>' + (hasAttrs ? '<div class="section"><div class="section-title">' + ov('entry_attributes', 'Attributes') + '</div>' + attrsHtml + '</div>' : '') + '<div class="section"><div class="section-title">' + ov('entry_interact', 'Interactability') + '</div>' + interactHtml + '</div><div class="section"><div class="section-title">' + ov('entry_position', 'Position') + '</div>' + positionHtml + '</div>' + textHtml;
       const closeBtn = shadow.querySelector('#fsb-close-panel');
       if (closeBtn) closeBtn.addEventListener('click', () => { this.inspectionPanel.style.setProperty('visibility', 'hidden', 'important'); });
       this.inspectionPanel.style.setProperty('visibility', 'visible', 'important');
@@ -3443,6 +3483,7 @@
       logoImg.src = chrome.runtime.getURL('assets/icon48.png');
 
       this.shadow.appendChild(this.container);
+      watchChrome(this.container);
 
       this._inTopLayer = promoteToTopLayer(this.host);
       if (!this._inTopLayer) {
@@ -3463,10 +3504,10 @@
       if (!this.container) return;
 
       if (data.domain !== undefined) {
-        this.container.querySelector('.fsb-crawl-domain').textContent = 'Crawling ' + data.domain;
+        this.container.querySelector('.fsb-crawl-domain').textContent = ov('entry_crawling', 'Crawling ' + data.domain, { domain: data.domain });
       }
       if (data.pagesCollected !== undefined && data.maxPages !== undefined) {
-        this.container.querySelector('.fsb-crawl-pages').textContent = data.pagesCollected + ' / ' + data.maxPages + ' pages';
+        this.container.querySelector('.fsb-crawl-pages').textContent = ov('entry_pages', data.pagesCollected + ' / ' + data.maxPages + ' pages', { collected: data.pagesCollected, max: data.maxPages });
       }
       if (data.percent !== undefined) {
         const clamped = Math.min(100, Math.max(0, data.percent));

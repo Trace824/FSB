@@ -29,9 +29,9 @@
 
 ### Entry and overlay
 
-- [ ] **ENTRY-01**: Onboarding package-owned copy renders in the active locale.
-- [ ] **ENTRY-02**: Unlock and microphone-permission package-owned copy renders in the active locale.
-- [ ] **ENTRY-03**: Page-overlay labels that FSB authors (`Stop`, `Done`, elapsed captions, replay speed, and the same class of chrome) render in the active locale. Task titles, model summaries, and page content stay raw.
+- [x] **ENTRY-01**: Onboarding package-owned copy renders in the active locale.
+- [x] **ENTRY-02**: Unlock and microphone-permission package-owned copy renders in the active locale.
+- [x] **ENTRY-03**: Page-overlay labels that FSB authors (`Stop`, `Done`, elapsed captions, replay speed, and the same class of chrome) render in the active locale. Task titles, model summaries, and page content stay raw.
 
 ### Catalog quality
 
@@ -88,9 +88,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHELL-02 | Phase 67 | Complete |
 | SHELL-03 | Phase 67 | Complete |
 | SET-01 | Phase 68 | Complete |
-| ENTRY-01 | Phase 69 | Pending |
-| ENTRY-02 | Phase 69 | Pending |
-| ENTRY-03 | Phase 69 | Pending |
+| ENTRY-01 | Phase 69 | Complete |
+| ENTRY-02 | Phase 69 | Complete |
+| ENTRY-03 | Phase 69 | Complete |
 | COPY-01 | Phase 70 | Pending |
 | LANG-01 | Phase 71 | Pending |
 | LANG-02 | Phase 71 | Pending |

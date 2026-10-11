@@ -1650,5 +1650,518 @@
   },
   "panel_e189657f5a": {
     "message": "Ningún modelo coincide"
+  },
+  "entry_step": {
+    "message": "Paso $CURRENT$ de $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_label_welcome": {
+    "message": "Bienvenida"
+  },
+  "entry_label_path": {
+    "message": "Ruta"
+  },
+  "entry_label_mcp": {
+    "message": "Servidor MCP"
+  },
+  "entry_label_provider": {
+    "message": "Proveedor"
+  },
+  "entry_label_apikey": {
+    "message": "Clave de API"
+  },
+  "entry_label_setup": {
+    "message": "Configuración"
+  },
+  "entry_label_pin": {
+    "message": "Fijar"
+  },
+  "entry_label_done": {
+    "message": "Listo"
+  },
+  "entry_future_lead": {
+    "message": "El futuro de la"
+  },
+  "entry_future_word": {
+    "message": "navegación autónoma"
+  },
+  "entry_future_tail": {
+    "message": "ya está aquí."
+  },
+  "entry_welcome_sub": {
+    "message": "Elegiste bien. Tus agentes van a usar el mejor motor de navegación autónoma de su vida. Precisión de DOM, sin visión y sin adivinanzas. No volverán a hacer clic a ciegas."
+  },
+  "entry_feat_api": {
+    "message": "API directa"
+  },
+  "entry_feat_api_sub": {
+    "message": "Habla con las apps, no solo hace clic"
+  },
+  "entry_feat_guides": {
+    "message": "Más de 130 guías"
+  },
+  "entry_feat_guides_sub": {
+    "message": "En 17 categorías"
+  },
+  "entry_feat_tools": {
+    "message": "68 herramientas MCP"
+  },
+  "entry_feat_tools_sub": {
+    "message": "Desde tu agente de código"
+  },
+  "entry_get_started": {
+    "message": "Empezar"
+  },
+  "entry_skip_setup": {
+    "message": "Omitir la configuración por ahora"
+  },
+  "entry_pick_path": {
+    "message": "Elige tu camino"
+  },
+  "entry_how_run": {
+    "message": "¿Cómo quieres ejecutar FSB?"
+  },
+  "entry_two_ways": {
+    "message": "Dos formas de entrar. Configura una ahora y añade la otra cuando quieras en Ajustes."
+  },
+  "entry_agent": {
+    "message": "Agente"
+  },
+  "entry_recommended": {
+    "message": "Recomendado"
+  },
+  "entry_agent_desc": {
+    "message": "Usa FSB como servidor MCP en Claude Code, Cursor, VS Code, OpenClaw y más. 68 herramientas, sin clave de API y sin configurar nada en el navegador."
+  },
+  "entry_in_browser": {
+    "message": "En este navegador"
+  },
+  "entry_byok": {
+    "message": "Clave propia"
+  },
+  "entry_byok_desc": {
+    "message": "Habla con FSB en el panel lateral. Trae tu clave de xAI, Anthropic o Google, o ejecuta un modelo local sin clave."
+  },
+  "entry_most_people": {
+    "message": "La mayoría empieza con MCP, la forma más rápida y barata de usar FSB."
+  },
+  "entry_skip_mcp": {
+    "message": "Saltar a MCP"
+  },
+  "entry_mcp_eyebrow": {
+    "message": "Ruta recomendada / MCP"
+  },
+  "entry_install_h": {
+    "message": "Instala el servidor MCP de FSB"
+  },
+  "entry_one_command": {
+    "message": "Un comando. Elige tu agente. FSB se registra solo. No hace falta una clave de API."
+  },
+  "entry_one_command_short": {
+    "message": "Un comando. Elige tu agente."
+  },
+  "entry_copy_command": {
+    "message": "Copiar comando"
+  },
+  "entry_copy_install": {
+    "message": "Copiar el comando de instalación"
+  },
+  "entry_mcp_1a": {
+    "message": "Ejecuta el comando en tu terminal."
+  },
+  "entry_mcp_1b": {
+    "message": "Pasa por copiar"
+  },
+  "entry_mcp_1c": {
+    "message": "para elegir un cliente concreto."
+  },
+  "entry_mcp_2a": {
+    "message": "FSB se escribe solo en la configuración MCP de tu agente."
+  },
+  "entry_mcp_2b": {
+    "message": "68 herramientas"
+  },
+  "entry_mcp_2c": {
+    "message": ", sin JSON manual."
+  },
+  "entry_mcp_3": {
+    "message": "Pide a tu agente que navegue. Él maneja el motor DOM de FSB."
+  },
+  "entry_claw_name": {
+    "message": "Configúralo para tu Claw"
+  },
+  "entry_claw_desc": {
+    "message": "Instalación guiada de OpenClaw en el panel de control"
+  },
+  "entry_prefer_key": {
+    "message": "¿Prefieres tu propia clave?"
+  },
+  "entry_byok_eyebrow": {
+    "message": "En el navegador / clave propia"
+  },
+  "entry_choose_provider": {
+    "message": "Elige tu proveedor de AI"
+  },
+  "entry_dont_need": {
+    "message": "En realidad no necesitas esto."
+  },
+  "entry_best_way": {
+    "message": "La mejor forma de ejecutar FSB es con MCP. Sin clave y sin techo de costo."
+  },
+  "entry_setup_mcp": {
+    "message": "Configurar MCP en su lugar"
+  },
+  "entry_once_key": {
+    "message": "Cuando la clave esté lista, FSB lista solo cada modelo de texto disponible."
+  },
+  "entry_key_heading": {
+    "message": "Añade tu clave de $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_optional": {
+    "message": "Este paso es opcional."
+  },
+  "entry_shines": {
+    "message": "FSB brilla más con MCP, así que puedes omitir la clave por completo."
+  },
+  "entry_skip_use_mcp": {
+    "message": "Omitir y usar MCP"
+  },
+  "entry_checking": {
+    "message": "Comprobando..."
+  },
+  "entry_continue": {
+    "message": "Continuar"
+  },
+  "entry_almost": {
+    "message": "Casi listo"
+  },
+  "entry_pin_h": {
+    "message": "Fija FSB para tenerlo a un clic"
+  },
+  "entry_pin_sub": {
+    "message": "Ese es el único paso. Los permisos de FSB se activan solos cuando Chrome lo instala. No tienes que cambiar ningún interruptor."
+  },
+  "entry_other_ext": {
+    "message": "Otra extensión"
+  },
+  "entry_pinned": {
+    "message": "FSB fijado"
+  },
+  "entry_ive_pinned": {
+    "message": "Ya fijé FSB"
+  },
+  "entry_skip_step": {
+    "message": "Omitir este paso"
+  },
+  "entry_all_set": {
+    "message": "Todo listo."
+  },
+  "entry_ready_sub": {
+    "message": "FSB está listo. Esta es tu configuración. Cámbiala luego en Ajustes."
+  },
+  "entry_running": {
+    "message": "FSB está en marcha"
+  },
+  "entry_open": {
+    "message": "Abrir FSB"
+  },
+  "entry_more": {
+    "message": "Siempre hay mucho más que descubrir de FSB. Míralo en el"
+  },
+  "entry_control_panel": {
+    "message": "Panel de control"
+  },
+  "entry_docs": {
+    "message": "Documentos"
+  },
+  "entry_back": {
+    "message": "Atrás"
+  },
+  "entry_sum_setup": {
+    "message": "Configuración"
+  },
+  "entry_sum_mcp": {
+    "message": "Servidor MCP"
+  },
+  "entry_sum_command": {
+    "message": "Comando"
+  },
+  "entry_sum_tools": {
+    "message": "Herramientas"
+  },
+  "entry_sum_68": {
+    "message": "68 disponibles"
+  },
+  "entry_sum_access": {
+    "message": "Acceso"
+  },
+  "entry_sum_granted": {
+    "message": "Concedido al instalar"
+  },
+  "entry_sum_version": {
+    "message": "Versión"
+  },
+  "entry_sum_byok": {
+    "message": "Clave propia en el navegador"
+  },
+  "entry_sum_provider": {
+    "message": "Proveedor"
+  },
+  "entry_sum_apikey": {
+    "message": "Clave de API"
+  },
+  "entry_sum_none": {
+    "message": "Sin configurar"
+  },
+  "entry_sum_tip": {
+    "message": "Consejo"
+  },
+  "entry_sum_finish": {
+    "message": "Termina la configuración en Ajustes"
+  },
+  "entry_free_tier": {
+    "message": "Nivel gratuito"
+  },
+  "entry_local_nokey": {
+    "message": "Local / sin clave"
+  },
+  "entry_all_clients": {
+    "message": "Todos los clientes"
+  },
+  "entry_discovering": {
+    "message": "Buscando modelos de chat cargados..."
+  },
+  "entry_waiting_url": {
+    "message": "Esperando a que la URL del servidor se estabilice..."
+  },
+  "entry_choose_model": {
+    "message": "Elige un modelo cargado..."
+  },
+  "entry_paste_key": {
+    "message": "Pega tu clave de API de $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_toggle_key": {
+    "message": "Mostrar u ocultar la clave"
+  },
+  "entry_key_valid": {
+    "message": "La clave que termina en $LAST$ es válida",
+    "placeholders": {
+      "last": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_get_key": {
+    "message": "Obtén tu clave en"
+  },
+  "entry_stored_locally": {
+    "message": "se guarda localmente en tu navegador."
+  },
+  "entry_paste_clip": {
+    "message": "Pegar del portapapeles"
+  },
+  "entry_unlock_title": {
+    "message": "Desbloquear FSB"
+  },
+  "entry_unlock_h": {
+    "message": "Desbloquear la caja"
+  },
+  "entry_unlock_sub": {
+    "message": "Introduce tu PIN para desbloquear"
+  },
+  "entry_unlock": {
+    "message": "Desbloquear"
+  },
+  "entry_unlocking": {
+    "message": "Desbloqueando..."
+  },
+  "entry_unlock_failed": {
+    "message": "No se pudo desbloquear"
+  },
+  "entry_no_vault": {
+    "message": "No hay una caja configurada. Ejecuta primero la configuración."
+  },
+  "entry_bad_pin": {
+    "message": "PIN incorrecto"
+  },
+  "entry_comm_error": {
+    "message": "Error de comunicación. Inténtalo de nuevo."
+  },
+  "entry_first_setup": {
+    "message": "¿Primera vez? Ejecuta la configuración"
+  },
+  "entry_mic_title": {
+    "message": "Activar el micrófono para FSB"
+  },
+  "entry_mic_brand": {
+    "message": "Entrada de voz de FSB"
+  },
+  "entry_mic_h": {
+    "message": "Activa tu micrófono"
+  },
+  "entry_mic_intro": {
+    "message": "Chrome exige la primera aprobación del micrófono en una pestaña normal de la extensión. Después, la entrada de voz funciona desde el panel lateral de FSB en cada sitio."
+  },
+  "entry_mic_instruction": {
+    "message": "En el aviso de Chrome, elige Permitir mientras visitas el sitio para un permiso persistente de FSB."
+  },
+  "entry_mic_waiting": {
+    "message": "Esperando el aviso del micrófono de Chrome…"
+  },
+  "entry_mic_allow": {
+    "message": "Permitir el micrófono"
+  },
+  "entry_mic_settings": {
+    "message": "Abrir la configuración del micrófono"
+  },
+  "entry_mic_footnote": {
+    "message": "Este permiso pertenece a la extensión FSB, no al sitio de la pestaña activa."
+  },
+  "entry_mic_try": {
+    "message": "Intentar de nuevo"
+  },
+  "entry_mic_no_api": {
+    "message": "Esta versión de Chrome no ofrece acceso al micrófono a las extensiones."
+  },
+  "entry_mic_enabled": {
+    "message": "Micrófono activado. Volviendo a FSB…"
+  },
+  "entry_mic_blocked": {
+    "message": "El acceso al micrófono está bloqueado para FSB. Abre la configuración del micrófono de Chrome, quita la entrada bloqueada de FSB e inténtalo de nuevo."
+  },
+  "entry_mic_none": {
+    "message": "No se encontró un micrófono. Conecta o activa un dispositivo de entrada e inténtalo de nuevo."
+  },
+  "entry_mic_busy": {
+    "message": "El micrófono está ocupado o no disponible. Cierra otras apps de grabación e inténtalo de nuevo."
+  },
+  "entry_mic_macos": {
+    "message": "Chrome no pudo acceder al micrófono. En macOS, activa Google Chrome en Ajustes del Sistema → Privacidad y seguridad → Micrófono, e inténtalo de nuevo."
+  },
+  "entry_mic_generic": {
+    "message": "FSB no pudo acceder al micrófono. Revisa la configuración del micrófono de Chrome y de macOS, e inténtalo de nuevo."
+  },
+  "entry_mic_manual": {
+    "message": "Abre chrome://settings/content/microphone en la barra de direcciones y quita la entrada bloqueada de FSB."
+  },
+  "entry_automating": {
+    "message": "FSB automatizando"
+  },
+  "entry_stop": {
+    "message": "Detener"
+  },
+  "entry_planning": {
+    "message": "Planificando"
+  },
+  "entry_initializing": {
+    "message": "Iniciando..."
+  },
+  "entry_done_pill": {
+    "message": "Hecho"
+  },
+  "entry_actions": {
+    "message": "Acciones: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_replay_controls": {
+    "message": "Controles de repetición"
+  },
+  "entry_pause_replay": {
+    "message": "Pausar la repetición"
+  },
+  "entry_replay_position": {
+    "message": "Posición de la repetición, solo avance"
+  },
+  "entry_seek_forward": {
+    "message": "Avanza por la repetición"
+  },
+  "entry_replay_speed": {
+    "message": "Velocidad de repetición $SPEED$. Activa para cambiar a $NEXT$",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      },
+      "next": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_replay_speed_title": {
+    "message": "Velocidad de repetición: $SPEED$ (clic para cambiar)",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_inspect": {
+    "message": "Haz clic en un elemento para inspeccionarlo"
+  },
+  "entry_selectors": {
+    "message": "Selectores que FSB probaría"
+  },
+  "entry_attributes": {
+    "message": "Atributos"
+  },
+  "entry_interact": {
+    "message": "Interactuabilidad"
+  },
+  "entry_position": {
+    "message": "Posición"
+  },
+  "entry_inspector": {
+    "message": "Modo inspector de FSB (Ctrl+Mayús+E para salir)"
+  },
+  "entry_crawling": {
+    "message": "Recorriendo $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_pages": {
+    "message": "$COLLECTED$ / $MAX$ páginas",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_toast_ready": {
+    "message": "FSB está listo. Abriendo el panel lateral"
+  },
+  "entry_toast_opened": {
+    "message": "Panel lateral de FSB abierto"
+  },
+  "entry_toast_popup": {
+    "message": "Abriendo FSB en una ventana emergente"
+  },
+  "entry_toast_copied": {
+    "message": "Comando de instalación copiado"
   }
 }

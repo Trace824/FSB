@@ -1650,5 +1650,518 @@
   },
   "panel_e189657f5a": {
     "message": "一致するモデルがありません"
+  },
+  "entry_step": {
+    "message": "ステップ $CURRENT$ / $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_label_welcome": {
+    "message": "ようこそ"
+  },
+  "entry_label_path": {
+    "message": "経路"
+  },
+  "entry_label_mcp": {
+    "message": "MCP 接続"
+  },
+  "entry_label_provider": {
+    "message": "プロバイダー"
+  },
+  "entry_label_apikey": {
+    "message": "API キー"
+  },
+  "entry_label_setup": {
+    "message": "セットアップ"
+  },
+  "entry_label_pin": {
+    "message": "ピン留め"
+  },
+  "entry_label_done": {
+    "message": "完了"
+  },
+  "entry_future_lead": {
+    "message": "これからの"
+  },
+  "entry_future_word": {
+    "message": "自律"
+  },
+  "entry_future_tail": {
+    "message": "ブラウジング。"
+  },
+  "entry_welcome_sub": {
+    "message": "正しい選択です。エージェントは最高の自律ブラウジングエンジンを使います。DOM の精度だけで、画像認識も推測もありません。見えないクリックには戻りません。"
+  },
+  "entry_feat_api": {
+    "message": "直接 API"
+  },
+  "entry_feat_api_sub": {
+    "message": "クリックだけでなくアプリと話します"
+  },
+  "entry_feat_guides": {
+    "message": "130 以上のガイド"
+  },
+  "entry_feat_guides_sub": {
+    "message": "17 カテゴリにわたります"
+  },
+  "entry_feat_tools": {
+    "message": "68 個の MCP ツール"
+  },
+  "entry_feat_tools_sub": {
+    "message": "コーディングエージェントから"
+  },
+  "entry_get_started": {
+    "message": "はじめる"
+  },
+  "entry_skip_setup": {
+    "message": "セットアップを今はスキップ"
+  },
+  "entry_pick_path": {
+    "message": "経路を選ぶ"
+  },
+  "entry_how_run": {
+    "message": "FSB をどう実行しますか？"
+  },
+  "entry_two_ways": {
+    "message": "入り方は二つです。今ひとつ設定し、もうひとつは設定でいつでも追加できます。"
+  },
+  "entry_agent": {
+    "message": "エージェント"
+  },
+  "entry_recommended": {
+    "message": "推奨"
+  },
+  "entry_agent_desc": {
+    "message": "Claude Code、Cursor、VS Code、OpenClaw などで FSB を MCP サーバーとして使います。ツール 68 個、API キー不要、ブラウザの設定も不要です。"
+  },
+  "entry_in_browser": {
+    "message": "このブラウザで"
+  },
+  "entry_byok": {
+    "message": "自分の鍵"
+  },
+  "entry_byok_desc": {
+    "message": "サイドパネルで FSB とチャットします。xAI、Anthropic、Google の鍵を持参するか、鍵なしのローカルモデルを使います。"
+  },
+  "entry_most_people": {
+    "message": "多くの人は、FSB を最も速く安く使う MCP から始めます。"
+  },
+  "entry_skip_mcp": {
+    "message": "MCP へ進む"
+  },
+  "entry_mcp_eyebrow": {
+    "message": "推奨経路 / MCP"
+  },
+  "entry_install_h": {
+    "message": "FSB の MCP サーバーをインストール"
+  },
+  "entry_one_command": {
+    "message": "コマンドは一つ。エージェントを選ぶと FSB が自動登録します。API キーは不要です。"
+  },
+  "entry_one_command_short": {
+    "message": "コマンドは一つ。エージェントを選ぶ。"
+  },
+  "entry_copy_command": {
+    "message": "コマンドをコピー"
+  },
+  "entry_copy_install": {
+    "message": "インストールコマンドをコピー"
+  },
+  "entry_mcp_1a": {
+    "message": "ターミナルでコマンドを実行します。"
+  },
+  "entry_mcp_1b": {
+    "message": "コピーに合わせる"
+  },
+  "entry_mcp_1c": {
+    "message": "と特定のクライアントを選べます。"
+  },
+  "entry_mcp_2a": {
+    "message": "FSB はエージェントの MCP 設定へ自分を書き込みます。"
+  },
+  "entry_mcp_2b": {
+    "message": "ツール 68 個"
+  },
+  "entry_mcp_2c": {
+    "message": "、手動の JSON は不要です。"
+  },
+  "entry_mcp_3": {
+    "message": "エージェントに閲覧を頼むと、FSB の DOM エンジンを動かします。"
+  },
+  "entry_claw_name": {
+    "message": "Claw 向けに設定"
+  },
+  "entry_claw_desc": {
+    "message": "コントロールパネルでの OpenClaw ガイド付きインストール"
+  },
+  "entry_prefer_key": {
+    "message": "自分の鍵を使いますか？"
+  },
+  "entry_byok_eyebrow": {
+    "message": "ブラウザ内 / 自分の鍵"
+  },
+  "entry_choose_provider": {
+    "message": "AI プロバイダーを選ぶ"
+  },
+  "entry_dont_need": {
+    "message": "これは実際には不要です。"
+  },
+  "entry_best_way": {
+    "message": "FSB は MCP で使うのが最適です。鍵も費用の上限もありません。"
+  },
+  "entry_setup_mcp": {
+    "message": "代わりに MCP を設定"
+  },
+  "entry_once_key": {
+    "message": "鍵を設定すると、FSB は使えるテキストモデルを自動で一覧します。"
+  },
+  "entry_key_heading": {
+    "message": "$NAME$ の鍵を追加",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_optional": {
+    "message": "この手順は任意です。"
+  },
+  "entry_shines": {
+    "message": "FSB は MCP で最も力を発揮するので、鍵は完全に省略できます。"
+  },
+  "entry_skip_use_mcp": {
+    "message": "スキップして MCP を使う"
+  },
+  "entry_checking": {
+    "message": "確認しています..."
+  },
+  "entry_continue": {
+    "message": "続ける"
+  },
+  "entry_almost": {
+    "message": "もう少しです"
+  },
+  "entry_pin_h": {
+    "message": "FSB をピン留めしてワンクリックに"
+  },
+  "entry_pin_sub": {
+    "message": "手順はこれだけです。Chrome がインストールした瞬間に FSB の許可は自動でオンになります。切り替えるものはありません。"
+  },
+  "entry_other_ext": {
+    "message": "ほかの拡張機能"
+  },
+  "entry_pinned": {
+    "message": "FSB をピン留めしました"
+  },
+  "entry_ive_pinned": {
+    "message": "FSB をピン留めしました"
+  },
+  "entry_skip_step": {
+    "message": "この手順をスキップ"
+  },
+  "entry_all_set": {
+    "message": "準備ができました。"
+  },
+  "entry_ready_sub": {
+    "message": "FSB の準備ができました。これが設定です。あとで設定から変更できます。"
+  },
+  "entry_running": {
+    "message": "FSB は実行中です"
+  },
+  "entry_open": {
+    "message": "FSB を開く"
+  },
+  "entry_more": {
+    "message": "FSB について知ることはまだたくさんあります。見る場所は"
+  },
+  "entry_control_panel": {
+    "message": "コントロールパネル"
+  },
+  "entry_docs": {
+    "message": "ドキュメント"
+  },
+  "entry_back": {
+    "message": "戻る"
+  },
+  "entry_sum_setup": {
+    "message": "セットアップ"
+  },
+  "entry_sum_mcp": {
+    "message": "MCP サーバー"
+  },
+  "entry_sum_command": {
+    "message": "コマンド"
+  },
+  "entry_sum_tools": {
+    "message": "ツール"
+  },
+  "entry_sum_68": {
+    "message": "68 個が利用可能"
+  },
+  "entry_sum_access": {
+    "message": "アクセス"
+  },
+  "entry_sum_granted": {
+    "message": "インストール時に許可"
+  },
+  "entry_sum_version": {
+    "message": "バージョン"
+  },
+  "entry_sum_byok": {
+    "message": "ブラウザ内の自分の鍵"
+  },
+  "entry_sum_provider": {
+    "message": "プロバイダー"
+  },
+  "entry_sum_apikey": {
+    "message": "API キー"
+  },
+  "entry_sum_none": {
+    "message": "未設定"
+  },
+  "entry_sum_tip": {
+    "message": "ヒント"
+  },
+  "entry_sum_finish": {
+    "message": "設定でセットアップを終える"
+  },
+  "entry_free_tier": {
+    "message": "無料枠"
+  },
+  "entry_local_nokey": {
+    "message": "ローカル / 鍵なし"
+  },
+  "entry_all_clients": {
+    "message": "すべてのクライアント"
+  },
+  "entry_discovering": {
+    "message": "読み込み済みのチャットモデルを探しています..."
+  },
+  "entry_waiting_url": {
+    "message": "サーバー URL が安定するのを待っています..."
+  },
+  "entry_choose_model": {
+    "message": "読み込み済みのモデルを選ぶ..."
+  },
+  "entry_paste_key": {
+    "message": "$NAME$ の API キーを貼り付け",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_toggle_key": {
+    "message": "鍵の表示を切り替える"
+  },
+  "entry_key_valid": {
+    "message": "末尾が $LAST$ の鍵は有効です",
+    "placeholders": {
+      "last": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_get_key": {
+    "message": "鍵の取得先"
+  },
+  "entry_stored_locally": {
+    "message": "このブラウザにローカル保存されます。"
+  },
+  "entry_paste_clip": {
+    "message": "クリップボードから貼り付け"
+  },
+  "entry_unlock_title": {
+    "message": "FSB のロックを解除"
+  },
+  "entry_unlock_h": {
+    "message": "ボールトのロックを解除"
+  },
+  "entry_unlock_sub": {
+    "message": "解除するには PIN を入力"
+  },
+  "entry_unlock": {
+    "message": "ロック解除"
+  },
+  "entry_unlocking": {
+    "message": "ロック解除中..."
+  },
+  "entry_unlock_failed": {
+    "message": "ロック解除に失敗しました"
+  },
+  "entry_no_vault": {
+    "message": "ボールトが未設定です。先にセットアップを実行してください。"
+  },
+  "entry_bad_pin": {
+    "message": "PIN が違います"
+  },
+  "entry_comm_error": {
+    "message": "通信エラーです。もう一度試してください。"
+  },
+  "entry_first_setup": {
+    "message": "初めてですか？セットアップを実行"
+  },
+  "entry_mic_title": {
+    "message": "FSB のマイクを有効にする"
+  },
+  "entry_mic_brand": {
+    "message": "FSB 音声入力"
+  },
+  "entry_mic_h": {
+    "message": "マイクを有効にする"
+  },
+  "entry_mic_intro": {
+    "message": "Chrome は最初のマイク許可を通常の拡張機能タブで求めます。その後は、どのサイトでも FSB サイドパネルから音声入力できます。"
+  },
+  "entry_mic_instruction": {
+    "message": "Chrome の確認で「アクセス中は許可」を選ぶと、FSB の許可が維持されます。"
+  },
+  "entry_mic_waiting": {
+    "message": "Chrome のマイク確認を待っています…"
+  },
+  "entry_mic_allow": {
+    "message": "マイクを許可"
+  },
+  "entry_mic_settings": {
+    "message": "マイク設定を開く"
+  },
+  "entry_mic_footnote": {
+    "message": "この許可は FSB 拡張機能のもので、表示中のサイトのものではありません。"
+  },
+  "entry_mic_try": {
+    "message": "もう一度試す"
+  },
+  "entry_mic_no_api": {
+    "message": "この Chrome では拡張機能がマイクを使えません。"
+  },
+  "entry_mic_enabled": {
+    "message": "マイクを有効にしました。FSB に戻ります…"
+  },
+  "entry_mic_blocked": {
+    "message": "FSB のマイクアクセスはブロックされています。Chrome のマイク設定を開き、ブロックされた FSB を削除してから再試行してください。"
+  },
+  "entry_mic_none": {
+    "message": "マイクが見つかりません。入力装置を接続または有効にしてから再試行してください。"
+  },
+  "entry_mic_busy": {
+    "message": "マイクは使用中か利用できません。ほかの録音アプリを閉じてから再試行してください。"
+  },
+  "entry_mic_macos": {
+    "message": "Chrome はマイクにアクセスできませんでした。macOS では、システム設定 → プライバシーとセキュリティ → マイクで Google Chrome を有効にしてから再試行してください。"
+  },
+  "entry_mic_generic": {
+    "message": "FSB はマイクにアクセスできませんでした。Chrome と macOS のマイク設定を確認してから再試行してください。"
+  },
+  "entry_mic_manual": {
+    "message": "アドレスバーで chrome://settings/content/microphone を開き、ブロックされた FSB を削除してください。"
+  },
+  "entry_automating": {
+    "message": "FSB が自動化中"
+  },
+  "entry_stop": {
+    "message": "停止"
+  },
+  "entry_planning": {
+    "message": "計画中"
+  },
+  "entry_initializing": {
+    "message": "初期化しています..."
+  },
+  "entry_done_pill": {
+    "message": "完了"
+  },
+  "entry_actions": {
+    "message": "操作: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_replay_controls": {
+    "message": "再生コントロール"
+  },
+  "entry_pause_replay": {
+    "message": "再生を一時停止"
+  },
+  "entry_replay_position": {
+    "message": "再生位置。先へだけ移動できます"
+  },
+  "entry_seek_forward": {
+    "message": "再生を先へ移動"
+  },
+  "entry_replay_speed": {
+    "message": "再生速度 $SPEED$。有効にすると $NEXT$ に変わります",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      },
+      "next": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_replay_speed_title": {
+    "message": "再生速度: $SPEED$（クリックで変更）",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_inspect": {
+    "message": "調べる要素をクリック"
+  },
+  "entry_selectors": {
+    "message": "FSB が試すセレクター"
+  },
+  "entry_attributes": {
+    "message": "属性"
+  },
+  "entry_interact": {
+    "message": "操作可能性"
+  },
+  "entry_position": {
+    "message": "位置"
+  },
+  "entry_inspector": {
+    "message": "FSB インスペクターモード（終了は Ctrl+Shift+E）"
+  },
+  "entry_crawling": {
+    "message": "$DOMAIN$ を巡回中",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_pages": {
+    "message": "$COLLECTED$ / $MAX$ ページ",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_toast_ready": {
+    "message": "FSB の準備ができました。サイドパネルを開きます"
+  },
+  "entry_toast_opened": {
+    "message": "FSB のサイドパネルを開きました"
+  },
+  "entry_toast_popup": {
+    "message": "ポップアップウィンドウで FSB を開いています"
+  },
+  "entry_toast_copied": {
+    "message": "インストールコマンドをコピーしました"
   }
 }

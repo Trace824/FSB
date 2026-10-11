@@ -1650,5 +1650,518 @@
   },
   "panel_e189657f5a": {
     "message": "没有匹配的模型"
+  },
+  "entry_step": {
+    "message": "第 $CURRENT$ 步，共 $TOTAL$ 步",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_label_welcome": {
+    "message": "欢迎"
+  },
+  "entry_label_path": {
+    "message": "路径"
+  },
+  "entry_label_mcp": {
+    "message": "MCP 连接"
+  },
+  "entry_label_provider": {
+    "message": "提供方"
+  },
+  "entry_label_apikey": {
+    "message": "API 密钥"
+  },
+  "entry_label_setup": {
+    "message": "设置"
+  },
+  "entry_label_pin": {
+    "message": "固定"
+  },
+  "entry_label_done": {
+    "message": "完成"
+  },
+  "entry_future_lead": {
+    "message": "未来的"
+  },
+  "entry_future_word": {
+    "message": "自主"
+  },
+  "entry_future_tail": {
+    "message": "浏览。"
+  },
+  "entry_welcome_sub": {
+    "message": "你选对了。你的代理将用上最好的自主浏览引擎。纯 DOM 精度，不靠视觉，也不靠猜测。它们不会再盲目点击。"
+  },
+  "entry_feat_api": {
+    "message": "直接 API"
+  },
+  "entry_feat_api_sub": {
+    "message": "与应用对话，不只是点击"
+  },
+  "entry_feat_guides": {
+    "message": "130 多份指南"
+  },
+  "entry_feat_guides_sub": {
+    "message": "覆盖 17 个类别"
+  },
+  "entry_feat_tools": {
+    "message": "68 个 MCP 工具"
+  },
+  "entry_feat_tools_sub": {
+    "message": "来自你的编程代理"
+  },
+  "entry_get_started": {
+    "message": "开始使用"
+  },
+  "entry_skip_setup": {
+    "message": "暂时跳过设置"
+  },
+  "entry_pick_path": {
+    "message": "选择你的路径"
+  },
+  "entry_how_run": {
+    "message": "你想如何运行 FSB？"
+  },
+  "entry_two_ways": {
+    "message": "两种方式。现在设置一种，另一种可以随时在设置里添加。"
+  },
+  "entry_agent": {
+    "message": "代理"
+  },
+  "entry_recommended": {
+    "message": "推荐"
+  },
+  "entry_agent_desc": {
+    "message": "在 Claude Code、Cursor、VS Code、OpenClaw 等中把 FSB 用作 MCP 服务器。68 个工具，无需 API 密钥，浏览器里不用配置。"
+  },
+  "entry_in_browser": {
+    "message": "在此浏览器中"
+  },
+  "entry_byok": {
+    "message": "自备密钥"
+  },
+  "entry_byok_desc": {
+    "message": "在侧边栏与 FSB 对话。使用 xAI、Anthropic 或 Google 的密钥，或运行完全不需要密钥的本地模型。"
+  },
+  "entry_most_people": {
+    "message": "大多数人从 MCP 开始，这是使用 FSB 最快、最省的方式。"
+  },
+  "entry_skip_mcp": {
+    "message": "跳到 MCP"
+  },
+  "entry_mcp_eyebrow": {
+    "message": "推荐路径 / MCP"
+  },
+  "entry_install_h": {
+    "message": "安装 FSB 的 MCP 服务器"
+  },
+  "entry_one_command": {
+    "message": "一条命令。选择你的代理。FSB 会自动注册。不需要 API 密钥。"
+  },
+  "entry_one_command_short": {
+    "message": "一条命令。选择你的代理。"
+  },
+  "entry_copy_command": {
+    "message": "复制命令"
+  },
+  "entry_copy_install": {
+    "message": "复制安装命令"
+  },
+  "entry_mcp_1a": {
+    "message": "在终端中运行该命令。"
+  },
+  "entry_mcp_1b": {
+    "message": "悬停复制"
+  },
+  "entry_mcp_1c": {
+    "message": "以选择特定客户端。"
+  },
+  "entry_mcp_2a": {
+    "message": "FSB 会把自己写入代理的 MCP 配置。"
+  },
+  "entry_mcp_2b": {
+    "message": "68 个工具"
+  },
+  "entry_mcp_2c": {
+    "message": "，无需手写 JSON。"
+  },
+  "entry_mcp_3": {
+    "message": "让你的代理去浏览。它会为你驱动 FSB 的 DOM 引擎。"
+  },
+  "entry_claw_name": {
+    "message": "为你的 Claw 进行设置"
+  },
+  "entry_claw_desc": {
+    "message": "在控制面板中引导安装 OpenClaw"
+  },
+  "entry_prefer_key": {
+    "message": "更想用自己的密钥？"
+  },
+  "entry_byok_eyebrow": {
+    "message": "浏览器内 / 自备密钥"
+  },
+  "entry_choose_provider": {
+    "message": "选择你的 AI 提供方"
+  },
+  "entry_dont_need": {
+    "message": "你其实不需要这一步。"
+  },
+  "entry_best_way": {
+    "message": "运行 FSB 的最佳方式是 MCP。无需密钥，也没有费用上限。"
+  },
+  "entry_setup_mcp": {
+    "message": "改为设置 MCP"
+  },
+  "entry_once_key": {
+    "message": "设置密钥后，FSB 会自动列出每个可用的文本模型。"
+  },
+  "entry_key_heading": {
+    "message": "添加你的 $NAME$ 密钥",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_optional": {
+    "message": "此步骤是可选的。"
+  },
+  "entry_shines": {
+    "message": "FSB 通过 MCP 最出色，因此你可以完全跳过密钥。"
+  },
+  "entry_skip_use_mcp": {
+    "message": "跳过并使用 MCP"
+  },
+  "entry_checking": {
+    "message": "正在检查..."
+  },
+  "entry_continue": {
+    "message": "继续"
+  },
+  "entry_almost": {
+    "message": "就快好了"
+  },
+  "entry_pin_h": {
+    "message": "固定 FSB，让它一键可达"
+  },
+  "entry_pin_sub": {
+    "message": "这是唯一的步骤。Chrome 安装 FSB 时，权限会自动打开。你不用切换任何开关。"
+  },
+  "entry_other_ext": {
+    "message": "其他扩展程序"
+  },
+  "entry_pinned": {
+    "message": "已固定 FSB"
+  },
+  "entry_ive_pinned": {
+    "message": "我已固定 FSB"
+  },
+  "entry_skip_step": {
+    "message": "跳过此步骤"
+  },
+  "entry_all_set": {
+    "message": "一切就绪。"
+  },
+  "entry_ready_sub": {
+    "message": "FSB 已就绪。这是你的设置。以后可以在设置中更改。"
+  },
+  "entry_running": {
+    "message": "FSB 正在运行"
+  },
+  "entry_open": {
+    "message": "打开 FSB"
+  },
+  "entry_more": {
+    "message": "关于 FSB 总有更多可发现的内容。请到"
+  },
+  "entry_control_panel": {
+    "message": "控制面板"
+  },
+  "entry_docs": {
+    "message": "文档"
+  },
+  "entry_back": {
+    "message": "返回"
+  },
+  "entry_sum_setup": {
+    "message": "设置"
+  },
+  "entry_sum_mcp": {
+    "message": "MCP 服务器"
+  },
+  "entry_sum_command": {
+    "message": "命令"
+  },
+  "entry_sum_tools": {
+    "message": "工具"
+  },
+  "entry_sum_68": {
+    "message": "68 个可用"
+  },
+  "entry_sum_access": {
+    "message": "访问"
+  },
+  "entry_sum_granted": {
+    "message": "安装时已授予"
+  },
+  "entry_sum_version": {
+    "message": "版本"
+  },
+  "entry_sum_byok": {
+    "message": "浏览器内自备密钥"
+  },
+  "entry_sum_provider": {
+    "message": "提供方"
+  },
+  "entry_sum_apikey": {
+    "message": "API 密钥"
+  },
+  "entry_sum_none": {
+    "message": "未配置"
+  },
+  "entry_sum_tip": {
+    "message": "提示"
+  },
+  "entry_sum_finish": {
+    "message": "在设置中完成设置"
+  },
+  "entry_free_tier": {
+    "message": "免费层级"
+  },
+  "entry_local_nokey": {
+    "message": "本地 / 无密钥"
+  },
+  "entry_all_clients": {
+    "message": "所有客户端"
+  },
+  "entry_discovering": {
+    "message": "正在发现已加载的聊天模型..."
+  },
+  "entry_waiting_url": {
+    "message": "正在等待服务器 URL 稳定..."
+  },
+  "entry_choose_model": {
+    "message": "选择已加载的模型..."
+  },
+  "entry_paste_key": {
+    "message": "粘贴你的 $NAME$ API 密钥",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_toggle_key": {
+    "message": "切换密钥可见性"
+  },
+  "entry_key_valid": {
+    "message": "以 $LAST$ 结尾的密钥有效",
+    "placeholders": {
+      "last": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_get_key": {
+    "message": "在此获取密钥"
+  },
+  "entry_stored_locally": {
+    "message": "保存在此浏览器本地。"
+  },
+  "entry_paste_clip": {
+    "message": "从剪贴板粘贴"
+  },
+  "entry_unlock_title": {
+    "message": "解锁 FSB"
+  },
+  "entry_unlock_h": {
+    "message": "解锁保险库"
+  },
+  "entry_unlock_sub": {
+    "message": "输入 PIN 以解锁"
+  },
+  "entry_unlock": {
+    "message": "解锁"
+  },
+  "entry_unlocking": {
+    "message": "正在解锁..."
+  },
+  "entry_unlock_failed": {
+    "message": "解锁失败"
+  },
+  "entry_no_vault": {
+    "message": "尚未配置保险库。请先运行设置。"
+  },
+  "entry_bad_pin": {
+    "message": "PIN 不正确"
+  },
+  "entry_comm_error": {
+    "message": "通信错误。请重试。"
+  },
+  "entry_first_setup": {
+    "message": "第一次使用？运行设置"
+  },
+  "entry_mic_title": {
+    "message": "为 FSB 启用麦克风"
+  },
+  "entry_mic_brand": {
+    "message": "FSB 语音输入"
+  },
+  "entry_mic_h": {
+    "message": "启用你的麦克风"
+  },
+  "entry_mic_intro": {
+    "message": "Chrome 要求第一次麦克风批准发生在普通的扩展程序标签页。之后，每个网站上的 FSB 侧边栏都可以使用语音输入。"
+  },
+  "entry_mic_instruction": {
+    "message": "在 Chrome 的提示中选择“访问时允许”，以便 FSB 获得持久授权。"
+  },
+  "entry_mic_waiting": {
+    "message": "正在等待 Chrome 的麦克风提示…"
+  },
+  "entry_mic_allow": {
+    "message": "允许麦克风"
+  },
+  "entry_mic_settings": {
+    "message": "打开麦克风设置"
+  },
+  "entry_mic_footnote": {
+    "message": "此权限属于 FSB 扩展程序，不属于当前标签页中的网站。"
+  },
+  "entry_mic_try": {
+    "message": "重试"
+  },
+  "entry_mic_no_api": {
+    "message": "此 Chrome 版本不向扩展程序提供麦克风访问。"
+  },
+  "entry_mic_enabled": {
+    "message": "麦克风已启用。正在返回 FSB…"
+  },
+  "entry_mic_blocked": {
+    "message": "FSB 的麦克风访问已被阻止。打开 Chrome 麦克风设置，移除被阻止的 FSB 条目，然后重试。"
+  },
+  "entry_mic_none": {
+    "message": "未找到麦克风。请连接或启用输入设备，然后重试。"
+  },
+  "entry_mic_busy": {
+    "message": "麦克风正忙或不可用。请关闭其他录音应用，然后重试。"
+  },
+  "entry_mic_macos": {
+    "message": "Chrome 无法访问麦克风。在 macOS 上，请在系统设置 → 隐私与安全性 → 麦克风中启用 Google Chrome，然后重试。"
+  },
+  "entry_mic_generic": {
+    "message": "FSB 无法访问麦克风。请检查 Chrome 和 macOS 的麦克风设置，然后重试。"
+  },
+  "entry_mic_manual": {
+    "message": "在地址栏打开 chrome://settings/content/microphone，然后移除被阻止的 FSB 条目。"
+  },
+  "entry_automating": {
+    "message": "FSB 正在自动化"
+  },
+  "entry_stop": {
+    "message": "停止"
+  },
+  "entry_planning": {
+    "message": "规划中"
+  },
+  "entry_initializing": {
+    "message": "正在初始化..."
+  },
+  "entry_done_pill": {
+    "message": "完成"
+  },
+  "entry_actions": {
+    "message": "操作：$COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_replay_controls": {
+    "message": "重放控件"
+  },
+  "entry_pause_replay": {
+    "message": "暂停重放"
+  },
+  "entry_replay_position": {
+    "message": "重放位置，只能向前拖动"
+  },
+  "entry_seek_forward": {
+    "message": "在重放中向前跳转"
+  },
+  "entry_replay_speed": {
+    "message": "重放速度 $SPEED$。激活后改为 $NEXT$",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      },
+      "next": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_replay_speed_title": {
+    "message": "重放速度：$SPEED$（点击更改）",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_inspect": {
+    "message": "点击一个元素进行检查"
+  },
+  "entry_selectors": {
+    "message": "FSB 会尝试的选择器"
+  },
+  "entry_attributes": {
+    "message": "属性"
+  },
+  "entry_interact": {
+    "message": "可交互性"
+  },
+  "entry_position": {
+    "message": "位置"
+  },
+  "entry_inspector": {
+    "message": "FSB 检查模式（按 Ctrl+Shift+E 退出）"
+  },
+  "entry_crawling": {
+    "message": "正在抓取 $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_pages": {
+    "message": "$COLLECTED$ / $MAX$ 页",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "entry_toast_ready": {
+    "message": "FSB 已就绪。正在打开侧边栏"
+  },
+  "entry_toast_opened": {
+    "message": "已打开 FSB 侧边栏"
+  },
+  "entry_toast_popup": {
+    "message": "正在弹出窗口中打开 FSB"
+  },
+  "entry_toast_copied": {
+    "message": "已复制安装命令"
   }
 }
