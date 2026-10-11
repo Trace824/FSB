@@ -7,11 +7,83 @@
     "message": "重播速度 $SPEED$",
     "description": "Seed string with one placeholder.",
     "placeholders": {
-      "speed": { "content": "$1", "example": "1x" }
+      "speed": {
+        "content": "$1",
+        "example": "1x"
+      }
     }
   },
   "locale_seed_brand": {
     "message": "FSB",
     "description": "Allowlisted invariant brand token."
+  },
+  "ext_name": {
+    "message": "FSB"
+  },
+  "ext_description": {
+    "message": "FSB 是一款由 AI 驅動的通用瀏覽器自動化助手。"
+  },
+  "shell_fast_task": {
+    "message": "快速開始任務"
+  },
+  "shell_workspace": {
+    "message": "常駐工作區"
+  },
+  "shell_ready": {
+    "message": "就緒"
+  },
+  "shell_pin_window": {
+    "message": "固定視窗"
+  },
+  "shell_test_api": {
+    "message": "測試 API 連線"
+  },
+  "shell_settings": {
+    "message": "設定"
+  },
+  "shell_ask": {
+    "message": "告訴我要自動化的事情..."
+  },
+  "shell_stop": {
+    "message": "停止自動化"
+  },
+  "shell_voice": {
+    "message": "語音輸入"
+  },
+  "shell_send": {
+    "message": "傳送訊息"
+  },
+  "shell_pin_hint": {
+    "message": "需要固定視窗時再固定"
+  },
+  "shell_lockout": {
+    "message": "當自動化正在此分頁工作時，側邊欄輸入已停用"
+  },
+  "shell_history": {
+    "message": "工作階段紀錄"
+  },
+  "shell_delete_all": {
+    "message": "刪除所有工作階段"
+  },
+  "shell_clear_all": {
+    "message": "全部清除"
+  },
+  "shell_running": {
+    "message": "自動化執行中"
+  },
+  "shell_confirm_payment": {
+    "message": "確認填寫付款資訊"
+  },
+  "shell_payment_note": {
+    "message": "卡資訊會填入表單欄位。FSB 不會提交這筆付款。"
+  },
+  "shell_allow": {
+    "message": "允許"
+  },
+  "shell_deny": {
+    "message": "拒絕"
+  },
+  "shell_new_chat": {
+    "message": "開始新對話"
   }
 }

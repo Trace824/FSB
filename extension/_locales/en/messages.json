@@ -7,11 +7,83 @@
     "message": "Replay speed $SPEED$",
     "description": "Seed string with one placeholder.",
     "placeholders": {
-      "speed": { "content": "$1", "example": "1x" }
+      "speed": {
+        "content": "$1",
+        "example": "1x"
+      }
     }
   },
   "locale_seed_brand": {
     "message": "FSB",
     "description": "Allowlisted invariant brand token."
+  },
+  "ext_name": {
+    "message": "FSB"
+  },
+  "ext_description": {
+    "message": "FSB is a universal AI-powered browser automation assistant."
+  },
+  "shell_fast_task": {
+    "message": "Fast task launch"
+  },
+  "shell_workspace": {
+    "message": "Persistent workspace"
+  },
+  "shell_ready": {
+    "message": "Ready"
+  },
+  "shell_pin_window": {
+    "message": "Pin Window"
+  },
+  "shell_test_api": {
+    "message": "Test API Connection"
+  },
+  "shell_settings": {
+    "message": "Settings"
+  },
+  "shell_ask": {
+    "message": "Ask me to automate something..."
+  },
+  "shell_stop": {
+    "message": "Stop Automation"
+  },
+  "shell_voice": {
+    "message": "Voice input"
+  },
+  "shell_send": {
+    "message": "Send Message"
+  },
+  "shell_pin_hint": {
+    "message": "Pin when you need a persistent window"
+  },
+  "shell_lockout": {
+    "message": "Side panel input is disabled while automation is working on this tab"
+  },
+  "shell_history": {
+    "message": "Session History"
+  },
+  "shell_delete_all": {
+    "message": "Delete All Sessions"
+  },
+  "shell_clear_all": {
+    "message": "Clear All"
+  },
+  "shell_running": {
+    "message": "Automation running"
+  },
+  "shell_confirm_payment": {
+    "message": "Confirm Payment Fill"
+  },
+  "shell_payment_note": {
+    "message": "Card details will be filled into the form fields. FSB will not submit the payment."
+  },
+  "shell_allow": {
+    "message": "Allow"
+  },
+  "shell_deny": {
+    "message": "Deny"
+  },
+  "shell_new_chat": {
+    "message": "Start New Chat"
   }
 }

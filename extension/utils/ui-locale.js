@@ -99,6 +99,12 @@
     return applySubs(msg, subs);
   }
 
+  function text(key, english) {
+    var value = t(key);
+    if (typeof value !== 'string' || value.length === 0 || value === key) return english;
+    return value;
+  }
+
   function setCatalog(code, messages) {
     if (!isPublicLocale(code)) return;
     catalogs[code] = messages || {};
@@ -199,6 +205,7 @@
     folderFor: folderFor,
     resolveLocale: resolveLocale,
     t: t,
+    text: text,
     apply: apply,
     setCatalog: setCatalog,
     setBrowserTag: setBrowserTag,

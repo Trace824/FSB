@@ -7,11 +7,83 @@
     "message": "重放速度 $SPEED$",
     "description": "Seed string with one placeholder.",
     "placeholders": {
-      "speed": { "content": "$1", "example": "1x" }
+      "speed": {
+        "content": "$1",
+        "example": "1x"
+      }
     }
   },
   "locale_seed_brand": {
     "message": "FSB",
     "description": "Allowlisted invariant brand token."
+  },
+  "ext_name": {
+    "message": "FSB"
+  },
+  "ext_description": {
+    "message": "FSB 是一款由 AI 驱动的通用浏览器自动化助手。"
+  },
+  "shell_fast_task": {
+    "message": "快速开始任务"
+  },
+  "shell_workspace": {
+    "message": "常驻工作区"
+  },
+  "shell_ready": {
+    "message": "就绪"
+  },
+  "shell_pin_window": {
+    "message": "固定窗口"
+  },
+  "shell_test_api": {
+    "message": "测试 API 连接"
+  },
+  "shell_settings": {
+    "message": "设置"
+  },
+  "shell_ask": {
+    "message": "告诉我要自动化的事情..."
+  },
+  "shell_stop": {
+    "message": "停止自动化"
+  },
+  "shell_voice": {
+    "message": "语音输入"
+  },
+  "shell_send": {
+    "message": "发送消息"
+  },
+  "shell_pin_hint": {
+    "message": "需要固定窗口时再固定"
+  },
+  "shell_lockout": {
+    "message": "当自动化正在此标签页工作时，侧边栏输入已禁用"
+  },
+  "shell_history": {
+    "message": "会话历史"
+  },
+  "shell_delete_all": {
+    "message": "删除所有会话"
+  },
+  "shell_clear_all": {
+    "message": "全部清除"
+  },
+  "shell_running": {
+    "message": "自动化运行中"
+  },
+  "shell_confirm_payment": {
+    "message": "确认填写支付信息"
+  },
+  "shell_payment_note": {
+    "message": "卡信息将填入表单字段。FSB 不会提交这笔付款。"
+  },
+  "shell_allow": {
+    "message": "允许"
+  },
+  "shell_deny": {
+    "message": "拒绝"
+  },
+  "shell_new_chat": {
+    "message": "开始新对话"
   }
 }

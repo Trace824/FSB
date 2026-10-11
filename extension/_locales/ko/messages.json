@@ -7,11 +7,83 @@
     "message": "재생 속도 $SPEED$",
     "description": "Seed string with one placeholder.",
     "placeholders": {
-      "speed": { "content": "$1", "example": "1x" }
+      "speed": {
+        "content": "$1",
+        "example": "1x"
+      }
     }
   },
   "locale_seed_brand": {
     "message": "FSB",
     "description": "Allowlisted invariant brand token."
+  },
+  "ext_name": {
+    "message": "FSB"
+  },
+  "ext_description": {
+    "message": "FSB는 AI 기반의 범용 브라우저 자동화 도우미입니다."
+  },
+  "shell_fast_task": {
+    "message": "빠른 작업 시작"
+  },
+  "shell_workspace": {
+    "message": "항상 여는 작업 공간"
+  },
+  "shell_ready": {
+    "message": "준비됨"
+  },
+  "shell_pin_window": {
+    "message": "창 고정"
+  },
+  "shell_test_api": {
+    "message": "API 연결 테스트"
+  },
+  "shell_settings": {
+    "message": "설정"
+  },
+  "shell_ask": {
+    "message": "자동화할 일을 입력하세요..."
+  },
+  "shell_stop": {
+    "message": "자동화 중지"
+  },
+  "shell_voice": {
+    "message": "음성 입력"
+  },
+  "shell_send": {
+    "message": "메시지 보내기"
+  },
+  "shell_pin_hint": {
+    "message": "고정 창이 필요할 때 고정하세요"
+  },
+  "shell_lockout": {
+    "message": "이 탭에서 자동화가 작동하는 동안 사이드 패널 입력은 비활성화됩니다"
+  },
+  "shell_history": {
+    "message": "세션 기록"
+  },
+  "shell_delete_all": {
+    "message": "모든 세션 삭제"
+  },
+  "shell_clear_all": {
+    "message": "모두 지우기"
+  },
+  "shell_running": {
+    "message": "자동화 실행 중"
+  },
+  "shell_confirm_payment": {
+    "message": "결제 입력 확인"
+  },
+  "shell_payment_note": {
+    "message": "카드 정보는 양식 칸에 채워집니다. FSB는 결제를 제출하지 않습니다."
+  },
+  "shell_allow": {
+    "message": "허용"
+  },
+  "shell_deny": {
+    "message": "거부"
+  },
+  "shell_new_chat": {
+    "message": "새 채팅 시작"
   }
 }

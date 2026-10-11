@@ -7,11 +7,83 @@
     "message": "再生速度 $SPEED$",
     "description": "Seed string with one placeholder.",
     "placeholders": {
-      "speed": { "content": "$1", "example": "1x" }
+      "speed": {
+        "content": "$1",
+        "example": "1x"
+      }
     }
   },
   "locale_seed_brand": {
     "message": "FSB",
     "description": "Allowlisted invariant brand token."
+  },
+  "ext_name": {
+    "message": "FSB"
+  },
+  "ext_description": {
+    "message": "FSB は、AI を活用した汎用ブラウザ自動化アシスタントです。"
+  },
+  "shell_fast_task": {
+    "message": "タスクをすばやく開始"
+  },
+  "shell_workspace": {
+    "message": "常駐ワークスペース"
+  },
+  "shell_ready": {
+    "message": "準備完了"
+  },
+  "shell_pin_window": {
+    "message": "ウィンドウを固定"
+  },
+  "shell_test_api": {
+    "message": "API 接続をテスト"
+  },
+  "shell_settings": {
+    "message": "設定"
+  },
+  "shell_ask": {
+    "message": "自動化したいことを入力..."
+  },
+  "shell_stop": {
+    "message": "自動化を停止"
+  },
+  "shell_voice": {
+    "message": "音声入力"
+  },
+  "shell_send": {
+    "message": "メッセージを送信"
+  },
+  "shell_pin_hint": {
+    "message": "常駐ウィンドウが必要なときに固定します"
+  },
+  "shell_lockout": {
+    "message": "このタブで自動化が動作している間、サイドパネルの入力は無効です"
+  },
+  "shell_history": {
+    "message": "セッション履歴"
+  },
+  "shell_delete_all": {
+    "message": "すべてのセッションを削除"
+  },
+  "shell_clear_all": {
+    "message": "すべて消去"
+  },
+  "shell_running": {
+    "message": "自動化を実行中"
+  },
+  "shell_confirm_payment": {
+    "message": "支払い入力を確認"
+  },
+  "shell_payment_note": {
+    "message": "カード情報はフォームの欄に入力されます。FSB は支払いを送信しません。"
+  },
+  "shell_allow": {
+    "message": "許可"
+  },
+  "shell_deny": {
+    "message": "拒否"
+  },
+  "shell_new_chat": {
+    "message": "新しいチャットを開始"
   }
 }

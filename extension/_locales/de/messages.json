@@ -7,11 +7,83 @@
     "message": "Wiedergabegeschwindigkeit $SPEED$",
     "description": "Seed string with one placeholder.",
     "placeholders": {
-      "speed": { "content": "$1", "example": "1x" }
+      "speed": {
+        "content": "$1",
+        "example": "1x"
+      }
     }
   },
   "locale_seed_brand": {
     "message": "FSB",
     "description": "Allowlisted invariant brand token."
+  },
+  "ext_name": {
+    "message": "FSB"
+  },
+  "ext_description": {
+    "message": "FSB ist ein universeller AI-gestützter Assistent für die Browser-Automatisierung."
+  },
+  "shell_fast_task": {
+    "message": "Schneller Aufgabenstart"
+  },
+  "shell_workspace": {
+    "message": "Dauerhafter Arbeitsbereich"
+  },
+  "shell_ready": {
+    "message": "Bereit"
+  },
+  "shell_pin_window": {
+    "message": "Fenster anheften"
+  },
+  "shell_test_api": {
+    "message": "API-Verbindung testen"
+  },
+  "shell_settings": {
+    "message": "Einstellungen"
+  },
+  "shell_ask": {
+    "message": "Bitte mich, etwas zu automatisieren..."
+  },
+  "shell_stop": {
+    "message": "Automatisierung stoppen"
+  },
+  "shell_voice": {
+    "message": "Spracheingabe"
+  },
+  "shell_send": {
+    "message": "Nachricht senden"
+  },
+  "shell_pin_hint": {
+    "message": "Anheften, wenn du ein dauerhaftes Fenster brauchst"
+  },
+  "shell_lockout": {
+    "message": "Die Eingabe im Seitenpanel ist deaktiviert, während die Automatisierung in diesem Tab arbeitet"
+  },
+  "shell_history": {
+    "message": "Sitzungsverlauf"
+  },
+  "shell_delete_all": {
+    "message": "Alle Sitzungen löschen"
+  },
+  "shell_clear_all": {
+    "message": "Alles löschen"
+  },
+  "shell_running": {
+    "message": "Automatisierung läuft"
+  },
+  "shell_confirm_payment": {
+    "message": "Zahlungsübernahme bestätigen"
+  },
+  "shell_payment_note": {
+    "message": "Die Kartendaten werden in die Formularfelder eingetragen. FSB sendet die Zahlung nicht ab."
+  },
+  "shell_allow": {
+    "message": "Erlauben"
+  },
+  "shell_deny": {
+    "message": "Ablehnen"
+  },
+  "shell_new_chat": {
+    "message": "Neuen Chat starten"
   }
 }

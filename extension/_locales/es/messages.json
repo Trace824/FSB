@@ -7,11 +7,83 @@
     "message": "Velocidad de repetición $SPEED$",
     "description": "Seed string with one placeholder.",
     "placeholders": {
-      "speed": { "content": "$1", "example": "1x" }
+      "speed": {
+        "content": "$1",
+        "example": "1x"
+      }
     }
   },
   "locale_seed_brand": {
     "message": "FSB",
     "description": "Allowlisted invariant brand token."
+  },
+  "ext_name": {
+    "message": "FSB"
+  },
+  "ext_description": {
+    "message": "FSB es un asistente universal de automatización del navegador impulsado por AI."
+  },
+  "shell_fast_task": {
+    "message": "Inicio rápido de tareas"
+  },
+  "shell_workspace": {
+    "message": "Espacio de trabajo persistente"
+  },
+  "shell_ready": {
+    "message": "Listo"
+  },
+  "shell_pin_window": {
+    "message": "Fijar ventana"
+  },
+  "shell_test_api": {
+    "message": "Probar conexión de API"
+  },
+  "shell_settings": {
+    "message": "Ajustes"
+  },
+  "shell_ask": {
+    "message": "Pídeme que automatice algo..."
+  },
+  "shell_stop": {
+    "message": "Detener automatización"
+  },
+  "shell_voice": {
+    "message": "Entrada de voz"
+  },
+  "shell_send": {
+    "message": "Enviar mensaje"
+  },
+  "shell_pin_hint": {
+    "message": "Fíjalo cuando necesites una ventana persistente"
+  },
+  "shell_lockout": {
+    "message": "La entrada del panel lateral está desactivada mientras la automatización trabaja en esta pestaña"
+  },
+  "shell_history": {
+    "message": "Historial de sesiones"
+  },
+  "shell_delete_all": {
+    "message": "Eliminar todas las sesiones"
+  },
+  "shell_clear_all": {
+    "message": "Borrar todo"
+  },
+  "shell_running": {
+    "message": "Automatización en curso"
+  },
+  "shell_confirm_payment": {
+    "message": "Confirmar relleno de pago"
+  },
+  "shell_payment_note": {
+    "message": "Los datos de la tarjeta se rellenarán en los campos del formulario. FSB no enviará el pago."
+  },
+  "shell_allow": {
+    "message": "Permitir"
+  },
+  "shell_deny": {
+    "message": "Denegar"
+  },
+  "shell_new_chat": {
+    "message": "Iniciar un chat nuevo"
   }
 }

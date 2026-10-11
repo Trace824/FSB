@@ -1216,3 +1216,8 @@ console.log(`FSB v${chrome.runtime.getManifest().version} chat interface loaded`
 //       return schedule.type;
 //   }
 // }
+
+
+if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
+  fsbUiLocale.boot().then(function () { fsbUiLocale.apply(document); });
+}

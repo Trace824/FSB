@@ -37,10 +37,10 @@ The sections below this banner are accumulated decisions from earlier milestones
 
 ## Current Position
 
-Phase: 67 — Manifest, side panel, and popup (not started)
-Plan: —
-Status: Phase 66 passed. Execution continues.
-Last activity: 2026-10-11 — Phase 66 locale plumbing and CI gate passed
+Phase: 67 — Manifest, side panel, and popup (in progress)
+Plan: 67 shell chrome landed; dynamic JS copy remains
+Status: Phase 66 passed. Phase 67 resting chrome is localized. Phases 68-71 have not started.
+Last activity: 2026-10-11 — Manifest name, description, and side panel/popup resting chrome localized
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65)
 
