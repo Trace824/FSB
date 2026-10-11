@@ -85,5 +85,316 @@
   },
   "shell_new_chat": {
     "message": "開始新對話"
+  },
+  "shell_welcome": {
+    "message": "歡迎使用 FSB。需要我做什麼？"
+  },
+  "shell_no_automation": {
+    "message": "沒有正在執行的自動化可以停止。"
+  },
+  "shell_stopped": {
+    "message": "自動化已停止。如果還需要協助，請告訴我。"
+  },
+  "shell_partial": {
+    "message": "部分結果"
+  },
+  "shell_try_again": {
+    "message": "要再試一次嗎？ "
+  },
+  "shell_retry": {
+    "message": "重試"
+  },
+  "shell_switched_popup": {
+    "message": "已切換到彈出式視窗模式。在外部點擊後，擴充功能會關閉。"
+  },
+  "shell_persistent": {
+    "message": "正在固定視窗中執行。"
+  },
+  "shell_try_again_help": {
+    "message": "如果想再試一次，或需要其他協助，請告訴我。"
+  },
+  "shell_locked_tab": {
+    "message": "當自動化正在此分頁工作時已停用"
+  },
+  "shell_doctor_copied": {
+    "message": "已複製診斷命令"
+  },
+  "shell_pair_copied": {
+    "message": "已複製配對重設命令"
+  },
+  "shell_install_copied": {
+    "message": "已複製原生助手安裝命令"
+  },
+  "shell_site_map_ready": {
+    "message": "網站地圖已就緒。要重試這項工作嗎？ "
+  },
+  "shell_retry_sitemap": {
+    "message": "使用網站地圖重試"
+  },
+  "shell_locked_ext": {
+    "message": "擴充功能已鎖定。請先打開彈出式視窗解鎖。"
+  },
+  "shell_already_done": {
+    "message": "已經完成"
+  },
+  "shell_session_ended": {
+    "message": "工作階段意外結束。可以開始下一個工作。"
+  },
+  "shell_no_map": {
+    "message": "此網站還沒有地圖。偵察可以幫助 FSB 學習網站結構，從而提升表現。"
+  },
+  "shell_run_recon": {
+    "message": "開始偵察"
+  },
+  "shell_stuck": {
+    "message": "自動化一直在重複同樣的操作。這裡有一些提示："
+  },
+  "shell_tip_specific": {
+    "message": "請把想完成的事情說得更具體一些"
+  },
+  "shell_tip_captcha": {
+    "message": "請檢查頁面是否需要手動步驟，例如完成 CAPTCHA"
+  },
+  "shell_tip_loaded": {
+    "message": "開始之前，請確認頁面已完全載入"
+  },
+  "shell_no_worries": {
+    "message": "沒關係。側邊欄還在。可以再試一次，或讓我幫你做別的事。"
+  },
+  "shell_password": {
+    "message": "密碼"
+  },
+  "shell_signing_in": {
+    "message": "正在登入..."
+  },
+  "shell_login_skipped": {
+    "message": "已略過登入。正在繼續自動化..."
+  },
+  "shell_payment_selected": {
+    "message": "已選擇儲存的付款方式。FSB 會填寫卡資訊，但不會替你提交最終付款。"
+  },
+  "shell_payment_skipped": {
+    "message": "已略過儲存的付款方式。在任何最終付款步驟之前，請檢查結帳表單。"
+  },
+  "shell_replay_preview": {
+    "message": "已驗證的重播預覽"
+  },
+  "shell_fresh_tab_fallback": {
+    "message": "所記錄網站的新分頁"
+  },
+  "shell_approve_replay": {
+    "message": "核准重播"
+  },
+  "shell_cancel": {
+    "message": "取消"
+  },
+  "shell_replay_busy": {
+    "message": "另一項自動化正在執行時無法重播。請先停止目前的工作。"
+  },
+  "shell_replay_cancelled_request": {
+    "message": "已取消重播要求。沒有開啟目標分頁。"
+  },
+  "shell_replay_inspect_only": {
+    "message": "這段錄製已通過檢查驗證，但沒有可執行的步驟。"
+  },
+  "shell_replay_cancelled": {
+    "message": "已取消重播。原始錄製沒有變更。"
+  },
+  "shell_session_missing": {
+    "message": "找不到工作階段資料。"
+  },
+  "shell_no_actions": {
+    "message": "此工作階段沒有錄製任何操作。"
+  },
+  "shell_history_failed": {
+    "message": "無法載入工作階段。"
+  },
+  "shell_replay_session": {
+    "message": "重播工作階段"
+  },
+  "shell_delete_session": {
+    "message": "刪除工作階段"
+  },
+  "shell_autopilot": {
+    "message": "自動駕駛"
+  },
+  "shell_checking_local": {
+    "message": "正在檢查本機代理服務"
+  },
+  "shell_checking_local_sent": {
+    "message": "正在檢查本機代理服務。你的訊息尚未傳送。"
+  },
+  "shell_wake_body": {
+    "message": "FSB 正在嘗試讓本機代理服務可用。你的訊息尚未傳送。"
+  },
+  "shell_checking_agent": {
+    "message": "正在檢查代理服務"
+  },
+  "shell_agent_offline": {
+    "message": "代理離線"
+  },
+  "shell_offline_body": {
+    "message": "FSB 無法連線到本機代理服務。請執行診斷命令，然後重試這則訊息。"
+  },
+  "shell_copy_doctor": {
+    "message": "複製診斷命令"
+  },
+  "shell_open_provider": {
+    "message": "開啟提供者設定"
+  },
+  "shell_needs_helper": {
+    "message": "自動連線需要原生助手"
+  },
+  "shell_install_body": {
+    "message": "請安裝或更新 FSB 原生助手，然後重試這則訊息。FSB 會自動連線此瀏覽器。"
+  },
+  "shell_copy_install": {
+    "message": "複製安裝命令"
+  },
+  "shell_back_to_message": {
+    "message": "返回訊息"
+  },
+  "shell_checking_provider": {
+    "message": "正在檢查提供者"
+  },
+  "shell_checking_provider_body": {
+    "message": "FSB 正在傳送你的訊息之前檢查 AI 提供者。"
+  },
+  "shell_starting_agent": {
+    "message": "正在啟動代理"
+  },
+  "shell_starting_agent_body": {
+    "message": "FSB 正在把你的訊息交給代理。"
+  },
+  "shell_owned_by": {
+    "message": "由 $LABEL$ 佔用",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_owned_title": {
+    "message": "當 $LABEL$ 正在使用此分頁時已停用",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_encountered": {
+    "message": "發生錯誤：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_generic": {
+    "message": "發生問題：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_background": {
+    "message": "與背景指令碼通訊時發生錯誤：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_stop": {
+    "message": "停止自動化時發生錯誤：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_starting": {
+    "message": "正在啟動自動化..."
+  },
+  "shell_continuing": {
+    "message": "正在繼續..."
+  },
+  "shell_connecting": {
+    "message": "正在連線到頁面..."
+  },
+  "shell_connected_analyzing": {
+    "message": "已連線。正在分析頁面..."
+  },
+  "shell_analyzing": {
+    "message": "正在分析頁面..."
+  },
+  "shell_starting_plain": {
+    "message": "正在啟動自動化"
+  },
+  "shell_testing_api": {
+    "message": "正在測試 $NAME$ 的 API 連線...",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_ok": {
+    "message": "$NAME$ 的 API 連線正常。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_model": {
+    "message": "已連線到模型：$MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_failed": {
+    "message": "$NAME$ 的 API 連線失敗。請檢查設定。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_status": {
+    "message": "狀態：$STATUS$ - $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "shell_api_details": {
+    "message": "詳細資訊：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_details": {
+    "message": "錯誤詳細資訊：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_working": {
+    "message": "工作中"
+  },
+  "shell_error_status": {
+    "message": "錯誤"
   }
 }

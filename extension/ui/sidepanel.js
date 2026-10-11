@@ -631,7 +631,8 @@ let _activeTabSurfaceSyncGeneration = 0;
 function _renderHeaderStatus() {
   if (!statusText || !statusDot || !statusDot.classList) return;
   statusDot.classList.remove('running', 'error');
-  statusText.textContent = _headerBaseStatusLabel;
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(statusText, _headerBaseStatusLabel);
+  else statusText.textContent = _headerBaseStatusLabel;
   if (_headerBaseStatusTone === 'running') statusDot.classList.add('running');
   if (_headerBaseStatusTone === 'error') statusDot.classList.add('error');
 }
@@ -1253,7 +1254,9 @@ function _delegationElement(tagName, className, textValue) {
   var element = document.createElement(tagName);
   if (className) element.className = className;
   if (textValue !== undefined && textValue !== null) {
-    element.textContent = String(textValue);
+    var english = String(textValue);
+    if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(element, english);
+    else element.textContent = english;
   }
   return element;
 }
@@ -1643,7 +1646,10 @@ async function _copyDelegationDoctorCommand() {
         && typeof navigator.clipboard.writeText === 'function') {
       await navigator.clipboard.writeText(command);
       var mount = _ensureDelegationMount();
-      if (mount.announcer) mount.announcer.textContent = 'Doctor command copied';
+      if (mount.announcer) {
+        if (globalThis.fsbUiLocale && fsbUiLocale.markExact) fsbUiLocale.markExact(mount.announcer, 'Doctor command copied');
+        else mount.announcer.textContent = 'Doctor command copied';
+      }
     }
   } catch (_error) { /* clipboard failure leaves the visible literal available */ }
 }
@@ -1656,7 +1662,10 @@ async function _copyDelegationPairResetCommand() {
         && typeof navigator.clipboard.writeText === 'function') {
       await navigator.clipboard.writeText(command);
       var mount = _ensureDelegationMount();
-      if (mount.announcer) mount.announcer.textContent = 'Pairing reset command copied';
+      if (mount.announcer) {
+        if (globalThis.fsbUiLocale && fsbUiLocale.markExact) fsbUiLocale.markExact(mount.announcer, 'Pairing reset command copied');
+        else mount.announcer.textContent = 'Pairing reset command copied';
+      }
     }
   } catch (_error) { /* clipboard failure leaves the visible literal available */ }
 }
@@ -1681,7 +1690,10 @@ async function _copyDelegationNativeHostInstallCommand() {
         && typeof navigator.clipboard.writeText === 'function') {
       await navigator.clipboard.writeText(command);
       var mount = _ensureDelegationMount();
-      if (mount.announcer) mount.announcer.textContent = 'Native helper install command copied';
+      if (mount.announcer) {
+        if (globalThis.fsbUiLocale && fsbUiLocale.markExact) fsbUiLocale.markExact(mount.announcer, 'Native helper install command copied');
+        else mount.announcer.textContent = 'Native helper install command copied';
+      }
     }
   } catch (_error) { /* the visible recovery copy remains actionable */ }
 }
@@ -3302,7 +3314,9 @@ try {
 
 function setAutomationRunnerText(text) {
   if (!automationRunnerLabel) return;
-  automationRunnerLabel.textContent = text || 'Automation running';
+  var label = text || 'Automation running';
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(automationRunnerLabel, label);
+  else automationRunnerLabel.textContent = label;
 }
 
 function showAutomationRunner(startedAt, text) {
@@ -3378,10 +3392,14 @@ function _renderAutomationRetryPrompt(taskText, onRetry) {
   if (!taskText) return null;
   const retryDiv = document.createElement('div');
   retryDiv.className = 'message system new';
-  retryDiv.textContent = 'Would you like to try again? ';
+  retryDiv.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+    ? fsbUiLocale.markExact(retryDiv, 'Would you like to try again? ')
+    : 'Would you like to try again? ';
   const retryBtn = document.createElement('button');
   retryBtn.className = 'retry-btn';
-  retryBtn.textContent = 'Retry';
+  retryBtn.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+    ? fsbUiLocale.markExact(retryBtn, 'Retry')
+    : 'Retry';
   retryBtn.addEventListener('click', async () => {
     // WR-03: without this gate the click silently drops the user's intent,
     // because handleSendMessage's runtime gate fail-closes without surfacing why.
@@ -3663,10 +3681,14 @@ function handleReconComplete(data) {
   if (pendingReconTask) {
     const retryDiv = document.createElement('div');
     retryDiv.className = 'message system new';
-    retryDiv.textContent = 'Site map ready. Retry your task? ';
+    retryDiv.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+      ? fsbUiLocale.markExact(retryDiv, 'Site map ready. Retry your task? ')
+      : 'Site map ready. Retry your task? ';
     const retryBtn = document.createElement('button');
     retryBtn.className = 'retry-btn';
-    retryBtn.textContent = 'Retry with Site Map';
+    retryBtn.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+      ? fsbUiLocale.markExact(retryBtn, 'Retry with Site Map')
+      : 'Retry with Site Map';
     retryBtn.addEventListener('click', async () => {
       // Phase 11 FINT-20 WR-03 fix -- gate the retry on the foreign-owned
       // check. applyInputLockout dims chatInput/sendBtn/stopBtn/micBtn when
@@ -3883,7 +3905,10 @@ async function refreshActiveTabOwnership(tabId, surfaceGeneration) {
     // while the visible automation presentation stays provider-neutral.
     _chatLockedByOwnerChip = true;
     applyInputLockout(true);
-    chatInput.title = 'Disabled while automation is working on this tab';
+    chatInput.title = (globalThis.fsbUiLocale && fsbUiLocale.text)
+      ? fsbUiLocale.text('shell_locked_tab', 'Disabled while automation is working on this tab')
+      : 'Disabled while automation is working on this tab';
+    chatInput.setAttribute('data-i18n-attr', 'title:shell_locked_tab');
     updateSendButtonState();
     return {
       verified: true,
@@ -4912,6 +4937,7 @@ function addStatusMessage(text, type = 'ai') {
   const statusTextEl = document.createElement('span');
   statusTextEl.className = 'status-text';
   statusTextEl.textContent = text;
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(statusTextEl, text);
   setAutomationRunnerText(text);
   
   // Progress container (hidden until progress data arrives)
@@ -5004,7 +5030,9 @@ function _renderCompletionDomOnly(text, type, isPartial) {
     messageDiv.classList.add('partial-result');
     var label = document.createElement('div');
     label.className = 'partial-result-label';
-    label.textContent = 'Partial result';
+    label.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+      ? fsbUiLocale.markExact(label, 'Partial result')
+      : 'Partial result';
     messageDiv.appendChild(label);
   }
 
@@ -5043,7 +5071,9 @@ function addCompletionMessage(text, type = 'ai', isPartial = false) {
     messageDiv.classList.add('partial-result');
     const label = document.createElement('div');
     label.className = 'partial-result-label';
-    label.textContent = 'Partial result';
+    label.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+      ? fsbUiLocale.markExact(label, 'Partial result')
+      : 'Partial result';
     messageDiv.appendChild(label);
   }
 
@@ -5322,6 +5352,10 @@ function addMessage(text, type = 'system', kind) {
   } else {
     messageDiv.textContent = text;
   }
+  if (type !== 'user' && type !== 'ai' && type !== 'action'
+      && globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') {
+    fsbUiLocale.markExact(messageDiv, messageDiv.textContent);
+  }
 
   // Add dismiss button for error messages
   if (type === 'error') {
@@ -5563,13 +5597,17 @@ function renderAutomationCompletionPayload(payload) {
             reconDiv.className = 'message system new recon-suggestion';
             const textSpan = document.createElement('span');
             textSpan.className = 'recon-suggestion-text';
-            textSpan.textContent = 'This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance.';
+            textSpan.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+              ? fsbUiLocale.markExact(textSpan, 'This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance.')
+              : 'This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance.';
             reconDiv.appendChild(textSpan);
 
             const reconBtn = document.createElement('button');
             reconBtn.className = 'recon-btn';
             reconBtn.id = 'reconFromSidepanel';
-            reconBtn.textContent = 'Run Reconnaissance';
+            reconBtn.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+              ? fsbUiLocale.markExact(reconBtn, 'Run Reconnaissance')
+              : 'Run Reconnaissance';
             reconBtn.addEventListener('click', () => {
               startReconFromSidepanel(currentUrl, payload.task || completionMessage);
             });
@@ -5818,13 +5856,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 reconDiv.className = 'message system new recon-suggestion';
                 const textSpan = document.createElement('span');
                 textSpan.className = 'recon-suggestion-text';
-                textSpan.textContent = 'This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance.';
+                textSpan.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+              ? fsbUiLocale.markExact(textSpan, 'This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance.')
+              : 'This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance.';
                 reconDiv.appendChild(textSpan);
 
                 const reconBtn = document.createElement('button');
                 reconBtn.className = 'recon-btn';
                 reconBtn.id = 'reconFromSidepanel';
-                reconBtn.textContent = 'Run Reconnaissance';
+                reconBtn.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+              ? fsbUiLocale.markExact(reconBtn, 'Run Reconnaissance')
+              : 'Run Reconnaissance';
                 reconBtn.addEventListener('click', () => {
                   startReconFromSidepanel(currentUrl, request.task || completionMessage);
                 });
@@ -6448,15 +6490,15 @@ async function loadHistoryList() {
             costDisplay +
             (session.mode === 'mcp-agent'
               ? '<span class="history-source-badge mcp">MCP · ' + escapeHtml(session.mcpClient || 'Agent') + '</span>'
-              : '<span class="history-source-badge">Autopilot</span>') +
+              : '<span class="history-source-badge">' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_autopilot', 'Autopilot') : 'Autopilot') + '</span>') +
             '<span class="history-status ' + escapeHtml(statusClass) + '">' + escapeHtml(statusLabel) + '</span>' +
           '</div>' +
         '</div>' +
         (hasReplayDetails ?
-          '<button class="history-replay-btn" data-session-id="' + escapeHtml(session.id) + '" title="Replay session">' +
+          '<button class="history-replay-btn" data-session-id="' + escapeHtml(session.id) + '" title="' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_replay_session', 'Replay session') : 'Replay session') + '">' +
             '<i class="fa fa-play"></i>' +
           '</button>' : '') +
-        '<button class="history-delete-btn" data-session-id="' + escapeHtml(session.id) + '" title="Delete session">' +
+        '<button class="history-delete-btn" data-session-id="' + escapeHtml(session.id) + '" title="' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_delete_session', 'Delete session') : 'Delete session') + '">' +
           '<i class="fa fa-trash"></i>' +
         '</button>' +
       '</div>';
@@ -6465,7 +6507,7 @@ async function loadHistoryList() {
     console.error('Failed to load history list:', error);
     historyList.innerHTML = '<div class="history-empty-state">' +
       '<i class="fa fa-exclamation-triangle"></i>' +
-      '<p>Failed to load sessions.</p>' +
+      '<p>' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_history_failed', 'Failed to load sessions.') : 'Failed to load sessions.') + '</p>' +
       '</div>';
   }
 }
@@ -6540,7 +6582,9 @@ function renderReplayPreview(preview) {
 
   const heading = document.createElement('div');
   heading.className = 'replay-preview-heading';
-  heading.textContent = 'Verified replay preview';
+  heading.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+    ? fsbUiLocale.markExact(heading, 'Verified replay preview')
+    : 'Verified replay preview';
   card.appendChild(heading);
 
   const meta = document.createElement('div');
@@ -6556,7 +6600,11 @@ function renderReplayPreview(preview) {
   const origin = document.createElement('div');
   origin.className = 'replay-preview-origin';
   try { origin.textContent = 'Fresh tab: ' + new URL(preview.startUrl).origin; }
-  catch (_error) { origin.textContent = 'Fresh recorded-site tab'; }
+  catch (_error) {
+    origin.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+      ? fsbUiLocale.markExact(origin, 'Fresh recorded-site tab')
+      : 'Fresh recorded-site tab';
+  }
   card.appendChild(origin);
 
   const timeline = document.createElement('div');
@@ -6613,11 +6661,15 @@ function renderMcpReplayApproval(approval) {
   const approve = document.createElement('button');
   approve.type = 'button';
   approve.className = 'replay-decision-btn retry';
-  approve.textContent = 'Approve replay';
+  approve.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+    ? fsbUiLocale.markExact(approve, 'Approve replay')
+    : 'Approve replay';
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'replay-decision-btn stop';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
+    ? fsbUiLocale.markExact(cancel, 'Cancel')
+    : 'Cancel';
   actions.appendChild(approve);
   actions.appendChild(cancel);
   card.appendChild(actions);
@@ -7023,5 +7075,8 @@ console.log(`FSB v${chrome.runtime.getManifest().version} side panel script load
 
 
 if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
-  fsbUiLocale.boot().then(function () { fsbUiLocale.apply(document); });
+  fsbUiLocale.boot().then(function () {
+    fsbUiLocale.apply(document);
+    if (typeof _renderHeaderStatus === 'function') _renderHeaderStatus();
+  });
 }

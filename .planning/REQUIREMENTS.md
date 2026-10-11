@@ -19,9 +19,9 @@
 
 ### Shell chrome
 
-- [ ] **SHELL-01**: Chrome shows a localized extension name and description for each of the seven locales. `FSB` stays untranslated. The manifest `version` field stays the version.
-- [ ] **SHELL-02**: Side-panel package-owned labels, buttons, empty states, and status text render in the active locale.
-- [ ] **SHELL-03**: Popup package-owned labels, buttons, and status text render in the active locale.
+- [x] **SHELL-01**: Chrome shows a localized extension name and description for each of the seven locales. `FSB` stays untranslated. The manifest `version` field stays the version.
+- [x] **SHELL-02**: Side-panel package-owned labels, buttons, empty states, and status text render in the active locale.
+- [x] **SHELL-03**: Popup package-owned labels, buttons, and status text render in the active locale.
 
 ### Settings
 
@@ -84,9 +84,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUAL-01 | Phase 66 | Complete |
 | QUAL-02 | Phase 66 | Complete |
 | QUAL-03 | Phase 66 | Complete |
-| SHELL-01 | Phase 67 | Pending |
-| SHELL-02 | Phase 67 | Pending |
-| SHELL-03 | Phase 67 | Pending |
+| SHELL-01 | Phase 67 | Complete |
+| SHELL-02 | Phase 67 | Complete |
+| SHELL-03 | Phase 67 | Complete |
 | SET-01 | Phase 68 | Pending |
 | ENTRY-01 | Phase 69 | Pending |
 | ENTRY-02 | Phase 69 | Pending |

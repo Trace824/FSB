@@ -85,5 +85,316 @@
   },
   "shell_new_chat": {
     "message": "Iniciar un chat nuevo"
+  },
+  "shell_welcome": {
+    "message": "Bienvenido a FSB. ¿Cómo puedo ayudarte?"
+  },
+  "shell_no_automation": {
+    "message": "No hay una automatización activa que detener."
+  },
+  "shell_stopped": {
+    "message": "Automatización detenida. Avísame si necesitas ayuda con algo más."
+  },
+  "shell_partial": {
+    "message": "Resultado parcial"
+  },
+  "shell_try_again": {
+    "message": "¿Quieres intentarlo de nuevo? "
+  },
+  "shell_retry": {
+    "message": "Reintentar"
+  },
+  "shell_switched_popup": {
+    "message": "Cambiado al modo de ventana emergente. La extensión se cerrará al hacer clic fuera."
+  },
+  "shell_persistent": {
+    "message": "Ejecutándose en una ventana persistente."
+  },
+  "shell_try_again_help": {
+    "message": "Avísame si quieres intentarlo de nuevo o necesitas ayuda con algo más."
+  },
+  "shell_locked_tab": {
+    "message": "Desactivado mientras la automatización trabaja en esta pestaña"
+  },
+  "shell_doctor_copied": {
+    "message": "Comando de diagnóstico copiado"
+  },
+  "shell_pair_copied": {
+    "message": "Comando de restablecimiento de emparejamiento copiado"
+  },
+  "shell_install_copied": {
+    "message": "Comando de instalación del asistente nativo copiado"
+  },
+  "shell_site_map_ready": {
+    "message": "El mapa del sitio está listo. ¿Reintentar la tarea? "
+  },
+  "shell_retry_sitemap": {
+    "message": "Reintentar con el mapa del sitio"
+  },
+  "shell_locked_ext": {
+    "message": "La extensión está bloqueada. Desbloquéala primero abriendo la ventana emergente."
+  },
+  "shell_already_done": {
+    "message": "Ya se completó"
+  },
+  "shell_session_ended": {
+    "message": "La sesión terminó de forma inesperada. Listo para la siguiente tarea."
+  },
+  "shell_no_map": {
+    "message": "Este sitio todavía no tiene un mapa. El reconocimiento puede ayudar a FSB a aprender la estructura del sitio para un mejor rendimiento."
+  },
+  "shell_run_recon": {
+    "message": "Ejecutar reconocimiento"
+  },
+  "shell_stuck": {
+    "message": "La automatización se quedó repitiendo las mismas acciones. Estos son algunos consejos:"
+  },
+  "shell_tip_specific": {
+    "message": "Intenta ser más específico sobre lo que quieres lograr"
+  },
+  "shell_tip_captcha": {
+    "message": "Comprueba si la página requiere pasos manuales, como resolver un CAPTCHA"
+  },
+  "shell_tip_loaded": {
+    "message": "Asegúrate de que la página haya cargado por completo antes de empezar"
+  },
+  "shell_no_worries": {
+    "message": "No te preocupes. El panel lateral sigue aquí. Inténtalo de nuevo o pide ayuda con otra cosa."
+  },
+  "shell_password": {
+    "message": "Contraseña"
+  },
+  "shell_signing_in": {
+    "message": "Iniciando sesión..."
+  },
+  "shell_login_skipped": {
+    "message": "Inicio de sesión omitido. Continuando la automatización..."
+  },
+  "shell_payment_selected": {
+    "message": "Se seleccionó un método de pago guardado. FSB rellenará los datos de la tarjeta, pero no enviará el pago final por ti."
+  },
+  "shell_payment_skipped": {
+    "message": "Se omitió el método de pago guardado. Revisa el formulario de pago antes de cualquier paso final de pago."
+  },
+  "shell_replay_preview": {
+    "message": "Vista previa de repetición verificada"
+  },
+  "shell_fresh_tab_fallback": {
+    "message": "Pestaña nueva del sitio grabado"
+  },
+  "shell_approve_replay": {
+    "message": "Aprobar repetición"
+  },
+  "shell_cancel": {
+    "message": "Cancelar"
+  },
+  "shell_replay_busy": {
+    "message": "No se puede repetir mientras otra automatización está en curso. Detén la tarea actual primero."
+  },
+  "shell_replay_cancelled_request": {
+    "message": "Solicitud de repetición cancelada. No se abrió ninguna pestaña de destino."
+  },
+  "shell_replay_inspect_only": {
+    "message": "Esta grabación está verificada para inspección, pero no tiene pasos ejecutables."
+  },
+  "shell_replay_cancelled": {
+    "message": "Repetición cancelada. La grabación original no cambió."
+  },
+  "shell_session_missing": {
+    "message": "No se encontraron los datos de la sesión."
+  },
+  "shell_no_actions": {
+    "message": "No se grabó ninguna acción en esta sesión."
+  },
+  "shell_history_failed": {
+    "message": "No se pudieron cargar las sesiones."
+  },
+  "shell_replay_session": {
+    "message": "Repetir sesión"
+  },
+  "shell_delete_session": {
+    "message": "Eliminar sesión"
+  },
+  "shell_autopilot": {
+    "message": "Piloto automático"
+  },
+  "shell_checking_local": {
+    "message": "Comprobando el servicio de agente local"
+  },
+  "shell_checking_local_sent": {
+    "message": "Comprobando el servicio de agente local. Tu mensaje no se ha enviado."
+  },
+  "shell_wake_body": {
+    "message": "FSB está intentando dejar disponible el servicio de agente local. Tu mensaje no se ha enviado."
+  },
+  "shell_checking_agent": {
+    "message": "Comprobando el servicio de agente"
+  },
+  "shell_agent_offline": {
+    "message": "Agente sin conexión"
+  },
+  "shell_offline_body": {
+    "message": "FSB no puede alcanzar el servicio de agente local. Ejecuta el comando de diagnóstico y vuelve a intentar este mensaje."
+  },
+  "shell_copy_doctor": {
+    "message": "Copiar comando de diagnóstico"
+  },
+  "shell_open_provider": {
+    "message": "Abrir configuración del proveedor"
+  },
+  "shell_needs_helper": {
+    "message": "La conexión automática necesita el asistente nativo"
+  },
+  "shell_install_body": {
+    "message": "Instala o actualiza el asistente nativo de FSB y vuelve a intentar este mensaje. FSB conectará este navegador automáticamente."
+  },
+  "shell_copy_install": {
+    "message": "Copiar comando de instalación"
+  },
+  "shell_back_to_message": {
+    "message": "Volver al mensaje"
+  },
+  "shell_checking_provider": {
+    "message": "Comprobando el proveedor"
+  },
+  "shell_checking_provider_body": {
+    "message": "FSB está comprobando tu proveedor de AI antes de enviar tu mensaje."
+  },
+  "shell_starting_agent": {
+    "message": "Iniciando el agente"
+  },
+  "shell_starting_agent_body": {
+    "message": "FSB está entregando tu mensaje al agente."
+  },
+  "shell_owned_by": {
+    "message": "En uso por $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_owned_title": {
+    "message": "Desactivado mientras la pestaña está en uso por $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_encountered": {
+    "message": "Encontré un error: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_generic": {
+    "message": "Algo salió mal: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_background": {
+    "message": "Error al comunicar con el script en segundo plano: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_stop": {
+    "message": "Error al detener la automatización: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_starting": {
+    "message": "Iniciando la automatización..."
+  },
+  "shell_continuing": {
+    "message": "Continuando..."
+  },
+  "shell_connecting": {
+    "message": "Conectando con la página..."
+  },
+  "shell_connected_analyzing": {
+    "message": "Conectado. Analizando la página..."
+  },
+  "shell_analyzing": {
+    "message": "Analizando la página..."
+  },
+  "shell_starting_plain": {
+    "message": "Iniciando la automatización"
+  },
+  "shell_testing_api": {
+    "message": "Probando la conexión de API de $NAME$...",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_ok": {
+    "message": "La conexión de API de $NAME$ funciona.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_model": {
+    "message": "Conectado al modelo: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_failed": {
+    "message": "La conexión de API de $NAME$ falló. Revisa la configuración.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_status": {
+    "message": "Estado: $STATUS$ - $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "shell_api_details": {
+    "message": "Detalles: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_details": {
+    "message": "Detalles del error: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_working": {
+    "message": "Trabajando"
+  },
+  "shell_error_status": {
+    "message": "Fallo"
   }
 }

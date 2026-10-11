@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3.0
 milestone_name: Extension multilingual UI
-status: planning
-last_updated: "2026-10-11T10:43:34.221Z"
+status: executing
+last_updated: "2026-10-11T12:00:00.000Z"
 last_activity: 2026-10-11
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 17
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
+  percent: 33
 ---
 
 *Note: progress counts in the frontmatter are for v1.3.0 only. v0.9.91 is paused, not shipped. Its snapshot is `.planning/milestones/v0.9.91-STATE.md`.*
@@ -37,10 +37,10 @@ The sections below this banner are accumulated decisions from earlier milestones
 
 ## Current Position
 
-Phase: 67 — Manifest, side panel, and popup (in progress)
-Plan: 67 shell chrome landed; dynamic JS copy remains
-Status: Phase 66 passed. Phase 67 resting chrome is localized. Phases 68-71 have not started.
-Last activity: 2026-10-11 — Manifest name, description, and side panel/popup resting chrome localized
+Phase: 68 — Options and control panel (not started)
+Plan: —
+Status: Phase 67 passed. Execution continues.
+Last activity: 2026-10-11 — Phase 67 manifest, side panel, and popup chrome passed
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65)
 

@@ -31,7 +31,7 @@
 - Decimal phases (66.1, 66.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 66: Locale plumbing and CI gate** - Seed catalogs, the runtime resolver, manifest `default_locale`, and a CI gate that fails on a missing key, an empty message, a placeholder change, or copied English (completed 2026-10-11)
-- [ ] **Phase 67: Manifest, side panel, and popup** - Localized store identity plus side-panel and popup chrome, with all six translations in the same change
+- [x] **Phase 67: Manifest, side panel, and popup** - Localized store identity plus side-panel and popup chrome, with all six translations in the same change
 - [ ] **Phase 68: Options and control panel** - Localized options and control-panel chrome, the largest surface
 - [ ] **Phase 69: Onboarding, entry pages, and overlay chrome** - Localized onboarding, unlock, microphone permission, and FSB-authored overlay labels
 - [ ] **Phase 70: Coverage audit** - CI fails if in-scope files still contain package-owned English prose outside the catalog
@@ -61,7 +61,8 @@
   2. Opening the side panel in Spanish shows Spanish labels, buttons, empty states, and status text for package-owned chrome. User-typed text and model output stay as they were.
   3. Opening the popup in Korean shows Korean package-owned chrome, including button titles and status text.
   4. Every key added in this phase exists in all seven catalogs with matching placeholders, and the Phase 66 gate stays green.
-**Plans**: TBD
+**Plans**: 1/1 complete
+- [x] 67-01: Manifest tokens, resting chrome, and runtime status text.
 **UI hint**: yes
 
 ### Phase 68: Options and control panel
@@ -117,4 +118,4 @@
 
 ---
 *Roadmap created: 2026-10-11*
-*Execution has not started.*
+*Phase 67 passed: 2026-10-11*

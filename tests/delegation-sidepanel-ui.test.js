@@ -768,7 +768,9 @@ assert.equal((htmlSource.match(/id="delegationControlBar"/g) || []).length, 0,
 assert.equal(sha256(htmlSource
   .replace(delegationProviderScript, '')
   .replace(nativeHostInstallScript, '')),
-  '2f2fd0bb74edc1e6a6bb5d20127d8e67943013818e9cafe3d42d51b0c460ae7a',
+  // Rolled when package-owned side-panel chrome gained data-i18n markers
+  // and the locale catalog script. No new control or helper was added.
+  '6ae747542ae8d177a4f9c0b82048fac27ba48d06ac80e198bf00be81b93e53cc',
   'the side-panel HTML includes only the intended helpers and tab-scoped ownership treatment');
 const replayCssStart = cssSource.indexOf('.history-status.idle-closed {');
 const replayCssEnd = cssSource.indexOf('/* Phase 11 FINT-20', replayCssStart);

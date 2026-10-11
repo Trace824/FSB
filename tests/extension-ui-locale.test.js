@@ -78,6 +78,17 @@ check(locale.t('locale_seed_replay', { SPEED: '2x' }) === '再生速度 2x', 'pl
 locale.setOverride('es');
 check(locale.t('locale_seed_greeting') === 'FSB is ready', 'empty Spanish greeting catalog falls back to English');
 
+locale.setCatalog('es', { shell_ready: 'Listo', shell_owned_by: 'En uso por $LABEL$' });
+locale.setOverride('es');
+check(locale.text('shell_owned_by', 'Owned by Ada', { label: 'Ada' }) === 'En uso por Ada', 'text() applies the active catalog and substitutions');
+check(locale.text('missing_shell_key', 'Fallback text') === 'Fallback text', 'text() returns the English fallback when the key is missing');
+const exactNode = { setAttribute() {}, removeAttribute() {}, get firstChild() { return null; }, childNodes: [], textContent: '' };
+locale.markExact(exactNode, 'Ready');
+check(exactNode.textContent === 'Listo', 'markExact translates a known chrome string');
+locale.markExact(exactNode, 'User typed this');
+check(exactNode.textContent === 'User typed this', 'markExact leaves unknown text unchanged');
+locale.setOverride(null);
+
 const source = fs.readFileSync(path.join(root, 'extension/utils/ui-locale.js'), 'utf8');
 check(!source.includes('fsb-locale'), 'resolver does not mention the website cookie name');
 check(!source.includes('document.cookie'), 'resolver does not read document.cookie');
@@ -90,6 +101,13 @@ check(identity !== -1 && uiLocale > identity && uiLocale < config, 'ui-locale lo
 
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'extension/manifest.json'), 'utf8'));
 check(manifest.default_locale === 'en', 'manifest default_locale is en');
+check(manifest.name === '__MSG_ext_name__', 'manifest name is a message token');
+check(manifest.description === '__MSG_ext_description__', 'manifest description is a message token');
+
+const englishCatalog = JSON.parse(fs.readFileSync(path.join(root, 'extension/_locales/en/messages.json'), 'utf8'));
+for (const [english, key] of Object.entries(locale.exact)) {
+  check(englishCatalog[key] && englishCatalog[key].message === english, 'exact chrome key ' + key + ' matches the English catalog');
+}
 
 check(
   sha256('mcp/src/types.ts') === '6b5f312a5e9a9f3390c973a7f93ef7552db1c110aeeb116084c1f522e776770a',

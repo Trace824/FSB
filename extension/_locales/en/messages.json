@@ -85,5 +85,316 @@
   },
   "shell_new_chat": {
     "message": "Start New Chat"
+  },
+  "shell_welcome": {
+    "message": "Welcome to FSB. How can I help?"
+  },
+  "shell_no_automation": {
+    "message": "No active automation to stop."
+  },
+  "shell_stopped": {
+    "message": "Automation stopped. Let me know if you need help with anything else!"
+  },
+  "shell_partial": {
+    "message": "Partial result"
+  },
+  "shell_try_again": {
+    "message": "Would you like to try again? "
+  },
+  "shell_retry": {
+    "message": "Retry"
+  },
+  "shell_switched_popup": {
+    "message": "Switched to popup mode. Extension will close when clicked outside."
+  },
+  "shell_persistent": {
+    "message": "Running in persistent window mode."
+  },
+  "shell_try_again_help": {
+    "message": "Let me know if you'd like to try again or need help with something else."
+  },
+  "shell_locked_tab": {
+    "message": "Disabled while automation is working on this tab"
+  },
+  "shell_doctor_copied": {
+    "message": "Doctor command copied"
+  },
+  "shell_pair_copied": {
+    "message": "Pairing reset command copied"
+  },
+  "shell_install_copied": {
+    "message": "Native helper install command copied"
+  },
+  "shell_site_map_ready": {
+    "message": "Site map ready. Retry your task? "
+  },
+  "shell_retry_sitemap": {
+    "message": "Retry with Site Map"
+  },
+  "shell_locked_ext": {
+    "message": "Extension is locked. Please unlock it first by opening the popup."
+  },
+  "shell_already_done": {
+    "message": "Already completed"
+  },
+  "shell_session_ended": {
+    "message": "Session ended unexpectedly. Ready for your next task."
+  },
+  "shell_no_map": {
+    "message": "This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance."
+  },
+  "shell_run_recon": {
+    "message": "Run Reconnaissance"
+  },
+  "shell_stuck": {
+    "message": "The automation got stuck repeating the same actions. Here are some tips:"
+  },
+  "shell_tip_specific": {
+    "message": "Try being more specific about what you want to achieve"
+  },
+  "shell_tip_captcha": {
+    "message": "Check if the page requires manual steps like CAPTCHA solving"
+  },
+  "shell_tip_loaded": {
+    "message": "Ensure the page has fully loaded before starting"
+  },
+  "shell_no_worries": {
+    "message": "No worries! The side panel is still here. Try again or ask for help with something else."
+  },
+  "shell_password": {
+    "message": "Password"
+  },
+  "shell_signing_in": {
+    "message": "Signing in..."
+  },
+  "shell_login_skipped": {
+    "message": "Login skipped. Continuing automation..."
+  },
+  "shell_payment_selected": {
+    "message": "Saved payment method selected. FSB will fill the card details, but it will not submit the final payment for you."
+  },
+  "shell_payment_skipped": {
+    "message": "Saved payment method skipped. Review the checkout form manually before any final payment step."
+  },
+  "shell_replay_preview": {
+    "message": "Verified replay preview"
+  },
+  "shell_fresh_tab_fallback": {
+    "message": "Fresh recorded-site tab"
+  },
+  "shell_approve_replay": {
+    "message": "Approve replay"
+  },
+  "shell_cancel": {
+    "message": "Cancel"
+  },
+  "shell_replay_busy": {
+    "message": "Cannot replay while another automation is running. Stop the current task first."
+  },
+  "shell_replay_cancelled_request": {
+    "message": "Replay request cancelled. No target tabs were opened."
+  },
+  "shell_replay_inspect_only": {
+    "message": "This recording is verified for inspection, but it has no executable steps."
+  },
+  "shell_replay_cancelled": {
+    "message": "Replay cancelled. The original recording was not changed."
+  },
+  "shell_session_missing": {
+    "message": "Session data not found."
+  },
+  "shell_no_actions": {
+    "message": "No actions were recorded in this session."
+  },
+  "shell_history_failed": {
+    "message": "Failed to load sessions."
+  },
+  "shell_replay_session": {
+    "message": "Replay session"
+  },
+  "shell_delete_session": {
+    "message": "Delete session"
+  },
+  "shell_autopilot": {
+    "message": "Autopilot"
+  },
+  "shell_checking_local": {
+    "message": "Checking local agent service"
+  },
+  "shell_checking_local_sent": {
+    "message": "Checking local agent service. Your message has not been sent."
+  },
+  "shell_wake_body": {
+    "message": "FSB is trying to make the local agent service available. Your message has not been sent."
+  },
+  "shell_checking_agent": {
+    "message": "Checking agent service"
+  },
+  "shell_agent_offline": {
+    "message": "Agent offline"
+  },
+  "shell_offline_body": {
+    "message": "FSB cannot reach the local agent service. Run the doctor command, then try this message again."
+  },
+  "shell_copy_doctor": {
+    "message": "Copy doctor command"
+  },
+  "shell_open_provider": {
+    "message": "Open provider setup"
+  },
+  "shell_needs_helper": {
+    "message": "Automatic connection needs the native helper"
+  },
+  "shell_install_body": {
+    "message": "Install or update the FSB native helper, then try this message again. FSB will connect this browser automatically."
+  },
+  "shell_copy_install": {
+    "message": "Copy install command"
+  },
+  "shell_back_to_message": {
+    "message": "Back to message"
+  },
+  "shell_checking_provider": {
+    "message": "Checking provider"
+  },
+  "shell_checking_provider_body": {
+    "message": "FSB is checking your AI provider before sending your message."
+  },
+  "shell_starting_agent": {
+    "message": "Starting agent"
+  },
+  "shell_starting_agent_body": {
+    "message": "FSB is handing your message to the agent."
+  },
+  "shell_owned_by": {
+    "message": "Owned by $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_owned_title": {
+    "message": "Disabled while tab is owned by $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_encountered": {
+    "message": "I encountered an error: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_generic": {
+    "message": "Something went wrong: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_background": {
+    "message": "Error communicating with background script: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_stop": {
+    "message": "Error stopping automation: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_starting": {
+    "message": "Starting automation..."
+  },
+  "shell_continuing": {
+    "message": "Continuing..."
+  },
+  "shell_connecting": {
+    "message": "Connecting to page..."
+  },
+  "shell_connected_analyzing": {
+    "message": "Connected. Analyzing page..."
+  },
+  "shell_analyzing": {
+    "message": "Analyzing page..."
+  },
+  "shell_starting_plain": {
+    "message": "Starting automation"
+  },
+  "shell_testing_api": {
+    "message": "Testing $NAME$ API connection...",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_ok": {
+    "message": "$NAME$ API connection is working.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_model": {
+    "message": "Connected to model: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_failed": {
+    "message": "$NAME$ API connection failed. Please check your settings.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_status": {
+    "message": "Status: $STATUS$ - $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "shell_api_details": {
+    "message": "Details: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_details": {
+    "message": "Error details: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_working": {
+    "message": "Working"
+  },
+  "shell_error_status": {
+    "message": "Error"
   }
 }

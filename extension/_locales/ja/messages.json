@@ -85,5 +85,316 @@
   },
   "shell_new_chat": {
     "message": "新しいチャットを開始"
+  },
+  "shell_welcome": {
+    "message": "FSB へようこそ。何をお手伝いしましょうか？"
+  },
+  "shell_no_automation": {
+    "message": "停止できる実行中の自動化はありません。"
+  },
+  "shell_stopped": {
+    "message": "自動化を停止しました。ほかに手伝えることがあれば知らせてください。"
+  },
+  "shell_partial": {
+    "message": "部分的な結果"
+  },
+  "shell_try_again": {
+    "message": "もう一度試しますか？ "
+  },
+  "shell_retry": {
+    "message": "再試行"
+  },
+  "shell_switched_popup": {
+    "message": "ポップアップモードに切り替えました。外側をクリックすると拡張機能は閉じます。"
+  },
+  "shell_persistent": {
+    "message": "常駐ウィンドウで実行中です。"
+  },
+  "shell_try_again_help": {
+    "message": "もう一度試すか、ほかのことで助けが必要なら知らせてください。"
+  },
+  "shell_locked_tab": {
+    "message": "このタブで自動化が動作している間は無効です"
+  },
+  "shell_doctor_copied": {
+    "message": "診断コマンドをコピーしました"
+  },
+  "shell_pair_copied": {
+    "message": "ペアリング解除コマンドをコピーしました"
+  },
+  "shell_install_copied": {
+    "message": "ネイティブヘルパーのインストールコマンドをコピーしました"
+  },
+  "shell_site_map_ready": {
+    "message": "サイトマップの準備ができました。タスクを再試行しますか？ "
+  },
+  "shell_retry_sitemap": {
+    "message": "サイトマップで再試行"
+  },
+  "shell_locked_ext": {
+    "message": "拡張機能はロックされています。先にポップアップを開いてロックを解除してください。"
+  },
+  "shell_already_done": {
+    "message": "すでに完了しています"
+  },
+  "shell_session_ended": {
+    "message": "セッションが予期せず終了しました。次のタスクの準備ができています。"
+  },
+  "shell_no_map": {
+    "message": "このサイトにはまだ地図がありません。偵察すると、FSB がサイト構造を学習して性能を高められます。"
+  },
+  "shell_run_recon": {
+    "message": "偵察を実行"
+  },
+  "shell_stuck": {
+    "message": "自動化が同じ操作を繰り返して止まっています。ヒントです:"
+  },
+  "shell_tip_specific": {
+    "message": "達成したいことをより具体的にしてください"
+  },
+  "shell_tip_captcha": {
+    "message": "CAPTCHA の解決など、ページに手動の手順が必要か確認してください"
+  },
+  "shell_tip_loaded": {
+    "message": "開始する前に、ページが完全に読み込まれていることを確認してください"
+  },
+  "shell_no_worries": {
+    "message": "大丈夫です。サイドパネルはそのままです。もう一度試すか、別のことを頼んでください。"
+  },
+  "shell_password": {
+    "message": "パスワード"
+  },
+  "shell_signing_in": {
+    "message": "サインインしています..."
+  },
+  "shell_login_skipped": {
+    "message": "ログインをスキップしました。自動化を続けます..."
+  },
+  "shell_payment_selected": {
+    "message": "保存済みの支払い方法を選択しました。FSB はカード情報を入力しますが、最終的な支払いは送信しません。"
+  },
+  "shell_payment_skipped": {
+    "message": "保存済みの支払い方法をスキップしました。最終的な支払いの前に、チェックアウトフォームを確認してください。"
+  },
+  "shell_replay_preview": {
+    "message": "検証済みの再生プレビュー"
+  },
+  "shell_fresh_tab_fallback": {
+    "message": "記録されたサイトの新しいタブ"
+  },
+  "shell_approve_replay": {
+    "message": "再生を承認"
+  },
+  "shell_cancel": {
+    "message": "キャンセル"
+  },
+  "shell_replay_busy": {
+    "message": "別の自動化が実行中は再生できません。先に現在のタスクを停止してください。"
+  },
+  "shell_replay_cancelled_request": {
+    "message": "再生リクエストを取り消しました。対象のタブは開いていません。"
+  },
+  "shell_replay_inspect_only": {
+    "message": "この記録は検査用に検証されていますが、実行できる手順はありません。"
+  },
+  "shell_replay_cancelled": {
+    "message": "再生を取り消しました。元の記録は変更されていません。"
+  },
+  "shell_session_missing": {
+    "message": "セッションデータが見つかりません。"
+  },
+  "shell_no_actions": {
+    "message": "このセッションには記録された操作がありません。"
+  },
+  "shell_history_failed": {
+    "message": "セッションを読み込めませんでした。"
+  },
+  "shell_replay_session": {
+    "message": "セッションを再生"
+  },
+  "shell_delete_session": {
+    "message": "セッションを削除"
+  },
+  "shell_autopilot": {
+    "message": "オートパイロット"
+  },
+  "shell_checking_local": {
+    "message": "ローカルエージェントサービスを確認しています"
+  },
+  "shell_checking_local_sent": {
+    "message": "ローカルエージェントサービスを確認しています。メッセージはまだ送信されていません。"
+  },
+  "shell_wake_body": {
+    "message": "FSB はローカルエージェントサービスを使えるようにしています。メッセージはまだ送信されていません。"
+  },
+  "shell_checking_agent": {
+    "message": "エージェントサービスを確認しています"
+  },
+  "shell_agent_offline": {
+    "message": "エージェントはオフラインです"
+  },
+  "shell_offline_body": {
+    "message": "FSB はローカルエージェントサービスに接続できません。診断コマンドを実行してから、このメッセージをもう一度試してください。"
+  },
+  "shell_copy_doctor": {
+    "message": "診断コマンドをコピー"
+  },
+  "shell_open_provider": {
+    "message": "プロバイダー設定を開く"
+  },
+  "shell_needs_helper": {
+    "message": "自動接続にはネイティブヘルパーが必要です"
+  },
+  "shell_install_body": {
+    "message": "FSB のネイティブヘルパーをインストールまたは更新してから、このメッセージをもう一度試してください。FSB がこのブラウザを自動的に接続します。"
+  },
+  "shell_copy_install": {
+    "message": "インストールコマンドをコピー"
+  },
+  "shell_back_to_message": {
+    "message": "メッセージに戻る"
+  },
+  "shell_checking_provider": {
+    "message": "プロバイダーを確認しています"
+  },
+  "shell_checking_provider_body": {
+    "message": "FSB はメッセージを送る前に、AI プロバイダーを確認しています。"
+  },
+  "shell_starting_agent": {
+    "message": "エージェントを開始しています"
+  },
+  "shell_starting_agent_body": {
+    "message": "FSB がメッセージをエージェントに渡しています。"
+  },
+  "shell_owned_by": {
+    "message": "$LABEL$ が使用中",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_owned_title": {
+    "message": "$LABEL$ がこのタブを使用している間は無効です",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_encountered": {
+    "message": "エラーが発生しました: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_generic": {
+    "message": "問題が発生しました: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_background": {
+    "message": "バックグラウンドスクリプトとの通信エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_stop": {
+    "message": "自動化の停止中にエラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_starting": {
+    "message": "自動化を開始しています..."
+  },
+  "shell_continuing": {
+    "message": "続行しています..."
+  },
+  "shell_connecting": {
+    "message": "ページに接続しています..."
+  },
+  "shell_connected_analyzing": {
+    "message": "接続しました。ページを分析しています..."
+  },
+  "shell_analyzing": {
+    "message": "ページを分析しています..."
+  },
+  "shell_starting_plain": {
+    "message": "自動化を開始しています"
+  },
+  "shell_testing_api": {
+    "message": "$NAME$ の API 接続をテストしています...",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_ok": {
+    "message": "$NAME$ の API 接続は正常です。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_model": {
+    "message": "モデルに接続しました: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_failed": {
+    "message": "$NAME$ の API 接続に失敗しました。設定を確認してください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_status": {
+    "message": "状態: $STATUS$ - $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "shell_api_details": {
+    "message": "詳細: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_details": {
+    "message": "エラーの詳細: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_working": {
+    "message": "作業中"
+  },
+  "shell_error_status": {
+    "message": "エラー"
   }
 }

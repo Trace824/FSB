@@ -85,5 +85,316 @@
   },
   "shell_new_chat": {
     "message": "새 채팅 시작"
+  },
+  "shell_welcome": {
+    "message": "FSB에 오신 것을 환영합니다. 무엇을 도와드릴까요?"
+  },
+  "shell_no_automation": {
+    "message": "중지할 실행 중인 자동화가 없습니다."
+  },
+  "shell_stopped": {
+    "message": "자동화를 중지했습니다. 다른 도움이 필요하면 알려 주세요."
+  },
+  "shell_partial": {
+    "message": "부분 결과"
+  },
+  "shell_try_again": {
+    "message": "다시 시도할까요? "
+  },
+  "shell_retry": {
+    "message": "다시 시도"
+  },
+  "shell_switched_popup": {
+    "message": "팝업 모드로 전환했습니다. 바깥쪽을 클릭하면 확장 프로그램이 닫힙니다."
+  },
+  "shell_persistent": {
+    "message": "고정 창에서 실행 중입니다."
+  },
+  "shell_try_again_help": {
+    "message": "다시 시도하거나 다른 도움이 필요하면 알려 주세요."
+  },
+  "shell_locked_tab": {
+    "message": "이 탭에서 자동화가 작동하는 동안 비활성화됨"
+  },
+  "shell_doctor_copied": {
+    "message": "진단 명령을 복사했습니다"
+  },
+  "shell_pair_copied": {
+    "message": "페어링 재설정 명령을 복사했습니다"
+  },
+  "shell_install_copied": {
+    "message": "네이티브 도우미 설치 명령을 복사했습니다"
+  },
+  "shell_site_map_ready": {
+    "message": "사이트 맵이 준비되었습니다. 작업을 다시 시도할까요? "
+  },
+  "shell_retry_sitemap": {
+    "message": "사이트 맵으로 다시 시도"
+  },
+  "shell_locked_ext": {
+    "message": "확장 프로그램이 잠겨 있습니다. 먼저 팝업을 열어 잠금을 해제하세요."
+  },
+  "shell_already_done": {
+    "message": "이미 완료됨"
+  },
+  "shell_session_ended": {
+    "message": "세션이 예기치 않게 종료되었습니다. 다음 작업을 진행할 수 있습니다."
+  },
+  "shell_no_map": {
+    "message": "이 사이트에는 아직 지도가 없습니다. 정찰을 하면 FSB가 사이트 구조를 학습해 성능을 높일 수 있습니다."
+  },
+  "shell_run_recon": {
+    "message": "정찰 실행"
+  },
+  "shell_stuck": {
+    "message": "자동화가 같은 동작을 반복하다 멈췄습니다. 몇 가지 팁입니다:"
+  },
+  "shell_tip_specific": {
+    "message": "이루고 싶은 일을 더 구체적으로 적어 보세요"
+  },
+  "shell_tip_captcha": {
+    "message": "CAPTCHA 풀기처럼 페이지에 수동 단계가 필요한지 확인하세요"
+  },
+  "shell_tip_loaded": {
+    "message": "시작하기 전에 페이지가 완전히 로드되었는지 확인하세요"
+  },
+  "shell_no_worries": {
+    "message": "걱정하지 마세요. 사이드 패널은 그대로입니다. 다시 시도하거나 다른 도움을 요청하세요."
+  },
+  "shell_password": {
+    "message": "비밀번호"
+  },
+  "shell_signing_in": {
+    "message": "로그인하는 중..."
+  },
+  "shell_login_skipped": {
+    "message": "로그인을 건너뛰었습니다. 자동화를 계속합니다..."
+  },
+  "shell_payment_selected": {
+    "message": "저장된 결제 수단을 선택했습니다. FSB가 카드 정보를 채우지만, 최종 결제는 제출하지 않습니다."
+  },
+  "shell_payment_skipped": {
+    "message": "저장된 결제 수단을 건너뛰었습니다. 최종 결제 전에 결제 양식을 확인하세요."
+  },
+  "shell_replay_preview": {
+    "message": "검증된 재생 미리보기"
+  },
+  "shell_fresh_tab_fallback": {
+    "message": "녹화된 사이트의 새 탭"
+  },
+  "shell_approve_replay": {
+    "message": "재생 승인"
+  },
+  "shell_cancel": {
+    "message": "취소"
+  },
+  "shell_replay_busy": {
+    "message": "다른 자동화가 실행 중일 때는 재생할 수 없습니다. 먼저 현재 작업을 중지하세요."
+  },
+  "shell_replay_cancelled_request": {
+    "message": "재생 요청을 취소했습니다. 대상 탭은 열리지 않았습니다."
+  },
+  "shell_replay_inspect_only": {
+    "message": "이 녹화는 검사용으로 검증되었지만 실행할 수 있는 단계가 없습니다."
+  },
+  "shell_replay_cancelled": {
+    "message": "재생을 취소했습니다. 원래 녹화는 변경되지 않았습니다."
+  },
+  "shell_session_missing": {
+    "message": "세션 데이터를 찾을 수 없습니다."
+  },
+  "shell_no_actions": {
+    "message": "이 세션에는 기록된 동작이 없습니다."
+  },
+  "shell_history_failed": {
+    "message": "세션을 불러오지 못했습니다."
+  },
+  "shell_replay_session": {
+    "message": "세션 재생"
+  },
+  "shell_delete_session": {
+    "message": "세션 삭제"
+  },
+  "shell_autopilot": {
+    "message": "오토파일럿"
+  },
+  "shell_checking_local": {
+    "message": "로컬 에이전트 서비스를 확인하는 중"
+  },
+  "shell_checking_local_sent": {
+    "message": "로컬 에이전트 서비스를 확인하는 중입니다. 메시지는 아직 전송되지 않았습니다."
+  },
+  "shell_wake_body": {
+    "message": "FSB가 로컬 에이전트 서비스를 사용할 수 있게 하는 중입니다. 메시지는 아직 전송되지 않았습니다."
+  },
+  "shell_checking_agent": {
+    "message": "에이전트 서비스를 확인하는 중"
+  },
+  "shell_agent_offline": {
+    "message": "에이전트 오프라인"
+  },
+  "shell_offline_body": {
+    "message": "FSB가 로컬 에이전트 서비스에 연결할 수 없습니다. 진단 명령을 실행한 뒤 이 메시지를 다시 시도하세요."
+  },
+  "shell_copy_doctor": {
+    "message": "진단 명령 복사"
+  },
+  "shell_open_provider": {
+    "message": "공급자 설정 열기"
+  },
+  "shell_needs_helper": {
+    "message": "자동 연결에는 네이티브 도우미가 필요합니다"
+  },
+  "shell_install_body": {
+    "message": "FSB 네이티브 도우미를 설치하거나 업데이트한 뒤 이 메시지를 다시 시도하세요. FSB가 이 브라우저를 자동으로 연결합니다."
+  },
+  "shell_copy_install": {
+    "message": "설치 명령 복사"
+  },
+  "shell_back_to_message": {
+    "message": "메시지로 돌아가기"
+  },
+  "shell_checking_provider": {
+    "message": "공급자를 확인하는 중"
+  },
+  "shell_checking_provider_body": {
+    "message": "FSB가 메시지를 보내기 전에 AI 공급자를 확인하고 있습니다."
+  },
+  "shell_starting_agent": {
+    "message": "에이전트를 시작하는 중"
+  },
+  "shell_starting_agent_body": {
+    "message": "FSB가 메시지를 에이전트에게 전달하는 중입니다."
+  },
+  "shell_owned_by": {
+    "message": "$LABEL$ 사용 중",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_owned_title": {
+    "message": "$LABEL$이(가) 이 탭을 사용하는 동안 비활성화됨",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_encountered": {
+    "message": "오류가 발생했습니다: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_generic": {
+    "message": "문제가 발생했습니다: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_background": {
+    "message": "백그라운드 스크립트와 통신하는 중 오류: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_stop": {
+    "message": "자동화를 중지하는 중 오류: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_starting": {
+    "message": "자동화를 시작하는 중..."
+  },
+  "shell_continuing": {
+    "message": "계속하는 중..."
+  },
+  "shell_connecting": {
+    "message": "페이지에 연결하는 중..."
+  },
+  "shell_connected_analyzing": {
+    "message": "연결됨. 페이지를 분석하는 중..."
+  },
+  "shell_analyzing": {
+    "message": "페이지를 분석하는 중..."
+  },
+  "shell_starting_plain": {
+    "message": "자동화 시작"
+  },
+  "shell_testing_api": {
+    "message": "$NAME$ API 연결을 테스트하는 중...",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_ok": {
+    "message": "$NAME$ API 연결이 정상입니다.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_model": {
+    "message": "모델에 연결됨: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_failed": {
+    "message": "$NAME$ API 연결에 실패했습니다. 설정을 확인하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_status": {
+    "message": "상태: $STATUS$ - $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "shell_api_details": {
+    "message": "세부 정보: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_details": {
+    "message": "오류 세부 정보: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_working": {
+    "message": "작업 중"
+  },
+  "shell_error_status": {
+    "message": "오류"
   }
 }

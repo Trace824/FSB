@@ -85,5 +85,316 @@
   },
   "shell_new_chat": {
     "message": "开始新对话"
+  },
+  "shell_welcome": {
+    "message": "欢迎使用 FSB。需要我做什么？"
+  },
+  "shell_no_automation": {
+    "message": "没有正在运行的自动化可以停止。"
+  },
+  "shell_stopped": {
+    "message": "自动化已停止。如果还需要帮助，请告诉我。"
+  },
+  "shell_partial": {
+    "message": "部分结果"
+  },
+  "shell_try_again": {
+    "message": "要再试一次吗？ "
+  },
+  "shell_retry": {
+    "message": "重试"
+  },
+  "shell_switched_popup": {
+    "message": "已切换到弹出式窗口模式。在外部点击后，扩展程序会关闭。"
+  },
+  "shell_persistent": {
+    "message": "正在固定窗口中运行。"
+  },
+  "shell_try_again_help": {
+    "message": "如果想再试一次，或需要其他帮助，请告诉我。"
+  },
+  "shell_locked_tab": {
+    "message": "当自动化正在此标签页工作时已禁用"
+  },
+  "shell_doctor_copied": {
+    "message": "已复制诊断命令"
+  },
+  "shell_pair_copied": {
+    "message": "已复制配对重置命令"
+  },
+  "shell_install_copied": {
+    "message": "已复制原生助手安装命令"
+  },
+  "shell_site_map_ready": {
+    "message": "站点地图已就绪。要重试该任务吗？ "
+  },
+  "shell_retry_sitemap": {
+    "message": "使用站点地图重试"
+  },
+  "shell_locked_ext": {
+    "message": "扩展程序已锁定。请先打开弹出式窗口解锁。"
+  },
+  "shell_already_done": {
+    "message": "已经完成"
+  },
+  "shell_session_ended": {
+    "message": "会话意外结束。可以开始下一个任务。"
+  },
+  "shell_no_map": {
+    "message": "此网站还没有地图。侦察可以帮助 FSB 学习网站结构，从而提升表现。"
+  },
+  "shell_run_recon": {
+    "message": "开始侦察"
+  },
+  "shell_stuck": {
+    "message": "自动化一直在重复同样的操作。这里有一些提示："
+  },
+  "shell_tip_specific": {
+    "message": "请把想完成的事情说得更具体一些"
+  },
+  "shell_tip_captcha": {
+    "message": "请检查页面是否需要手动步骤，例如完成 CAPTCHA"
+  },
+  "shell_tip_loaded": {
+    "message": "开始之前，请确认页面已完全加载"
+  },
+  "shell_no_worries": {
+    "message": "没关系。侧边栏还在。可以再试一次，或让我帮你做别的事。"
+  },
+  "shell_password": {
+    "message": "密码"
+  },
+  "shell_signing_in": {
+    "message": "正在登录..."
+  },
+  "shell_login_skipped": {
+    "message": "已跳过登录。正在继续自动化..."
+  },
+  "shell_payment_selected": {
+    "message": "已选择保存的付款方式。FSB 会填写卡信息，但不会替你提交最终付款。"
+  },
+  "shell_payment_skipped": {
+    "message": "已跳过保存的付款方式。在任何最终付款步骤之前，请检查结账表单。"
+  },
+  "shell_replay_preview": {
+    "message": "已验证的重放预览"
+  },
+  "shell_fresh_tab_fallback": {
+    "message": "所记录网站的新标签页"
+  },
+  "shell_approve_replay": {
+    "message": "批准重放"
+  },
+  "shell_cancel": {
+    "message": "取消"
+  },
+  "shell_replay_busy": {
+    "message": "另一项自动化正在运行时无法重放。请先停止当前任务。"
+  },
+  "shell_replay_cancelled_request": {
+    "message": "已取消重放请求。没有打开目标标签页。"
+  },
+  "shell_replay_inspect_only": {
+    "message": "这段录制已通过检查验证，但没有可执行的步骤。"
+  },
+  "shell_replay_cancelled": {
+    "message": "已取消重放。原始录制没有更改。"
+  },
+  "shell_session_missing": {
+    "message": "未找到会话数据。"
+  },
+  "shell_no_actions": {
+    "message": "此会话没有录制任何操作。"
+  },
+  "shell_history_failed": {
+    "message": "无法加载会话。"
+  },
+  "shell_replay_session": {
+    "message": "重放会话"
+  },
+  "shell_delete_session": {
+    "message": "删除会话"
+  },
+  "shell_autopilot": {
+    "message": "自动驾驶"
+  },
+  "shell_checking_local": {
+    "message": "正在检查本地代理服务"
+  },
+  "shell_checking_local_sent": {
+    "message": "正在检查本地代理服务。你的消息尚未发送。"
+  },
+  "shell_wake_body": {
+    "message": "FSB 正在尝试让本地代理服务可用。你的消息尚未发送。"
+  },
+  "shell_checking_agent": {
+    "message": "正在检查代理服务"
+  },
+  "shell_agent_offline": {
+    "message": "代理离线"
+  },
+  "shell_offline_body": {
+    "message": "FSB 无法连接本地代理服务。请运行诊断命令，然后重试这条消息。"
+  },
+  "shell_copy_doctor": {
+    "message": "复制诊断命令"
+  },
+  "shell_open_provider": {
+    "message": "打开提供方设置"
+  },
+  "shell_needs_helper": {
+    "message": "自动连接需要原生助手"
+  },
+  "shell_install_body": {
+    "message": "请安装或更新 FSB 原生助手，然后重试这条消息。FSB 会自动连接此浏览器。"
+  },
+  "shell_copy_install": {
+    "message": "复制安装命令"
+  },
+  "shell_back_to_message": {
+    "message": "返回消息"
+  },
+  "shell_checking_provider": {
+    "message": "正在检查提供方"
+  },
+  "shell_checking_provider_body": {
+    "message": "FSB 正在发送你的消息之前检查 AI 提供方。"
+  },
+  "shell_starting_agent": {
+    "message": "正在启动代理"
+  },
+  "shell_starting_agent_body": {
+    "message": "FSB 正在把你的消息交给代理。"
+  },
+  "shell_owned_by": {
+    "message": "由 $LABEL$ 占用",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_owned_title": {
+    "message": "当 $LABEL$ 正在使用此标签页时已禁用",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_encountered": {
+    "message": "遇到错误：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_generic": {
+    "message": "出了点问题：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_background": {
+    "message": "与后台脚本通信时出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_stop": {
+    "message": "停止自动化时出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_starting": {
+    "message": "正在启动自动化..."
+  },
+  "shell_continuing": {
+    "message": "正在继续..."
+  },
+  "shell_connecting": {
+    "message": "正在连接页面..."
+  },
+  "shell_connected_analyzing": {
+    "message": "已连接。正在分析页面..."
+  },
+  "shell_analyzing": {
+    "message": "正在分析页面..."
+  },
+  "shell_starting_plain": {
+    "message": "正在启动自动化"
+  },
+  "shell_testing_api": {
+    "message": "正在测试 $NAME$ 的 API 连接...",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_ok": {
+    "message": "$NAME$ 的 API 连接正常。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_model": {
+    "message": "已连接到模型：$MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_failed": {
+    "message": "$NAME$ 的 API 连接失败。请检查设置。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_api_status": {
+    "message": "状态：$STATUS$ - $DETAIL$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      },
+      "detail": {
+        "content": "$2"
+      }
+    }
+  },
+  "shell_api_details": {
+    "message": "详情：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_error_details": {
+    "message": "错误详情：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "shell_working": {
+    "message": "工作中"
+  },
+  "shell_error_status": {
+    "message": "错误"
   }
 }

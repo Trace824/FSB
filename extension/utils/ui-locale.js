@@ -99,10 +99,121 @@
     return applySubs(msg, subs);
   }
 
-  function text(key, english) {
-    var value = t(key);
-    if (typeof value !== 'string' || value.length === 0 || value === key) return english;
+  function text(key, english, subs) {
+    var value = t(key, subs);
+    if (typeof value !== 'string' || value.length === 0 || value === key) {
+      if (typeof english !== 'string') return value;
+      return applySubs(english, subs);
+    }
     return value;
+  }
+
+  function writeText(node, value) {
+    if (!node) return;
+    var child = node.firstChild;
+    if (child && child.nodeType === 3) {
+      child.nodeValue = value;
+      return;
+    }
+    if (node.childNodes && node.childNodes.length > 0 && node.ownerDocument && typeof node.ownerDocument.createTextNode === 'function') {
+      node.insertBefore(node.ownerDocument.createTextNode(value), child);
+      return;
+    }
+    node.textContent = value;
+  }
+
+  function fill(node, key, english, subs) {
+    if (node && typeof node.setAttribute === 'function') {
+      node.setAttribute('data-i18n-live', key);
+      node.setAttribute('data-i18n-en', english);
+      if (subs && typeof subs === 'object') node.setAttribute('data-i18n-subs', JSON.stringify(subs));
+      else if (typeof node.removeAttribute === 'function') node.removeAttribute('data-i18n-subs');
+    }
+    var shown = text(key, english, subs);
+    writeText(node, shown);
+    return shown;
+  }
+
+  var EXACT = {
+    'Ready': 'shell_ready',
+    'Welcome to FSB. How can I help?': 'shell_welcome',
+    'No active automation to stop.': 'shell_no_automation',
+    'Automation stopped. Let me know if you need help with anything else!': 'shell_stopped',
+    'Partial result': 'shell_partial',
+    'Would you like to try again? ': 'shell_try_again',
+    'Retry': 'shell_retry',
+    'Switched to popup mode. Extension will close when clicked outside.': 'shell_switched_popup',
+    'Running in persistent window mode.': 'shell_persistent',
+    'Let me know if you\'d like to try again or need help with something else.': 'shell_try_again_help',
+    'Disabled while automation is working on this tab': 'shell_locked_tab',
+    'Doctor command copied': 'shell_doctor_copied',
+    'Pairing reset command copied': 'shell_pair_copied',
+    'Native helper install command copied': 'shell_install_copied',
+    'Site map ready. Retry your task? ': 'shell_site_map_ready',
+    'Retry with Site Map': 'shell_retry_sitemap',
+    'Extension is locked. Please unlock it first by opening the popup.': 'shell_locked_ext',
+    'Already completed': 'shell_already_done',
+    'Session ended unexpectedly. Ready for your next task.': 'shell_session_ended',
+    'This site does not have a map yet. Reconnaissance can help FSB learn the site structure for better performance.': 'shell_no_map',
+    'Run Reconnaissance': 'shell_run_recon',
+    'The automation got stuck repeating the same actions. Here are some tips:': 'shell_stuck',
+    'Try being more specific about what you want to achieve': 'shell_tip_specific',
+    'Check if the page requires manual steps like CAPTCHA solving': 'shell_tip_captcha',
+    'Ensure the page has fully loaded before starting': 'shell_tip_loaded',
+    'No worries! The side panel is still here. Try again or ask for help with something else.': 'shell_no_worries',
+    'Password': 'shell_password',
+    'Signing in...': 'shell_signing_in',
+    'Login skipped. Continuing automation...': 'shell_login_skipped',
+    'Saved payment method selected. FSB will fill the card details, but it will not submit the final payment for you.': 'shell_payment_selected',
+    'Saved payment method skipped. Review the checkout form manually before any final payment step.': 'shell_payment_skipped',
+    'Verified replay preview': 'shell_replay_preview',
+    'Fresh recorded-site tab': 'shell_fresh_tab_fallback',
+    'Approve replay': 'shell_approve_replay',
+    'Cancel': 'shell_cancel',
+    'Cannot replay while another automation is running. Stop the current task first.': 'shell_replay_busy',
+    'Replay request cancelled. No target tabs were opened.': 'shell_replay_cancelled_request',
+    'This recording is verified for inspection, but it has no executable steps.': 'shell_replay_inspect_only',
+    'Replay cancelled. The original recording was not changed.': 'shell_replay_cancelled',
+    'Session data not found.': 'shell_session_missing',
+    'No actions were recorded in this session.': 'shell_no_actions',
+    'Failed to load sessions.': 'shell_history_failed',
+    'Replay session': 'shell_replay_session',
+    'Delete session': 'shell_delete_session',
+    'Autopilot': 'shell_autopilot',
+    'Checking local agent service': 'shell_checking_local',
+    'Checking local agent service. Your message has not been sent.': 'shell_checking_local_sent',
+    'FSB is trying to make the local agent service available. Your message has not been sent.': 'shell_wake_body',
+    'Checking agent service': 'shell_checking_agent',
+    'Agent offline': 'shell_agent_offline',
+    'FSB cannot reach the local agent service. Run the doctor command, then try this message again.': 'shell_offline_body',
+    'Copy doctor command': 'shell_copy_doctor',
+    'Open provider setup': 'shell_open_provider',
+    'Automatic connection needs the native helper': 'shell_needs_helper',
+    'Install or update the FSB native helper, then try this message again. FSB will connect this browser automatically.': 'shell_install_body',
+    'Copy install command': 'shell_copy_install',
+    'Back to message': 'shell_back_to_message',
+    'Checking provider': 'shell_checking_provider',
+    'FSB is checking your AI provider before sending your message.': 'shell_checking_provider_body',
+    'Starting agent': 'shell_starting_agent',
+    'FSB is handing your message to the agent.': 'shell_starting_agent_body',
+    'Starting automation...': 'shell_starting',
+    'Continuing...': 'shell_continuing',
+    'Connecting to page...': 'shell_connecting',
+    'Connected. Analyzing page...': 'shell_connected_analyzing',
+    'Analyzing page...': 'shell_analyzing',
+    'Starting automation': 'shell_starting_plain',
+    'Automation running': 'shell_running',
+    'Working': 'shell_working',
+    'Error': 'shell_error_status'
+  };
+
+  function markExact(node, english) {
+    var key = EXACT[english];
+    if (!key) {
+      writeText(node, english);
+      return english;
+    }
+    return fill(node, key, english);
   }
 
   function setCatalog(code, messages) {
@@ -196,6 +307,17 @@
         attrs[i].setAttribute(bits[0].trim(), t(bits[1].trim()));
       });
     }
+    var live = doc.querySelectorAll('[data-i18n-live]');
+    for (i = 0; i < live.length; i++) {
+      var liveKey = live[i].getAttribute('data-i18n-live');
+      var liveEnglish = live[i].getAttribute('data-i18n-en') || '';
+      var liveSubs = null;
+      var rawSubs = live[i].getAttribute('data-i18n-subs');
+      if (rawSubs) {
+        try { liveSubs = JSON.parse(rawSubs); } catch (err) { liveSubs = null; }
+      }
+      writeText(live[i], text(liveKey, liveEnglish, liveSubs));
+    }
   }
 
   var api = {
@@ -206,6 +328,9 @@
     resolveLocale: resolveLocale,
     t: t,
     text: text,
+    fill: fill,
+    markExact: markExact,
+    exact: EXACT,
     apply: apply,
     setCatalog: setCatalog,
     setBrowserTag: setBrowserTag,
