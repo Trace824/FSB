@@ -7,10 +7,10 @@ last_updated: "2026-10-11T10:43:34.221Z"
 last_activity: 2026-10-11
 progress:
   total_phases: 6
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 17
 ---
 
 *Note: progress counts in the frontmatter are for v1.3.0 only. v0.9.91 is paused, not shipped. Its snapshot is `.planning/milestones/v0.9.91-STATE.md`.*
@@ -37,10 +37,10 @@ The sections below this banner are accumulated decisions from earlier milestones
 
 ## Current Position
 
-Phase: 66 — Locale plumbing and CI gate (not started)
+Phase: 67 — Manifest, side panel, and popup (not started)
 Plan: —
-Status: Roadmap ready, execution not started
-Last activity: 2026-10-11 — Milestone v1.3.0 roadmap written
+Status: Phase 66 passed. Execution continues.
+Last activity: 2026-10-11 — Phase 66 locale plumbing and CI gate passed
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65)
 

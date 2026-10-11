@@ -7,15 +7,15 @@
 
 ### Locale catalog
 
-- [ ] **LOC-01**: The packaged extension declares `default_locale` `en` and loads messages for `en`, `es`, `de`, `ja`, `ko`, `zh-CN`, and `zh-TW`. Chrome reads Chinese from `_locales/zh_CN` and `_locales/zh_TW`.
-- [ ] **LOC-02**: One module maps those public codes to Chrome folders and applies the showcase alias rules: `zh`, `zh-Hans`, `zh-CN`, and `zh-SG` resolve to `zh-CN`; `zh-Hant`, `zh-TW`, `zh-HK`, and `zh-MO` resolve to `zh-TW`; any other tag falls back to its primary subtag when that subtag is supported.
-- [ ] **LOC-03**: A missing or empty message shows the English message, never a blank control.
-- [ ] **LOC-04**: A locale saved in `chrome.storage.local` under `fsbUiLocale` overrides the browser UI language. With no saved choice, the browser UI language is used.
-- [ ] **LOC-05**: The resolver does not read the website `fsb-locale` cookie.
+- [x] **LOC-01**: The packaged extension declares `default_locale` `en` and loads messages for `en`, `es`, `de`, `ja`, `ko`, `zh-CN`, and `zh-TW`. Chrome reads Chinese from `_locales/zh_CN` and `_locales/zh_TW`.
+- [x] **LOC-02**: One module maps those public codes to Chrome folders and applies the showcase alias rules: `zh`, `zh-Hans`, `zh-CN`, and `zh-SG` resolve to `zh-CN`; `zh-Hant`, `zh-TW`, `zh-HK`, and `zh-MO` resolve to `zh-TW`; any other tag falls back to its primary subtag when that subtag is supported.
+- [x] **LOC-03**: A missing or empty message shows the English message, never a blank control.
+- [x] **LOC-04**: A locale saved in `chrome.storage.local` under `fsbUiLocale` overrides the browser UI language. With no saved choice, the browser UI language is used.
+- [x] **LOC-05**: The resolver does not read the website `fsb-locale` cookie.
 
 ### Wire stability
 
-- [ ] **WIRE-01**: MCP tool names, tool descriptions, JSON-RPC methods, error codes, storage keys, and bridge message types stay byte-stable. Localization does not change them.
+- [x] **WIRE-01**: MCP tool names, tool descriptions, JSON-RPC methods, error codes, storage keys, and bridge message types stay byte-stable. Localization does not change them.
 
 ### Shell chrome
 
@@ -35,9 +35,9 @@
 
 ### Catalog quality
 
-- [ ] **QUAL-01**: CI fails when any locale is missing a key that English has, has an empty message, or adds or drops a placeholder.
-- [ ] **QUAL-02**: CI fails when a non-English message copies English prose that is not on the hash-bound allowlist.
-- [ ] **QUAL-03**: Protected literals from `showcase/angular/src/locale/DO-NOT-TRANSLATE.md` are unchanged inside every translated message.
+- [x] **QUAL-01**: CI fails when any locale is missing a key that English has, has an empty message, or adds or drops a placeholder.
+- [x] **QUAL-02**: CI fails when a non-English message copies English prose that is not on the hash-bound allowlist.
+- [x] **QUAL-03**: Protected literals from `showcase/angular/src/locale/DO-NOT-TRANSLATE.md` are unchanged inside every translated message.
 
 ### Coverage
 
@@ -75,15 +75,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOC-01 | Phase 66 | Pending |
-| LOC-02 | Phase 66 | Pending |
-| LOC-03 | Phase 66 | Pending |
-| LOC-04 | Phase 66 | Pending |
-| LOC-05 | Phase 66 | Pending |
-| WIRE-01 | Phase 66 | Pending |
-| QUAL-01 | Phase 66 | Pending |
-| QUAL-02 | Phase 66 | Pending |
-| QUAL-03 | Phase 66 | Pending |
+| LOC-01 | Phase 66 | Complete |
+| LOC-02 | Phase 66 | Complete |
+| LOC-03 | Phase 66 | Complete |
+| LOC-04 | Phase 66 | Complete |
+| LOC-05 | Phase 66 | Complete |
+| WIRE-01 | Phase 66 | Complete |
+| QUAL-01 | Phase 66 | Complete |
+| QUAL-02 | Phase 66 | Complete |
+| QUAL-03 | Phase 66 | Complete |
 | SHELL-01 | Phase 67 | Pending |
 | SHELL-02 | Phase 67 | Pending |
 | SHELL-03 | Phase 67 | Pending |

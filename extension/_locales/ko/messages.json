@@ -1,0 +1,17 @@
+{
+  "locale_seed_greeting": {
+    "message": "FSB가 준비되었습니다",
+    "description": "Seed string that proves a locale catalog can replace English."
+  },
+  "locale_seed_replay": {
+    "message": "재생 속도 $SPEED$",
+    "description": "Seed string with one placeholder.",
+    "placeholders": {
+      "speed": { "content": "$1", "example": "1x" }
+    }
+  },
+  "locale_seed_brand": {
+    "message": "FSB",
+    "description": "Allowlisted invariant brand token."
+  }
+}

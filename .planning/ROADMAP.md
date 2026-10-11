@@ -30,7 +30,7 @@
 - Integer phases (66, 67, 68, 69, 70, 71): Planned milestone work, continuing from v0.9.91's Phase 65
 - Decimal phases (66.1, 66.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 66: Locale plumbing and CI gate** - Seed catalogs, the runtime resolver, manifest `default_locale`, and a CI gate that fails on a missing key, an empty message, a placeholder change, or copied English
+- [x] **Phase 66: Locale plumbing and CI gate** - Seed catalogs, the runtime resolver, manifest `default_locale`, and a CI gate that fails on a missing key, an empty message, a placeholder change, or copied English (completed 2026-10-11)
 - [ ] **Phase 67: Manifest, side panel, and popup** - Localized store identity plus side-panel and popup chrome, with all six translations in the same change
 - [ ] **Phase 68: Options and control panel** - Localized options and control-panel chrome, the largest surface
 - [ ] **Phase 69: Onboarding, entry pages, and overlay chrome** - Localized onboarding, unlock, microphone permission, and FSB-authored overlay labels
@@ -49,7 +49,8 @@
   3. A missing Japanese key still shows the English message, not an empty string. `zh-Hans` resolves to `zh-CN` and the file on disk is `_locales/zh_CN/messages.json`.
   4. The CI script exits non-zero on a fixture with a missing key, an empty message, a dropped placeholder, or copied English prose that is not on the hash-bound allowlist, and it exits zero on the seed catalog.
   5. A byte comparison of MCP tool schemas and bridge message types against the phase base shows no change.
-**Plans**: TBD
+**Plans**: 1/1 complete
+- [x] 66-01: Locale resolver, seed catalogs, and CI gate.
 
 ### Phase 67: Manifest, side panel, and popup
 **Goal**: The store identity, side panel, and popup show package-owned chrome in the active locale.
