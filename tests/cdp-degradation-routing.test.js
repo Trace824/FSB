@@ -158,20 +158,39 @@ function withPlatform(platform, fn) {
     }
   }
 
-  console.log('\n=== 7. remote control degrades on EVERY input path, not just keys ===');
+  console.log('\n=== 7. remote control takes the DOM path on EVERY input, not just keys ===');
   {
     // The adapter's attach shim rejects with a message containing "debugger",
     // and classifyFSBRemoteControlDispatchFailure pattern-matches that word to
     // 'debugger-blocked' -- which broadcasts ownership 'external-debugger' and
-    // kills the session. So click / key / scroll must all bail out BEFORE
-    // reaching executeCDPToolDirect.
+    // kills the session. So click / key / scroll must all be handled by the
+    // DOM dispatcher BEFORE reaching executeCDPToolDirect.
     const WS_SRC = fs.readFileSync(path.join(ROOT, 'extension', 'ws', 'ws-client.js'), 'utf8');
-    passAssert(/function _fsbRemoteControlCdpUnavailable\(/.test(WS_SRC),
-      'ws-client.js defines the shared capability guard');
-    for (const type of ['dash:remote-click', 'dash:remote-key', 'dash:remote-scroll']) {
-      passAssert(WS_SRC.includes(`_fsbRemoteControlCdpUnavailable('${type}', payload, tabId)`),
-        `${type} is guarded before dispatch`);
+    passAssert(/async function _fsbRemoteControlDomDispatch\(/.test(WS_SRC),
+      'ws-client.js defines the shared DOM dispatcher');
+    for (const [type, handler] of [
+      ['dash:remote-click', 'handleRemoteClick'],
+      ['dash:remote-key', 'handleRemoteKey'],
+      ['dash:remote-scroll', 'handleRemoteScroll']
+    ]) {
+      const call = `if (await _fsbRemoteControlDomDispatch('${type}', payload, tabId)) return;`;
+      const start = WS_SRC.indexOf(`async function ${handler}(`);
+      const callAt = WS_SRC.indexOf(call, start);
+      const cdpAt = WS_SRC.indexOf('executeCDPToolDirect(', start);
+      // The key path takes a CDP lease and attaches the debugger directly.
+      const attachAt = WS_SRC.indexOf('.attach({ tabId: tabId }', start);
+      passAssert(start !== -1 && callAt !== -1, `${type} goes through the DOM dispatcher`);
+      passAssert(callAt < cdpAt || cdpAt === -1, `${type} is dispatched before any executeCDPToolDirect call`);
+      if (handler === 'handleRemoteKey') {
+        passAssert(callAt < attachAt, `${type} is dispatched before the direct debugger attach`);
+      }
     }
+    const dispatcher = WS_SRC.slice(
+      WS_SRC.indexOf('async function _fsbRemoteControlDomDispatch('),
+      WS_SRC.indexOf('async function handleRemoteClick(')
+    );
+    passAssert(!/executeCDPToolDirect|chrome\.debugger/.test(dispatcher),
+      'the DOM dispatcher never touches the debugger shim');
     // Proof that the misclassification is real, so the guard cannot be dropped:
     // run the classifier's own pattern against the shim's real error message.
     const patternLine = WS_SRC.match(/if \((\/[^\n]+\/i)\.test\(message\)\) return 'debugger-blocked';/);

@@ -5898,20 +5898,23 @@ const tools = {
     return window.MouseEvent;
   }
 
+  // Returns the types whose event the page cancelled with preventDefault().
   function _fsbDispatchSeq(el, types, x, y, extra) {
+    const prevented = [];
     for (const type of types) {
       // buttons is a bitmask of currently-held buttons: 0 once released.
       const released = (type === 'pointerup' || type === 'mouseup' || type === 'click' || type === 'dblclick');
       const init = _fsbPointerInit(x, y, Object.assign({ buttons: released ? 0 : 1 }, extra || {}));
       const Ctor = _fsbEventCtor(type);
       try {
-        el.dispatchEvent(new Ctor(type, init));
+        if (el.dispatchEvent(new Ctor(type, init)) === false) prevented.push(type);
       } catch (_e) {
         // PointerEvent is unavailable in a few embedded contexts; MouseEvent
         // alone is still better than aborting the whole sequence.
         try { el.dispatchEvent(new MouseEvent(type.replace(/^pointer/, 'mouse'), init)); } catch (_e2) { /* give up on this type */ }
       }
     }
+    return prevented;
   }
 
   // The parent as rendered. _fsbHitTest descends into open shadow roots, and
@@ -5951,6 +5954,52 @@ const tools = {
     };
   }
 
+  function _fsbHasAttr(node, name) {
+    return typeof node.hasAttribute === 'function' && node.hasAttribute(name);
+  }
+
+  // The element a real mousedown on `el` would focus, or null when the click
+  // lands on nothing focusable.
+  function _fsbClickFocusTarget(el) {
+    let node = el;
+    while (node && node !== document.body && node !== document.documentElement) {
+      if (node.isContentEditable) {
+        // Only the editing host, the outermost editable element, takes focus.
+        let host = node;
+        let up = _fsbComposedParent(host);
+        while (up && up.isContentEditable) {
+          host = up;
+          up = _fsbComposedParent(host);
+        }
+        return host;
+      }
+      const tag = node.tagName;
+      const focusable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON'
+        || tag === 'IFRAME' || (tag === 'A' && _fsbHasAttr(node, 'href')) || _fsbHasAttr(node, 'tabindex');
+      if (focusable && !node.disabled) return node;
+      node = _fsbComposedParent(node);
+    }
+    return null;
+  }
+
+  // A real mousedown moves focus to the focusable element under the pointer,
+  // or off the current one when there is none. An untrusted mousedown has no
+  // default action, so without this a click into a field leaves focus where it
+  // was and the typing that follows goes nowhere.
+  function _fsbFocusForClick(el) {
+    const target = _fsbClickFocusTarget(el);
+    if (target) {
+      if (document.activeElement !== target) {
+        try { target.focus({ preventScroll: true }); } catch (_e) { /* not focusable after all */ }
+      }
+      return;
+    }
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== document.documentElement && typeof active.blur === 'function') {
+      active.blur();
+    }
+  }
+
   tools.pointerClickAt = async (params) => {
     const bad = _fsbCheckPoint(params.x, params.y);
     if (bad) return { success: false, error: bad };
@@ -5963,7 +6012,11 @@ const tools = {
     // behaviour (checkbox toggle, link follow). Do NOT follow it with
     // el.click(): that is just as untrusted, so it reaches nothing new and a
     // second click undoes every toggle.
-    _fsbDispatchSeq(el, ['pointerover', 'pointerenter', 'pointermove', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'], x, y, mods);
+    const prevented = _fsbDispatchSeq(el, ['pointerover', 'pointerenter', 'pointermove', 'pointerdown', 'mousedown'], x, y, mods);
+    // Focus moves between mousedown and mouseup, and a page that cancels the
+    // mousedown keeps it where it is (custom dropdowns rely on that).
+    if (prevented.indexOf('mousedown') === -1) _fsbFocusForClick(el);
+    _fsbDispatchSeq(el, ['pointerup', 'mouseup', 'click'], x, y, mods);
     await waitForStability('click');
     return _fsbDegraded({ success: true, method: 'domPointerEvents', x, y, target: _fsbDescribe(el), modifiers: mods });
   };
@@ -6171,6 +6224,103 @@ const tools = {
       textLength: text.length,
       clearFirst,
       target: _fsbDescribe(el)
+    });
+  };
+
+  function _fsbIsEditable(el) {
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    if (el.disabled || el.readOnly) return false;
+    if (el.tagName === 'TEXTAREA') return true;
+    if (el.tagName !== 'INPUT') return false;
+    return /^(text|search|url|tel|email|password|number)$/.test(String(el.type || 'text').toLowerCase());
+  }
+
+  function _fsbTabbables() {
+    const list = document.querySelectorAll(
+      'a[href], button, input, select, textarea, iframe, [tabindex], [contenteditable=""], [contenteditable="true"]'
+    );
+    return Array.prototype.filter.call(list, (el) =>
+      !el.disabled && el.tabIndex >= 0 && String(el.type || '').toLowerCase() !== 'hidden'
+      && (typeof el.getClientRects !== 'function' || el.getClientRects().length > 0));
+  }
+
+  // What the browser would do for a key the page left alone. Untrusted key
+  // events have no default action, so Backspace in a text field deletes
+  // nothing unless it is done here. Arrow keys are left out: moving a caret by
+  // hand behaves differently in every kind of control.
+  function _fsbKeyDefaultAction(key, el, mods) {
+    if (key === 'Backspace' || key === 'Delete') {
+      if (!_fsbIsEditable(el)) return null;
+      const command = key === 'Backspace' ? 'delete' : 'forwardDelete';
+      return document.execCommand(command, false, null) ? command : null;
+    }
+    if (key === 'Enter') {
+      if (!_fsbIsEditable(el)) return null;
+      if (el.tagName === 'INPUT') {
+        // Submitting through requestSubmit() runs the form's submit handlers,
+        // which is how single-page apps send a search or a message.
+        if (!el.form || typeof el.form.requestSubmit !== 'function') return null;
+        el.form.requestSubmit();
+        return 'submit';
+      }
+      const inserted = el.tagName === 'TEXTAREA'
+        ? document.execCommand('insertText', false, '\n')
+        : document.execCommand(mods.shiftKey ? 'insertLineBreak' : 'insertParagraph', false, null);
+      return inserted ? 'newline' : null;
+    }
+    if (key === 'Tab') {
+      const list = _fsbTabbables();
+      if (list.length === 0) return null;
+      const at = list.indexOf(el);
+      const next = mods.shiftKey
+        ? list[(at <= 0 ? list.length : at) - 1]
+        : list[(at + 1) % list.length];
+      next.focus();
+      return mods.shiftKey ? 'focus-previous' : 'focus-next';
+    }
+    return null;
+  }
+
+  // One key press on whatever holds focus, as keydown then keyup. Printable
+  // text goes through domInsertTextAt instead; this is for editing keys,
+  // Escape, and shortcuts that pages handle in their own keydown listeners.
+  tools.domKeyPress = async (params) => {
+    const key = typeof params.key === 'string' ? params.key : '';
+    if (!key) return { success: false, error: 'key required' };
+    const mods = _fsbMods(params);
+    const KeyEvent = window.KeyboardEvent;
+    const init = Object.assign({
+      key,
+      code: typeof params.code === 'string' && params.code ? params.code : key,
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    }, mods);
+
+    const target = document.activeElement || document.body;
+    const down = new KeyEvent('keydown', init);
+    target.dispatchEvent(down);
+
+    let defaultAction = null;
+    if (!down.defaultPrevented && !mods.ctrlKey && !mods.metaKey && !mods.altKey) {
+      try {
+        defaultAction = _fsbKeyDefaultAction(key, target, mods);
+      } catch (_e) {
+        defaultAction = null;
+      }
+    }
+    // After Tab the keyup belongs to the newly focused element, as with a real press.
+    (document.activeElement || document.body).dispatchEvent(new KeyEvent('keyup', init));
+    await waitForStability('type_keystroke');
+
+    return _fsbDegraded({
+      success: true,
+      method: 'domKeyEvents',
+      key,
+      defaultAction,
+      target: _fsbDescribe(target),
+      modifiers: mods
     });
   };
 

@@ -77,7 +77,7 @@ function makeEl(tag, opts = {}) {
   return el;
 }
 
-function buildEnv({ hit, scroller, active, execOk = true, pageScroller }) {
+function buildEnv({ hit, scroller, active, execOk = true, pageScroller, tabbables = [] }) {
   const calls = { exec: [], stability: [] };
   class Ev {
     constructor(type, init) {
@@ -91,7 +91,7 @@ function buildEnv({ hit, scroller, active, execOk = true, pageScroller }) {
   }
   const win = {
     innerWidth: 1000, innerHeight: 800, screenX: 0, screenY: 0,
-    PointerEvent: Ev, MouseEvent: Ev, WheelEvent: Ev, DragEvent: Ev,
+    PointerEvent: Ev, MouseEvent: Ev, WheelEvent: Ev, DragEvent: Ev, KeyboardEvent: Ev,
     getComputedStyle: (n) => ({
       overflowY: n === scroller ? 'auto' : 'visible',
       overflowX: n === scroller ? 'auto' : 'visible'
@@ -105,6 +105,7 @@ function buildEnv({ hit, scroller, active, execOk = true, pageScroller }) {
     activeElement: active || null,
     elementFromPoint: () => hit,
     querySelector: () => hit,
+    querySelectorAll: () => tabbables,
     execCommand: (cmd, ui, val) => { calls.exec.push([cmd, val]); return execOk; }
   };
   const sandbox = {
@@ -126,7 +127,28 @@ function buildEnv({ hit, scroller, active, execOk = true, pageScroller }) {
     sandbox.tools, sandbox.window, sandbox.document, Ev, Ev, Ev, Ev, Ev,
     sandbox.DataTransfer, sandbox.FSB, sandbox.waitForStability
   );
-  return { tools, calls };
+  return { tools, calls, doc };
+}
+
+// Element with the focus-related surface the click and key paths read, whose
+// focus()/blur() move document.activeElement the way a browser does.
+function focusableEl(env, tag, opts = {}) {
+  const el = makeEl(tag, opts);
+  const attrs = opts.attrs || {};
+  Object.assign(el, {
+    type: opts.type || '',
+    disabled: opts.disabled === true,
+    readOnly: opts.readOnly === true,
+    isContentEditable: opts.contentEditable === true,
+    tabIndex: opts.tabIndex !== undefined ? opts.tabIndex : 0,
+    form: opts.form || null,
+    blurred: 0,
+    hasAttribute: (n) => Object.prototype.hasOwnProperty.call(attrs, n),
+    getClientRects: () => [1],
+    focus() { el.focused += 1; env.doc.activeElement = el; },
+    blur() { el.blurred += 1; if (env.doc.activeElement === el) env.doc.activeElement = env.doc.body; }
+  });
+  return el;
 }
 
 const DEGRADED_NOTE = /chrome\.debugger unavailable/;
@@ -330,9 +352,158 @@ const DEGRADED_NOTE = /chrome\.debugger unavailable/;
     passAssert(r.success === false && /No focused element/.test(r.error), 'no target -> failure');
   }
 
+  console.log('\n=== 7b. pointerClickAt moves focus the way a real mousedown does ===');
+  {
+    // Untrusted mousedown has no default action, so without this a remote
+    // click into a field leaves focus where it was and typing goes nowhere.
+    const env = {};
+    const input = focusableEl(env, 'input', { type: 'text' });
+    const realFocus = input.focus;
+    input.focus = function () { input.events.push('FOCUS'); realFocus.call(input); };
+    Object.assign(env, buildEnv({ hit: input }));
+    await env.tools.pointerClickAt({ x: 10, y: 10 });
+    passAssert(env.doc.activeElement === input, 'clicking an input focuses it');
+    passAssertEqual(input.events.join(','),
+      'pointerover,pointerenter,pointermove,pointerdown,mousedown,FOCUS,pointerup,mouseup,click',
+      'focus moves between mousedown and mouseup, and the event sequence is unchanged');
+  }
+  {
+    const env = {};
+    const host = focusableEl(env, 'div', { contentEditable: true });
+    const child = focusableEl(env, 'span', { contentEditable: true, parentElement: host });
+    Object.assign(env, buildEnv({ hit: child }));
+    await env.tools.pointerClickAt({ x: 10, y: 10 });
+    passAssert(env.doc.activeElement === host && child.focused === 0,
+      'a click inside a contenteditable focuses its editing host');
+  }
+  {
+    const env = {};
+    const field = focusableEl(env, 'input', { type: 'text' });
+    const plain = makeEl('div');
+    Object.assign(env, buildEnv({ hit: plain, active: field }));
+    await env.tools.pointerClickAt({ x: 10, y: 10 });
+    passAssertEqual(field.blurred, 1, 'a click on nothing focusable blurs the focused field');
+  }
+  {
+    // Custom dropdowns cancel mousedown precisely so the input keeps focus.
+    const env = {};
+    const field = focusableEl(env, 'input', { type: 'text' });
+    const option = focusableEl(env, 'li', { attrs: { tabindex: '-1' } });
+    const realDispatch = option.dispatchEvent;
+    option.dispatchEvent = function (e) {
+      if (e.type === 'mousedown') e.preventDefault();
+      return realDispatch.call(option, e);
+    };
+    Object.assign(env, buildEnv({ hit: option, active: field }));
+    await env.tools.pointerClickAt({ x: 10, y: 10 });
+    passAssert(env.doc.activeElement === field && field.blurred === 0 && option.focused === 0,
+      'a page that cancels mousedown keeps focus where it was');
+  }
+  {
+    const env = {};
+    const wrapper = focusableEl(env, 'div', { attrs: { tabindex: '0' } });
+    const button = focusableEl(env, 'button', { disabled: true, parentElement: wrapper });
+    Object.assign(env, buildEnv({ hit: button }));
+    await env.tools.pointerClickAt({ x: 10, y: 10 });
+    passAssert(button.focused === 0 && env.doc.activeElement === wrapper,
+      'a disabled control is skipped for its focusable ancestor');
+  }
+
+  console.log('\n=== 7c. domKeyPress ===');
+  {
+    const env = {};
+    const input = focusableEl(env, 'input', { type: 'text' });
+    Object.assign(env, buildEnv({ hit: input, active: input }));
+    const r = await env.tools.domKeyPress({ key: 'Backspace', code: 'Backspace' });
+    passAssert(r.success === true && r.trusted === false && r.degraded === true, 'succeeds, untrusted, degraded');
+    passAssertEqual(r.method, 'domKeyEvents', 'method reported');
+    passAssertEqual(input.events.join(','), 'keydown,keyup', 'keydown then keyup on the focused element');
+    passAssertEqual(JSON.stringify(env.calls.exec), '[["delete",null]]', 'Backspace deletes when the page leaves it alone');
+    passAssertEqual(r.defaultAction, 'delete', 'reports the default action it performed');
+    passAssertEqual(env.calls.stability[0], 'type_keystroke', 'waits with the keystroke stability profile');
+  }
+  {
+    const env = {};
+    const input = focusableEl(env, 'input', { type: 'text' });
+    const realDispatch = input.dispatchEvent;
+    input.dispatchEvent = function (e) {
+      if (e.type === 'keydown') e.preventDefault();
+      return realDispatch.call(input, e);
+    };
+    Object.assign(env, buildEnv({ hit: input, active: input }));
+    const r = await env.tools.domKeyPress({ key: 'Backspace' });
+    passAssert(env.calls.exec.length === 0 && r.defaultAction === null,
+      'a page that handles the keydown itself gets no second, emulated delete');
+  }
+  {
+    const env = {};
+    const input = focusableEl(env, 'input', { type: 'text' });
+    Object.assign(env, buildEnv({ hit: input, active: input }));
+    const r = await env.tools.domKeyPress({ key: 'Delete' });
+    passAssertEqual(JSON.stringify(env.calls.exec), '[["forwardDelete",null]]', 'Delete deletes forward');
+    passAssertEqual(r.defaultAction, 'forwardDelete', 'reported');
+  }
+  {
+    const env = {};
+    const input = focusableEl(env, 'input', { type: 'text', readOnly: true });
+    Object.assign(env, buildEnv({ hit: input, active: input }));
+    const r = await env.tools.domKeyPress({ key: 'Backspace' });
+    passAssert(env.calls.exec.length === 0 && r.defaultAction === null, 'a read-only field is not edited');
+  }
+  {
+    const env = {};
+    const input = focusableEl(env, 'input', { type: 'text' });
+    Object.assign(env, buildEnv({ hit: input, active: input }));
+    const r = await env.tools.domKeyPress({ key: 'Backspace', ctrlKey: true });
+    passAssert(env.calls.exec.length === 0 && r.defaultAction === null,
+      'a modified key is left to the page (no guessing at shortcuts)');
+  }
+  {
+    const env = {};
+    let submitted = 0;
+    const form = { requestSubmit: () => { submitted += 1; } };
+    const input = focusableEl(env, 'input', { type: 'search', form });
+    Object.assign(env, buildEnv({ hit: input, active: input }));
+    const r = await env.tools.domKeyPress({ key: 'Enter' });
+    passAssertEqual(submitted, 1, 'Enter in a form field submits through requestSubmit()');
+    passAssertEqual(r.defaultAction, 'submit', 'reported');
+  }
+  {
+    const env = {};
+    const area = focusableEl(env, 'textarea');
+    Object.assign(env, buildEnv({ hit: area, active: area }));
+    const r = await env.tools.domKeyPress({ key: 'Enter' });
+    passAssertEqual(JSON.stringify(env.calls.exec), '[["insertText","\\n"]]', 'Enter in a textarea inserts a newline');
+    passAssertEqual(r.defaultAction, 'newline', 'reported');
+  }
+  {
+    const env = {};
+    const first = focusableEl(env, 'input', { type: 'text' });
+    const second = focusableEl(env, 'button');
+    Object.assign(env, buildEnv({ hit: first, active: first, tabbables: [first, second] }));
+    const r = await env.tools.domKeyPress({ key: 'Tab' });
+    passAssert(env.doc.activeElement === second, 'Tab focuses the next tabbable element');
+    passAssertEqual(r.defaultAction, 'focus-next', 'reported');
+    passAssert(first.events.includes('keydown') && !first.events.includes('keyup') && second.events.includes('keyup'),
+      'the keyup lands on the newly focused element, as with a real press');
+    const back = await env.tools.domKeyPress({ key: 'Tab', shiftKey: true });
+    passAssert(env.doc.activeElement === first && back.defaultAction === 'focus-previous', 'Shift+Tab goes back');
+  }
+  {
+    const env = {};
+    const input = focusableEl(env, 'input', { type: 'text' });
+    Object.assign(env, buildEnv({ hit: input, active: input }));
+    const r = await env.tools.domKeyPress({ key: 'ArrowLeft' });
+    passAssert(r.success === true && r.defaultAction === null && env.calls.exec.length === 0,
+      'arrow keys reach page listeners but are not emulated');
+    const missing = await env.tools.domKeyPress({});
+    passAssert(missing.success === false && /key required/.test(missing.error), 'a missing key is rejected');
+  }
+
   console.log('\n=== 8. every fallback reports untrusted ===');
   for (const name of ['pointerClickAt', 'pointerDoubleClickAt', 'pointerClickAndHoldAt',
-                      'pointerDrag', 'pointerDragVariableSpeed', 'wheelScrollAt', 'domInsertTextAt']) {
+                      'pointerDrag', 'pointerDragVariableSpeed', 'wheelScrollAt', 'domInsertTextAt',
+                      'domKeyPress']) {
     passAssert(BLOCK.includes('tools.' + name) || BLOCK.includes(name), `${name} present in shipped block`);
   }
   passAssert(!/trusted:\s*true/.test(BLOCK), 'no fallback ever claims trusted:true');
