@@ -7,11 +7,12 @@
  *   1. Behaviour: the click verification utilities count toggle-state changes
  *      (ARIA state, data-state, open, checked, a label's control, a toggle-like
  *      ancestor, the target's own text) as click effects. Without that, a
- *      correct single click on a toggle reads as "no effect" and the trusted
- *      CDP fallback flips it straight back.
+ *      correct single click on a toggle reads as an unconfirmed outcome and
+ *      invites the caller to click again, which flips it straight back.
  *   2. Source contract: the click tool and clickAtCoordinates dispatch one
- *      synthetic click, never follow it with element.click(), mark the events
- *      composed, and only send the CDP click after a no-effect verification.
+ *      synthetic click, never follow it with element.click(), and mark the
+ *      events composed. clickAtCoordinates never sends a second (CDP) click;
+ *      it reports the outcome as unknown instead.
  */
 
 const test = require('node:test');
@@ -78,6 +79,7 @@ function fakeElement(tagName, { attrs = {}, parent = null, ...props } = {}) {
   el.setAttribute = (name, value) => { el.attrs[name] = String(value); };
   el.querySelector = () => null;
   el.getBoundingClientRect = () => ({ height: 10 });
+  Object.defineProperty(el, 'isConnected', { get: () => el.connected !== false });
   return el;
 }
 
@@ -222,14 +224,12 @@ test('the click tool activates its target once', () => {
     'the anchor branch of hadEffect counts toggle-state changes');
 });
 
-test('clickAtCoordinates activates its target once and gates the CDP click on no effect', () => {
+test('clickAtCoordinates activates its target once and reports an unknown outcome', () => {
   assert.deepEqual(singleActivationViolations(coordinateBody), []);
   assert.equal(coordinateBody.indexOf('.click()'), -1, 'clickAtCoordinates never calls .click()');
-  const verifyAt = coordinateBody.indexOf('verifyActionEffect(');
-  const gateAt = coordinateBody.indexOf('if (!verification.verified)');
-  const cdpAt = coordinateBody.indexOf("action: 'cdpMouseClick'");
-  assert.ok(verifyAt !== -1 && gateAt !== -1 && cdpAt !== -1, 'verification, gate and CDP call are present');
-  assert.ok(verifyAt < gateAt && gateAt < cdpAt, 'the CDP click is sent only after a no-effect verification');
+  assert.equal(coordinateBody.indexOf('cdpMouseClick'), -1, 'clickAtCoordinates never sends a second, trusted click');
+  assert.match(coordinateBody, /outcome: 'unknown',\s*mayHaveExecuted: true/,
+    'the result tells the caller to inspect the page instead of retrying');
 });
 
 test('the source contract catches a reintroduced second activation', () => {
