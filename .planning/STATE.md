@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: executing
-stopped_at: Phase 66: code complete (66-02..66-09); waiting on human checkpoints H1 (66-01), then 66-10/66-11
-last_updated: "2026-09-30T10:45:22.528Z"
-last_activity: 2026-09-30 -- quick 260930-f7j complete
+stopped_at: Phase 66: 9/11 (66-01 closed, source data lost); origin/main merged; 66-10 waiting at H2 (bench setup)
+last_updated: "2026-10-12T19:44:29.000Z"
+last_activity: 2026-10-12 -- 66-01 closed; origin/main merged into Jev
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
   percent: 0
 ---
 
@@ -36,15 +36,15 @@ See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIRE
 ## Current Position
 
 Phase: 66 (Baseline and Session Timing) — EXECUTING
-Plan: 8 of 11 complete (66-02..66-09). Remaining plans are human-gated: 66-01 paused at H1 (export of the 40 recorded MCP sessions), then 66-10 (H2/H3 bench profile, smoke) and 66-11 (H4 campaign approval, H5 restore)
-Status: Executing Phase 66: code and integration complete, awaiting operator checkpoints
-Last activity: 2026-09-30 -- quick 260930-f7j: FSB content click now activates its target once (fixes the double activation found in 66-07)
+Plan: 9 of 11 complete (66-02..66-09, plus 66-01 closed without execution because its source sessions were lost). Remaining plans are human-gated: 66-10 (H2/H3 bench profile, smoke), then 66-11 (H4 campaign approval, H5 restore)
+Status: Executing Phase 66: origin/main merged into Jev (cd480dbd); full chain 320/320 green; 66-10 waits at H2
+Last activity: 2026-10-12 -- 66-01 closed (the 2026-10-09 Web Store reinstall wiped the 40 sessions); origin/main merged so the baseline measures the build that ships (main's single-click design kept, plus Jev's toggle-state click checks)
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 66 | Baseline and Session Timing | MEAS-01..03 | Planned (11 plans) |
+| 66 | Baseline and Session Timing | MEAS-01..03 | Executing (9/11; 66-10 at H2) |
 | 66.1 | MCP Settings Tool (inserted) | SET-01..02 | Not started |
 | 67 | Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01..07 | Not started |
 | 68 | Autopilot Fast Mode | AUTO-01..05 | Not started |
@@ -436,19 +436,21 @@ On 2026-09-28, at the v0.9.91 close, the user directed that every outstanding UA
 | debug | fsb-trigger-arm-masked (MCP 0.10.0 trigger arm error masked as page navigation) | closed 2026-09-28 (acknowledged): diagnosis-only; root cause of the masking found, fix not applied | 2026-06-19 |
 | i18n_debt | WARNING-02 picker-cookie short-circuits bare-`/` Accept-Language redirect | closed in v1.2.0 Phase 56 (ROUTE-01/02) | v0.9.63, carried 6+ milestones |
 
+Phase 66 plan 66-01 (H1 history export) was closed on 2026-10-12, not executed. The 40 MCP sessions from 2026-09-16..21 were lost when the Web Store build was reinstalled on 2026-10-09, and no backup exists. No Phase 66 success criterion or MEAS requirement depends on them; see `66-01-SUMMARY.md`.
+
 Carry-forward publish/tag gates (pre-existing, user-gated): `npm publish fsb-mcp-server@0.9.0`; `npm publish fsb-mcp-server@0.10.0`; branch + tag pushes for v0.9.62 / v0.9.63 / v0.9.69 / v0.10.0 / v0.11.0 / v0.12.0 / v1.2.0; `clawhub publish "skills/FSB Skill"`; public package publication. None of this blocks v0.9.91.
 
 v2 deferred (see REQUIREMENTS.md v0.9.91 v2 section): CHAT-FUTURE-01/02 (chat-mode continuity via `--resume` / `codex resume` / `opencode --continue` + per-thread cwd pinning); GEMINI-FUTURE-01 (Gemini CLI adapter after live `--help` capture + JSONL schema pinning); ACP-FUTURE-01 (`@zed-industries/agent-client-protocol` unification once ≥2 non-Claude adapters have shipped); REMOTE-FUTURE-01 (remote/mobile delegation surfaces — v0.9.91 is explicitly localhost-only).
 
 ## Session Continuity
 
-Last session: 2026-09-29T20:29:02.484Z
-Stopped at: Phase 66 context gathered (assumptions mode)
-Resume file: .planning/phases/66-baseline-and-session-timing/66-CONTEXT.md
+Last session: 2026-10-12T19:44:29.000Z
+Stopped at: 66-10 at H2: bench build ready and the bench Chrome launched; waiting on the operator's bench setup
+Resume file: .planning/phases/66-baseline-and-session-timing/66-10-PLAN.md
 
 ## Next Actions
 
-Execute Phase 66 Baseline and Session Timing (`/gsd-execute-phase 66`): 11 plans in 6 waves. 66-01 starts with human checkpoint H1, the time-critical export of the 40 recorded MCP sessions from the Web Store build. Its baseline must precede Jev integration.
+Continue Phase 66 at 66-10 H2 (bench profile setup, then the smoke), then 66-11 (H4 campaign approval, H5 restore). The baseline must precede Jev integration. 66-01 is closed; there is no history export to do.
 
 ## Performance Metrics
 
@@ -498,4 +500,4 @@ Execute Phase 66 Baseline and Session Timing (`/gsd-execute-phase 66`): 11 plans
 
 ## Operator Next Steps
 
-- Execute Phase 66 Baseline and Session Timing (planned 2026-09-30). Do H1 first: export the 40 recorded MCP sessions before more everyday FSB MCP use pushes them out of history.
+- Phase 66: complete the 66-10 H2 bench setup (load the unpacked extension in the bench Chrome, telemetry off first, xAI grok-4.3, Claude model, free the hub ports), then approve the campaign at H4.
