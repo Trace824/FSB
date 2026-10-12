@@ -330,7 +330,7 @@ var _streamingActive = false;
 
 function _isRestrictedTabUrlForStream(url) {
   if (!url || typeof url !== 'string') return true;
-  return /^(chrome|chrome-extension|moz-extension|edge|brave|about|file):/i.test(url);
+  return /^(chrome|chrome-extension|moz-extension|safari-web-extension|edge|brave|about|file):/i.test(url);
 }
 
 function _isDashboardTabUrlForStream(url) {
@@ -354,6 +354,38 @@ function _getStreamTabNotReadyReason(tab) {
   if (!tab || !tab.url) return 'no-streamable-tab';
   if (_isRestrictedTabUrlForStream(tab.url)) return 'restricted-tab';
   return 'no-streamable-tab';
+}
+
+// Any tab but the dashboard: the rule for navigating or starting a task, which
+// may begin from a new-tab page that cannot be streamed.
+function _isNotDashboardTabUrl(url) {
+  return !_isDashboardTabUrlForStream(url);
+}
+
+/**
+ * The page the user is working in, on Safari only. There the FSB workspace is
+ * its own window, so "the active tab in the last focused window" is often
+ * FSB's own page. FsbPlatform.resolveTargetTab() follows the last real content
+ * tab instead, but it only screens out extension pages, so `accept` still
+ * decides (streamable, or merely not the dashboard).
+ *
+ * Resolves to null on Chrome, where the callers' own tab queries are right.
+ *
+ * @param {function(string): boolean} [accept] - URL predicate, default streamable
+ * @returns {Promise<Object|null>} a tabs.Tab, or null
+ */
+async function _fsbSafariContentTab(accept) {
+  var platform = globalThis.FsbPlatform;
+  if (!platform || !platform.caps || platform.caps.sidePanel !== false
+      || typeof platform.resolveTargetTab !== 'function') {
+    return null;
+  }
+  var isAcceptable = typeof accept === 'function' ? accept : _isStreamableTabUrl;
+  try {
+    var tab = await platform.resolveTargetTab();
+    if (tab && typeof tab.id === 'number' && isAcceptable(tab.url)) return tab;
+  } catch (_e) { /* fall back to the caller's tab queries */ }
+  return null;
 }
 
 function _getContentScriptFilesForInjection() {
@@ -1353,6 +1385,10 @@ async function handleRemoteNavigateHistory(payload) {
   }
   var tabId = _getRemoteControlTabId();
   if (typeof tabId !== 'number') {
+    var safariTab = await _fsbSafariContentTab(_isNotDashboardTabUrl);
+    if (safariTab) tabId = safariTab.id;
+  }
+  if (typeof tabId !== 'number') {
     try {
       var tabs = await new Promise(function (resolve) {
         chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (t) { resolve(t || []); });
@@ -1403,6 +1439,10 @@ async function handleRemoteNavigate(payload) {
   }
 
   var tabId = _getRemoteControlTabId();
+  if (typeof tabId !== 'number') {
+    var safariTab = await _fsbSafariContentTab(_isNotDashboardTabUrl);
+    if (safariTab) tabId = safariTab.id;
+  }
   if (typeof tabId !== 'number') {
     // Fall back: navigate the active tab in the focused window. This lets the
     // user steer the browser away from chrome://newtab even before streaming
@@ -1862,6 +1902,16 @@ class FSBWebSocket {
       }
     }
 
+    var safariTab = await _fsbSafariContentTab();
+    if (safariTab && !seenTabIds.has(safariTab.id)) {
+      return {
+        ready: true,
+        tabId: safariTab.id,
+        url: safariTab.url || '',
+        source: 'safari-content-tab'
+      };
+    }
+
     var queries = [
       { source: 'last-focused-active', query: { active: true, lastFocusedWindow: true } },
       { source: 'any-active', query: { active: true } },
@@ -2170,6 +2220,12 @@ class FSBWebSocket {
         } catch (e) { tabId = null; }
       }
 
+      // On Safari the last focused window can be FSB's own workspace window.
+      if (!tabId) {
+        var safariTab = await _fsbSafariContentTab(_isNotDashboardTabUrl);
+        if (safariTab) tabId = safariTab.id;
+      }
+
       // Fallback 1: active tab in last focused window
       if (!tabId) {
         var tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -2383,6 +2439,10 @@ class FSBWebSocket {
       var tabId = (typeof _streamingTabId !== 'undefined' && _streamingTabId)
         ? _streamingTabId
         : (typeof _dashboardTaskTabId !== 'undefined' ? _dashboardTaskTabId : null);
+      if (!tabId) {
+        var safariTab = await _fsbSafariContentTab();
+        if (safariTab) tabId = safariTab.id;
+      }
       if (!tabId) {
         // Last resort: query active tab (unreliable from service worker)
         var tabs = await chrome.tabs.query({ active: true, currentWindow: true });

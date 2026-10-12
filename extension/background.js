@@ -5644,6 +5644,7 @@ function isRestrictedURL(url) {
     'chrome://',
     'chrome-extension://',
     'moz-extension://',
+    'safari-web-extension://',
     'edge://',
     'about:',
     'file://'
@@ -5678,6 +5679,7 @@ function isRestrictedURL(url) {
 function getPageTypeDescription(url) {
   if (url.startsWith('chrome://')) return 'Chrome internal page';
   if (url.startsWith('chrome-extension://')) return 'Chrome extension page';
+  if (url.startsWith('safari-web-extension://')) return 'Safari extension page';
   if (url.startsWith('edge://')) return 'Edge internal page';
   if (url.startsWith('about:')) return 'Browser internal page';
   if (url.startsWith('file://')) return 'Local file';
