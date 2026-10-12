@@ -109,6 +109,7 @@ Out of scope:
   In the extension, fix `_handleGetConfig` (`mcp-bridge-client.js` ~2702). It currently reads keys that nothing writes. It should return the keys that exist (`providerKind`/`modelProvider`/`modelName`, `extension/config/config.js` ~18-21) plus the manifest version. The change is read-only, and `fsb://config` is a resource, not a tool.
 - **D-19:** The autopilot baseline pins an explicit current xAI model ID instead of the retired `grok-4-1-fast` name, and records the model string xAI returns. Changing FSB's product default model is not part of this phase. (User: 4a.)
 - **D-20:** The runner saves each run's detail to disk as soon as the run ends. Before any new recording, it exports the 40 recorded MCP sessions from 2026-09-16..21. History keeps 50 sessions per mode and the journal keeps 30 days, so those sessions would be pruned around 2026-10-16..21, sooner as benchmark runs push them out.
+  - *Amended 2026-10-12:* the export half of D-20 is superseded. The Web Store build was reinstalled on 2026-10-09, which wiped the 40 sessions before the export ran, and no backup exists, so 66-01 was closed without executing it (see 66-01-SUMMARY.md). The save-each-run rule still applies.
 - **D-21:** Raw session exports stay local and out of git, because they can contain page content from real sites. Only sanitized per-run metrics, identity and aggregates are committed as the baseline.
 
 ### Claude's Discretion
@@ -233,7 +234,7 @@ None. No pending todos matched Phase 66.
 - User direction on the MCP arm: "minimal diff (as minimal changes to MCP as possible) (extension does most of the heavy lifting)". Recorded as D-01. A scripted host still drives the MCP arm from `scripts/bench/`, which touches nothing under `mcp/`.
 - User direction for the milestone: with Jev disabled, all of FSB must stay backwards compatible (D-02).
 - Measured facts the baseline should reproduce:
-  - Median MCP wall time is 9.5 s per call with Claude and 4.6 s with Cursor.
+  - Median MCP wall time is 9.5 s per call with Claude and 4.6 s with Cursor. (The 40 source sessions were lost on 2026-10-09, so these two figures can no longer be re-derived; see the D-20 amendment.)
   - FSB's own execution takes about 0.3-1 s per call.
   - Caller turns are 85-90% of MCP time.
   - No autopilot sessions have been recorded yet.
