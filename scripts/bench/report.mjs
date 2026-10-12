@@ -12,9 +12,9 @@
  * and are listed by code; per-task median and p90 wall time over completed
  * runs; wall time per completed task as the geometric mean of the per-task
  * medians; labelled cost per completed task; FSB per-call timing (caller gap
- * labelled an upper bound, the call interval as the live counterpart of the
- * 66-01 history deltas); host metrics from the driver's own stream; and the
- * A/A noise floor from stats.mjs (odd against even rounds of one arm).
+ * labelled an upper bound, the call interval as receive-to-receive time);
+ * host metrics from the driver's own stream; and the A/A noise floor from
+ * stats.mjs (odd against even rounds of one arm).
  *
  * Statistics come from scripts/bench/lib/stats.mjs only. The arms are not
  * compared with each other here: Phase 71 compares each arm with its own
@@ -39,7 +39,7 @@ export const BASELINE_MIN_ROUNDS = 10;
 export const KIND_BASELINE = 'baseline';
 export const KIND_SMOKE = 'smoke (not a baseline)';
 export const CALLER_GAP_LABEL = 'upper bound on host thinking time';
-export const CALL_INTERVAL_LABEL = 'receive-to-receive call interval; live counterpart of the 66-01 history deltas';
+export const CALL_INTERVAL_LABEL = 'receive-to-receive call interval';
 export const WALL_LABEL = "geometric mean of per-task median wall time over completed runs (runner's clock)";
 export const COST_NOTE = 'cost of every counted run (passes and task failures) divided by completed runs; infra-error runs excluded';
 const AA_TWO_ROUNDS = 'needs at least 2 rounds';

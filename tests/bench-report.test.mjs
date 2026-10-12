@@ -214,7 +214,7 @@ test('toCommittedRow keeps exactly RUN_ROW_KEYS and copies no evidence, page tex
   assert.deepEqual(validateCommittedRow(row), { ok: true, errors: [] });
   assert.equal(row.attempts, 1);
   assert.deepEqual(row.checks, [{ kind: 'request', pass: true }, { kind: 'marker', pass: true }]);
-  assert.deepEqual(row.fsb.callIntervalMs, { median: 8600, p90: 10100, count: 6 }, 'W6: live counterpart of the history deltas');
+  assert.deepEqual(row.fsb.callIntervalMs, { median: 8600, p90: 10100, count: 6 }, 'W6: receive-to-receive call interval');
   assert.equal(row.fsb.kind, 'mcp');
   assert.equal(row.fsb.calls, 7);
   assert.equal(row.fsb.fsbMsMedian, 310);
@@ -1031,7 +1031,7 @@ test('buildSummary: fsb per-call medians, the labelled caller gap and call inter
   assert.equal(claude.fsb.callerGapMsMedianPerCall, 8200);
   assert.equal(claude.fsb.callerGapLabel, 'upper bound on host thinking time');
   assert.equal(claude.fsb.callIntervalMsMedian, 8600);
-  assert.match(claude.fsb.callIntervalLabel, /66-01 history deltas/);
+  assert.equal(claude.fsb.callIntervalLabel, 'receive-to-receive call interval');
   assert.equal(claude.fsb.queueWait, 'not measured');
   assert.ok(Math.abs(claude.host.durationApiShareMedian - 0.6) < 0.001);
   assert.equal(claude.host.numTurnsMedian, 9);
