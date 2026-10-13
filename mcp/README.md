@@ -47,7 +47,7 @@ This patch accompanies the bridge reliability and editing fixes in FSB extension
 - Bounded lifecycle diagnostics explain attachment failures, pairing mismatches, revocations, and shutdown causes through `doctor`, `status`, and health responses.
 - Action routing distinguishes undelivered requests from uncertain mutations and avoids repeating an action whose outcome is unknown.
 - Local HTTP runtime references support both numeric IPv4 and IPv6 loopback endpoints while preserving loopback-only access.
-- **Compatibility:** `fsb-mcp-server` 0.11.1 requires FSB extension 0.9.92 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
+- **Compatibility:** `fsb-mcp-server` 0.11.1 requires FSB extension 0.9.93 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
 
 ### What's New In v0.11.0
 
@@ -658,9 +658,9 @@ The build command copies `extension/ai/tool-definitions.js` into `mcp/ai/tool-de
 
 ### Versioning
 
-The MCP package has its own version (`0.11.1`) because it is published independently from the extension release (`0.9.92`). Use `npm run version:set:mcp -- X.Y.Z` for MCP releases and `npm run version:set:extension -- X.Y.Z` for extension releases; `npm run version:check` verifies both domains without requiring them to match.
+The MCP package has its own version (`0.11.1`) because it is published independently from the extension release (`0.9.93`). Use `npm run version:set:mcp -- X.Y.Z` for MCP releases and `npm run version:set:extension -- X.Y.Z` for extension releases; `npm run version:check` verifies both domains without requiring them to match.
 
-Compatibility for this release: MCP 0.11.1 requires extension 0.9.92 or newer for the `mcp:task-status` route used by `complete_task`, `partial_task`, and `fail_task`. Existing `0.10.0` tool routes remain additive and unchanged.
+Compatibility for this release: MCP 0.11.1 requires extension 0.9.93 or newer for the `mcp:task-status` route used by `complete_task`, `partial_task`, and `fail_task`. Existing `0.10.0` tool routes remain additive and unchanged.
 
 Contract-sensitive changes should be covered by tests before publishing:
 

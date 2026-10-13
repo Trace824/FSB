@@ -29,7 +29,7 @@ See: showcase/angular/src/app/core/i18n/locale-constants.ts (the seven locale co
 See: showcase/angular/src/locale/DO-NOT-TRANSLATE.md (protected literals)
 
 **Core value:** Reliable single-attempt execution — the AI decides correctly, the mechanics execute precisely. v1.3.0 does not change automation or the MCP wire. It makes package-owned extension chrome render in the seven showcase locales.
-**Current focus:** Phases 66–71 passed. The product version remains 0.9.92. v1.3.0 is the planning label only.
+**Current focus:** Phases 66–71 passed. The product version is 0.9.93. v1.3.0 is the planning label only.
 
 ## Historical context (v0.9.91 and earlier)
 
@@ -39,7 +39,7 @@ The sections below this banner are accumulated decisions from earlier milestones
 
 Phase: 71 — Language control (passed)
 Plan: 71-01
-Status: Milestone execution finished. Product version remains 0.9.92.
+Status: Milestone execution finished. Product version is 0.9.93.
 Last activity: 2026-10-13 — Phase 70 coverage audit and Phase 71 language control passed
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65)
