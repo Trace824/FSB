@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.3.0
 milestone_name: Extension multilingual UI
 status: completed
-last_updated: "2026-10-13T05:30:00.000Z"
+last_updated: "2026-10-13T20:22:29.068Z"
 last_activity: 2026-10-13
 progress:
   total_phases: 6
@@ -39,8 +39,8 @@ The sections below this banner are accumulated decisions from earlier milestones
 
 Phase: 71 — Language control (passed)
 Plan: 71-01
-Status: Milestone execution finished. Product version is 0.9.93.
-Last activity: 2026-10-13 — Phase 70 coverage audit and Phase 71 language control passed
+Status: Milestone v1.3.0 is in PR #150. Six review findings are open, two of them blocking.
+Last activity: 2026-10-13, opened PR #150 for review
 
 ## Roadmap At A Glance (v0.9.91, Phases 57-65)
 
