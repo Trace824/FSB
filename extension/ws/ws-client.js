@@ -1575,6 +1575,7 @@ class FSBWebSocket {
     this.ws.onopen = () => {
       if (this.ws !== socket) return;
       this.reconnectDelay = 0;
+      this._clearReconnectAlarm();
       this.connected = true;
       this._startKeepalive();
       // Phase 209: Expose this instance so bare-function remote control
@@ -1642,6 +1643,7 @@ class FSBWebSocket {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this._clearReconnectAlarm();
     if (this.ws) {
       this.ws.close();
     }
@@ -1728,6 +1730,7 @@ class FSBWebSocket {
       delayMs: this.reconnectDelay === 0 ? 0 : this.reconnectDelay,
       readyState: this.ws ? this.ws.readyState : 'missing'
     });
+    this._armReconnectAlarm();
     if (this.reconnectDelay === 0) {
       this.reconnectDelay = 1000;
       console.log('[FSB WS] Reconnecting immediately');
@@ -1736,6 +1739,35 @@ class FSBWebSocket {
       console.log('[FSB WS] Reconnecting in ' + this.reconnectDelay + 'ms');
       this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+    }
+  }
+
+  /**
+   * The backoff timer above dies with the service worker, and onStartup /
+   * onInstalled do not fire again after an eviction, so a relay that dropped
+   * while the worker went idle stayed down until the browser restarted. This
+   * alarm outlives the worker: it wakes it, background.js arms the relay on
+   * every start, and it keeps firing each minute until a socket opens.
+   */
+  _armReconnectAlarm() {
+    var alarms = typeof chrome !== 'undefined' ? chrome.alarms : null;
+    if (!alarms || typeof alarms.create !== 'function') return;
+    try {
+      var result = alarms.create(FSB_RELAY_RECONNECT_ALARM, { delayInMinutes: 0.5, periodInMinutes: 1 });
+      if (result && typeof result.catch === 'function') result.catch(function () {});
+    } catch (_e) {
+      // The in-memory timer still retries while the service worker is alive.
+    }
+  }
+
+  _clearReconnectAlarm() {
+    var alarms = typeof chrome !== 'undefined' ? chrome.alarms : null;
+    if (!alarms || typeof alarms.clear !== 'function') return;
+    try {
+      var result = alarms.clear(FSB_RELAY_RECONNECT_ALARM);
+      if (result && typeof result.catch === 'function') result.catch(function () {});
+    } catch (_e) {
+      // Best effort: a stray firing only re-arms a relay that is already up.
     }
   }
 
@@ -2526,6 +2558,10 @@ class FSBWebSocket {
   }
 
 }
+
+// Backstop alarm for the relay; background.js's onAlarm listener arms the
+// relay when it fires.
+var FSB_RELAY_RECONNECT_ALARM = 'fsb-dashboard-relay-reconnect';
 
 // Global instance for service worker
 const fsbWebSocket = new FSBWebSocket();
