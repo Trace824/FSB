@@ -2171,10 +2171,20 @@
     "message": "No puede editar archivos, ejecutar comandos de shell ni obtener URL arbitrarias."
   },
   "copy_65974683e8": {
-    "message": "Confiar en $NAME$ para futuras ejecuciones"
+    "message": "Confiar en $NAME$ para futuras ejecuciones",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_a9780e01fc": {
-    "message": "Esto desactiva la confirmación para futuras ejecuciones de $NAME$ en este navegador."
+    "message": "Esto desactiva la confirmación para futuras ejecuciones de $NAME$ en este navegador.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_88cad98751": {
     "message": "No se pudo guardar la preferencia de confirmación. Inténtalo de nuevo o continúa sin confianza."
@@ -2183,7 +2193,12 @@
     "message": "No se pudo iniciar el agente. Revisa el permiso e inténtalo de nuevo."
   },
   "copy_02df469915": {
-    "message": "Permitir e iniciar $NAME$"
+    "message": "Permitir e iniciar $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_63b90cc26c": {
     "message": "El asistente nativo está emparejado con otra extensión"
@@ -2204,7 +2219,12 @@
     "message": "El proveedor seleccionado no admite agentes que controlen pestañas del navegador. Elige un proveedor de agentes compatible y vuelve a intentar este mensaje."
   },
   "copy_664ba782e6": {
-    "message": "Inicia sesión en $NAME$ localmente y vuelve a intentar este mensaje."
+    "message": "Inicia sesión en $NAME$ localmente y vuelve a intentar este mensaje.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_1c5510dd75": {
     "message": "Probar conexión puede seguir teniendo éxito porque no inicia una ejecución delegada. Reintenta el mensaje o revisa la configuración del proveedor."
@@ -2246,7 +2266,12 @@
     "message": "Instala o actualiza el asistente nativo de FSB e inténtalo de nuevo. FSB conectará este navegador automáticamente."
   },
   "copy_87db7a3927": {
-    "message": "FSB no pudo devolver esta pestaña a $NAME$, así que la ejecución terminó y la pestaña sigue bajo tu control. Inicia una tarea nueva cuando estés listo."
+    "message": "FSB no pudo devolver esta pestaña a $NAME$, así que la ejecución terminó y la pestaña sigue bajo tu control. Inicia una tarea nueva cuando estés listo.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d1708202db": {
     "message": "Reintentar el mensaje"
@@ -2270,19 +2295,39 @@
     "message": "Termina la limpieza pendiente del agente en su pestaña y conversación originales antes de iniciar otra tarea. Tu mensaje se conservó."
   },
   "copy_b3715a6900": {
-    "message": "FSB no pudo devolver esta pestaña a $NAME$, así que la ejecución terminó y la pestaña sigue bajo tu control."
+    "message": "FSB no pudo devolver esta pestaña a $NAME$, así que la ejecución terminó y la pestaña sigue bajo tu control.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_47220517c7": {
     "message": "El asistente local de FSB no está instalado. Ejecuta: npx -y fsb-mcp-server@latest install --native-host"
   },
   "copy_d0b5d103f7": {
-    "message": "Iniciando reconocimiento en $DOMAIN$..."
+    "message": "Iniciando reconocimiento en $DOMAIN$...",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7654da628e": {
-    "message": "El reconocimiento no pudo iniciarse: $ERROR$"
+    "message": "El reconocimiento no pudo iniciarse: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ca79bcd4d7": {
-    "message": "¡Reconocimiento completo! Mapa del sitio guardado para $DOMAIN$."
+    "message": "¡Reconocimiento completo! Mapa del sitio guardado para $DOMAIN$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0f654a723b": {
     "message": "La automatización terminó, pero no se proporcionó un resumen. Inténtalo de nuevo si la tarea no se completó como esperabas."
@@ -2324,22 +2369,47 @@
     "message": "Omitiendo el paso de reproducción..."
   },
   "copy_2d7848007e": {
-    "message": "No se pudo aplicar la decisión de reproducción: $ERROR$"
+    "message": "No se pudo aplicar la decisión de reproducción: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d3db7357d": {
     "message": "Bloqueado · entrada ocultada"
   },
   "copy_4916a64c38": {
-    "message": "Un cliente MCP solicitó esta reproducción en $COUNT$ pestaña nueva."
+    "message": "Un cliente MCP solicitó esta reproducción en $COUNT$ pestaña nueva.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c15b9f2acd": {
-    "message": "Un cliente MCP solicitó esta reproducción en $COUNT$ pestañas nuevas."
+    "message": "Un cliente MCP solicitó esta reproducción en $COUNT$ pestañas nuevas.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_552d4905b4": {
-    "message": "Una aprobación cubre solo el manifiesto verificado exacto, incluido $COUNT$ paso de alto impacto."
+    "message": "Una aprobación cubre solo el manifiesto verificado exacto, incluido $COUNT$ paso de alto impacto.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c946b4834": {
-    "message": "Una aprobación cubre solo el manifiesto verificado exacto, incluidos $COUNT$ pasos de alto impacto."
+    "message": "Una aprobación cubre solo el manifiesto verificado exacto, incluidos $COUNT$ pasos de alto impacto.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_9240c9c130": {
     "message": "Una aprobación cubre solo el manifiesto verificado exacto."
@@ -2351,28 +2421,61 @@
     "message": "No se pudo iniciar la reproducción"
   },
   "copy_1a0ef83852": {
-    "message": "No se pudo iniciar la reproducción solicitada: $ERROR$"
+    "message": "No se pudo iniciar la reproducción solicitada: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_98db9dc8c5": {
     "message": "Falló la cancelación de la reproducción"
   },
   "copy_4ed0e5ecba": {
-    "message": "No se pudo cancelar la solicitud de reproducción: $ERROR$"
+    "message": "No se pudo cancelar la solicitud de reproducción: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d9f4051eb": {
     "message": "Falló la verificación de la reproducción"
   },
   "copy_fc1f569fa7": {
-    "message": "Esta grabación es solo de inspección porque solo están disponibles las últimas $LATEST$ de $TOTAL$ llamadas grabadas. El estado anterior del navegador no se puede reconstruir de forma segura."
+    "message": "Esta grabación es solo de inspección porque solo están disponibles las últimas $LATEST$ de $TOTAL$ llamadas grabadas. El estado anterior del navegador no se puede reconstruir de forma segura.",
+    "placeholders": {
+      "latest": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "copy_a2f62124e7": {
-    "message": "¿Reproducir esta línea de tiempo verificada en $COUNT$ pestaña nueva?"
+    "message": "¿Reproducir esta línea de tiempo verificada en $COUNT$ pestaña nueva?",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c55f6bc6e": {
-    "message": "¿Reproducir esta línea de tiempo verificada en $COUNT$ pestañas nuevas?"
+    "message": "¿Reproducir esta línea de tiempo verificada en $COUNT$ pestañas nuevas?",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_dea4fcd3a0": {
-    "message": "Esta única aprobación cubre el manifiesto firmado exacto: $DETAIL$."
+    "message": "Esta única aprobación cubre el manifiesto firmado exacto: $DETAIL$.",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
   "copy_82e80a0531": {
     "message": "La línea de tiempo contiene solo pasos de lectura y navegación."
@@ -2384,7 +2487,12 @@
     "message": "No se pudo iniciar la reproducción."
   },
   "copy_816797656b": {
-    "message": "No se pudo iniciar la reproducción: $ERROR$"
+    "message": "No se pudo iniciar la reproducción: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6a7fdeaea6": {
     "message": "No se pudo eliminar el historial de sesiones"
@@ -2396,7 +2504,12 @@
     "message": "Captura en espera de verificación"
   },
   "copy_712090559d": {
-    "message": "No se pudo cargar la sesión: $ERROR$"
+    "message": "No se pudo cargar la sesión: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c249c35164": {
     "message": "¿Eliminar todo el historial de sesiones? Esto no se puede deshacer."
@@ -2408,7 +2521,12 @@
     "message": "Tarea completada parcialmente"
   },
   "copy_2786eaaa0e": {
-    "message": "Restablecer al valor recomendado ($COUNT$)"
+    "message": "Restablecer al valor recomendado ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_03cea39622": {
     "message": "Escribe el nombre del modelo abajo"
@@ -2525,7 +2643,12 @@
     "message": "Sin clave de API"
   },
   "copy_ec6c5d7132": {
-    "message": "Configura tu clave de API de $NAME$ para empezar"
+    "message": "Configura tu clave de API de $NAME$ para empezar",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_59b831ea1c": {
     "message": "Se requiere la clave de API"
@@ -2543,13 +2666,23 @@
     "message": "Instalado y compatible: Grok Build 1.0.4. Las comprobaciones de aislamiento, ACP y OAuth en caché se superaron sin enviar un prompt."
   },
   "copy_aab517a207": {
-    "message": "Falló la comprobación de compatibilidad: $ERROR$"
+    "message": "Falló la comprobación de compatibilidad: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b33e732cc1": {
     "message": "Registros exportados correctamente"
   },
   "copy_11eb704622": {
-    "message": "Modo de consentimiento para $ORIGIN$"
+    "message": "Modo de consentimiento para $ORIGIN$",
+    "placeholders": {
+      "origin": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7655b9531e": {
     "message": "Registro de auditoría no disponible"
@@ -2603,7 +2736,12 @@
     "message": "No se pudieron cargar los eventos de la sesión"
   },
   "copy_952bb703c9": {
-    "message": "No se pudieron cargar más eventos de la sesión: $ERROR$"
+    "message": "No se pudieron cargar más eventos de la sesión: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ce10cc25bb": {
     "message": "Ninguna sesión seleccionada"
@@ -2657,7 +2795,12 @@
     "message": "No se pudo exportar la sesión"
   },
   "copy_30784a43b1": {
-    "message": "Error al desbloquear la bóveda: $ERROR$"
+    "message": "Error al desbloquear la bóveda: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b621934f80": {
     "message": "Los PIN no coinciden"
@@ -2669,13 +2812,23 @@
     "message": "No se pudo crear la bóveda"
   },
   "copy_be90a4301c": {
-    "message": "Error al crear la bóveda: $ERROR$"
+    "message": "Error al crear la bóveda: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_344e10f557": {
     "message": "Introduce tu PIN"
   },
   "copy_d8689df745": {
-    "message": "Error al bloquear la bóveda: $ERROR$"
+    "message": "Error al bloquear la bóveda: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_025f3d105c": {
     "message": "El dominio es obligatorio"
@@ -2684,25 +2837,55 @@
     "message": "Se requiere usuario o contraseña"
   },
   "copy_9afaa0cd06": {
-    "message": "No se pudo guardar: $ERROR$"
+    "message": "No se pudo guardar: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_161d5eb702": {
-    "message": "Error al guardar la credencial: $ERROR$"
+    "message": "Error al guardar la credencial: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_2be1559933": {
-    "message": "¿Eliminar la credencial guardada de \"$DOMAIN$\"? Esto no se puede deshacer."
+    "message": "¿Eliminar la credencial guardada de \"$DOMAIN$\"? Esto no se puede deshacer.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_742e696153": {
-    "message": "No se pudo eliminar: $ERROR$"
+    "message": "No se pudo eliminar: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f91e85ab50": {
-    "message": "Error al eliminar la credencial: $ERROR$"
+    "message": "Error al eliminar la credencial: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6ddb0ed270": {
     "message": "Métodos de pago desbloqueados"
   },
   "copy_c75e2cc897": {
-    "message": "Error al desbloquear los métodos de pago: $ERROR$"
+    "message": "Error al desbloquear los métodos de pago: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b69b2dc301": {
     "message": "Métodos de pago bloqueados"
@@ -2711,7 +2894,12 @@
     "message": "No se pudieron bloquear los métodos de pago"
   },
   "copy_af2ea4b480": {
-    "message": "Error al bloquear los métodos de pago: $ERROR$"
+    "message": "Error al bloquear los métodos de pago: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_38c2cc72e3": {
     "message": "Introduce tu PIN numérico"
@@ -2735,7 +2923,12 @@
     "message": "Método de pago guardado"
   },
   "copy_58adb591be": {
-    "message": "Error al guardar el método de pago: $ERROR$"
+    "message": "Error al guardar el método de pago: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f03b63954b": {
     "message": "¿Eliminar este método de pago? Esto no se puede deshacer."
@@ -2744,7 +2937,12 @@
     "message": "Método de pago eliminado"
   },
   "copy_2a0de92af3": {
-    "message": "Error al eliminar el método de pago: $ERROR$"
+    "message": "Error al eliminar el método de pago: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4f15f65f6e": {
     "message": "Introduce una URL para explorar"
@@ -2753,13 +2951,23 @@
     "message": "Formato de URL no válido"
   },
   "copy_a6215dba6d": {
-    "message": "No se pudo iniciar el explorador: $ERROR$"
+    "message": "No se pudo iniciar el explorador: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_284429f90b": {
     "message": "Todos los rastreadores detenidos"
   },
   "copy_aee9e10eae": {
-    "message": "El rastreo falló para $DOMAIN$"
+    "message": "El rastreo falló para $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d604ffed30": {
     "message": "Datos de investigación no encontrados"
@@ -2792,22 +3000,58 @@
     "message": "Refinando el mapa del sitio con IA..."
   },
   "copy_00834dcdc3": {
-    "message": "Mapa del sitio de $DOMAIN$: $PAGES$ páginas, $FORMS$ formularios (mejorado con IA)"
+    "message": "Mapa del sitio de $DOMAIN$: $PAGES$ páginas, $FORMS$ formularios (mejorado con IA)",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      },
+      "pages": {
+        "content": "$2"
+      },
+      "forms": {
+        "content": "$3"
+      }
+    }
   },
   "copy_a249e56325": {
-    "message": "Mapa del sitio guardado y refinado para $DOMAIN$"
+    "message": "Mapa del sitio guardado y refinado para $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_237923127b": {
-    "message": "Mapa del sitio guardado para $DOMAIN$ (el refinamiento no devolvió datos)"
+    "message": "Mapa del sitio guardado para $DOMAIN$ (el refinamiento no devolvió datos)",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_35d9e0c46c": {
-    "message": "Mapa del sitio guardado (falló el refinamiento con IA: $ERROR$)"
+    "message": "Mapa del sitio guardado (falló el refinamiento con IA: $ERROR$)",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c8c83ca919": {
-    "message": "Mapa del sitio guardado en la memoria para $DOMAIN$"
+    "message": "Mapa del sitio guardado en la memoria para $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c32ea6d22f": {
-    "message": "No se pudo guardar en la memoria: $ERROR$"
+    "message": "No se pudo guardar en la memoria: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_963ba004ea": {
     "message": "¿Seguro que quieres eliminar TODOS los resultados de investigación? Esto no se puede deshacer."
@@ -2828,7 +3072,12 @@
     "message": "No se pudo generar la clave hash"
   },
   "copy_52b3b70484": {
-    "message": "No se puede conectar al servidor: $ERROR$"
+    "message": "No se puede conectar al servidor: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cbdbc53db1": {
     "message": "No hay clave hash para copiar"
@@ -2858,10 +3107,20 @@
     "message": "Respuesta de emparejamiento mal formada"
   },
   "copy_30fa7c27e5": {
-    "message": "No se pudo generar el código de emparejamiento: $ERROR$"
+    "message": "No se pudo generar el código de emparejamiento: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_acce51c1d3": {
-    "message": "No se pudo registrar la clave hash: $ERROR$"
+    "message": "No se pudo registrar la clave hash: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cb4c956be2": {
     "message": "¿Eliminar esta memoria?"
@@ -2891,7 +3150,12 @@
     "message": "Mapa del sitio refinado correctamente"
   },
   "copy_a266f3a3ce": {
-    "message": "Falló el refinamiento con IA: $ERROR$"
+    "message": "Falló el refinamiento con IA: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0b0bdbabab": {
     "message": "¿Eliminar TODAS las memorias? Esto no se puede deshacer."
@@ -2900,7 +3164,12 @@
     "message": "Todas las memorias borradas"
   },
   "copy_e158cd5a5e": {
-    "message": "No se pudieron borrar las memorias: $ERROR$"
+    "message": "No se pudieron borrar las memorias: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_21ce69d58b": {
     "message": "Control remoto activo"

@@ -48,6 +48,7 @@
     {
       "resources": [
         "assets/icon48.png",
+        "_locales/*/messages.json",
         "site-maps/*.json",
         "test-data/**/*",
         "utils/redactForLog.js",

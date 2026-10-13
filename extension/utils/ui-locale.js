@@ -88,7 +88,10 @@
     var locale = current();
     var msg = messageFromCatalog(locale, key);
     if (msg == null && locale !== SOURCE_LOCALE) msg = messageFromCatalog(SOURCE_LOCALE, key);
-    if (msg == null && !activeOverride && root.chrome && root.chrome.i18n && typeof root.chrome.i18n.getMessage === 'function') {
+    // chrome.i18n.getMessage only takes a string or string array, so named
+    // (object) substitutions would come back empty. Those use the English path.
+    var namedSubs = subs != null && typeof subs === 'object' && !Array.isArray(subs);
+    if (msg == null && !activeOverride && !namedSubs && root.chrome && root.chrome.i18n && typeof root.chrome.i18n.getMessage === 'function') {
       var fromChrome = root.chrome.i18n.getMessage(key, subs);
       if (typeof fromChrome === 'string' && fromChrome.length > 0) return fromChrome;
     }
@@ -128,6 +131,27 @@
     node.textContent = value;
   }
 
+  // Reads back what writeText last wrote, so apply() can tell whether other
+  // code has replaced the text since.
+  function readText(node) {
+    if (!node) return '';
+    var child = node.firstChild;
+    if (child && child.nodeType === 3) return child.nodeValue;
+    return node.textContent;
+  }
+
+  function norm(value) {
+    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  }
+
+  function clearLive(node) {
+    if (!node || typeof node.removeAttribute !== 'function') return;
+    node.removeAttribute('data-i18n-live');
+    node.removeAttribute('data-i18n-en');
+    node.removeAttribute('data-i18n-subs');
+    node.removeAttribute('data-i18n-shown');
+  }
+
   function fill(node, key, english, subs) {
     if (node && typeof node.setAttribute === 'function') {
       node.setAttribute('data-i18n-live', key);
@@ -137,6 +161,7 @@
     }
     var shown = text(key, english, subs);
     writeText(node, shown);
+    if (node && typeof node.setAttribute === 'function') node.setAttribute('data-i18n-shown', shown);
     return shown;
   }
 
@@ -223,6 +248,9 @@
   function markExact(node, english) {
     var key = EXACT[english];
     if (!key) {
+      // Drop any key left by an earlier fill() so apply() does not bring back
+      // the old string over this one.
+      clearLive(node);
       writeText(node, english);
       return english;
     }
@@ -265,10 +293,11 @@
     return path;
   }
 
-  function loadCatalogs(fetchImpl) {
+  function loadCatalogs(fetchImpl, codes) {
     var fetchFn = fetchImpl || (typeof fetch === 'function' ? fetch : null);
     if (!fetchFn) return Promise.resolve();
-    return Promise.all(PUBLIC_LOCALES.map(function (code) {
+    var list = Array.isArray(codes) ? codes.filter(isPublicLocale) : PUBLIC_LOCALES;
+    return Promise.all(list.map(function (code) {
       return Promise.resolve(fetchFn(catalogUrl(code))).then(function (res) {
         return res && typeof res.json === 'function' ? res.json() : res;
       }).then(function (json) {
@@ -277,6 +306,15 @@
         if (!catalogs[code]) setCatalog(code, {});
       });
     }));
+  }
+
+  function ensureCatalog(code) {
+    if (!isPublicLocale(code) || catalogs[code]) return Promise.resolve();
+    return loadCatalogs(null, [code]);
+  }
+
+  function isExtensionPage() {
+    return typeof location !== 'undefined' && location.protocol === 'chrome-extension:';
   }
 
   function readStorageOverride() {
@@ -309,17 +347,18 @@
 
   function isMessage(key, value) {
     if (typeof value !== 'string' || !key) return false;
+    var wanted = norm(value);
     var i;
     for (i = 0; i < PUBLIC_LOCALES.length; i++) {
       var catalog = catalogs[PUBLIC_LOCALES[i]];
-      if (catalog && catalog[key] === value) return true;
+      if (catalog && typeof catalog[key] === 'string' && norm(catalog[key]) === wanted) return true;
     }
     return false;
   }
 
   function notifyLocaleChange() {
     var i;
-    if (typeof location !== 'undefined' && location.protocol === 'chrome-extension:' && typeof document !== 'undefined') {
+    if (isExtensionPage() && typeof document !== 'undefined') {
       apply(document);
     }
     for (i = 0; i < refreshers.length; i++) {
@@ -336,7 +375,7 @@
       if (area !== 'local' || !changes || !changes[STORAGE_KEY]) return;
       var next = changes[STORAGE_KEY].newValue;
       setOverride(isPublicLocale(next) ? next : null);
-      notifyLocaleChange();
+      ensureCatalog(current()).then(notifyLocaleChange);
     });
   }
 
@@ -346,15 +385,16 @@
       setOverride(next);
       var chromeApi = root.chrome;
       var storage = chromeApi && chromeApi.storage && chromeApi.storage.local;
+      var done = function () {
+        ensureCatalog(current()).then(function () {
+          notifyLocaleChange();
+          resolve(next);
+        });
+      };
       if (!storage || typeof storage.set !== 'function' || typeof storage.remove !== 'function') {
-        notifyLocaleChange();
-        resolve(next);
+        done();
         return;
       }
-      var done = function () {
-        notifyLocaleChange();
-        resolve(next);
-      };
       if (!next) storage.remove(STORAGE_KEY, done);
       else {
         var payload = {};
@@ -395,28 +435,30 @@
     }
     watchStorage();
     return readStorageOverride().then(function () {
-      return loadCatalogs();
+      // Extension pages keep every catalog so isMessage() can recognise text
+      // shown in any earlier language. Content scripts only need the active
+      // locale and the English fallback; ensureCatalog() adds others on change.
+      if (isExtensionPage()) return loadCatalogs();
+      var codes = [current()];
+      if (codes[0] !== SOURCE_LOCALE) codes.push(SOURCE_LOCALE);
+      return loadCatalogs(null, codes);
     });
   }
 
+  // Static markup is only re-translated while it still shows a catalog message
+  // for its key. Text or attributes that page scripts have since replaced
+  // (counters, provider names, status lines) are left alone.
   function apply(doc) {
     if (!doc || typeof doc.querySelectorAll !== 'function') return;
-    var nodes = doc.querySelectorAll('[data-i18n]');
     var i;
-    for (i = 0; i < nodes.length; i++) {
-      nodes[i].textContent = t(nodes[i].getAttribute('data-i18n'));
-    }
-    var attrs = doc.querySelectorAll('[data-i18n-attr]');
-    for (i = 0; i < attrs.length; i++) {
-      var spec = attrs[i].getAttribute('data-i18n-attr') || '';
-      spec.split(',').forEach(function (part) {
-        var bits = part.split(':');
-        if (bits.length !== 2) return;
-        attrs[i].setAttribute(bits[0].trim(), t(bits[1].trim()));
-      });
-    }
+    // Live nodes first: fill() owns them, so the static pass below skips any
+    // node that still carries a live key.
     var live = doc.querySelectorAll('[data-i18n-live]');
     for (i = 0; i < live.length; i++) {
+      if (norm(readText(live[i])) !== norm(live[i].getAttribute('data-i18n-shown'))) {
+        clearLive(live[i]);
+        continue;
+      }
       var liveKey = live[i].getAttribute('data-i18n-live');
       var liveEnglish = live[i].getAttribute('data-i18n-en') || '';
       var liveSubs = null;
@@ -424,7 +466,26 @@
       if (rawSubs) {
         try { liveSubs = JSON.parse(rawSubs); } catch (err) { liveSubs = null; }
       }
-      writeText(live[i], text(liveKey, liveEnglish, liveSubs));
+      var shown = text(liveKey, liveEnglish, liveSubs);
+      writeText(live[i], shown);
+      live[i].setAttribute('data-i18n-shown', shown);
+    }
+    var nodes = doc.querySelectorAll('[data-i18n]');
+    for (i = 0; i < nodes.length; i++) {
+      if (nodes[i].getAttribute('data-i18n-live') != null) continue;
+      var key = nodes[i].getAttribute('data-i18n');
+      if (isMessage(key, nodes[i].textContent)) nodes[i].textContent = t(key);
+    }
+    var attrs = doc.querySelectorAll('[data-i18n-attr]');
+    for (i = 0; i < attrs.length; i++) {
+      var spec = attrs[i].getAttribute('data-i18n-attr') || '';
+      spec.split(',').forEach(function (part) {
+        var bits = part.split(':');
+        if (bits.length !== 2) return;
+        var name = bits[0].trim();
+        var attrKey = bits[1].trim();
+        if (isMessage(attrKey, attrs[i].getAttribute(name))) attrs[i].setAttribute(name, t(attrKey));
+      });
     }
   }
 
@@ -453,7 +514,8 @@
     mountSelect: mountSelect,
     boot: boot,
     parseMessages: parseMessages,
-    loadCatalogs: loadCatalogs
+    loadCatalogs: loadCatalogs,
+    ensureCatalog: ensureCatalog
   };
 
   root.fsbUiLocale = api;

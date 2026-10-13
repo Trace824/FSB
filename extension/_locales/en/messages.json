@@ -2171,10 +2171,20 @@
     "message": "It cannot edit files, run shell commands, or fetch arbitrary URLs."
   },
   "copy_65974683e8": {
-    "message": "Trust $NAME$ for future runs"
+    "message": "Trust $NAME$ for future runs",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_a9780e01fc": {
-    "message": "This turns off confirmation for future $NAME$ runs on this browser."
+    "message": "This turns off confirmation for future $NAME$ runs on this browser.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_88cad98751": {
     "message": "Confirmation preference could not be saved. Try again or continue without trust."
@@ -2183,7 +2193,12 @@
     "message": "The agent could not be started. Review the permission and try again."
   },
   "copy_02df469915": {
-    "message": "Allow & start $NAME$"
+    "message": "Allow & start $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_63b90cc26c": {
     "message": "Native helper is paired with another extension"
@@ -2204,7 +2219,12 @@
     "message": "The selected provider does not support agents that control browser tabs. Choose a supported agent provider, then try this message again."
   },
   "copy_664ba782e6": {
-    "message": "Sign in to $NAME$ locally, then try this message again."
+    "message": "Sign in to $NAME$ locally, then try this message again.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_1c5510dd75": {
     "message": "Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup."
@@ -2246,7 +2266,12 @@
     "message": "Install or update the FSB native helper, then try again. FSB will connect this browser automatically."
   },
   "copy_87db7a3927": {
-    "message": "FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready."
+    "message": "FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d1708202db": {
     "message": "Try message again"
@@ -2270,19 +2295,39 @@
     "message": "Finish the pending agent cleanup in its original tab and conversation before starting another task. Your message was kept."
   },
   "copy_b3715a6900": {
-    "message": "FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control."
+    "message": "FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_47220517c7": {
     "message": "FSB’s local helper is not installed. Run: npx -y fsb-mcp-server@latest install --native-host"
   },
   "copy_d0b5d103f7": {
-    "message": "Starting reconnaissance on $DOMAIN$..."
+    "message": "Starting reconnaissance on $DOMAIN$...",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7654da628e": {
-    "message": "Reconnaissance failed to start: $ERROR$"
+    "message": "Reconnaissance failed to start: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ca79bcd4d7": {
-    "message": "Reconnaissance complete! Site map saved for $DOMAIN$."
+    "message": "Reconnaissance complete! Site map saved for $DOMAIN$.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0f654a723b": {
     "message": "The automation completed but no summary was provided. Please try again if the task wasn't completed as expected."
@@ -2324,22 +2369,47 @@
     "message": "Skipping replay step..."
   },
   "copy_2d7848007e": {
-    "message": "Could not apply replay decision: $ERROR$"
+    "message": "Could not apply replay decision: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d3db7357d": {
     "message": "Blocked · redacted input"
   },
   "copy_4916a64c38": {
-    "message": "An MCP client requested this replay in $COUNT$ fresh tab."
+    "message": "An MCP client requested this replay in $COUNT$ fresh tab.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c15b9f2acd": {
-    "message": "An MCP client requested this replay in $COUNT$ fresh tabs."
+    "message": "An MCP client requested this replay in $COUNT$ fresh tabs.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_552d4905b4": {
-    "message": "One approval covers only the exact verified manifest, including $COUNT$ high-impact step."
+    "message": "One approval covers only the exact verified manifest, including $COUNT$ high-impact step.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c946b4834": {
-    "message": "One approval covers only the exact verified manifest, including $COUNT$ high-impact steps."
+    "message": "One approval covers only the exact verified manifest, including $COUNT$ high-impact steps.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_9240c9c130": {
     "message": "One approval covers only the exact verified manifest."
@@ -2351,28 +2421,61 @@
     "message": "Failed to start replay"
   },
   "copy_1a0ef83852": {
-    "message": "Failed to start requested replay: $ERROR$"
+    "message": "Failed to start requested replay: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_98db9dc8c5": {
     "message": "Replay cancellation failed"
   },
   "copy_4ed0e5ecba": {
-    "message": "Could not cancel replay request: $ERROR$"
+    "message": "Could not cancel replay request: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d9f4051eb": {
     "message": "Replay verification failed"
   },
   "copy_fc1f569fa7": {
-    "message": "This recording is inspect-only because only the latest $LATEST$ of $TOTAL$ recorded calls are available. Earlier browser state cannot be reconstructed safely."
+    "message": "This recording is inspect-only because only the latest $LATEST$ of $TOTAL$ recorded calls are available. Earlier browser state cannot be reconstructed safely.",
+    "placeholders": {
+      "latest": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "copy_a2f62124e7": {
-    "message": "Replay this verified timeline in $COUNT$ fresh tab?"
+    "message": "Replay this verified timeline in $COUNT$ fresh tab?",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c55f6bc6e": {
-    "message": "Replay this verified timeline in $COUNT$ fresh tabs?"
+    "message": "Replay this verified timeline in $COUNT$ fresh tabs?",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_dea4fcd3a0": {
-    "message": "This one approval covers the exact signed manifest: $DETAIL$."
+    "message": "This one approval covers the exact signed manifest: $DETAIL$.",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
   "copy_82e80a0531": {
     "message": "The timeline contains only read and navigation steps."
@@ -2384,7 +2487,12 @@
     "message": "Failed to start replay."
   },
   "copy_816797656b": {
-    "message": "Failed to start replay: $ERROR$"
+    "message": "Failed to start replay: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6a7fdeaea6": {
     "message": "Failed to delete session history"
@@ -2396,7 +2504,12 @@
     "message": "Capture awaiting verification"
   },
   "copy_712090559d": {
-    "message": "Failed to load session: $ERROR$"
+    "message": "Failed to load session: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c249c35164": {
     "message": "Delete all session history? This cannot be undone."
@@ -2408,7 +2521,12 @@
     "message": "Task partially completed"
   },
   "copy_2786eaaa0e": {
-    "message": "Reset to recommended ($COUNT$)"
+    "message": "Reset to recommended ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_03cea39622": {
     "message": "Enter your model name below"
@@ -2525,7 +2643,12 @@
     "message": "No API Key"
   },
   "copy_ec6c5d7132": {
-    "message": "Configure your $NAME$ API key to get started"
+    "message": "Configure your $NAME$ API key to get started",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_59b831ea1c": {
     "message": "API key is required"
@@ -2543,13 +2666,23 @@
     "message": "Installed and compatible: Grok Build 1.0.4. Isolation, ACP, and cached OAuth checks passed without sending a prompt."
   },
   "copy_aab517a207": {
-    "message": "Compatibility check failed: $ERROR$"
+    "message": "Compatibility check failed: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b33e732cc1": {
     "message": "Logs exported successfully"
   },
   "copy_11eb704622": {
-    "message": "Consent mode for $ORIGIN$"
+    "message": "Consent mode for $ORIGIN$",
+    "placeholders": {
+      "origin": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7655b9531e": {
     "message": "Audit log unavailable"
@@ -2603,7 +2736,12 @@
     "message": "Session events could not be loaded"
   },
   "copy_952bb703c9": {
-    "message": "Failed to load more session events: $ERROR$"
+    "message": "Failed to load more session events: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ce10cc25bb": {
     "message": "No session selected"
@@ -2657,7 +2795,12 @@
     "message": "Failed to export session"
   },
   "copy_30784a43b1": {
-    "message": "Error unlocking vault: $ERROR$"
+    "message": "Error unlocking vault: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b621934f80": {
     "message": "PINs do not match"
@@ -2669,13 +2812,23 @@
     "message": "Failed to create vault"
   },
   "copy_be90a4301c": {
-    "message": "Error creating vault: $ERROR$"
+    "message": "Error creating vault: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_344e10f557": {
     "message": "Enter your PIN"
   },
   "copy_d8689df745": {
-    "message": "Error locking vault: $ERROR$"
+    "message": "Error locking vault: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_025f3d105c": {
     "message": "Domain is required"
@@ -2684,25 +2837,55 @@
     "message": "Username or password is required"
   },
   "copy_9afaa0cd06": {
-    "message": "Failed to save: $ERROR$"
+    "message": "Failed to save: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_161d5eb702": {
-    "message": "Error saving credential: $ERROR$"
+    "message": "Error saving credential: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_2be1559933": {
-    "message": "Delete saved credential for \"$DOMAIN$\"? This cannot be undone."
+    "message": "Delete saved credential for \"$DOMAIN$\"? This cannot be undone.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_742e696153": {
-    "message": "Failed to delete: $ERROR$"
+    "message": "Failed to delete: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f91e85ab50": {
-    "message": "Error deleting credential: $ERROR$"
+    "message": "Error deleting credential: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6ddb0ed270": {
     "message": "Payment methods unlocked"
   },
   "copy_c75e2cc897": {
-    "message": "Error unlocking payment methods: $ERROR$"
+    "message": "Error unlocking payment methods: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b69b2dc301": {
     "message": "Payment methods locked"
@@ -2711,7 +2894,12 @@
     "message": "Failed to lock payment methods"
   },
   "copy_af2ea4b480": {
-    "message": "Error locking payment methods: $ERROR$"
+    "message": "Error locking payment methods: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_38c2cc72e3": {
     "message": "Please enter your numeric PIN"
@@ -2735,7 +2923,12 @@
     "message": "Payment method saved"
   },
   "copy_58adb591be": {
-    "message": "Error saving payment method: $ERROR$"
+    "message": "Error saving payment method: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f03b63954b": {
     "message": "Delete this payment method? This cannot be undone."
@@ -2744,7 +2937,12 @@
     "message": "Payment method deleted"
   },
   "copy_2a0de92af3": {
-    "message": "Error deleting payment method: $ERROR$"
+    "message": "Error deleting payment method: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4f15f65f6e": {
     "message": "Please enter a URL to explore"
@@ -2753,13 +2951,23 @@
     "message": "Invalid URL format"
   },
   "copy_a6215dba6d": {
-    "message": "Failed to start explorer: $ERROR$"
+    "message": "Failed to start explorer: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_284429f90b": {
     "message": "All crawlers stopped"
   },
   "copy_aee9e10eae": {
-    "message": "Crawl failed for $DOMAIN$"
+    "message": "Crawl failed for $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d604ffed30": {
     "message": "Research data not found"
@@ -2792,22 +3000,58 @@
     "message": "Refining site map with AI..."
   },
   "copy_00834dcdc3": {
-    "message": "Site map for $DOMAIN$: $PAGES$ pages, $FORMS$ forms (AI enhanced)"
+    "message": "Site map for $DOMAIN$: $PAGES$ pages, $FORMS$ forms (AI enhanced)",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      },
+      "pages": {
+        "content": "$2"
+      },
+      "forms": {
+        "content": "$3"
+      }
+    }
   },
   "copy_a249e56325": {
-    "message": "Site map saved and refined for $DOMAIN$"
+    "message": "Site map saved and refined for $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_237923127b": {
-    "message": "Site map saved for $DOMAIN$ (refinement returned no data)"
+    "message": "Site map saved for $DOMAIN$ (refinement returned no data)",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_35d9e0c46c": {
-    "message": "Site map saved (AI refinement failed: $ERROR$)"
+    "message": "Site map saved (AI refinement failed: $ERROR$)",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c8c83ca919": {
-    "message": "Site map saved to memory for $DOMAIN$"
+    "message": "Site map saved to memory for $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c32ea6d22f": {
-    "message": "Failed to save to memory: $ERROR$"
+    "message": "Failed to save to memory: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_963ba004ea": {
     "message": "Are you sure you want to delete ALL research results? This cannot be undone."
@@ -2828,7 +3072,12 @@
     "message": "Failed to generate hash key"
   },
   "copy_52b3b70484": {
-    "message": "Cannot connect to server: $ERROR$"
+    "message": "Cannot connect to server: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cbdbc53db1": {
     "message": "No hash key to copy"
@@ -2858,10 +3107,20 @@
     "message": "Malformed pairing response"
   },
   "copy_30fa7c27e5": {
-    "message": "Could not generate pairing code: $ERROR$"
+    "message": "Could not generate pairing code: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_acce51c1d3": {
-    "message": "Could not register hash key: $ERROR$"
+    "message": "Could not register hash key: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cb4c956be2": {
     "message": "Delete this memory?"
@@ -2891,7 +3150,12 @@
     "message": "Site map refined successfully"
   },
   "copy_a266f3a3ce": {
-    "message": "AI refinement failed: $ERROR$"
+    "message": "AI refinement failed: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0b0bdbabab": {
     "message": "Delete ALL memories? This cannot be undone."
@@ -2900,7 +3164,12 @@
     "message": "All memories cleared"
   },
   "copy_e158cd5a5e": {
-    "message": "Failed to clear memories: $ERROR$"
+    "message": "Failed to clear memories: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_21ce69d58b": {
     "message": "Remote control active"

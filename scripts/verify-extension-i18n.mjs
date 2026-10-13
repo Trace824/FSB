@@ -3,8 +3,10 @@
  * Extension catalog gate.
  *
  * Fails when any locale is missing a key, has an empty message, changes
- * placeholders, copies English prose that is not on the hash-bound allowlist,
- * or drops a protected literal that the English message contains.
+ * placeholders, uses a $NAME$ token without a placeholders entry (Chrome
+ * refuses to load such a catalog), copies English prose that is not on the
+ * hash-bound allowlist, or drops a protected literal that the English message
+ * contains.
  *
  * Usage:
  *   node scripts/verify-extension-i18n.mjs
@@ -44,6 +46,17 @@ function placeholders(message) {
   const numeric = message.matchAll(/\$\d+/g);
   for (const match of numeric) found.add(match[0]);
   return [...found].sort();
+}
+
+function undefinedPlaceholders(entry) {
+  const defined = new Set(Object.keys((entry && entry.placeholders) || {})
+    .filter((name) => typeof entry.placeholders[name]?.content === 'string')
+    .map((name) => name.toLowerCase()));
+  const missing = new Set();
+  for (const match of entry.message.matchAll(/\$([A-Za-z0-9_@]+)\$/g)) {
+    if (!defined.has(match[1].toLowerCase())) missing.add(match[0]);
+  }
+  return [...missing];
 }
 
 function sameSet(a, b) {
@@ -135,6 +148,15 @@ if (!english) {
       if (!Object.prototype.hasOwnProperty.call(english, key)) {
         errors.push(`${code}: orphan key ${key}`);
       }
+    }
+  }
+}
+
+for (const [code, catalog] of catalogs) {
+  for (const [key, entry] of Object.entries(catalog)) {
+    if (!entry || typeof entry.message !== 'string') continue;
+    for (const token of undefinedPlaceholders(entry)) {
+      errors.push(`${code}: ${key} uses ${token} without a placeholders entry`);
     }
   }
 }

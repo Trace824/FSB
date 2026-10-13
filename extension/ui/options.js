@@ -3000,7 +3000,7 @@ function renderConsentOriginList(envelope, auditOrigins) {
       if (blockBadge) blockBadge.style.display = '';
       if (hint) {
         hint.style.display = '';
-        fsbUiSet(hint, "Automation prohibited for this origin. ")
+        hint.textContent = fsbUiLine('Automation prohibited for this origin. ')
           + (classified.reason || '');
       }
     } else if (classified.sensitive) {

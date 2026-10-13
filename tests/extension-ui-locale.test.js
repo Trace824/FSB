@@ -124,7 +124,7 @@ check(live.status === 0, 'live seed catalog passes the gate');
 const good = runGate(['--root', 'tests/fixtures/extension-i18n/good', '--locales', 'en:en,es:es']);
 check(good.status === 0, 'good fixture passes');
 
-for (const name of ['bad-missing', 'bad-empty', 'bad-placeholder', 'bad-copy', 'bad-literal']) {
+for (const name of ['bad-missing', 'bad-empty', 'bad-placeholder', 'bad-undefined-placeholder', 'bad-copy', 'bad-literal']) {
   const result = runGate(['--root', `tests/fixtures/extension-i18n/${name}`, '--locales', 'en:en,es:es']);
   check(result.status === 1, `${name} fixture fails the gate`);
 }
@@ -156,5 +156,183 @@ check(badSentence.status === 1, 'uncataloged chrome fixture fails');
 check(String(badSentence.stderr).includes('This sentence is not cataloged.'), 'fixture reports the package-owned sentence');
 check(!String(badSentence.stderr).includes('User typed a secret sentence here.'), 'log sentences stay off the coverage gate');
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed) process.exit(1);
+// MV3's default CSP blocks inline scripts on extension pages, so a boot call
+// placed inline never runs.
+const uiDir = path.join(root, 'extension/ui');
+for (const file of fs.readdirSync(uiDir).filter((name) => name.endsWith('.html'))) {
+  const html = fs.readFileSync(path.join(uiDir, file), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter((match) => !/\bsrc\s*=/.test(match[1]) && match[2].trim());
+  check(inline.length === 0, `${file} has no inline script`);
+}
+
+check(manifest.web_accessible_resources.some((entry) => entry.resources.includes('_locales/*/messages.json')),
+  'content scripts can fetch the locale catalogs');
+
+const optionsSource = fs.readFileSync(path.join(root, 'extension/ui/options.js'), 'utf8');
+check(optionsSource.includes("hint.textContent = fsbUiLine('Automation prohibited for this origin. ')\n          + (classified.reason || '');"),
+  'the blocked-origin hint keeps its denial reason');
+
+const getMessageCalls = [];
+globalThis.chrome = { i18n: { getMessage(key, subs) { getMessageCalls.push(subs); return 'Actions: '; } } };
+locale.setBrowserTag('en');
+locale.setOverride(null);
+check(locale.text('probe_missing_key', 'Actions: 5', { count: 5 }) === 'Actions: 5', 'named substitutions keep their values when the catalog lacks the key');
+check(getMessageCalls.length === 0, 'chrome.i18n.getMessage never receives named substitutions');
+check(locale.t('probe_missing_key') === 'Actions: ' && getMessageCalls.length === 1, 'plain lookups still fall back to chrome.i18n');
+delete globalThis.chrome;
+
+// Every static data-i18n text and data-i18n-attr value must equal its English
+// message, or apply() will treat it as page-owned and never translate it.
+function norm(value) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+}
+
+function decodeEntities(value) {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_all, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_all, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&middot;/g, '·')
+    .replace(/&rarr;/g, '→')
+    .replace(/&times;/g, '×')
+    .replace(/&amp;/g, '&');
+}
+
+function staticMismatches(file) {
+  const source = fs.readFileSync(path.join(root, file), 'utf8')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '');
+  const misses = [];
+  const open = [];
+  const token = /<\/([A-Za-z0-9]+)\s*>|<([A-Za-z0-9]+)((?:\s+[^\s=>]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*(\/?)>|([^<]+)/g;
+  let match;
+  while ((match = token.exec(source))) {
+    if (match[1]) {
+      const name = match[1].toLowerCase();
+      for (let n = open.length - 1; n >= 0; n -= 1) {
+        if (open[n].name !== name) continue;
+        const frame = open.splice(n)[0];
+        if (frame.key && norm(frame.text) !== norm(englishCatalog[frame.key] && englishCatalog[frame.key].message)) {
+          misses.push(`${frame.key}: "${norm(frame.text)}"`);
+        }
+        break;
+      }
+      continue;
+    }
+    if (match[2]) {
+      const name = match[2].toLowerCase();
+      const attrs = {};
+      for (const attr of (match[3] || '').matchAll(/([^\s=]+)\s*=\s*"([^"]*)"/g)) attrs[attr[1]] = decodeEntities(attr[2]);
+      for (const part of (attrs['data-i18n-attr'] || '').split(',')) {
+        const bits = part.split(':');
+        if (bits.length !== 2) continue;
+        const key = bits[1].trim();
+        if (norm(attrs[bits[0].trim()]) !== norm(englishCatalog[key] && englishCatalog[key].message)) {
+          misses.push(`${key}: ${bits[0].trim()}="${attrs[bits[0].trim()]}"`);
+        }
+      }
+      if (match[4] === '/' || /^(img|input|br|hr|meta|link|source)$/.test(name)) continue;
+      open.push({ name, key: attrs['data-i18n'] || null, text: '' });
+      continue;
+    }
+    const value = decodeEntities(match[5]);
+    for (const frame of open) frame.text += value;
+  }
+  return misses;
+}
+
+for (const file of [
+  'extension/ui/control_panel.html',
+  'extension/ui/sidepanel.html',
+  'extension/ui/popup.html',
+  'extension/ui/unlock.html',
+  'extension/ui/microphone-permission.html',
+  'extension/ui/onboarding.html'
+]) {
+  const misses = staticMismatches(file);
+  check(misses.length === 0, `${file} static i18n text matches the English catalog${misses.length ? ' (' + misses.slice(0, 3).join('; ') + ')' : ''}`);
+}
+
+function fakeNode(attrs, textContent) {
+  return {
+    attrs: Object.assign({}, attrs),
+    textContent,
+    childNodes: [],
+    get firstChild() { return null; },
+    getAttribute(name) { return Object.prototype.hasOwnProperty.call(this.attrs, name) ? this.attrs[name] : null; },
+    setAttribute(name, value) { this.attrs[name] = String(value); },
+    removeAttribute(name) { delete this.attrs[name]; }
+  };
+}
+
+function fakeDoc(nodes) {
+  return {
+    querySelectorAll(selector) {
+      const name = selector.slice(1, -1);
+      return nodes.filter((node) => node.getAttribute(name) != null);
+    }
+  };
+}
+
+async function asyncChecks() {
+  const requested = [];
+  await locale.loadCatalogs((url) => {
+    requested.push(url);
+    return Promise.resolve({ json: () => ({}) });
+  }, ['ko', 'zh-TW']);
+  check(JSON.stringify(requested) === JSON.stringify(['_locales/ko/messages.json', '_locales/zh_TW/messages.json']),
+    'loadCatalogs fetches only the requested locales');
+  const realFetch = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = () => { fetched += 1; return Promise.reject(new Error('unexpected fetch')); };
+  await locale.ensureCatalog('ko');
+  globalThis.fetch = realFetch;
+  check(fetched === 0, 'ensureCatalog does not refetch a loaded catalog');
+
+  locale.setCatalog('en', { probe_count: '0 of 8 active', probe_title: 'Agent CLI', probe_label: 'Consent mode for origin', shell_ready: 'Ready', shell_working: 'Working' });
+  locale.setCatalog('de', { probe_count: '0 von 8 aktiv', probe_title: 'Agent-CLI', probe_label: 'Einwilligungsmodus für Ursprung', shell_ready: 'Bereit', shell_working: 'Arbeitet' });
+  locale.setBrowserTag('en');
+  locale.setOverride('de');
+
+  const counter = fakeNode({ 'data-i18n': 'probe_count' }, '3 of 4 active');
+  const heading = fakeNode({ 'data-i18n': 'probe_title' }, '\n      Agent CLI\n    ');
+  const clonedRow = fakeNode({ 'data-i18n-attr': 'aria-label:probe_label', 'aria-label': 'Consent mode for example.com' }, '');
+  const templateRow = fakeNode({ 'data-i18n-attr': 'aria-label:probe_label', 'aria-label': 'Consent mode for origin' }, '');
+  locale.apply(fakeDoc([counter, heading, clonedRow, templateRow]));
+  check(counter.textContent === '3 of 4 active', 'apply leaves static text that a page script replaced');
+  check(heading.textContent === 'Agent-CLI', 'apply translates static text that still shows its catalog message');
+  check(clonedRow.getAttribute('aria-label') === 'Consent mode for example.com', 'apply leaves attributes that a page script replaced');
+  check(templateRow.getAttribute('aria-label') === 'Einwilligungsmodus für Ursprung', 'apply translates attributes that still show their catalog message');
+
+  const status = fakeNode({ 'data-i18n': 'shell_ready' }, 'Ready');
+  locale.markExact(status, 'Working');
+  check(status.textContent === 'Arbeitet' && status.getAttribute('data-i18n-shown') === 'Arbeitet', 'fill records the shown text');
+  status.textContent = 'Owned by Ada';
+  locale.apply(fakeDoc([status]));
+  check(status.textContent === 'Owned by Ada', 'apply leaves a live node that a page script overwrote');
+  check(status.getAttribute('data-i18n-live') === null, 'apply drops the live key of an overwritten node');
+
+  const runner = fakeNode({}, '');
+  locale.markExact(runner, 'Working');
+  locale.setOverride(null);
+  locale.apply(fakeDoc([runner]));
+  check(runner.textContent === 'Working', 'apply re-translates a live node it still owns');
+  locale.markExact(runner, 'Clicking the submit button');
+  check(runner.getAttribute('data-i18n-live') === null && runner.getAttribute('data-i18n-shown') === null,
+    'markExact with uncataloged text clears the previous live key');
+  locale.apply(fakeDoc([runner]));
+  check(runner.textContent === 'Clicking the submit button', 'apply does not bring back a cleared live string');
+}
+
+asyncChecks().then(() => {
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed) process.exit(1);
+}, (err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -2171,10 +2171,20 @@
     "message": "Es kann keine Dateien bearbeiten, Shell-Befehle ausführen oder beliebige URLs abrufen."
   },
   "copy_65974683e8": {
-    "message": "$NAME$ für künftige Läufe vertrauen"
+    "message": "$NAME$ für künftige Läufe vertrauen",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_a9780e01fc": {
-    "message": "Dadurch entfällt die Bestätigung für künftige $NAME$-Läufe in diesem Browser."
+    "message": "Dadurch entfällt die Bestätigung für künftige $NAME$-Läufe in diesem Browser.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_88cad98751": {
     "message": "Die Bestätigungseinstellung konnte nicht gespeichert werden. Erneut versuchen oder ohne Vertrauen fortfahren."
@@ -2183,7 +2193,12 @@
     "message": "Der Agent konnte nicht gestartet werden. Berechtigung prüfen und erneut versuchen."
   },
   "copy_02df469915": {
-    "message": "$NAME$ erlauben und starten"
+    "message": "$NAME$ erlauben und starten",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_63b90cc26c": {
     "message": "Der native Helfer ist mit einer anderen Erweiterung gekoppelt"
@@ -2204,7 +2219,12 @@
     "message": "Der ausgewählte Anbieter unterstützt keine Agenten, die Browser-Tabs steuern. Wähle einen unterstützten Agent-Anbieter und versuche diese Nachricht erneut."
   },
   "copy_664ba782e6": {
-    "message": "Melde dich lokal bei $NAME$ an und versuche diese Nachricht erneut."
+    "message": "Melde dich lokal bei $NAME$ an und versuche diese Nachricht erneut.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_1c5510dd75": {
     "message": "Verbindung testen kann trotzdem gelingen, weil dadurch kein delegierter Lauf startet. Nachricht erneut versuchen oder die Anbieter-Einrichtung prüfen."
@@ -2246,7 +2266,12 @@
     "message": "Installiere oder aktualisiere den nativen FSB-Helfer und versuche es erneut. FSB verbindet diesen Browser automatisch."
   },
   "copy_87db7a3927": {
-    "message": "FSB konnte diesen Tab nicht an $NAME$ zurückgeben, daher endete der Lauf und der Tab bleibt unter deiner Kontrolle. Starte eine neue Aufgabe, wenn du bereit bist."
+    "message": "FSB konnte diesen Tab nicht an $NAME$ zurückgeben, daher endete der Lauf und der Tab bleibt unter deiner Kontrolle. Starte eine neue Aufgabe, wenn du bereit bist.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d1708202db": {
     "message": "Nachricht erneut versuchen"
@@ -2270,19 +2295,39 @@
     "message": "Schließe die ausstehende Agent-Bereinigung im ursprünglichen Tab und Gespräch ab, bevor du eine andere Aufgabe startest. Deine Nachricht wurde behalten."
   },
   "copy_b3715a6900": {
-    "message": "FSB konnte diesen Tab nicht an $NAME$ zurückgeben, daher endete der Lauf und der Tab bleibt unter deiner Kontrolle."
+    "message": "FSB konnte diesen Tab nicht an $NAME$ zurückgeben, daher endete der Lauf und der Tab bleibt unter deiner Kontrolle.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_47220517c7": {
     "message": "Der lokale Helfer von FSB ist nicht installiert. Ausführen: npx -y fsb-mcp-server@latest install --native-host"
   },
   "copy_d0b5d103f7": {
-    "message": "Erkundung auf $DOMAIN$ wird gestartet..."
+    "message": "Erkundung auf $DOMAIN$ wird gestartet...",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7654da628e": {
-    "message": "Erkundung konnte nicht gestartet werden: $ERROR$"
+    "message": "Erkundung konnte nicht gestartet werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ca79bcd4d7": {
-    "message": "Erkundung abgeschlossen! Sitemap für $DOMAIN$ gespeichert."
+    "message": "Erkundung abgeschlossen! Sitemap für $DOMAIN$ gespeichert.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0f654a723b": {
     "message": "Die Automatisierung wurde abgeschlossen, aber es wurde keine Zusammenfassung bereitgestellt. Versuche es erneut, wenn die Aufgabe nicht wie erwartet abgeschlossen wurde."
@@ -2324,22 +2369,47 @@
     "message": "Wiedergabeschritt wird übersprungen..."
   },
   "copy_2d7848007e": {
-    "message": "Wiedergabe-Entscheidung konnte nicht angewendet werden: $ERROR$"
+    "message": "Wiedergabe-Entscheidung konnte nicht angewendet werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d3db7357d": {
     "message": "Blockiert · geschwärzte Eingabe"
   },
   "copy_4916a64c38": {
-    "message": "Ein MCP-Client hat diese Wiedergabe in $COUNT$ neuem Tab angefordert."
+    "message": "Ein MCP-Client hat diese Wiedergabe in $COUNT$ neuem Tab angefordert.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c15b9f2acd": {
-    "message": "Ein MCP-Client hat diese Wiedergabe in $COUNT$ neuen Tabs angefordert."
+    "message": "Ein MCP-Client hat diese Wiedergabe in $COUNT$ neuen Tabs angefordert.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_552d4905b4": {
-    "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest, einschließlich $COUNT$ Schritts mit großer Auswirkung."
+    "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest, einschließlich $COUNT$ Schritts mit großer Auswirkung.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c946b4834": {
-    "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest, einschließlich $COUNT$ Schritten mit großer Auswirkung."
+    "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest, einschließlich $COUNT$ Schritten mit großer Auswirkung.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_9240c9c130": {
     "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest."
@@ -2351,28 +2421,61 @@
     "message": "Wiedergabe konnte nicht gestartet werden"
   },
   "copy_1a0ef83852": {
-    "message": "Angeforderte Wiedergabe konnte nicht gestartet werden: $ERROR$"
+    "message": "Angeforderte Wiedergabe konnte nicht gestartet werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_98db9dc8c5": {
     "message": "Abbruch der Wiedergabe fehlgeschlagen"
   },
   "copy_4ed0e5ecba": {
-    "message": "Wiedergabeanforderung konnte nicht abgebrochen werden: $ERROR$"
+    "message": "Wiedergabeanforderung konnte nicht abgebrochen werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d9f4051eb": {
     "message": "Wiedergabeprüfung fehlgeschlagen"
   },
   "copy_fc1f569fa7": {
-    "message": "Diese Aufnahme ist nur zur Ansicht, weil nur die letzten $LATEST$ von $TOTAL$ aufgezeichneten Aufrufen verfügbar sind. Früherer Browserzustand lässt sich nicht sicher rekonstruieren."
+    "message": "Diese Aufnahme ist nur zur Ansicht, weil nur die letzten $LATEST$ von $TOTAL$ aufgezeichneten Aufrufen verfügbar sind. Früherer Browserzustand lässt sich nicht sicher rekonstruieren.",
+    "placeholders": {
+      "latest": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "copy_a2f62124e7": {
-    "message": "Diese geprüfte Zeitlinie in $COUNT$ neuem Tab wiedergeben?"
+    "message": "Diese geprüfte Zeitlinie in $COUNT$ neuem Tab wiedergeben?",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c55f6bc6e": {
-    "message": "Diese geprüfte Zeitlinie in $COUNT$ neuen Tabs wiedergeben?"
+    "message": "Diese geprüfte Zeitlinie in $COUNT$ neuen Tabs wiedergeben?",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_dea4fcd3a0": {
-    "message": "Diese eine Freigabe gilt für das genau signierte Manifest: $DETAIL$."
+    "message": "Diese eine Freigabe gilt für das genau signierte Manifest: $DETAIL$.",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
   "copy_82e80a0531": {
     "message": "Die Zeitlinie enthält nur Lese- und Navigationsschritte."
@@ -2384,7 +2487,12 @@
     "message": "Wiedergabe konnte nicht gestartet werden."
   },
   "copy_816797656b": {
-    "message": "Wiedergabe konnte nicht gestartet werden: $ERROR$"
+    "message": "Wiedergabe konnte nicht gestartet werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6a7fdeaea6": {
     "message": "Sitzungsverlauf konnte nicht gelöscht werden"
@@ -2396,7 +2504,12 @@
     "message": "Aufnahme wartet auf Prüfung"
   },
   "copy_712090559d": {
-    "message": "Sitzung konnte nicht geladen werden: $ERROR$"
+    "message": "Sitzung konnte nicht geladen werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c249c35164": {
     "message": "Gesamten Sitzungsverlauf löschen? Das kann nicht rückgängig gemacht werden."
@@ -2408,7 +2521,12 @@
     "message": "Aufgabe teilweise abgeschlossen"
   },
   "copy_2786eaaa0e": {
-    "message": "Auf empfohlen zurücksetzen ($COUNT$)"
+    "message": "Auf empfohlen zurücksetzen ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_03cea39622": {
     "message": "Gib den Modellnamen unten ein"
@@ -2525,7 +2643,12 @@
     "message": "Kein API-Schlüssel"
   },
   "copy_ec6c5d7132": {
-    "message": "Konfiguriere deinen $NAME$-API-Schlüssel, um zu beginnen"
+    "message": "Konfiguriere deinen $NAME$-API-Schlüssel, um zu beginnen",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_59b831ea1c": {
     "message": "API-Schlüssel ist erforderlich"
@@ -2543,13 +2666,23 @@
     "message": "Installiert und kompatibel: Grok Build 1.0.4. Isolation, ACP und zwischengespeicherte OAuth-Prüfungen sind ohne Prompt erfolgreich."
   },
   "copy_aab517a207": {
-    "message": "Kompatibilitätsprüfung fehlgeschlagen: $ERROR$"
+    "message": "Kompatibilitätsprüfung fehlgeschlagen: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b33e732cc1": {
     "message": "Protokolle erfolgreich exportiert"
   },
   "copy_11eb704622": {
-    "message": "Einwilligungsmodus für $ORIGIN$"
+    "message": "Einwilligungsmodus für $ORIGIN$",
+    "placeholders": {
+      "origin": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7655b9531e": {
     "message": "Prüfprotokoll nicht verfügbar"
@@ -2603,7 +2736,12 @@
     "message": "Sitzungsereignisse konnten nicht geladen werden"
   },
   "copy_952bb703c9": {
-    "message": "Weitere Sitzungsereignisse konnten nicht geladen werden: $ERROR$"
+    "message": "Weitere Sitzungsereignisse konnten nicht geladen werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ce10cc25bb": {
     "message": "Keine Sitzung ausgewählt"
@@ -2657,7 +2795,12 @@
     "message": "Sitzung konnte nicht exportiert werden"
   },
   "copy_30784a43b1": {
-    "message": "Fehler beim Entsperren des Tresors: $ERROR$"
+    "message": "Fehler beim Entsperren des Tresors: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b621934f80": {
     "message": "PINs stimmen nicht überein"
@@ -2669,13 +2812,23 @@
     "message": "Tresor konnte nicht erstellt werden"
   },
   "copy_be90a4301c": {
-    "message": "Fehler beim Erstellen des Tresors: $ERROR$"
+    "message": "Fehler beim Erstellen des Tresors: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_344e10f557": {
     "message": "Gib deinen PIN ein"
   },
   "copy_d8689df745": {
-    "message": "Fehler beim Sperren des Tresors: $ERROR$"
+    "message": "Fehler beim Sperren des Tresors: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_025f3d105c": {
     "message": "Domäne ist erforderlich"
@@ -2684,25 +2837,55 @@
     "message": "Benutzername oder Passwort ist erforderlich"
   },
   "copy_9afaa0cd06": {
-    "message": "Speichern fehlgeschlagen: $ERROR$"
+    "message": "Speichern fehlgeschlagen: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_161d5eb702": {
-    "message": "Fehler beim Speichern der Anmeldedaten: $ERROR$"
+    "message": "Fehler beim Speichern der Anmeldedaten: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_2be1559933": {
-    "message": "Gespeicherte Anmeldedaten für „$DOMAIN$“ löschen? Das kann nicht rückgängig gemacht werden."
+    "message": "Gespeicherte Anmeldedaten für „$DOMAIN$“ löschen? Das kann nicht rückgängig gemacht werden.",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_742e696153": {
-    "message": "Löschen fehlgeschlagen: $ERROR$"
+    "message": "Löschen fehlgeschlagen: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f91e85ab50": {
-    "message": "Fehler beim Löschen der Anmeldedaten: $ERROR$"
+    "message": "Fehler beim Löschen der Anmeldedaten: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6ddb0ed270": {
     "message": "Zahlungsmethoden entsperrt"
   },
   "copy_c75e2cc897": {
-    "message": "Fehler beim Entsperren der Zahlungsmethoden: $ERROR$"
+    "message": "Fehler beim Entsperren der Zahlungsmethoden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b69b2dc301": {
     "message": "Zahlungsmethoden gesperrt"
@@ -2711,7 +2894,12 @@
     "message": "Zahlungsmethoden konnten nicht gesperrt werden"
   },
   "copy_af2ea4b480": {
-    "message": "Fehler beim Sperren der Zahlungsmethoden: $ERROR$"
+    "message": "Fehler beim Sperren der Zahlungsmethoden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_38c2cc72e3": {
     "message": "Bitte gib deinen numerischen PIN ein"
@@ -2735,7 +2923,12 @@
     "message": "Zahlungsmethode gespeichert"
   },
   "copy_58adb591be": {
-    "message": "Fehler beim Speichern der Zahlungsmethode: $ERROR$"
+    "message": "Fehler beim Speichern der Zahlungsmethode: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f03b63954b": {
     "message": "Diese Zahlungsmethode löschen? Das kann nicht rückgängig gemacht werden."
@@ -2744,7 +2937,12 @@
     "message": "Zahlungsmethode gelöscht"
   },
   "copy_2a0de92af3": {
-    "message": "Fehler beim Löschen der Zahlungsmethode: $ERROR$"
+    "message": "Fehler beim Löschen der Zahlungsmethode: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4f15f65f6e": {
     "message": "Bitte gib eine URL zum Erkunden ein"
@@ -2753,13 +2951,23 @@
     "message": "Ungültiges URL-Format"
   },
   "copy_a6215dba6d": {
-    "message": "Explorer konnte nicht gestartet werden: $ERROR$"
+    "message": "Explorer konnte nicht gestartet werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_284429f90b": {
     "message": "Alle Crawler gestoppt"
   },
   "copy_aee9e10eae": {
-    "message": "Crawl für $DOMAIN$ fehlgeschlagen"
+    "message": "Crawl für $DOMAIN$ fehlgeschlagen",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d604ffed30": {
     "message": "Forschungsdaten nicht gefunden"
@@ -2792,22 +3000,58 @@
     "message": "Sitemap wird mit KI verfeinert..."
   },
   "copy_00834dcdc3": {
-    "message": "Sitemap für $DOMAIN$: $PAGES$ Seiten, $FORMS$ Formulare (mit KI verbessert)"
+    "message": "Sitemap für $DOMAIN$: $PAGES$ Seiten, $FORMS$ Formulare (mit KI verbessert)",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      },
+      "pages": {
+        "content": "$2"
+      },
+      "forms": {
+        "content": "$3"
+      }
+    }
   },
   "copy_a249e56325": {
-    "message": "Sitemap für $DOMAIN$ gespeichert und verfeinert"
+    "message": "Sitemap für $DOMAIN$ gespeichert und verfeinert",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_237923127b": {
-    "message": "Sitemap für $DOMAIN$ gespeichert (Verfeinerung lieferte keine Daten)"
+    "message": "Sitemap für $DOMAIN$ gespeichert (Verfeinerung lieferte keine Daten)",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_35d9e0c46c": {
-    "message": "Sitemap gespeichert (KI-Verfeinerung fehlgeschlagen: $ERROR$)"
+    "message": "Sitemap gespeichert (KI-Verfeinerung fehlgeschlagen: $ERROR$)",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c8c83ca919": {
-    "message": "Sitemap für $DOMAIN$ im Speicher gespeichert"
+    "message": "Sitemap für $DOMAIN$ im Speicher gespeichert",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c32ea6d22f": {
-    "message": "Speichern im Speicher fehlgeschlagen: $ERROR$"
+    "message": "Speichern im Speicher fehlgeschlagen: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_963ba004ea": {
     "message": "Möchtest du wirklich ALLE Forschungsergebnisse löschen? Das kann nicht rückgängig gemacht werden."
@@ -2828,7 +3072,12 @@
     "message": "Hash-Schlüssel konnte nicht erzeugt werden"
   },
   "copy_52b3b70484": {
-    "message": "Verbindung zum Server nicht möglich: $ERROR$"
+    "message": "Verbindung zum Server nicht möglich: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cbdbc53db1": {
     "message": "Kein Hash-Schlüssel zum Kopieren"
@@ -2858,10 +3107,20 @@
     "message": "Fehlerhafte Kopplungsantwort"
   },
   "copy_30fa7c27e5": {
-    "message": "Kopplungscode konnte nicht erzeugt werden: $ERROR$"
+    "message": "Kopplungscode konnte nicht erzeugt werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_acce51c1d3": {
-    "message": "Hash-Schlüssel konnte nicht registriert werden: $ERROR$"
+    "message": "Hash-Schlüssel konnte nicht registriert werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cb4c956be2": {
     "message": "Diesen Speicher löschen?"
@@ -2891,7 +3150,12 @@
     "message": "Sitemap erfolgreich verfeinert"
   },
   "copy_a266f3a3ce": {
-    "message": "KI-Verfeinerung fehlgeschlagen: $ERROR$"
+    "message": "KI-Verfeinerung fehlgeschlagen: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0b0bdbabab": {
     "message": "ALLE Speicher löschen? Das kann nicht rückgängig gemacht werden."
@@ -2900,7 +3164,12 @@
     "message": "Alle Speicher gelöscht"
   },
   "copy_e158cd5a5e": {
-    "message": "Speicher konnten nicht gelöscht werden: $ERROR$"
+    "message": "Speicher konnten nicht gelöscht werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_21ce69d58b": {
     "message": "Fernsteuerung aktiv"

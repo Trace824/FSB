@@ -2171,10 +2171,20 @@
     "message": "它不能编辑文件、运行 shell 命令或获取任意 URL。"
   },
   "copy_65974683e8": {
-    "message": "在以后的运行中信任 $NAME$"
+    "message": "在以后的运行中信任 $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_a9780e01fc": {
-    "message": "这会关闭此浏览器上以后 $NAME$ 运行的确认。"
+    "message": "这会关闭此浏览器上以后 $NAME$ 运行的确认。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_88cad98751": {
     "message": "无法保存确认偏好。请重试，或不建立信任并继续。"
@@ -2183,7 +2193,12 @@
     "message": "无法启动代理。请检查权限后重试。"
   },
   "copy_02df469915": {
-    "message": "允许并启动 $NAME$"
+    "message": "允许并启动 $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_63b90cc26c": {
     "message": "本机助手已与另一个扩展配对"
@@ -2204,7 +2219,12 @@
     "message": "所选提供方不支持控制浏览器标签页的代理。请选择支持的代理提供方，然后重试此消息。"
   },
   "copy_664ba782e6": {
-    "message": "请在本地登录 $NAME$，然后重试此消息。"
+    "message": "请在本地登录 $NAME$，然后重试此消息。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_1c5510dd75": {
     "message": "“测试连接”仍可能成功，因为它不会启动委派运行。请重试消息或检查提供方设置。"
@@ -2246,7 +2266,12 @@
     "message": "请安装或更新 FSB 本机助手，然后重试。FSB 会自动连接此浏览器。"
   },
   "copy_87db7a3927": {
-    "message": "FSB 无法将此标签页交还给 $NAME$，因此运行已结束，标签页仍由你控制。准备好后请开始新任务。"
+    "message": "FSB 无法将此标签页交还给 $NAME$，因此运行已结束，标签页仍由你控制。准备好后请开始新任务。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d1708202db": {
     "message": "重试消息"
@@ -2270,19 +2295,39 @@
     "message": "开始另一项任务之前，请在原来的标签页和对话中完成待处理的代理清理。你的消息已保留。"
   },
   "copy_b3715a6900": {
-    "message": "FSB 无法将此标签页交还给 $NAME$，因此运行已结束，标签页仍由你控制。"
+    "message": "FSB 无法将此标签页交还给 $NAME$，因此运行已结束，标签页仍由你控制。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_47220517c7": {
     "message": "未安装 FSB 的本地助手。请运行：npx -y fsb-mcp-server@latest install --native-host"
   },
   "copy_d0b5d103f7": {
-    "message": "正在对 $DOMAIN$ 开始侦察..."
+    "message": "正在对 $DOMAIN$ 开始侦察...",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7654da628e": {
-    "message": "侦察未能开始：$ERROR$"
+    "message": "侦察未能开始：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ca79bcd4d7": {
-    "message": "侦察完成！已保存 $DOMAIN$ 的站点地图。"
+    "message": "侦察完成！已保存 $DOMAIN$ 的站点地图。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0f654a723b": {
     "message": "自动化已完成，但没有提供摘要。如果任务未按预期完成，请重试。"
@@ -2324,22 +2369,47 @@
     "message": "正在跳过重放步骤..."
   },
   "copy_2d7848007e": {
-    "message": "无法应用重放决定：$ERROR$"
+    "message": "无法应用重放决定：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d3db7357d": {
     "message": "已阻止 · 已隐去的输入"
   },
   "copy_4916a64c38": {
-    "message": "MCP 客户端请求在 $COUNT$ 个新标签页中重放。"
+    "message": "MCP 客户端请求在 $COUNT$ 个新标签页中重放。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c15b9f2acd": {
-    "message": "MCP 客户端请求在 $COUNT$ 个新标签页中重放。"
+    "message": "MCP 客户端请求在 $COUNT$ 个新标签页中重放。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_552d4905b4": {
-    "message": "一次批准只覆盖经核实的清单本身，其中包括 $COUNT$ 个高影响步骤。"
+    "message": "一次批准只覆盖经核实的清单本身，其中包括 $COUNT$ 个高影响步骤。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c946b4834": {
-    "message": "一次批准只覆盖经核实的清单本身，其中包括 $COUNT$ 个高影响步骤。"
+    "message": "一次批准只覆盖经核实的清单本身，其中包括 $COUNT$ 个高影响步骤。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_9240c9c130": {
     "message": "一次批准只覆盖经核实的清单本身。"
@@ -2351,28 +2421,61 @@
     "message": "无法开始重放"
   },
   "copy_1a0ef83852": {
-    "message": "无法开始所请求的重放：$ERROR$"
+    "message": "无法开始所请求的重放：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_98db9dc8c5": {
     "message": "取消重放失败"
   },
   "copy_4ed0e5ecba": {
-    "message": "无法取消重放请求：$ERROR$"
+    "message": "无法取消重放请求：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d9f4051eb": {
     "message": "重放验证失败"
   },
   "copy_fc1f569fa7": {
-    "message": "此记录仅可检查，因为 $TOTAL$ 次已记录调用中只有最近的 $LATEST$ 次可用。更早的浏览器状态无法安全重建。"
+    "message": "此记录仅可检查，因为 $TOTAL$ 次已记录调用中只有最近的 $LATEST$ 次可用。更早的浏览器状态无法安全重建。",
+    "placeholders": {
+      "latest": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "copy_a2f62124e7": {
-    "message": "要在 $COUNT$ 个新标签页中重放此已核实的时间线吗？"
+    "message": "要在 $COUNT$ 个新标签页中重放此已核实的时间线吗？",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c55f6bc6e": {
-    "message": "要在 $COUNT$ 个新标签页中重放此已核实的时间线吗？"
+    "message": "要在 $COUNT$ 个新标签页中重放此已核实的时间线吗？",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_dea4fcd3a0": {
-    "message": "这一次批准只覆盖已签名的清单本身：$DETAIL$。"
+    "message": "这一次批准只覆盖已签名的清单本身：$DETAIL$。",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
   "copy_82e80a0531": {
     "message": "时间线只包含读取和导航步骤。"
@@ -2384,7 +2487,12 @@
     "message": "无法开始重放。"
   },
   "copy_816797656b": {
-    "message": "无法开始重放：$ERROR$"
+    "message": "无法开始重放：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6a7fdeaea6": {
     "message": "无法删除会话历史"
@@ -2396,7 +2504,12 @@
     "message": "捕获正在等待验证"
   },
   "copy_712090559d": {
-    "message": "无法加载会话：$ERROR$"
+    "message": "无法加载会话：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c249c35164": {
     "message": "删除全部会话历史？此操作无法撤销。"
@@ -2408,7 +2521,12 @@
     "message": "任务部分完成"
   },
   "copy_2786eaaa0e": {
-    "message": "重置为建议值 ($COUNT$)"
+    "message": "重置为建议值 ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_03cea39622": {
     "message": "在下方输入模型名称"
@@ -2525,7 +2643,12 @@
     "message": "没有 API 密钥"
   },
   "copy_ec6c5d7132": {
-    "message": "配置你的 $NAME$ API 密钥以开始使用"
+    "message": "配置你的 $NAME$ API 密钥以开始使用",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_59b831ea1c": {
     "message": "需要 API 密钥"
@@ -2543,13 +2666,23 @@
     "message": "已安装且兼容：Grok Build 1.0.4。隔离、ACP 和缓存的 OAuth 检查已通过，且未发送提示。"
   },
   "copy_aab517a207": {
-    "message": "兼容性检查失败：$ERROR$"
+    "message": "兼容性检查失败：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b33e732cc1": {
     "message": "日志已导出"
   },
   "copy_11eb704622": {
-    "message": "$ORIGIN$ 的同意模式"
+    "message": "$ORIGIN$ 的同意模式",
+    "placeholders": {
+      "origin": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7655b9531e": {
     "message": "审计日志不可用"
@@ -2603,7 +2736,12 @@
     "message": "无法加载会话事件"
   },
   "copy_952bb703c9": {
-    "message": "无法加载更多会话事件：$ERROR$"
+    "message": "无法加载更多会话事件：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ce10cc25bb": {
     "message": "未选择会话"
@@ -2657,7 +2795,12 @@
     "message": "无法导出会话"
   },
   "copy_30784a43b1": {
-    "message": "解锁保险库出错：$ERROR$"
+    "message": "解锁保险库出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b621934f80": {
     "message": "PIN 不一致"
@@ -2669,13 +2812,23 @@
     "message": "无法创建保险库"
   },
   "copy_be90a4301c": {
-    "message": "创建保险库出错：$ERROR$"
+    "message": "创建保险库出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_344e10f557": {
     "message": "输入你的 PIN"
   },
   "copy_d8689df745": {
-    "message": "锁定保险库出错：$ERROR$"
+    "message": "锁定保险库出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_025f3d105c": {
     "message": "域名为必填"
@@ -2684,25 +2837,55 @@
     "message": "需要用户名或密码"
   },
   "copy_9afaa0cd06": {
-    "message": "保存失败：$ERROR$"
+    "message": "保存失败：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_161d5eb702": {
-    "message": "保存凭据出错：$ERROR$"
+    "message": "保存凭据出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_2be1559933": {
-    "message": "删除“$DOMAIN$”的已保存凭据？此操作无法撤销。"
+    "message": "删除“$DOMAIN$”的已保存凭据？此操作无法撤销。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_742e696153": {
-    "message": "删除失败：$ERROR$"
+    "message": "删除失败：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f91e85ab50": {
-    "message": "删除凭据出错：$ERROR$"
+    "message": "删除凭据出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6ddb0ed270": {
     "message": "付款方式已解锁"
   },
   "copy_c75e2cc897": {
-    "message": "解锁付款方式出错：$ERROR$"
+    "message": "解锁付款方式出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b69b2dc301": {
     "message": "付款方式已锁定"
@@ -2711,7 +2894,12 @@
     "message": "无法锁定付款方式"
   },
   "copy_af2ea4b480": {
-    "message": "锁定付款方式出错：$ERROR$"
+    "message": "锁定付款方式出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_38c2cc72e3": {
     "message": "请输入数字 PIN"
@@ -2735,7 +2923,12 @@
     "message": "付款方式已保存"
   },
   "copy_58adb591be": {
-    "message": "保存付款方式出错：$ERROR$"
+    "message": "保存付款方式出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f03b63954b": {
     "message": "删除此付款方式？此操作无法撤销。"
@@ -2744,7 +2937,12 @@
     "message": "付款方式已删除"
   },
   "copy_2a0de92af3": {
-    "message": "删除付款方式出错：$ERROR$"
+    "message": "删除付款方式出错：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4f15f65f6e": {
     "message": "请输入要探索的 URL"
@@ -2753,13 +2951,23 @@
     "message": "URL 格式无效"
   },
   "copy_a6215dba6d": {
-    "message": "无法启动探索：$ERROR$"
+    "message": "无法启动探索：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_284429f90b": {
     "message": "已停止所有爬取"
   },
   "copy_aee9e10eae": {
-    "message": "$DOMAIN$ 的爬取失败"
+    "message": "$DOMAIN$ 的爬取失败",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d604ffed30": {
     "message": "未找到研究数据"
@@ -2792,22 +3000,58 @@
     "message": "正在用 AI 优化站点地图..."
   },
   "copy_00834dcdc3": {
-    "message": "$DOMAIN$ 的站点地图：$PAGES$ 个页面，$FORMS$ 个表单（AI 增强）"
+    "message": "$DOMAIN$ 的站点地图：$PAGES$ 个页面，$FORMS$ 个表单（AI 增强）",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      },
+      "pages": {
+        "content": "$2"
+      },
+      "forms": {
+        "content": "$3"
+      }
+    }
   },
   "copy_a249e56325": {
-    "message": "已保存并优化 $DOMAIN$ 的站点地图"
+    "message": "已保存并优化 $DOMAIN$ 的站点地图",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_237923127b": {
-    "message": "已保存 $DOMAIN$ 的站点地图（优化未返回数据）"
+    "message": "已保存 $DOMAIN$ 的站点地图（优化未返回数据）",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_35d9e0c46c": {
-    "message": "站点地图已保存（AI 优化失败：$ERROR$）"
+    "message": "站点地图已保存（AI 优化失败：$ERROR$）",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c8c83ca919": {
-    "message": "已将 $DOMAIN$ 的站点地图保存到记忆"
+    "message": "已将 $DOMAIN$ 的站点地图保存到记忆",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c32ea6d22f": {
-    "message": "保存到记忆失败：$ERROR$"
+    "message": "保存到记忆失败：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_963ba004ea": {
     "message": "确定删除全部研究结果吗？此操作无法撤销。"
@@ -2828,7 +3072,12 @@
     "message": "无法生成哈希密钥"
   },
   "copy_52b3b70484": {
-    "message": "无法连接服务器：$ERROR$"
+    "message": "无法连接服务器：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cbdbc53db1": {
     "message": "没有可复制的哈希密钥"
@@ -2858,10 +3107,20 @@
     "message": "配对响应格式错误"
   },
   "copy_30fa7c27e5": {
-    "message": "无法生成配对码：$ERROR$"
+    "message": "无法生成配对码：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_acce51c1d3": {
-    "message": "无法注册哈希密钥：$ERROR$"
+    "message": "无法注册哈希密钥：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cb4c956be2": {
     "message": "删除此记忆？"
@@ -2891,7 +3150,12 @@
     "message": "站点地图已优化"
   },
   "copy_a266f3a3ce": {
-    "message": "AI 优化失败：$ERROR$"
+    "message": "AI 优化失败：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0b0bdbabab": {
     "message": "删除全部记忆？此操作无法撤销。"
@@ -2900,7 +3164,12 @@
     "message": "已清除全部记忆"
   },
   "copy_e158cd5a5e": {
-    "message": "无法清除记忆：$ERROR$"
+    "message": "无法清除记忆：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_21ce69d58b": {
     "message": "远程控制已启用"

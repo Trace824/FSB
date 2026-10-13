@@ -2171,10 +2171,20 @@
     "message": "ファイルの編集、シェルコマンドの実行、任意の URL の取得はできません。"
   },
   "copy_65974683e8": {
-    "message": "今後の実行で $NAME$ を信頼する"
+    "message": "今後の実行で $NAME$ を信頼する",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_a9780e01fc": {
-    "message": "このブラウザでの今後の $NAME$ 実行について確認をオフにします。"
+    "message": "このブラウザでの今後の $NAME$ 実行について確認をオフにします。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_88cad98751": {
     "message": "確認の設定を保存できませんでした。再試行するか、信頼せずに続行してください。"
@@ -2183,7 +2193,12 @@
     "message": "エージェントを開始できませんでした。権限を確認して再試行してください。"
   },
   "copy_02df469915": {
-    "message": "$NAME$ を許可して開始"
+    "message": "$NAME$ を許可して開始",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_63b90cc26c": {
     "message": "ネイティブヘルパーは別の拡張機能とペアリングされています"
@@ -2204,7 +2219,12 @@
     "message": "選択したプロバイダーは、ブラウザのタブを操作するエージェントに対応していません。対応するエージェントプロバイダーを選んで、このメッセージを再試行してください。"
   },
   "copy_664ba782e6": {
-    "message": "ローカルで $NAME$ にサインインしてから、このメッセージを再試行してください。"
+    "message": "ローカルで $NAME$ にサインインしてから、このメッセージを再試行してください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_1c5510dd75": {
     "message": "接続テストは委任実行を開始しないため、成功することがあります。メッセージを再試行するか、プロバイダー設定を確認してください。"
@@ -2246,7 +2266,12 @@
     "message": "FSB ネイティブヘルパーをインストールまたは更新してから再試行してください。FSB がこのブラウザを自動的に接続します。"
   },
   "copy_87db7a3927": {
-    "message": "FSB はこのタブを $NAME$ に戻せなかったため、実行は終了し、タブはあなたの制御下に残っています。準備ができたら新しいタスクを開始してください。"
+    "message": "FSB はこのタブを $NAME$ に戻せなかったため、実行は終了し、タブはあなたの制御下に残っています。準備ができたら新しいタスクを開始してください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d1708202db": {
     "message": "メッセージを再試行"
@@ -2270,19 +2295,39 @@
     "message": "別のタスクを始める前に、元のタブと会話で保留中のエージェント後処理を終えてください。メッセージは保持されています。"
   },
   "copy_b3715a6900": {
-    "message": "FSB はこのタブを $NAME$ に戻せなかったため、実行は終了し、タブはあなたの制御下に残っています。"
+    "message": "FSB はこのタブを $NAME$ に戻せなかったため、実行は終了し、タブはあなたの制御下に残っています。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_47220517c7": {
     "message": "FSB のローカルヘルパーがインストールされていません。実行: npx -y fsb-mcp-server@latest install --native-host"
   },
   "copy_d0b5d103f7": {
-    "message": "$DOMAIN$ の偵察を開始しています..."
+    "message": "$DOMAIN$ の偵察を開始しています...",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7654da628e": {
-    "message": "偵察を開始できませんでした: $ERROR$"
+    "message": "偵察を開始できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ca79bcd4d7": {
-    "message": "偵察が完了しました。$DOMAIN$ のサイトマップを保存しました。"
+    "message": "偵察が完了しました。$DOMAIN$ のサイトマップを保存しました。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0f654a723b": {
     "message": "自動化は完了しましたが、要約がありません。タスクが期待どおりに完了していない場合は再試行してください。"
@@ -2324,22 +2369,47 @@
     "message": "再生ステップをスキップしています..."
   },
   "copy_2d7848007e": {
-    "message": "再生の判断を適用できませんでした: $ERROR$"
+    "message": "再生の判断を適用できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d3db7357d": {
     "message": "ブロック済み · 伏せた入力"
   },
   "copy_4916a64c38": {
-    "message": "MCP クライアントがこの再生を $COUNT$ 個の新しいタブで要求しました。"
+    "message": "MCP クライアントがこの再生を $COUNT$ 個の新しいタブで要求しました。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c15b9f2acd": {
-    "message": "MCP クライアントがこの再生を $COUNT$ 個の新しいタブで要求しました。"
+    "message": "MCP クライアントがこの再生を $COUNT$ 個の新しいタブで要求しました。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_552d4905b4": {
-    "message": "1 回の承認は検証済みのマニフェストそのものだけを対象とし、影響の大きいステップ $COUNT$ 個を含みます。"
+    "message": "1 回の承認は検証済みのマニフェストそのものだけを対象とし、影響の大きいステップ $COUNT$ 個を含みます。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c946b4834": {
-    "message": "1 回の承認は検証済みのマニフェストそのものだけを対象とし、影響の大きいステップ $COUNT$ 個を含みます。"
+    "message": "1 回の承認は検証済みのマニフェストそのものだけを対象とし、影響の大きいステップ $COUNT$ 個を含みます。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_9240c9c130": {
     "message": "1 回の承認は検証済みのマニフェストそのものだけを対象とします。"
@@ -2351,28 +2421,61 @@
     "message": "再生を開始できませんでした"
   },
   "copy_1a0ef83852": {
-    "message": "要求された再生を開始できませんでした: $ERROR$"
+    "message": "要求された再生を開始できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_98db9dc8c5": {
     "message": "再生のキャンセルに失敗しました"
   },
   "copy_4ed0e5ecba": {
-    "message": "再生リクエストをキャンセルできませんでした: $ERROR$"
+    "message": "再生リクエストをキャンセルできませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0d9f4051eb": {
     "message": "再生の検証に失敗しました"
   },
   "copy_fc1f569fa7": {
-    "message": "この記録は検査専用です。記録された呼び出し $TOTAL$ 件のうち最新の $LATEST$ 件だけが利用できます。それより前のブラウザ状態は安全に再構成できません。"
+    "message": "この記録は検査専用です。記録された呼び出し $TOTAL$ 件のうち最新の $LATEST$ 件だけが利用できます。それより前のブラウザ状態は安全に再構成できません。",
+    "placeholders": {
+      "latest": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "copy_a2f62124e7": {
-    "message": "検証済みのタイムラインを $COUNT$ 個の新しいタブで再生しますか？"
+    "message": "検証済みのタイムラインを $COUNT$ 個の新しいタブで再生しますか？",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4c55f6bc6e": {
-    "message": "検証済みのタイムラインを $COUNT$ 個の新しいタブで再生しますか？"
+    "message": "検証済みのタイムラインを $COUNT$ 個の新しいタブで再生しますか？",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_dea4fcd3a0": {
-    "message": "この 1 回の承認は、署名済みマニフェストそのものを対象とします: $DETAIL$。"
+    "message": "この 1 回の承認は、署名済みマニフェストそのものを対象とします: $DETAIL$。",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
   },
   "copy_82e80a0531": {
     "message": "タイムラインには読み取りとナビゲーションのステップだけが含まれます。"
@@ -2384,7 +2487,12 @@
     "message": "再生を開始できませんでした。"
   },
   "copy_816797656b": {
-    "message": "再生を開始できませんでした: $ERROR$"
+    "message": "再生を開始できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6a7fdeaea6": {
     "message": "セッション履歴を削除できませんでした"
@@ -2396,7 +2504,12 @@
     "message": "キャプチャは検証待ちです"
   },
   "copy_712090559d": {
-    "message": "セッションを読み込めませんでした: $ERROR$"
+    "message": "セッションを読み込めませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c249c35164": {
     "message": "すべてのセッション履歴を削除しますか？この操作は元に戻せません。"
@@ -2408,7 +2521,12 @@
     "message": "タスクは一部完了しました"
   },
   "copy_2786eaaa0e": {
-    "message": "推奨値に戻す ($COUNT$)"
+    "message": "推奨値に戻す ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "copy_03cea39622": {
     "message": "下にモデル名を入力してください"
@@ -2525,7 +2643,12 @@
     "message": "API キーなし"
   },
   "copy_ec6c5d7132": {
-    "message": "始めるには $NAME$ の API キーを設定してください"
+    "message": "始めるには $NAME$ の API キーを設定してください",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   },
   "copy_59b831ea1c": {
     "message": "API キーが必要です"
@@ -2543,13 +2666,23 @@
     "message": "インストール済みで互換性あり: Grok Build 1.0.4。分離、ACP、キャッシュされた OAuth の確認はプロンプトを送らずに成功しました。"
   },
   "copy_aab517a207": {
-    "message": "互換性の確認に失敗しました: $ERROR$"
+    "message": "互換性の確認に失敗しました: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b33e732cc1": {
     "message": "ログをエクスポートしました"
   },
   "copy_11eb704622": {
-    "message": "$ORIGIN$ の同意モード"
+    "message": "$ORIGIN$ の同意モード",
+    "placeholders": {
+      "origin": {
+        "content": "$1"
+      }
+    }
   },
   "copy_7655b9531e": {
     "message": "監査ログを利用できません"
@@ -2603,7 +2736,12 @@
     "message": "セッションイベントを読み込めませんでした"
   },
   "copy_952bb703c9": {
-    "message": "追加のセッションイベントを読み込めませんでした: $ERROR$"
+    "message": "追加のセッションイベントを読み込めませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_ce10cc25bb": {
     "message": "セッションが選択されていません"
@@ -2657,7 +2795,12 @@
     "message": "セッションをエクスポートできませんでした"
   },
   "copy_30784a43b1": {
-    "message": "保管庫のロック解除エラー: $ERROR$"
+    "message": "保管庫のロック解除エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b621934f80": {
     "message": "PIN が一致しません"
@@ -2669,13 +2812,23 @@
     "message": "保管庫を作成できませんでした"
   },
   "copy_be90a4301c": {
-    "message": "保管庫の作成エラー: $ERROR$"
+    "message": "保管庫の作成エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_344e10f557": {
     "message": "PIN を入力してください"
   },
   "copy_d8689df745": {
-    "message": "保管庫のロックエラー: $ERROR$"
+    "message": "保管庫のロックエラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_025f3d105c": {
     "message": "ドメインは必須です"
@@ -2684,25 +2837,55 @@
     "message": "ユーザー名またはパスワードが必要です"
   },
   "copy_9afaa0cd06": {
-    "message": "保存に失敗しました: $ERROR$"
+    "message": "保存に失敗しました: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_161d5eb702": {
-    "message": "資格情報の保存エラー: $ERROR$"
+    "message": "資格情報の保存エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_2be1559933": {
-    "message": "「$DOMAIN$」の保存済み資格情報を削除しますか？この操作は元に戻せません。"
+    "message": "「$DOMAIN$」の保存済み資格情報を削除しますか？この操作は元に戻せません。",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_742e696153": {
-    "message": "削除に失敗しました: $ERROR$"
+    "message": "削除に失敗しました: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f91e85ab50": {
-    "message": "資格情報の削除エラー: $ERROR$"
+    "message": "資格情報の削除エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_6ddb0ed270": {
     "message": "支払い方法のロックを解除しました"
   },
   "copy_c75e2cc897": {
-    "message": "支払い方法のロック解除エラー: $ERROR$"
+    "message": "支払い方法のロック解除エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_b69b2dc301": {
     "message": "支払い方法をロックしました"
@@ -2711,7 +2894,12 @@
     "message": "支払い方法をロックできませんでした"
   },
   "copy_af2ea4b480": {
-    "message": "支払い方法のロックエラー: $ERROR$"
+    "message": "支払い方法のロックエラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_38c2cc72e3": {
     "message": "数字の PIN を入力してください"
@@ -2735,7 +2923,12 @@
     "message": "支払い方法を保存しました"
   },
   "copy_58adb591be": {
-    "message": "支払い方法の保存エラー: $ERROR$"
+    "message": "支払い方法の保存エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_f03b63954b": {
     "message": "この支払い方法を削除しますか？この操作は元に戻せません。"
@@ -2744,7 +2937,12 @@
     "message": "支払い方法を削除しました"
   },
   "copy_2a0de92af3": {
-    "message": "支払い方法の削除エラー: $ERROR$"
+    "message": "支払い方法の削除エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_4f15f65f6e": {
     "message": "探索する URL を入力してください"
@@ -2753,13 +2951,23 @@
     "message": "URL の形式が無効です"
   },
   "copy_a6215dba6d": {
-    "message": "エクスプローラーを開始できませんでした: $ERROR$"
+    "message": "エクスプローラーを開始できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_284429f90b": {
     "message": "すべてのクローラーを停止しました"
   },
   "copy_aee9e10eae": {
-    "message": "$DOMAIN$ のクロールに失敗しました"
+    "message": "$DOMAIN$ のクロールに失敗しました",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_d604ffed30": {
     "message": "調査データが見つかりません"
@@ -2792,22 +3000,58 @@
     "message": "AI でサイトマップを精緻化しています..."
   },
   "copy_00834dcdc3": {
-    "message": "$DOMAIN$ のサイトマップ: $PAGES$ ページ、$FORMS$ フォーム（AI で強化）"
+    "message": "$DOMAIN$ のサイトマップ: $PAGES$ ページ、$FORMS$ フォーム（AI で強化）",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      },
+      "pages": {
+        "content": "$2"
+      },
+      "forms": {
+        "content": "$3"
+      }
+    }
   },
   "copy_a249e56325": {
-    "message": "$DOMAIN$ のサイトマップを保存して精緻化しました"
+    "message": "$DOMAIN$ のサイトマップを保存して精緻化しました",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_237923127b": {
-    "message": "$DOMAIN$ のサイトマップを保存しました（精緻化はデータを返しませんでした）"
+    "message": "$DOMAIN$ のサイトマップを保存しました（精緻化はデータを返しませんでした）",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_35d9e0c46c": {
-    "message": "サイトマップを保存しました（AI の精緻化に失敗: $ERROR$）"
+    "message": "サイトマップを保存しました（AI の精緻化に失敗: $ERROR$）",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c8c83ca919": {
-    "message": "$DOMAIN$ のサイトマップをメモリに保存しました"
+    "message": "$DOMAIN$ のサイトマップをメモリに保存しました",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
   },
   "copy_c32ea6d22f": {
-    "message": "メモリへの保存に失敗しました: $ERROR$"
+    "message": "メモリへの保存に失敗しました: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_963ba004ea": {
     "message": "すべての調査結果を削除しますか？この操作は元に戻せません。"
@@ -2828,7 +3072,12 @@
     "message": "ハッシュキーを生成できませんでした"
   },
   "copy_52b3b70484": {
-    "message": "サーバーに接続できません: $ERROR$"
+    "message": "サーバーに接続できません: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cbdbc53db1": {
     "message": "コピーするハッシュキーがありません"
@@ -2858,10 +3107,20 @@
     "message": "ペアリング応答の形式が正しくありません"
   },
   "copy_30fa7c27e5": {
-    "message": "ペアリングコードを生成できませんでした: $ERROR$"
+    "message": "ペアリングコードを生成できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_acce51c1d3": {
-    "message": "ハッシュキーを登録できませんでした: $ERROR$"
+    "message": "ハッシュキーを登録できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_cb4c956be2": {
     "message": "このメモリを削除しますか？"
@@ -2891,7 +3150,12 @@
     "message": "サイトマップを精緻化しました"
   },
   "copy_a266f3a3ce": {
-    "message": "AI の精緻化に失敗しました: $ERROR$"
+    "message": "AI の精緻化に失敗しました: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_0b0bdbabab": {
     "message": "すべてのメモリを削除しますか？この操作は元に戻せません。"
@@ -2900,7 +3164,12 @@
     "message": "すべてのメモリを消去しました"
   },
   "copy_e158cd5a5e": {
-    "message": "メモリを消去できませんでした: $ERROR$"
+    "message": "メモリを消去できませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
   },
   "copy_21ce69d58b": {
     "message": "リモート制御が有効です"
