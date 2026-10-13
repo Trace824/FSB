@@ -367,7 +367,7 @@
     if (_workspace.lastContentTabId != null && typeof c.tabs.get === 'function') {
       try {
         var known = await invoke(c.tabs.get, c.tabs, [_workspace.lastContentTabId]);
-        if (known && known.id != null && !isExtensionUrl(known.url)) return known;
+        if (isContentTab(known)) return known;
       } catch (_e) { _workspace.lastContentTabId = null; }
     }
 
@@ -380,7 +380,7 @@
     var active = await invoke(c.tabs.query, c.tabs, [{ active: true }]);
     if (Array.isArray(active)) {
       for (var i = 0; i < active.length; i += 1) {
-        if (active[i] && active[i].id != null && !isExtensionUrl(active[i].url)) return active[i];
+        if (isContentTab(active[i])) return active[i];
       }
     }
     return null;
@@ -389,6 +389,16 @@
   /** A real browser window that is not the FSB workspace itself. */
   function isContentWindow(windowId) {
     return typeof windowId === 'number' && windowId >= 0 && windowId !== _workspace.windowId;
+  }
+
+  /**
+   * A tab the agent may act on. The URL check alone is not enough: a tab whose
+   * URL the browser withholds reads as a content page, and the workspace's own
+   * tab must never be one, so its window rules it out as well.
+   */
+  function isContentTab(tab) {
+    if (!tab || tab.id == null || isExtensionUrl(tab.url)) return false;
+    return tab.windowId == null || isContentWindow(tab.windowId);
   }
 
   async function activeContentTabIn(c, windowId) {
@@ -441,7 +451,7 @@
         if (!info || info.tabId == null) return;
         if (typeof c.tabs.get !== 'function') return;
         invoke(c.tabs.get, c.tabs, [info.tabId]).then(function (tab) {
-          if (tab && !isExtensionUrl(tab.url)) {
+          if (isContentTab(tab)) {
             _workspace.lastContentTabId = tab.id;
             persistContentTab();
           }

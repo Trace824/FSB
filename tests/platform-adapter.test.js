@@ -368,6 +368,37 @@ function safariLikeScope(overrides) {
     passAssert(writes.every((p) => !('fsbSafariContentTab' in p)), 'closing the workspace does not touch the content tab');
   }
 
+  console.log('\n=== 8d. the workspace tab is ruled out by its window, not just its URL ===');
+  {
+    // If Safari withholds the workspace tab's URL, the URL check alone reads it
+    // as a content page; the dashboard relay would then navigate or drive FSB's
+    // own window.
+    let activatedListener = null;
+    const wScope = safariLikeScope((s) => {
+      s.chrome.tabs.onActivated = { addListener(fn) { activatedListener = fn; } };
+      s.chrome.tabs.get = (id) => Promise.resolve(id === 55
+        ? { id: 55, windowId: 5 }
+        : { id, windowId: 7, url: 'https://seven.example.com/' });
+      s.chrome.tabs.query = () => Promise.resolve([
+        { id: 55, windowId: 5 },
+        { id: 70, windowId: 7, url: 'https://seven.example.com/' }
+      ]);
+    });
+    const wPlat = loadAdapter(wScope);
+    wPlat.install();
+    const wState = wPlat._workspaceState();
+    wState.windowId = 5;
+    wState.lastContentTabId = 70;
+    passAssert(typeof activatedListener === 'function', 'trackContentTabs registers tabs.onActivated');
+    activatedListener({ tabId: 55, windowId: 5 });
+    await new Promise((r) => setTimeout(r, 0));
+    passAssertEqual(wState.lastContentTabId, 70, 'activating the URL-less workspace tab does not adopt it');
+
+    wState.lastContentTabId = 55;
+    const picked = await wPlat.resolveTargetTab();
+    passAssertEqual(picked && picked.id, 70, 'a cached id that points at the workspace tab is passed over');
+  }
+
   console.log('\n=== 9. Lattice loopback ===');
   const lScope = safariLikeScope();
   const lPlat = loadAdapter(lScope);
