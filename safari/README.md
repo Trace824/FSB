@@ -7,7 +7,7 @@ payload is generated into `build/safari/` by `npm run build:safari`.
 ```
 npm run build:safari      # esbuild -> build/safari/ -> Version.xcconfig
 npm run validate:safari   # manifest + JS syntax + Safari negative invariants
-npm run test:safari       # 291 assertions across 8 suites
+npm run test:safari       # 576 assertions across 11 suites
 ```
 
 ## Why there is no fork
@@ -58,8 +58,8 @@ Chrome. Only the pipe differs, and the extension picks it at runtime:
 
 | transport | how | server changes |
 |---|---|---|
-| `ws` | `new WebSocket('ws://localhost:7225')` from the service worker | one line: `safari-web-extension://` added to the origin allowlist |
-| `native` | the container app holds the socket; frames relayed over `runtime.connectNative` | **none** |
+| `ws` | `new WebSocket('ws://localhost:7225')` from the service worker | `safari-web-extension://` added to the origin allowlist |
+| `native` | the container app holds the socket; frames relayed over `runtime.connectNative` | the same allowlist entry: the app sends the extension's `Origin` |
 
 Safari's ability to open `ws://localhost` from an extension page is genuinely
 undetermined — Apple forum reports of CSP refusals run from Safari 14 through
@@ -68,9 +68,29 @@ build now emits). So the extension **probes**: direct first, pin to native
 after two failures, remember the decision in `chrome.storage.local` for 7 days.
 Worst case is ~7 s once per install.
 
-The native path needs no server change because `URLSessionWebSocketTask` sends
-no `Origin` header, and the server accepts origin-less clients. That branch in
-`mcp/src/bridge.ts` is marked load-bearing — do not "harden" it away.
+Both transports present the extension's own `Origin`. `URLSessionWebSocketTask`
+sends none by default, so `MCPSocketSession` sets it from the `open` frame: the
+server treats an Origin-less socket as an MCP relay that must say
+`relay:hello`, never as the extension. The `safari-web-extension://` allowlist
+entry exists only on this branch. Published `fsb-mcp-server` (0.11.1 at the
+time of writing) refuses that origin on both transports, so Safari needs an MCP
+release cut from here.
+
+**One browser at a time, and Safari stays unpaired.** The server holds one
+extension socket and pins one extension origin in `~/.fsb/bridge-auth.json`.
+While Chrome is paired, every other browser origin is refused at the upgrade,
+paired or not; `fsb-mcp-server pair --reset` clears the pin. Safari cannot pair
+yet either:
+
+- Chrome gets its pairing code from the Node native host, which reads `~/.fsb`.
+  Safari's native messages go to the sandboxed app, which cannot.
+- Safari gives the extension a new `safari-web-extension://<UUID>` on every
+  browser launch ([WebKit bug 244330](https://bugs.webkit.org/show_bug.cgi?id=244330)),
+  so an exact-origin pin would not survive a relaunch.
+
+Unpaired, the MCP tools work. Delegated agent runs, which need pairing and the
+Node native host, do not. Pairing per browser and routing MCP calls to a chosen
+browser are planned as a separate change.
 
 **Socket lifetime is slaved to port lifetime, deliberately.** If the app kept
 :7225 open across a service-worker eviction, the hub would never see a close,
@@ -139,15 +159,28 @@ as upside, not a dependency.
 - **`upload_file`** — implemented, but **requires a folder grant**. See
   "File uploads" below. (`drop_file` is unaffected: it is a `_route:'content'`
   DOM tool that synthesizes dropzone content and never used CDP.)
-- **`network_capture`** — degraded to metadata. Safari 18's `webRequest` is
-  non-blocking and exposes no response bodies. The existing consent gate,
-  redactor and bounds all port unchanged; only the transport is missing.
+- **`network_capture`** — unavailable. Capture returns
+  `RECIPE_CAPTURE_UNAVAILABLE`, after the consent gate has run. Safari 18's
+  `webRequest` is non-blocking and exposes no response bodies, so there is no
+  CDP `Network` domain to replace it, and the build does not request
+  `webRequest` at all. The consent gate, redactor and bounds port unchanged;
+  only the transport is missing.
 - **`get_memory_stats`** — `chrome.system.memory` is Chrome-only. Returns
   `capability_unavailable`.
 - **Trusted input** — `press_key`, the drag family and `scroll_at` dispatch
   untrusted DOM events. They report `trusted:false, degraded:true` rather than
   claiming success, and will not work on sites gating on `event.isTrusted` or
   inside cross-origin iframes.
+- **Dashboard remote control** — clicks, typing and scrolling from the
+  dashboard run the same untrusted DOM fallbacks. A click moves focus the way
+  a real one does. Backspace, Delete, Enter and Tab are performed when the page
+  leaves the keydown alone; arrow keys are not, and nothing reaches into
+  iframes. A miss on the page is logged and the session stays up.
+- **Telemetry** — Safari installs send the same anonymous payload as Chrome and
+  are counted, but nothing in it names the browser, so the two cannot be told
+  apart.
+- **MCP pairing and delegated agent runs** — unavailable; see "MCP on the same
+  port".
 - **Pre-existing, not Safari-specific:** `ui/speech-to-text.js` sends
   `stt-start` / `stt-stop`, but no `background.js` handler relays them to
   `content/stt-recognition.js`. The content-script STT path is dead on Chrome
@@ -214,7 +247,9 @@ of its results by design, and the app already lists the roots in its own UI.
 | V2 | Does Safari keep ONE host process alive per `connectNative` port? | move the socket to the app over XPC |
 | V3 | Real single-message ceiling, and the failure mode (silent drop?) | lower `maxFrameBytes` via the `opened` frame |
 | V4 | Does sandboxed `URLSession` reach `localhost:7225`, and which process does the Local Network prompt name? | — |
-| V5 | Does `URLSessionWebSocketTask` send an `Origin` header? | allowlist entry already shipped |
+| V5 | Does the `Origin` the host sets on its `URLRequest` reach the server unchanged? | none: without it the server treats the socket as a relay and refuses it as the extension |
 | V6 | Does `content_scripts.world:"MAIN"` work on Safari 26? The converter warns it does not, but MDN records support from Safari 18. | register the MAIN-world script via `scripting.registerContentScripts` (Safari 16.4+) |
 | V7 | Does `port.onDisconnect` fire on SW eviction, or only explicit disconnect? | app-side inactivity timer closes :7225 |
 | V8 | Can the **extension** process resolve a security-scoped bookmark the **app** created, via the App Group? This is the documented pattern, but it is the one part of upload_file that cannot be unit-tested. | fall back to `NSOpenPanel` per upload (worse UX, still functional) |
+| V9 | After Safari evicts the background worker, does the dashboard relay come back within about a minute (reconnect alarm, then the arm on worker start)? | the 5-minute telemetry alarm also wakes the worker, and that start arms the relay |
+| V10 | Does `resolveTargetTab` return the last content tab, and does `tabs.query` report the workspace window's `safari-web-extension://` URL? | the adapter rules out the workspace's tab by its window id as well as its URL, and a tab with no URL is never streamed |
