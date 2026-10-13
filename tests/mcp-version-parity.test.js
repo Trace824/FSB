@@ -276,7 +276,7 @@ async function run() {
     ['LLM full source', llmsFullSource],
     ['generated LLM summary', llmsPublic],
     ['generated LLM full text', llmsFullPublic],
-    ...['messages.xlf', 'messages.de.xlf', 'messages.es.xlf', 'messages.ja.xlf', 'messages.zh-CN.xlf', 'messages.zh-TW.xlf']
+    ...['messages.xlf', 'messages.de.xlf', 'messages.es.xlf', 'messages.ja.xlf', 'messages.ko.xlf', 'messages.zh-CN.xlf', 'messages.zh-TW.xlf']
       .map((file) => [`showcase locale ${file}`, readText(`showcase/angular/src/locale/${file}`)]),
   ];
 
@@ -309,7 +309,8 @@ async function run() {
     .find(section => section.startsWith(`v${extensionVersion} `));
   assert(currentProductRelease
       && currentProductRelease.includes(`align at \`${extensionVersion}\``)
-      && currentProductRelease.includes(`advances to \`${canonicalVersion}\``),
+      && (currentProductRelease.includes(`advances to \`${canonicalVersion}\``)
+        || currentProductRelease.includes(`stays at \`${canonicalVersion}\``)),
     'current product changelog documents the independent extension and MCP releases');
   for (const [name, content] of [
     ['LLM summary source', llmsSource],

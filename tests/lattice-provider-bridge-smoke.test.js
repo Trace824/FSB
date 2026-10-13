@@ -631,10 +631,10 @@ async function loadOffscreenHandlerSource(chromeMock) {
   // and attachment helper -> 330. Agent tab-spawn provenance and shared model
   // discovery add two more classic-SW loads -> 332. The delegation tab seed
   // (side-panel active tab handed to the delegated agent) adds one -> 333.
-  // Merging the Skopeo runtime adds 37 mentions while main's provider,
-  // delegation, replay, native-host, and screenshot work adds 24.
+  // The retained debugger session manager adds one shared load -> 334.
+  // Merging the Skopeo runtime families adds 37 more mentions -> 371.
   const importScriptsCount = (bgSource.match(/importScripts/g) || []).length;
-  passAssertEqual(importScriptsCount, 370, 'background.js importScripts count includes both Skopeo and main runtime families');
+  passAssertEqual(importScriptsCount, 371, 'background.js importScripts count includes the Skopeo runtime families and the retained debugger session manager');
   // Companion call-site-only count (regex requires open paren): Phase 5 baseline
   // was 150 actual importScripts() calls; Phase 6 adds 1 -> 151; Phase 8 adds 1 -> 152;
   // Phase 14 adds 2 (trigger-store + trigger-lifecycle) -> 154; Phase 15 adds 2
@@ -680,11 +680,16 @@ async function loadOffscreenHandlerSource(chromeMock) {
   // journal is call site 322. The export helper is call site 323, and screenshot
   // capture adds three call sites -> 326. Agent tab-spawn provenance and
   // shared model discovery add two more call sites -> 328. The delegation tab
-  // seed is call site 329.
-  // The same union contains 35 Skopeo and 24 main call sites beyond the
-  // shared 305-call baseline.
+  // seed is call site 329. The debugger session manager is call site 330.
+  // The Skopeo runtime families add 35 more call sites -> 365.
   const importScriptsCallSites = (bgSource.match(/importScripts\(/g) || []).length;
-  passAssertEqual(importScriptsCallSites, 364, 'background.js importScripts() call sites include both Skopeo and main runtime families');
+  passAssertEqual(importScriptsCallSites, 365, 'background.js importScripts() call sites include the Skopeo runtime families and the retained debugger session manager');
+  passAssertEqual((bgSource.match(/importScripts\(['"]utils\/debugger-sessions\.js['"]\)/g) || []).length, 1,
+    'debugger session manager is loaded exactly once');
+  const lineLease = bgLines.findIndex(line => /importScripts\(['"]utils\/cdp-lease\.js['"]\)/.test(line));
+  const lineSessions = bgLines.findIndex(line => /importScripts\(['"]utils\/debugger-sessions\.js['"]\)/.test(line));
+  passAssert(lineLease >= 0 && lineSessions > lineLease,
+    'debugger session manager loads after its CDP lease dependency');
 
   const corpusLoadOrder = [
     'utils/capability-fetch.js',

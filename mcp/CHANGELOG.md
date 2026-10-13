@@ -4,18 +4,37 @@ All notable changes to `fsb-mcp-server` are documented in this file. Each entry 
 
 <a id="v1.0.0"></a>
 
-## 1.0.0 (2026-08-31)
+## 1.0.0 (2026-10-13)
 
 Version-alignment release for FSB v1.0.0. Package metadata, generated runtime version artifacts, documentation, and release instructions now use `1.0.0`.
 
 ### Compatibility
 
 - `fsb-mcp-server` 1.0.0 requires FSB extension 1.0.0 or newer for the existing `mcp:task-status` route.
-- Runtime behavior, MCP wire contracts, tool schemas, installer behavior, and dependency versions are unchanged from 0.11.0.
+- Runtime behavior, MCP wire contracts, tool schemas, installer behavior, and dependency versions are unchanged from 0.11.1.
 
 ### Anti-scope (NOT in 1.0.0)
 
 - No publish or tag action is performed by this version update. Final `npm publish fsb-mcp-server@1.0.0` remains user-gated through the `mcp-v1.0.0` release tag.
+
+<a id="v0.11.1"></a>
+
+## 0.11.1 (2026-10-08)
+
+Patch release accompanying FSB extension 0.9.92, with bridge reliability, action-delivery, and local HTTP fixes.
+
+### Fixed
+
+- **Bridge reconnection.** Unresponsive extension sockets are reaped so a stale connection no longer blocks a replacement. Hub and relay connections recover across service-worker restarts without duplicating tool delivery.
+- **Shutdown and attachment diagnostics.** Closing the MCP host's stdio pipe shuts down the server. Pairing refusals, stale connections, revocations, and shutdown causes are recorded in bounded lifecycle diagnostics and explained by `doctor`, `status`, and health responses.
+- **Action delivery.** Closed-tab and undelivered requests are distinguished from uncertain outcomes. Uncertain mutations are not repeated, and tool routing preserves selector, parameter, and ownership context.
+- **IPv6 loopback HTTP.** Owned runtime references accept numeric IPv4 and IPv6 loopback endpoints. Non-loopback clients, disallowed Host headers, and requests carrying an Origin header remain rejected.
+
+### Compatibility and update
+
+- Use `fsb-mcp-server` 0.11.1 with FSB extension 0.9.92 or newer to receive the companion editing, Google Docs confirmation, and hung-navigation recovery fixes. Restart the MCP client or native host after updating.
+- Package identity, CLI binaries, and existing MCP tool schemas are preserved. This version bump does not change dependency versions.
+- Release preparation only: publishing `fsb-mcp-server@0.11.1` uses the `mcp-v0.11.1` tag workflow after the release commit is merged into `main`.
 
 <a id="v0.11.0"></a>
 

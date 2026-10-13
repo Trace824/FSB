@@ -1831,7 +1831,7 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
     if (enabledEl) enabledEl.textContent = this.formatStatNumber(totalTokens);
     if (runsEl) runsEl.textContent = this.formatStatNumber(totalRequests);
     if (rateEl) rateEl.textContent = Math.round(successRate) + '%';
-    if (costEl) costEl.textContent = '$' + totalCost.toFixed(2);
+    if (costEl) costEl.textContent = this.formatStatCost(totalCost);
     if (remoteEl) remoteEl.textContent = this.remoteControlOn
       ? this.dashboardCopy.remoteOn
       : (payload.connection?.connected ? this.dashboardCopy.connected : this.dashboardCopy.offline);
@@ -1847,7 +1847,7 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
     if (enabledEl) enabledEl.textContent = '0';
     if (runsEl) runsEl.textContent = '0';
     if (rateEl) rateEl.textContent = '0%';
-    if (costEl) costEl.textContent = '$0.00';
+    if (costEl) costEl.textContent = this.formatStatCost(0);
     if (remoteEl) remoteEl.textContent = this.dashboardCopy.offline;
   }
 
@@ -1856,6 +1856,21 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
   private formatStatNumber(value: number): string {
     const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
     return Math.round(safe).toLocaleString(this.localeId);
+  }
+
+  // Costs are billed in USD, but the separator and symbol placement are the
+  // reader's: toFixed(2) always emits '.', so a German reader saw "$12.50"
+  // where "12,50 $" is expected.
+  private formatStatCost(value: number): string {
+    const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
+    try {
+      return new Intl.NumberFormat(this.localeId, {
+        style: 'currency',
+        currency: 'USD',
+      }).format(safe);
+    } catch {
+      return '$' + safe.toFixed(2);
+    }
   }
 
   private getRemoteViewportSize(): { width: number; height: number } {
@@ -2566,7 +2581,10 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
   private handleScannedQR(decodedText: string): void {
     try {
       const data = JSON.parse(decodedText);
-      if (!data.t) throw new Error(this.dashboardCopy.qrMissingToken);
+      if (!data.t) {
+        this.failScan(this.dashboardCopy.qrMissingToken);
+        return;
+      }
 
       if (this.tabScanContent) {
         this.tabScanContent.innerHTML = '<p class="dash-scan-instruction">' + this.escapeHtml(this.dashboardCopy.connecting) + '</p>';
@@ -2575,6 +2593,10 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
       let exchangeUrl = (data.s || '') + '/api/pair/exchange';
       if (data.s && data.s === location.origin) exchangeUrl = '/api/pair/exchange';
       if (!data.s) exchangeUrl = '/api/pair/exchange';
+
+      // Once the exchange succeeds the scanner must never come back, even if the
+      // post-pairing wiring below throws.
+      let paired = false;
 
       fetch(exchangeUrl, {
         method: 'POST',
@@ -2592,6 +2614,7 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
         }
         return resp.json();
       }).then(result => {
+        paired = true;
         this.storeSession(result.hashKey, result.sessionToken, result.expiresAt);
         this.showDashboard();
         // DEPRECATED v0.9.45rc1: superseded by OpenClaw / Claude Routines -- see PROJECT.md
@@ -2600,18 +2623,13 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
         // DEPRECATED v0.9.45rc1: superseded by OpenClaw / Claude Routines -- see PROJECT.md
         // this.startPolling();
       }).catch((err: Error & { localizedMessage?: string }) => {
-        this.showScanError(err?.localizedMessage || this.dashboardCopy.scanFailed);
-        if (this.tabScanContent) {
-          this.tabScanContent.innerHTML =
-            '<p class="dash-scan-instruction">' + this.escapeHtml(this.dashboardCopy.pointCamera) + '</p>' +
-            '<div id="qr-reader" class="dash-qr-reader" aria-label="' + this.escapeAttr(this.dashboardCopy.qrViewfinder) + '"></div>' +
-            '<p id="dash-scan-error" class="dash-scan-error" style="display: none;"></p>';
-        }
-        this.switchTab('paste');
+        if (paired) return;
+        this.failScan(err?.localizedMessage || this.dashboardCopy.qrExchangeFailed);
       });
     } catch (err) {
-      this.showScanError(this.dashboardCopy.scanFailed);
-      this.switchTab('paste');
+      // A malformed payload carries an untranslated parser message, so report
+      // our own localized copy instead of err.message.
+      this.failScan(this.dashboardCopy.scanFailed);
     }
   }
 
@@ -2621,6 +2639,23 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
       el.textContent = msg;
       el.style.display = 'block';
     }
+  }
+
+  private resetScanPanel(): void {
+    if (!this.tabScanContent) return;
+    this.tabScanContent.innerHTML =
+      '<p class="dash-scan-instruction">' + this.escapeHtml(this.dashboardCopy.pointCamera) + '</p>' +
+      '<div id="qr-reader" class="dash-qr-reader" aria-label="' + this.escapeAttr(this.dashboardCopy.qrViewfinder) + '"></div>' +
+      '<p id="dash-scan-error" class="dash-scan-error" style="display: none;"></p>';
+    this.scanError = this.el('dash-scan-error');
+  }
+
+  // Rebuild before showing: the connecting state replaces the panel markup, so
+  // writing the error first would target a node that is no longer in the DOM.
+  private failScan(message: string): void {
+    this.resetScanPanel();
+    this.showScanError(message);
+    void this.startQRScanner();
   }
 //
   // ==================== DATA LOADING ====================
@@ -4315,8 +4350,8 @@ export class DashboardPageComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!isoStr) return '-';
     try {
       const d = new Date(isoStr);
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-             ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString(this.localeId, { month: 'short', day: 'numeric' }) +
+             ' ' + d.toLocaleTimeString(this.localeId, { hour: '2-digit', minute: '2-digit' });
     } catch (e) { return isoStr; }
   }
 
