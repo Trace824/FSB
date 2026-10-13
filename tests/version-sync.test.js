@@ -22,6 +22,7 @@ const extensionExclusiveTargets = [
   'skills/fsb/SKILL.md',
   'extension/README.md',
   'showcase/about.html',
+  'showcase/dashboard.html',
   'skills/fsb/references/multi-agent-contract.md',
   'store-assets/chrome-web-store/listing-copy.md',
 ];
@@ -104,7 +105,7 @@ function lockWithoutReleaseVersion(lock) {
 function main() {
   const liveCheck = run(['--check']);
   assert.equal(liveCheck.status, 0, liveCheck.stderr || liveCheck.stdout);
-  assert.match(liveCheck.stdout, /extension 0\.9\.91; MCP 0\.11\.0/u);
+  assert.match(liveCheck.stdout, /extension 1\.0\.0; MCP 1\.0\.0/u);
 
   const targetResult = run(['--print-targets']);
   assert.equal(targetResult.status, 0, targetResult.stderr);
@@ -186,6 +187,11 @@ function main() {
     );
     assert.equal(readJson(fixtureRoot, 'extension/manifest.json').version, '0.9.92');
     assert.equal(readJson(fixtureRoot, 'extension/manifest.json').name, 'FSB v0.9.92');
+    assert.match(
+      fs.readFileSync(path.join(fixtureRoot, 'showcase/dashboard.html'), 'utf8'),
+      /FSB v0\.9\.92/u,
+      'legacy dashboard version follows the extension release',
+    );
     for (const [packagePath, lockPath] of [
       ['package.json', 'package-lock.json'],
       ['showcase/angular/package.json', 'showcase/angular/package-lock.json'],
@@ -203,7 +209,7 @@ function main() {
     }
     const mixedCheck = run(['--check'], fixtureRoot);
     assert.equal(mixedCheck.status, 0, mixedCheck.stderr || mixedCheck.stdout);
-    assert.match(mixedCheck.stdout, /extension 0\.9\.92; MCP 0\.11\.0/u);
+    assert.match(mixedCheck.stdout, /extension 0\.9\.92; MCP 1\.0\.0/u);
 
     const beforeUnpreparedMcp = targetDigests(fixtureRoot, targets);
     const unpreparedMcp = run(['mcp', '0.11.1'], fixtureRoot);

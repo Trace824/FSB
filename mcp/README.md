@@ -38,7 +38,7 @@ Use this package when you want your AI client to drive the browser directly whil
 
 > **PhantomStream (engineering milestone 0.12.0):** the dashboard live-preview and remote-control relay are now powered by the published `@full-self-browsing/phantom-stream` package on the extension and showcase side. This is an internal capture/renderer/transport change — the MCP tool schemas, routes, and bridge contracts in this server are unchanged.
 
-### What's New In v0.11.0
+### What's New In v1.0.0
 
 This is the terminal task-outcome handoff release. Full details live in `CHANGELOG.md`.
 
@@ -46,7 +46,7 @@ This is the terminal task-outcome handoff release. Full details live in `CHANGEL
 - The new `mcp:task-status` bridge message preserves agent ownership context and optional `tab_id` while handing a client-authored terminal summary to the extension's local MCP task memory.
 - Terminal outcome calls serialize behind pending browser mutations, so the summary cannot overtake the final action it describes.
 - A confirmed `fail_task` response remains `success:false` as task data but is returned as a normal MCP tool acknowledgement rather than a transport error.
-- **Compatibility:** `fsb-mcp-server` 0.11.0 requires FSB extension 0.9.91 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
+- **Compatibility:** `fsb-mcp-server` 1.0.0 requires FSB extension 1.0.0 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
 
 ### What's New In v0.10.0
 
@@ -638,9 +638,9 @@ The build command copies `extension/ai/tool-definitions.js` into `mcp/ai/tool-de
 
 ### Versioning
 
-The MCP package has its own version (`0.11.0`) because it is published independently from the extension release (`0.9.91`). Use `npm run version:set:mcp -- X.Y.Z` for MCP releases and `npm run version:set:extension -- X.Y.Z` for extension releases; `npm run version:check` verifies both domains without requiring them to match.
+The MCP package has its own version (`1.0.0`) because it is published independently from the extension release (`1.0.0`). Use `npm run version:set:mcp -- X.Y.Z` for MCP releases and `npm run version:set:extension -- X.Y.Z` for extension releases; `npm run version:check` verifies both domains without requiring them to match.
 
-Compatibility for this release: MCP 0.11.0 requires extension 0.9.91 or newer for the `mcp:task-status` route used by `complete_task`, `partial_task`, and `fail_task`. Existing `0.10.0` tool routes remain additive and unchanged.
+Compatibility for this release: MCP 1.0.0 requires extension 1.0.0 or newer for the `mcp:task-status` route used by `complete_task`, `partial_task`, and `fail_task`. Existing `0.10.0` tool routes remain additive and unchanged.
 
 Contract-sensitive changes should be covered by tests before publishing:
 
@@ -654,13 +654,13 @@ Contract-sensitive changes should be covered by tests before publishing:
 - trigger contract: `trigger`, `stop_trigger`, `get_trigger_status`, `list_triggers`, blocking/detached reporting, and local browser-open limits
 - terminal task-outcome contract: `mcp:task-status`, agent/ownership context, serialized lifecycle ordering, and `fail_task` acknowledgement semantics
 
-### Releasing 0.11.0
+### Releasing 1.0.0
 
-This 0.11.0 build is release-prep ready. The actual `npm publish` remains user-gated through the MCP-only tag workflow.
+This 1.0.0 build is release-prep ready. The actual `npm publish` remains user-gated through the MCP-only tag workflow.
 
 To publish:
 
-- Preferred: after merging to `main`, run the MCP-only tag workflow (`git tag mcp-v0.11.0 && git push origin mcp-v0.11.0`). It publishes the verified npm artifact and creates the MCP GitHub release.
+- Preferred: after merging to `main`, run the MCP-only tag workflow (`git tag mcp-v1.0.0 && git push origin mcp-v1.0.0`). It publishes the verified npm artifact and creates the MCP GitHub release.
 - Manual MCP fallback: from the release commit, run `cd mcp && npm publish --tag latest` only after confirming `npm whoami`, `npm --prefix mcp run build`, and the MCP smoke/parity/schema gates all pass.
 
 Do not run `npm publish` from autonomous mode.
