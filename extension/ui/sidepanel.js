@@ -1599,13 +1599,16 @@ function _renderDelegationConsent(options) {
   checkbox.checked = false;
   checkbox.disabled = _delegationUiState.pendingStart || _delegationUiState.pendingTrust;
   trust.appendChild(checkbox);
-  trust.appendChild(document.createTextNode('Trust ' + providerLabel + ' for future runs'));
+  trust.appendChild(document.createTextNode((globalThis.fsbUiLocale && fsbUiLocale.line)
+    ? fsbUiLocale.line('Trust $NAME$ for future runs', { name: providerLabel })
+    : 'Trust $NAME$ for future runs'.replace('$NAME$', providerLabel)));
   mount.state.appendChild(trust);
   mount.state.appendChild(_delegationElement(
     'p',
     'delegation-state-note',
-    'This turns off confirmation for future ' + providerLabel
-      + ' runs on this browser.'
+    (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('This turns off confirmation for future $NAME$ runs on this browser.', { name: providerLabel })
+      : 'This turns off confirmation for future $NAME$ runs on this browser.'.replace('$NAME$', providerLabel)
   ));
 
   if (_delegationUiState.errorCode) {
@@ -1619,7 +1622,9 @@ function _renderDelegationConsent(options) {
 
   var actions = _delegationElement('div', 'delegation-state-actions');
   var allow = _delegationAction(
-    'Allow & start ' + providerLabel,
+    (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('Allow & start $NAME$', { name: providerLabel })
+      : 'Allow & start $NAME$'.replace('$NAME$', providerLabel),
     'delegation-action-primary',
     function() { _allowDelegationFromConsent(checkbox); }
   );
@@ -1857,8 +1862,9 @@ function _renderDelegationPreflightFailure(result) {
     secondaryAction = null;
   } else if (code === 'auth_unauthenticated') {
     headingText = providerLabel + ' cannot start this task';
-    bodyText = 'Sign in to ' + providerLabel
-      + ' locally, then try this message again.';
+    bodyText = (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('Sign in to $NAME$ locally, then try this message again.', { name: providerLabel })
+      : 'Sign in to $NAME$ locally, then try this message again.'.replace('$NAME$', providerLabel);
     primaryLabel = 'Open provider setup';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = 'Back to message';
@@ -2242,8 +2248,9 @@ function _renderDelegationRunHeader(container, snapshot) {
     container.appendChild(_delegationElement(
       'p',
       'delegation-state-body',
-      'FSB could not return this tab to ' + providerLabel
-        + ', so the run ended and the tab remains under your control. Start a new task when you are ready.'
+      (globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready.', { name: providerLabel })
+        : 'FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready.'.replace('$NAME$', providerLabel)
     ));
     var resumeFailureActions = _delegationElement('div', 'delegation-state-actions');
     resumeFailureActions.appendChild(_delegationAction(
@@ -3426,7 +3433,9 @@ function _delegatedRunErrorMessage(snapshot) {
     return 'The previous agent process was stopped and was not reattached. Start a new task when the local service is ready.';
   }
   if (code === 'resume_ownership_lost' || code === 'hold_expired') {
-    return 'FSB could not return this tab to ' + label + ', so the run ended and the tab remains under your control.';
+    return (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control.', { name: label })
+      : 'FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control.'.replace('$NAME$', label);
   }
   if (code === 'wall_clock_timeout') return label + ' ran past the time limit for this task.';
   if (code === 'event_silence_timeout') return label + ' stopped sending updates, so FSB ended the run.';
@@ -3614,7 +3623,9 @@ async function startReconFromSidepanel(url, originalTask) {
   pendingReconTask = originalTask;
   const domain = new URL(url).hostname;
 
-  addMessage('Starting reconnaissance on ' + domain + '...', 'system');
+  addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+    ? fsbUiLocale.line('Starting reconnaissance on $DOMAIN$...', { domain: domain })
+    : 'Starting reconnaissance on $DOMAIN$...'.replace('$DOMAIN$', domain), 'system');
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -3626,7 +3637,9 @@ async function startReconFromSidepanel(url, originalTask) {
     });
 
     if (!response || !response.success) {
-      addMessage('Reconnaissance failed to start: ' + (response?.error || 'Unknown error'), 'system');
+      addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('Reconnaissance failed to start: $ERROR$', { error: response?.error || 'Unknown error' })
+        : 'Reconnaissance failed to start: $ERROR$'.replace('$ERROR$', response?.error || 'Unknown error'), 'system');
       pendingReconTask = null;
     }
   } catch (error) {
@@ -3675,7 +3688,9 @@ function handleReconComplete(data) {
     reconProgressMessages.delete(id);
   }
 
-  addMessage('Reconnaissance complete! Site map saved for ' + (data?.domain || 'this site') + '.', 'system');
+  addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+    ? fsbUiLocale.line('Reconnaissance complete! Site map saved for $DOMAIN$.', { domain: data?.domain || 'this site' })
+    : 'Reconnaissance complete! Site map saved for $DOMAIN$.'.replace('$DOMAIN$', data?.domain || 'this site'), 'system');
 
   // Offer retry with the original task
   if (pendingReconTask) {
@@ -4519,7 +4534,9 @@ async function _handleLegacySendMessage(message) {
       ownershipToken: legacy && legacy.ownershipToken
     }, (response) => {
       if (chrome.runtime.lastError) {
-        addMessage(`Error communicating with background script: ${chrome.runtime.lastError.message}`, 'error');
+        addMessage((globalThis.fsbUiLocale && fsbUiLocale.text)
+          ? fsbUiLocale.text('shell_error_background', 'Error communicating with background script: $ERROR$', { error: chrome.runtime.lastError.message })
+          : 'Error communicating with background script: $ERROR$'.replace('$ERROR$', chrome.runtime.lastError.message), 'error');
         return;
       }
 
@@ -4536,14 +4553,18 @@ async function _handleLegacySendMessage(message) {
           // Show Chrome page error as plain text, not in a bubble
           showChromepageError(errorMsg);
         } else {
-          addMessage(`I encountered an error: ${errorMsg}`, 'error');
+          addMessage((globalThis.fsbUiLocale && fsbUiLocale.text)
+            ? fsbUiLocale.text('shell_error_encountered', 'I encountered an error: $ERROR$', { error: errorMsg })
+            : 'I encountered an error: $ERROR$'.replace('$ERROR$', errorMsg), 'error');
         }
         setIdleState(_activeTabIdSnapshot);
       }
     });
     
   } catch (error) {
-    addMessage(`Something went wrong: ${error.message}`, 'error');
+    addMessage((globalThis.fsbUiLocale && fsbUiLocale.text)
+      ? fsbUiLocale.text('shell_error_generic', 'Something went wrong: $ERROR$', { error: error.message })
+      : 'Something went wrong: $ERROR$'.replace('$ERROR$', error.message), 'error');
     setIdleState(_activeTabIdSnapshot);
   }
 }
@@ -4570,7 +4591,9 @@ function stopAutomation() {
     
     if (chrome.runtime.lastError) {
       console.error('Side panel: Chrome runtime error:', chrome.runtime.lastError);
-      addMessage(`Error communicating with background script: ${chrome.runtime.lastError.message}`, 'error');
+      addMessage((globalThis.fsbUiLocale && fsbUiLocale.text)
+          ? fsbUiLocale.text('shell_error_background', 'Error communicating with background script: $ERROR$', { error: chrome.runtime.lastError.message })
+          : 'Error communicating with background script: $ERROR$'.replace('$ERROR$', chrome.runtime.lastError.message), 'error');
       stopRequested = false;
       return;
     }
@@ -4602,7 +4625,9 @@ function stopAutomation() {
         stopRequested = false;
         console.log('Side panel: Stop arrived after natural completion (alreadyEnded)');
       } else {
-        addMessage(`Error stopping automation: ${errorMsg}`, 'error');
+        addMessage((globalThis.fsbUiLocale && fsbUiLocale.text)
+          ? fsbUiLocale.text('shell_error_stop', 'Error stopping automation: $ERROR$', { error: errorMsg })
+          : 'Error stopping automation: $ERROR$'.replace('$ERROR$', errorMsg), 'error');
         stopRequested = false;
         console.error('Side panel: Stop automation failed:', errorMsg);
       }
@@ -6557,7 +6582,9 @@ function renderReplayDecisionPrompt(request) {
         }
       } catch (error) {
         Array.from(actions.querySelectorAll('button')).forEach((item) => { item.disabled = false; });
-        addMessage('Could not apply replay decision: ' + error.message, 'error');
+        addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+          ? fsbUiLocale.line('Could not apply replay decision: $ERROR$', { error: error.message })
+          : 'Could not apply replay decision: $ERROR$'.replace('$ERROR$', error.message), 'error');
       }
     });
     actions.appendChild(button);
@@ -6652,8 +6679,25 @@ function renderMcpReplayApproval(approval) {
   const tabCount = Math.max(1, approval.preview.tabs?.length || 0);
   const highImpact = (approval.preview.steps || [])
     .filter((step) => step.replay?.availability === 'approval-per-step').length;
-  copy.textContent = `An MCP client requested this replay in ${tabCount} fresh tab${tabCount === 1 ? '' : 's'}. ` +
-    `One approval covers only the exact verified manifest${highImpact ? `, including ${highImpact} high-impact step${highImpact === 1 ? '' : 's'}` : ''}.`;
+  var tabSentence = (globalThis.fsbUiLocale && fsbUiLocale.line)
+    ? fsbUiLocale.line(tabCount === 1
+      ? 'An MCP client requested this replay in $COUNT$ fresh tab.'
+      : 'An MCP client requested this replay in $COUNT$ fresh tabs.', { count: tabCount })
+    : (tabCount === 1
+      ? 'An MCP client requested this replay in $COUNT$ fresh tab.'
+      : 'An MCP client requested this replay in $COUNT$ fresh tabs.').replace('$COUNT$', String(tabCount));
+  var impactSentence = highImpact
+    ? ((globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line(highImpact === 1
+        ? 'One approval covers only the exact verified manifest, including $COUNT$ high-impact step.'
+        : 'One approval covers only the exact verified manifest, including $COUNT$ high-impact steps.', { count: highImpact })
+      : (highImpact === 1
+        ? 'One approval covers only the exact verified manifest, including $COUNT$ high-impact step.'
+        : 'One approval covers only the exact verified manifest, including $COUNT$ high-impact steps.').replace('$COUNT$', String(highImpact)))
+    : ((globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('One approval covers only the exact verified manifest.')
+      : 'One approval covers only the exact verified manifest.');
+  copy.textContent = tabSentence + ' ' + impactSentence;
   card.appendChild(copy);
 
   const actions = document.createElement('div');
@@ -6699,7 +6743,9 @@ function renderMcpReplayApproval(approval) {
     } catch (error) {
       setDisabled(false);
       completeStatusMessage('Replay error', 'error');
-      addMessage('Failed to start requested replay: ' + error.message, 'error');
+      addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('Failed to start requested replay: $ERROR$', { error: error.message })
+        : 'Failed to start requested replay: $ERROR$'.replace('$ERROR$', error.message), 'error');
     }
   });
   cancel.addEventListener('click', async () => {
@@ -6715,7 +6761,9 @@ function renderMcpReplayApproval(approval) {
       addMessage('Replay request cancelled. No target tabs were opened.', 'system');
     } catch (error) {
       setDisabled(false);
-      addMessage('Could not cancel replay request: ' + error.message, 'error');
+      addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('Could not cancel replay request: $ERROR$', { error: error.message })
+        : 'Could not cancel replay request: $ERROR$'.replace('$ERROR$', error.message), 'error');
     }
   });
 
@@ -6748,9 +6796,9 @@ async function startReplay(sessionId) {
     renderReplayPreview(preview);
 
     if (preview.truncated) {
-      addMessage(
-        `This recording is inspect-only because only the latest ${preview.steps.length} of ` +
-          `${preview.totalSourceSteps} recorded calls are available. Earlier browser state cannot be reconstructed safely.`,
+      addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('This recording is inspect-only because only the latest $LATEST$ of $TOTAL$ recorded calls are available. Earlier browser state cannot be reconstructed safely.', { latest: preview.steps.length, total: preview.totalSourceSteps })
+        : 'This recording is inspect-only because only the latest $LATEST$ of $TOTAL$ recorded calls are available. Earlier browser state cannot be reconstructed safely.'.replace('$LATEST$', String(preview.steps.length)).replace('$TOTAL$', String(preview.totalSourceSteps)),
         'system'
       );
       return;
@@ -6768,10 +6816,20 @@ async function startReplay(sessionId) {
     const approvals = [];
     if (onceSteps.length > 0) approvals.push(`${onceSteps.length} write step${onceSteps.length === 1 ? '' : 's'}`);
     if (perStep.length > 0) approvals.push(`${perStep.length} high-impact step${perStep.length === 1 ? '' : 's'}`);
-    const summary = `Replay this verified timeline in ${tabCount} fresh tab${tabCount === 1 ? '' : 's'}?` +
-      (approvals.length > 0
-        ? ` This one approval covers the exact signed manifest: ${approvals.join(' and ')}.`
-        : ' The timeline contains only read and navigation steps.');
+    const tabQuestion = (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line(tabCount === 1
+        ? 'Replay this verified timeline in $COUNT$ fresh tab?'
+        : 'Replay this verified timeline in $COUNT$ fresh tabs?', { count: tabCount })
+      : (tabCount === 1
+        ? 'Replay this verified timeline in $COUNT$ fresh tab?'
+        : 'Replay this verified timeline in $COUNT$ fresh tabs?').replace('$COUNT$', String(tabCount));
+    const summary = approvals.length > 0
+      ? tabQuestion + ' ' + ((globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('This one approval covers the exact signed manifest: $DETAIL$.', { detail: approvals.join(' and ') })
+        : 'This one approval covers the exact signed manifest: $DETAIL$.'.replace('$DETAIL$', approvals.join(' and ')))
+      : tabQuestion + ' ' + ((globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('The timeline contains only read and navigation steps.')
+        : 'The timeline contains only read and navigation steps.');
     if (!confirm(summary)) {
       addMessage('Replay cancelled. The original recording was not changed.', 'system');
       return;
@@ -6797,7 +6855,9 @@ async function startReplay(sessionId) {
     }
   } catch (error) {
     completeStatusMessage('Replay error', 'error');
-    addMessage('Failed to start replay: ' + error.message, 'error');
+    addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('Failed to start replay: $ERROR$', { error: error.message })
+      : 'Failed to start replay: $ERROR$'.replace('$ERROR$', error.message), 'error');
   }
 }
 
@@ -6924,7 +6984,9 @@ async function loadSessionView(sessionId) {
 
   } catch (error) {
     console.error('Failed to load session view:', error);
-    addMessage('Failed to load session: ' + error.message, 'error');
+    addMessage((globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('Failed to load session: $ERROR$', { error: error.message })
+      : 'Failed to load session: $ERROR$'.replace('$ERROR$', error.message), 'error');
   }
 }
 
@@ -7076,6 +7138,7 @@ console.log(`FSB v${chrome.runtime.getManifest().version} side panel script load
 
 if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
   fsbUiLocale.boot().then(function () {
+    if (typeof fsbUiLocale.mountSelect === 'function') fsbUiLocale.mountSelect(document.getElementById('fsbUiLocaleSelect'));
     fsbUiLocale.apply(document);
     if (typeof _renderHeaderStatus === 'function') _renderHeaderStatus();
   });

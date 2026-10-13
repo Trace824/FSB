@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>FSB - Side Panel</title>
+  <title data-i18n="copy_26b2f925d8">FSB - Side Panel</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="../shared/fsb-ui-core.css">
   <link rel="stylesheet" href="sidepanel.css">
@@ -23,6 +23,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <label class="sr-only" for="fsbUiLocaleSelect" data-i18n="lang_choose">Language</label>
+        <select id="fsbUiLocaleSelect" translate="no" aria-describedby="fsbLocaleNote"></select>
+        <span id="fsbLocaleNote" class="sr-only" data-i18n="lang_extensions_page">The name on chrome://extensions follows the browser language.</span>
         <button id="historyBtn" class="icon-btn" data-i18n-attr="title:shell_history" title="Session History">
           <i class="fa fa-clock-rotate-left"></i>
         </button>
@@ -171,6 +174,7 @@
   <script src="delegation-feed.js"></script>
   <script src="speech-to-text.js"></script>
   <script src="../utils/ui-locale.js"></script>
+  <script src="../utils/copy-exact.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

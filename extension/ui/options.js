@@ -1,5 +1,15 @@
 // FSB Modern Dashboard Control Panel Script
 
+function fsbUiLine(english, subs) {
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.line === 'function') return fsbUiLocale.line(english, subs);
+  if (!english || typeof english !== 'string') return english;
+  if (!subs) return english;
+  return english.replace(/\$([A-Za-z0-9_]+)\$/g, function (all, name) {
+    var value = subs[name] != null ? subs[name] : subs[name.toLowerCase()];
+    return value == null ? all : String(value);
+  });
+}
+
 function fsbUiSet(node, english) {
   if (!node) return;
   if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(node, english);
@@ -99,15 +109,15 @@ async function resolveRecommendedAgentCap() {
 
 function updateAgentCapResetLabel() {
   if (!elements.fsbAgentCapReset) return;
-  const text = 'Reset to recommended (' + fsbRecommendedAgentCap + ')';
+  const english = 'Reset to recommended ($COUNT$)';
+  const subs = { count: fsbRecommendedAgentCap };
   // The button carries a leading <i> icon -- write into the inner label span
   // so re-renders don't wipe it out via a bare .textContent = on the button.
-  const label = elements.fsbAgentCapReset.querySelector('.form-secondary-btn__label');
-  if (label) {
-    label.textContent = text;
-  } else {
-    elements.fsbAgentCapReset.textContent = text;
-  }
+  const label = elements.fsbAgentCapReset.querySelector('.form-secondary-btn__label') || elements.fsbAgentCapReset;
+  const locale = globalThis.fsbUiLocale;
+  const key = locale && locale.exact && locale.exact[english];
+  if (key && typeof locale.fill === 'function') locale.fill(label, key, english, subs);
+  else label.textContent = fsbUiLine(english, subs);
 }
 
 function setAgentCapControlValue(value) {
@@ -2497,7 +2507,7 @@ async function checkApiConnection() {
     const apiKey = (PROVIDER_KEY_GETTERS[provider] || function () { return ''; })();
     if (!apiKey && provider !== 'lmstudio') {
       updateConnectionStatus('disconnected', 'No API key configured');
-      updateApiStatusCard('disconnected', 'No API Key', 'Configure your ' + (PROVIDER_NAMES[provider] || provider) + ' API key to get started');
+      updateApiStatusCard('disconnected', 'No API Key', fsbUiLine('Configure your $NAME$ API key to get started', { name: PROVIDER_NAMES[provider] || provider }));
       return {
         ok: false,
         provider: provider,
@@ -2605,8 +2615,14 @@ function updateApiStatusCard(status, title, detail) {
                      'fas fa-exclamation-triangle';
     }
 
-    if (titleElement) titleElement.textContent = title;
-    if (detailElement) detailElement.textContent = detail;
+    if (titleElement) {
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(titleElement, title);
+      else titleElement.textContent = title;
+    }
+    if (detailElement) {
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(detailElement, detail);
+      else detailElement.textContent = detail;
+    }
   }
 }
 
@@ -2660,7 +2676,7 @@ async function runFullApiTest() {
     if (isAgent && providerId === 'grok-build' && elements.grokBuildCompatibility) {
       elements.grokBuildCompatibility.textContent = result.ok
         ? 'Installed and compatible: Grok Build 1.0.4. Isolation, ACP, and cached OAuth checks passed without sending a prompt.'
-        : `Compatibility check failed: ${result.error || 'installation, version, isolation, ACP, or cached OAuth could not be verified.'}`;
+        : fsbUiLine('Compatibility check failed: $ERROR$', { error: result.error || 'installation, version, isolation, ACP, or cached OAuth could not be verified.' });
     }
 
     elements.testResults.innerHTML = `
@@ -2946,7 +2962,7 @@ function renderConsentOriginList(envelope, auditOrigins) {
     if (nameEl) nameEl.textContent = origin;
 
     const radiogroup = row.querySelector('.consent-mode-toggle');
-    if (radiogroup) radiogroup.setAttribute('aria-label', 'Consent mode for ' + origin);
+    if (radiogroup) radiogroup.setAttribute('aria-label', fsbUiLine('Consent mode for $ORIGIN$', { origin: origin }));
 
     // classify() is the gate's source of truth. denied => Blocked + all controls
     // disabled; sensitive => amber badge only for capability invokes.
@@ -3281,7 +3297,8 @@ function showToast(message, type = 'info') {
   elements.statusToast.innerHTML = '';
   const textSpan = document.createElement('span');
   textSpan.className = 'toast-text';
-  textSpan.textContent = message;
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(textSpan, message);
+  else textSpan.textContent = message;
   const dismissBtn = document.createElement('button');
   dismissBtn.className = 'toast-dismiss';
   dismissBtn.textContent = 'X';
@@ -3921,7 +3938,7 @@ function attachInlinePanelListeners(wrapper, session) {
       } catch (error) {
         loadMoreEventsBtn.disabled = false;
         fsbUiSet(loadMoreEventsBtn, "Retry loading events");
-        showToast('Failed to load more session events: ' + error.message, 'error');
+        showToast(fsbUiLine('Failed to load more session events: $ERROR$', { error: error.message }), 'error');
       }
     });
   }
@@ -4911,7 +4928,7 @@ async function submitVaultUnlock(pin) {
       if (_vaultPinUnlock) _vaultPinUnlock.clear();
     }
   } catch (error) {
-    showToast('Error unlocking vault: ' + error.message, 'error');
+    showToast(fsbUiLine('Error unlocking vault: $ERROR$', { error: error.message }), 'error');
     if (_vaultPinUnlock) _vaultPinUnlock.clear();
   } finally {
     _unlockSubmitting = false;
@@ -4963,7 +4980,7 @@ function initCredentialVaultListeners() {
           showToast(response?.error || 'Failed to create vault', 'error');
         }
       } catch (error) {
-        showToast('Error creating vault: ' + error.message, 'error');
+        showToast(fsbUiLine('Error creating vault: $ERROR$', { error: error.message }), 'error');
       } finally {
         setupBtn.disabled = false;
         fsbUiSet(setupBtn, "Set Up Vault");
@@ -4993,7 +5010,7 @@ function initCredentialVaultListeners() {
           loadPaymentVaultStatus();
         }
       } catch (error) {
-        showToast('Error locking vault: ' + error.message, 'error');
+        showToast(fsbUiLine('Error locking vault: $ERROR$', { error: error.message }), 'error');
       }
     });
   }
@@ -5235,16 +5252,16 @@ async function saveCredentialFromModal() {
       hideCredentialModal();
       loadCredentials();
     } else {
-      showToast('Failed to save: ' + (response?.error || 'Unknown error'), 'error');
+      showToast(fsbUiLine('Failed to save: $ERROR$', { error: response?.error || 'Unknown error' }), 'error');
     }
   } catch (error) {
-    showToast('Error saving credential: ' + error.message, 'error');
+    showToast(fsbUiLine('Error saving credential: $ERROR$', { error: error.message }), 'error');
   }
 }
 
 // Delete credential with confirmation
 async function deleteCredentialConfirm(domain) {
-  if (!confirm(`Delete saved credential for "${domain}"? This cannot be undone.`)) {
+  if (!confirm(fsbUiLine('Delete saved credential for "$DOMAIN$"? This cannot be undone.', { domain: domain }))) {
     return;
   }
 
@@ -5258,10 +5275,10 @@ async function deleteCredentialConfirm(domain) {
       showToast('Credential deleted', 'success');
       loadCredentials();
     } else {
-      showToast('Failed to delete: ' + (response?.error || 'Unknown error'), 'error');
+      showToast(fsbUiLine('Failed to delete: $ERROR$', { error: response?.error || 'Unknown error' }), 'error');
     }
   } catch (error) {
-    showToast('Error deleting credential: ' + error.message, 'error');
+    showToast(fsbUiLine('Error deleting credential: $ERROR$', { error: error.message }), 'error');
   }
 }
 
@@ -5496,7 +5513,7 @@ async function submitPaymentUnlock(pin) {
       if (_paymentPinUnlock) _paymentPinUnlock.clear();
     }
   } catch (error) {
-    showToast('Error unlocking payment methods: ' + error.message, 'error');
+    showToast(fsbUiLine('Error unlocking payment methods: $ERROR$', { error: error.message }), 'error');
     if (_paymentPinUnlock) _paymentPinUnlock.clear();
   } finally {
     _paymentUnlockSubmitting = false;
@@ -5523,7 +5540,7 @@ function initializePaymentManager() {
           showToast('Failed to lock payment methods', 'error');
         }
       } catch (error) {
-        showToast('Error locking payment methods: ' + error.message, 'error');
+        showToast(fsbUiLine('Error locking payment methods: $ERROR$', { error: error.message }), 'error');
       }
     });
   }
@@ -5900,7 +5917,7 @@ async function savePaymentMethodFromModal() {
       showToast('Failed: ' + (response?.error || 'Unknown error'), 'error');
     }
   } catch (error) {
-    showToast('Error saving payment method: ' + error.message, 'error');
+    showToast(fsbUiLine('Error saving payment method: $ERROR$', { error: error.message }), 'error');
   }
 }
 
@@ -5914,10 +5931,10 @@ async function deletePaymentMethodConfirm(id) {
       showToast('Payment method deleted', 'success');
       loadPaymentMethods();
     } else {
-      showToast('Failed to delete: ' + (response?.error || 'Unknown error'), 'error');
+      showToast(fsbUiLine('Failed to delete: $ERROR$', { error: response?.error || 'Unknown error' }), 'error');
     }
   } catch (error) {
-    showToast('Error deleting payment method: ' + error.message, 'error');
+    showToast(fsbUiLine('Error deleting payment method: $ERROR$', { error: error.message }), 'error');
   }
 }
 
@@ -6026,7 +6043,7 @@ async function startExplorer() {
     });
 
     if (!response || !response.success) {
-      showToast('Failed to start explorer: ' + (response?.error || 'Unknown error'), 'error');
+      showToast(fsbUiLine('Failed to start explorer: $ERROR$', { error: response?.error || 'Unknown error' }), 'error');
     } else {
       addLog('info', 'Site Explorer started for ' + testUrl);
       // Clear input for next URL, show Stop All
@@ -6034,7 +6051,7 @@ async function startExplorer() {
       updateStopAllVisibility();
     }
   } catch (error) {
-    showToast('Failed to start explorer: ' + error.message, 'error');
+    showToast(fsbUiLine('Failed to start explorer: $ERROR$', { error: error.message }), 'error');
   }
 }
 
@@ -6136,7 +6153,7 @@ function updateExplorerProgress(data) {
       showToast('Crawl completed: ' + data.pagesCollected + ' pages from ' + (data.domain || ''), 'success');
       addLog('info', 'Site Explorer completed: ' + data.pagesCollected + ' pages from ' + data.domain);
     } else if (data.status === 'error') {
-      showToast('Crawl failed for ' + (data.domain || 'unknown'), 'error');
+      showToast(fsbUiLine('Crawl failed for $DOMAIN$', { domain: data.domain || 'unknown' }), 'error');
     }
 
     // Refresh research list
@@ -6422,27 +6439,27 @@ async function saveResearchToMemory(researchId) {
         if (refined && refined.refined === true) {
           memory.typeData.sitePattern = refined;
           memory.metadata.confidence = 0.95;
-          memory.text = `Site map for ${domain}: ${refined.pageCount || 0} pages, ${refined.formCount || 0} forms (AI enhanced)`;
+          memory.text = fsbUiLine('Site map for $DOMAIN$: $PAGES$ pages, $FORMS$ forms (AI enhanced)', { domain: domain, pages: refined.pageCount || 0, forms: refined.formCount || 0 });
           memory.updatedAt = Date.now();
           await memoryStorage.update(memory.id, memory);
-          showToast('Site map saved and refined for ' + domain, 'success');
+          showToast(fsbUiLine('Site map saved and refined for $DOMAIN$', { domain: domain }), 'success');
           addLog('info', 'Saved and AI-refined site map for ' + domain);
         } else {
-          showToast('Site map saved for ' + domain + ' (refinement returned no data)', 'info');
+          showToast(fsbUiLine('Site map saved for $DOMAIN$ (refinement returned no data)', { domain: domain }), 'info');
           addLog('info', 'Saved site map for ' + domain + ' (refinement returned no data)');
         }
       } catch (err) {
         console.warn('AI refinement failed, keeping Tier 1 result:', err.message);
-        showToast('Site map saved (AI refinement failed: ' + err.message + ')', 'info');
+        showToast(fsbUiLine('Site map saved (AI refinement failed: $ERROR$)', { error: err.message }), 'info');
         addLog('info', 'Saved site map for ' + domain + ' (refinement failed: ' + err.message + ')');
       }
     } else {
-      showToast('Site map saved to memory for ' + domain, 'success');
+      showToast(fsbUiLine('Site map saved to memory for $DOMAIN$', { domain: domain }), 'success');
       addLog('info', 'Saved site map memory for ' + domain);
     }
   } catch (error) {
     console.error('Failed to save research to memory:', error);
-    showToast('Failed to save to memory: ' + error.message, 'error');
+    showToast(fsbUiLine('Failed to save to memory: $ERROR$', { error: error.message }), 'error');
   }
 }
 
@@ -7053,7 +7070,7 @@ async function generateHashKey() {
       showToast('Failed to generate hash key', 'error');
     }
   } catch (error) {
-    showToast('Cannot connect to server: ' + error.message, 'error');
+    showToast(fsbUiLine('Cannot connect to server: $ERROR$', { error: error.message }), 'error');
   }
 }
 
@@ -7235,7 +7252,7 @@ async function regeneratePairingToken() {
       messageEl.classList.add('pairing-qr-expired');
       fsbUiSet(messageEl, "Could not generate pairing code. Try again.");
     }
-    showToast('Could not generate pairing code: ' + error.message, 'error');
+    showToast(fsbUiLine('Could not generate pairing code: $ERROR$', { error: error.message }), 'error');
   } finally {
     pairingFetchInFlight = false;
   }
@@ -7264,7 +7281,7 @@ async function showPairingQR() {
       try {
         hashKey = await ensureHashKey(serverUrl);
       } catch (error) {
-        showToast('Could not register hash key: ' + error.message, 'error');
+        showToast(fsbUiLine('Could not register hash key: $ERROR$', { error: error.message }), 'error');
         return; // abort BEFORE opening overlay
       }
     }
@@ -7278,7 +7295,7 @@ async function showPairingQR() {
     overlay.style.display = 'flex';
     startPairingCountdown(data.expiresAt);
   } catch (error) {
-    showToast('Could not generate pairing code: ' + error.message, 'error');
+    showToast(fsbUiLine('Could not generate pairing code: $ERROR$', { error: error.message }), 'error');
   } finally {
     pairingFetchInFlight = false;
   }
@@ -8185,7 +8202,7 @@ async function refineMemoryWithAI(memoryId, reconId) {
     showToast('Site map refined successfully', 'success');
     loadMemoryDashboard();
   } catch (err) {
-    showToast('AI refinement failed: ' + err.message, 'error');
+    showToast(fsbUiLine('AI refinement failed: $ERROR$', { error: err.message }), 'error');
   }
 }
 
@@ -8254,7 +8271,7 @@ async function clearAllMemories() {
     loadMemoryDashboard();
     showToast('All memories cleared', 'info');
   } catch (error) {
-    showToast('Failed to clear memories: ' + error.message, 'error');
+    showToast(fsbUiLine('Failed to clear memories: $ERROR$', { error: error.message }), 'error');
   }
 }
 

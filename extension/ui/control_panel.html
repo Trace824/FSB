@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FSB - Control Panel</title>
+  <title data-i18n="copy_7ec33c22aa">FSB - Control Panel</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="../shared/fsb-ui-core.css">
   <link rel="stylesheet" href="options.css">
@@ -23,6 +23,11 @@
       </div>
       
       <div class="header-right">
+        <div class="fsb-locale-control">
+          <label for="fsbUiLocaleSelect" data-i18n="lang_choose">Language</label>
+          <select id="fsbUiLocaleSelect" translate="no" aria-describedby="fsbLocaleNote"></select>
+          <p id="fsbLocaleNote" data-i18n="lang_extensions_page">The name on chrome://extensions follows the browser language.</p>
+        </div>
         <div class="connection-status">
           <div class="status-indicator" id="connectionStatus">
             <i class="fas fa-circle status-dot"></i>
@@ -182,12 +187,12 @@
                 <div class="model-combobox" id="modelCombobox">
                   <div class="model-combobox__control">
                     <div class="model-combobox__field">
-                      <input type="text" id="modelSearch" class="form-input model-combobox__input" value="Provide API key to list models" placeholder="Search models" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="modelListbox" aria-autocomplete="list" aria-haspopup="listbox" aria-label="Search and select model" disabled>
-                      <button type="button" id="modelComboboxToggle" class="model-combobox__chevron" tabindex="-1" aria-label="Toggle model list" disabled>
+                      <input type="text" id="modelSearch" class="form-input model-combobox__input" value="Provide API key to list models" placeholder="Search models" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="modelListbox" aria-autocomplete="list" aria-haspopup="listbox" aria-label="Search and select model" disabled data-i18n-attr="aria-label:copy_e21ca6d204">
+                      <button type="button" id="modelComboboxToggle" class="model-combobox__chevron" tabindex="-1" aria-label="Toggle model list" disabled data-i18n-attr="aria-label:copy_d6699494ff">
                         <i class="fas fa-chevron-down" aria-hidden="true"></i>
                       </button>
                     </div>
-                    <button id="refreshModelsBtn" type="button" class="fsb-refresh-icon" title="Refresh model list" aria-label="Refresh model list" disabled>
+                    <button id="refreshModelsBtn" type="button" class="fsb-refresh-icon" title="Refresh model list" aria-label="Refresh model list" disabled data-i18n-attr="title:copy_9606bfc49e,aria-label:copy_9606bfc49e">
                       <i class="fas fa-sync-alt" aria-hidden="true"></i>
                     </button>
                   </div>
@@ -206,7 +211,7 @@
               <div class="form-group" id="xaiApiKeyGroup">
                 <label for="apiKey" data-i18n="panel_bc3286fa36">xAI API Key</label>
                 <div class="input-with-button">
-                  <input type="password" id="apiKey" placeholder="Enter your xAI API key" class="form-input">
+                  <input type="password" id="apiKey" placeholder="Enter your xAI API key" class="form-input" data-i18n-attr="placeholder:copy_881bf7079c">
                   <button type="button" class="input-btn" id="toggleApiKey" title="Toggle visibility">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -220,7 +225,7 @@
               <div class="form-group" id="geminiApiKeyGroup" style="display: none;">
                 <label for="geminiApiKey" data-i18n="panel_53bca734db">Gemini API Key</label>
                 <div class="input-with-button">
-                  <input type="password" id="geminiApiKey" placeholder="Enter your Gemini API key" class="form-input">
+                  <input type="password" id="geminiApiKey" placeholder="Enter your Gemini API key" class="form-input" data-i18n-attr="placeholder:copy_1e9720ad1e">
                   <button type="button" class="input-btn" id="toggleGeminiApiKey" title="Toggle visibility">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -234,7 +239,7 @@
               <div class="form-group" id="openaiApiKeyGroup" style="display: none;">
                 <label for="openaiApiKey" data-i18n="panel_8418bdbdcd">OpenAI API Key</label>
                 <div class="input-with-button">
-                  <input type="password" id="openaiApiKey" placeholder="Enter your OpenAI API key" class="form-input">
+                  <input type="password" id="openaiApiKey" placeholder="Enter your OpenAI API key" class="form-input" data-i18n-attr="placeholder:copy_699e26dc48">
                   <button type="button" class="input-btn" id="toggleOpenaiApiKey" title="Toggle visibility">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -248,7 +253,7 @@
               <div class="form-group" id="anthropicApiKeyGroup" style="display: none;">
                 <label for="anthropicApiKey" data-i18n="panel_959bc25166">Anthropic API Key</label>
                 <div class="input-with-button">
-                  <input type="password" id="anthropicApiKey" placeholder="Enter your Anthropic API key" class="form-input">
+                  <input type="password" id="anthropicApiKey" placeholder="Enter your Anthropic API key" class="form-input" data-i18n-attr="placeholder:copy_e73283ba69">
                   <button type="button" class="input-btn" id="toggleAnthropicApiKey" title="Toggle visibility">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -262,7 +267,7 @@
               <div class="form-group" id="openrouterApiKeyGroup" style="display: none;">
                 <label for="openrouterApiKey" data-i18n="panel_36e0497429">OpenRouter API Key</label>
                 <div class="input-with-button">
-                  <input type="password" id="openrouterApiKey" placeholder="Enter your OpenRouter API key" class="form-input">
+                  <input type="password" id="openrouterApiKey" placeholder="Enter your OpenRouter API key" class="form-input" data-i18n-attr="placeholder:copy_c545294348">
                   <button type="button" class="input-btn" id="toggleOpenrouterApiKey" title="Toggle visibility">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -289,7 +294,7 @@
                 
                 <label for="customApiKey" style="margin-top: 15px;" data-i18n="panel_acb781f972">Custom API Key</label>
                 <div class="input-with-button">
-                  <input type="password" id="customApiKey" placeholder="Enter your custom API key" class="form-input">
+                  <input type="password" id="customApiKey" placeholder="Enter your custom API key" class="form-input" data-i18n-attr="placeholder:copy_8001f1687a">
                   <button type="button" class="input-btn" id="toggleCustomApiKey" title="Toggle visibility">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -335,7 +340,7 @@
                   <div class="form-group">
                     <label for="captchaApiKey" data-i18n="panel_5ac544cb2f">2Captcha API Key</label>
                     <div class="input-with-button">
-                      <input type="password" id="captchaApiKey" placeholder="Enter your 2Captcha API key" class="form-input">
+                      <input type="password" id="captchaApiKey" placeholder="Enter your 2Captcha API key" class="form-input" data-i18n-attr="placeholder:copy_ec8571e74c">
                       <button type="button" class="input-btn" id="toggleCaptchaApiKey" title="Toggle visibility">
                         <i class="fas fa-eye"></i>
                       </button>
@@ -465,9 +470,9 @@
                   <div class="setting-label">
                     <span data-i18n="panel_7f9bd64777">Max Iterations</span>
                     <div class="fsb-stepper" data-min="50" data-max="500" data-step="10">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease max iterations"><i class="fas fa-minus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease max iterations" data-i18n-attr="aria-label:copy_9a679edbd3"><i class="fas fa-minus"></i></button>
                       <input type="text" inputmode="numeric" class="fsb-stepper__input" id="maxIterationsSlider" value="100">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase max iterations"><i class="fas fa-plus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase max iterations" data-i18n-attr="aria-label:copy_7ff25a6879"><i class="fas fa-plus"></i></button>
                     </div>
                   </div>
                   <input type="hidden" id="maxIterations" value="100">
@@ -492,9 +497,9 @@
                   <div class="setting-label">
                     <span data-i18n="panel_f239d1c5e2">Element Limit</span>
                     <div class="fsb-stepper" data-min="500" data-max="5000" data-step="500">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease element limit"><i class="fas fa-minus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease element limit" data-i18n-attr="aria-label:copy_1da98f8734"><i class="fas fa-minus"></i></button>
                       <input type="text" inputmode="numeric" class="fsb-stepper__input" id="maxDOMElementsSlider" value="2000">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase element limit"><i class="fas fa-plus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase element limit" data-i18n-attr="aria-label:copy_396f15bbfe"><i class="fas fa-plus"></i></button>
                     </div>
                   </div>
                   <input type="hidden" id="maxDOMElements" value="2000">
@@ -513,9 +518,9 @@
                     <option value="custom" data-i18n="panel_b497c0b77d">Custom...</option>
                   </select>
                   <div class="fsb-stepper" id="elementCacheSizeCustomWrap" data-min="10" data-max="1000" data-step="10" style="display: none; margin-top: 8px;">
-                    <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease element cache size"><i class="fas fa-minus"></i></button>
+                    <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease element cache size" data-i18n-attr="aria-label:copy_8418bb6be8"><i class="fas fa-minus"></i></button>
                     <input type="text" inputmode="numeric" class="fsb-stepper__input" id="elementCacheSizeCustom" value="200">
-                    <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase element cache size"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase element cache size" data-i18n-attr="aria-label:copy_4d09f69eb1"><i class="fas fa-plus"></i></button>
                   </div>
                   <input type="hidden" id="elementCacheSize" value="200">
                   <div class="setting-hint" data-i18n="panel_3bba622285">Cached element lookups for faster repeated queries. Higher = faster on complex pages, more memory.</div>
@@ -540,9 +545,9 @@
                     <span data-i18n="panel_05f46c29ed">Concurrency Cap</span>
                     <span class="setting-value-display" id="fsbAgentCapDisplay">8</span>
                     <div class="fsb-stepper" data-min="1" data-max="64" data-step="1">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease agent concurrency cap"><i class="fas fa-minus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease agent concurrency cap" data-i18n-attr="aria-label:copy_8afc6eb606"><i class="fas fa-minus"></i></button>
                       <input type="text" inputmode="numeric" class="fsb-stepper__input" id="fsbAgentCap" value="8">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase agent concurrency cap"><i class="fas fa-plus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase agent concurrency cap" data-i18n-attr="aria-label:copy_484366fe68"><i class="fas fa-plus"></i></button>
                     </div>
                   </div>
                   <button type="button" class="form-secondary-btn" id="fsbAgentCapReset" style="margin-top: 8px;">
@@ -582,9 +587,9 @@
                   <div class="setting-label">
                     <span data-i18n="panel_05f46c29ed">Concurrency Cap</span>
                     <div class="fsb-stepper" data-min="1" data-max="64" data-step="1">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease trigger concurrency cap"><i class="fas fa-minus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease trigger concurrency cap" data-i18n-attr="aria-label:copy_cffeed4c47"><i class="fas fa-minus"></i></button>
                       <input type="text" inputmode="numeric" class="fsb-stepper__input" id="fsbTriggerCap" value="8">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase trigger concurrency cap"><i class="fas fa-plus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase trigger concurrency cap" data-i18n-attr="aria-label:copy_3816b69dee"><i class="fas fa-plus"></i></button>
                     </div>
                   </div>
                   <button type="button" class="form-secondary-btn" id="fsbTriggerCapReset" style="margin-top: 8px;">
@@ -659,9 +664,9 @@
                   <div class="setting-label">
                     <span data-i18n="panel_8c338dcb22">MCP replay retention (days)</span>
                     <div class="fsb-stepper" data-min="1" data-max="365" data-step="1">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease MCP replay retention"><i class="fas fa-minus"></i></button>
-                      <input type="text" inputmode="numeric" class="fsb-stepper__input" id="fsbMcpSessionRetentionDays" value="30" aria-label="MCP replay retention days">
-                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase MCP replay retention"><i class="fas fa-plus"></i></button>
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--dec" aria-label="Decrease MCP replay retention" data-i18n-attr="aria-label:copy_2a1df07657"><i class="fas fa-minus"></i></button>
+                      <input type="text" inputmode="numeric" class="fsb-stepper__input" id="fsbMcpSessionRetentionDays" value="30" aria-label="MCP replay retention days" data-i18n-attr="aria-label:copy_a346fdf291">
+                      <button type="button" class="fsb-stepper__btn fsb-stepper__btn--inc" aria-label="Increase MCP replay retention" data-i18n-attr="aria-label:copy_71c20adba6"><i class="fas fa-plus"></i></button>
                     </div>
                   </div>
                   <div class="setting-hint" data-i18n="panel_bb0522a484">Default 30. Range 1 to 365 days. This automatically deletes expired MCP replay sessions only; Autopilot history is never pruned by this setting.</div>
@@ -847,7 +852,7 @@
                 <div class="setting-item">
                   <label class="modern-toggle">
                     <input type="checkbox" id="fsbTelemetryOptOut" checked
-                           aria-label="Anonymous usage data is being sent. Click to stop.">
+                           aria-label="Anonymous usage data is being sent. Click to stop." data-i18n-attr="aria-label:copy_f38984cf15">
                     <span class="toggle-track">
                       <span class="toggle-thumb"></span>
                     </span>
@@ -895,9 +900,9 @@
               <div class="form-group">
                 <label for="serverHashKey" data-i18n="panel_609bbbdf07">Hash Key</label>
                 <div class="sync-key-row">
-                  <input type="text" id="serverHashKey" class="form-input sync-key-input" placeholder="Your server hash key" readonly>
+                  <input type="text" id="serverHashKey" class="form-input sync-key-input" placeholder="Your server hash key" readonly data-i18n-attr="placeholder:copy_81649d0543">
                   <button class="control-btn" id="btnGenerateHashKey"><i class="fas fa-rotate"></i> Generate</button>
-                  <button class="control-btn sync-copy-btn" id="btnCopyHashKey" title="Copy hash key" aria-label="Copy hash key"><i class="fas fa-copy"></i></button>
+                  <button class="control-btn sync-copy-btn" id="btnCopyHashKey" title="Copy hash key" aria-label="Copy hash key" data-i18n-attr="title:copy_e4cdf160f5,aria-label:copy_e4cdf160f5"><i class="fas fa-copy"></i></button>
                 </div>
                 <div class="form-help" data-i18n="panel_097b5fa7f6">Generate a key, then pair the dashboard to link this browser to the FSB server.</div>
               </div>
@@ -949,7 +954,7 @@
               </div>
             </div>
             <div class="settings-card-content">
-              <ul id="fsbSunsetNoticeNames" class="fsb-sunset-notice-list" aria-label="Previously created background agents"></ul>
+              <ul id="fsbSunsetNoticeNames" class="fsb-sunset-notice-list" aria-label="Previously created background agents" data-i18n-attr="aria-label:copy_81f7adf295"></ul>
               <button type="button" id="fsbSunsetNoticeDismiss" class="control-btn fsb-sunset-notice-dismiss" data-i18n="panel_5ad3dbd124">
                 Got it
               </button>
@@ -965,7 +970,7 @@
               <p data-i18n="panel_9f83a0b7bf">Long-term memory learned from past automation sessions</p>
             </div>
             <div class="auto-analyze-toggle">
-              <label class="modern-toggle compact" title="When enabled, new memories are automatically analyzed by AI for deeper insights">
+              <label class="modern-toggle compact" title="When enabled, new memories are automatically analyzed by AI for deeper insights" data-i18n-attr="title:copy_8c16fe2070">
                 <input type="checkbox" id="autoAnalyzeToggle" checked>
                 <span class="toggle-track">
                   <span class="toggle-thumb"></span>
@@ -1030,10 +1035,10 @@
               <option value="procedural" data-i18n="panel_2e3e91ffbd">Procedural</option>
               <option value="task" data-i18n="panel_4bc74b2135">Task</option>
             </select>
-            <button class="control-btn" id="btnExportMemories" title="Export memories as JSON">
+            <button class="control-btn" id="btnExportMemories" title="Export memories as JSON" data-i18n-attr="title:copy_0a221bc876">
               <i class="fas fa-download"></i> Export
             </button>
-            <button class="control-btn" id="btnImportMemories" title="Import memories from JSON">
+            <button class="control-btn" id="btnImportMemories" title="Import memories from JSON" data-i18n-attr="title:copy_70e6248096">
               <i class="fas fa-upload"></i> Import
             </button>
             <div class="memory-overflow-menu">
@@ -1323,7 +1328,7 @@
               </div>
             </div>
             <div class="settings-card-content">
-              <div class="site-graph-detail-toggle consent-default-toggle" role="radiogroup" aria-label="Default consent mode for new sites" id="consentDefaultModeToggle">
+              <div class="site-graph-detail-toggle consent-default-toggle" role="radiogroup" aria-label="Default consent mode for new sites" id="consentDefaultModeToggle" data-i18n-attr="aria-label:copy_1152ae520b">
                 <button type="button" class="detail-btn" data-default-mode="off" role="radio" aria-checked="false" data-i18n="panel_ca7981b46e">Off</button>
                 <button type="button" class="detail-btn" data-default-mode="ask" role="radio" aria-checked="false" data-i18n="panel_b8c209cdea">Ask</button>
                 <button type="button" class="detail-btn" data-default-mode="auto" role="radio" aria-checked="true" data-i18n="panel_0286249762">Auto</button>
@@ -1372,7 +1377,7 @@
                       <i class="fas fa-ban"></i> Blocked
                     </span>
                   </div>
-                  <div class="site-graph-detail-toggle consent-mode-toggle" role="radiogroup" aria-label="Consent mode for origin">
+                  <div class="site-graph-detail-toggle consent-mode-toggle" role="radiogroup" aria-label="Consent mode for origin" data-i18n-attr="aria-label:copy_f5af3ff4e6">
                     <button type="button" class="detail-btn" data-mode="off" role="radio" aria-checked="true" data-i18n="panel_ca7981b46e">Off</button>
                     <button type="button" class="detail-btn" data-mode="ask" role="radio" aria-checked="false" data-i18n="panel_b8c209cdea">Ask</button>
                     <button type="button" class="detail-btn" data-mode="auto" role="radio" aria-checked="false" data-i18n="panel_0286249762">Auto</button>
@@ -1704,7 +1709,7 @@
             <div class="credentials-toolbar">
               <div class="credentials-search-wrapper">
                 <i class="fas fa-search"></i>
-                <input type="search" id="paymentMethodSearch" placeholder="Search cards, brands, or billing details..." class="form-input">
+                <input type="search" id="paymentMethodSearch" placeholder="Search cards, brands, or billing details..." class="form-input" data-i18n-attr="placeholder:copy_8371bee1a3">
               </div>
               <button id="addPaymentMethodBtn" class="test-btn">
                 <i class="fas fa-credit-card"></i>
@@ -1739,7 +1744,7 @@
                 </div>
                 <div class="form-group">
                   <label for="paymentMethodCardholderName" data-i18n="panel_d6bc26851d">Cardholder Name</label>
-                  <input type="text" id="paymentMethodCardholderName" placeholder="Name on card" class="form-input" autocomplete="cc-name">
+                  <input type="text" id="paymentMethodCardholderName" placeholder="Name on card" class="form-input" autocomplete="cc-name" data-i18n-attr="placeholder:copy_18bf091ea7">
                 </div>
                 <div class="form-group">
                   <label for="paymentMethodCardNumber"><span data-i18n="panel_4566e068a2">Card Number</span> <span id="paymentMethodCardBrand" class="payment-card-brand unknown" data-i18n="panel_b764cdc0ea">Unknown</span></label>
@@ -1781,7 +1786,7 @@
                 </div>
                 <div class="form-group">
                   <label for="paymentMethodBillingName" data-i18n="panel_8a944d3d0e">Billing Name</label>
-                  <input type="text" id="paymentMethodBillingName" placeholder="Billing profile name" class="form-input">
+                  <input type="text" id="paymentMethodBillingName" placeholder="Billing profile name" class="form-input" data-i18n-attr="placeholder:copy_eb59dcee20">
                 </div>
                 <div class="form-group">
                   <label for="paymentMethodAddressLine1" data-i18n="panel_1b77352e0b">Billing Address Line 1</label>
@@ -1789,7 +1794,7 @@
                 </div>
                 <div class="form-group">
                   <label for="paymentMethodAddressLine2" data-i18n="panel_ff2bc02380">Billing Address Line 2 (optional)</label>
-                  <input type="text" id="paymentMethodAddressLine2" placeholder="Apt, suite, unit" class="form-input" autocomplete="billing address-line2">
+                  <input type="text" id="paymentMethodAddressLine2" placeholder="Apt, suite, unit" class="form-input" autocomplete="billing address-line2" data-i18n-attr="placeholder:copy_e151fee074">
                 </div>
                 <div class="payment-billing-grid">
                   <div class="form-group">
@@ -1964,6 +1969,7 @@
 
   <script src="../utils/ui-locale.js"></script>
   <script src="../utils/panel-exact.js"></script>
+  <script src="../utils/copy-exact.js"></script>
   <script src="../config/config.js"></script>
   <script src="../utils/automation-logger.js"></script>
   <script src="../ai/universal-provider.js"></script>
@@ -2070,7 +2076,7 @@
   <script src="voice-input-settings.js"></script>
   <script src="../utils/mcp-session-export-port.js"></script>
   <script src="options.js"></script>
-  <script>if (globalThis.fsbUiLocale) fsbUiLocale.boot().then(function () { fsbUiLocale.apply(document); });</script>
+  <script>if (globalThis.fsbUiLocale) fsbUiLocale.boot().then(function () { if (typeof fsbUiLocale.mountSelect === 'function') fsbUiLocale.mountSelect(document.getElementById('fsbUiLocaleSelect')); fsbUiLocale.apply(document); });</script>
   <!--
     Phase 269 / CONS-01, CONS-02: kill-switch wiring.
     Extracted to an external file so it runs under MV3's default CSP

@@ -2163,5 +2163,938 @@
   },
   "entry_toast_copied": {
     "message": "설치 명령을 복사했습니다"
+  },
+  "copy_26b2f925d8": {
+    "message": "FSB - 사이드 패널"
+  },
+  "copy_9ca9c869e9": {
+    "message": "파일을 편집하거나, 셸 명령을 실행하거나, 임의의 URL을 가져올 수 없습니다."
+  },
+  "copy_65974683e8": {
+    "message": "이후 실행에서 $NAME$ 신뢰"
+  },
+  "copy_a9780e01fc": {
+    "message": "이 브라우저에서 이후 $NAME$ 실행의 확인을 끕니다."
+  },
+  "copy_88cad98751": {
+    "message": "확인 기본 설정을 저장할 수 없습니다. 다시 시도하거나 신뢰 없이 계속하세요."
+  },
+  "copy_b6b3428299": {
+    "message": "에이전트를 시작할 수 없습니다. 권한을 확인한 뒤 다시 시도하세요."
+  },
+  "copy_02df469915": {
+    "message": "$NAME$ 허용 및 시작"
+  },
+  "copy_63b90cc26c": {
+    "message": "네이티브 도우미가 다른 확장 프로그램과 페어링되어 있습니다"
+  },
+  "copy_606b6c7b99": {
+    "message": "네이티브 도우미 페어링을 재설정한 뒤 이 메시지를 다시 시도하세요. FSB가 이 확장 프로그램을 자동으로 페어링합니다."
+  },
+  "copy_4662e7e99e": {
+    "message": "재설정 명령 복사"
+  },
+  "copy_7d6ee224d7": {
+    "message": "로컬 에이전트 세션을 사용할 수 없습니다"
+  },
+  "copy_abc3c6a9b5": {
+    "message": "doctor 명령을 실행하고, 안내되면 로컬 FSB 서비스를 다시 시작한 뒤 이 메시지를 다시 시도하세요."
+  },
+  "copy_392182513b": {
+    "message": "선택한 공급자는 브라우저 탭을 제어하는 에이전트를 지원하지 않습니다. 지원되는 에이전트 공급자를 선택한 뒤 이 메시지를 다시 시도하세요."
+  },
+  "copy_664ba782e6": {
+    "message": "로컬에서 $NAME$에 로그인한 뒤 이 메시지를 다시 시도하세요."
+  },
+  "copy_1c5510dd75": {
+    "message": "연결 테스트는 위임 실행을 시작하지 않으므로 계속 성공할 수 있습니다. 메시지를 다시 시도하거나 공급자 설정을 검토하세요."
+  },
+  "copy_266c761925": {
+    "message": "에이전트가 이 작업을 시작할 수 없습니다"
+  },
+  "copy_6271a1aa0b": {
+    "message": "이 메시지를 입력창에 둔 채 공급자 설정을 확인하고 다시 시도하세요."
+  },
+  "copy_07eab3e346": {
+    "message": "데몬 재시작 후 에이전트 실행이 종료되었습니다"
+  },
+  "copy_00143d759f": {
+    "message": "에이전트가 이 작업을 마치지 못했습니다"
+  },
+  "copy_81dfbf1a8a": {
+    "message": "에이전트 연결이 끊어졌습니다"
+  },
+  "copy_c1db132cee": {
+    "message": "에이전트 정리에 확인이 필요합니다"
+  },
+  "copy_66defff597": {
+    "message": "에이전트가 제어를 다시 시작하지 못했습니다"
+  },
+  "copy_f5bb81be63": {
+    "message": "FSB가 이 실행을 수락했지만 저장하지 못했고, 중지가 확인되지 않았습니다."
+  },
+  "copy_1c86e2b334": {
+    "message": "이전 에이전트 프로세스가 중지되었고 다시 연결되지 않았습니다. 로컬 서비스가 준비되면 새 작업을 시작하세요."
+  },
+  "copy_1a103bf447": {
+    "message": "새 작업 시작"
+  },
+  "copy_6c845be6a5": {
+    "message": "FSB가 로컬 에이전트 서비스의 응답 세 번을 놓쳤습니다. 이 실행은 안전하게 계속할 수 없습니다."
+  },
+  "copy_4cf5603fc8": {
+    "message": "FSB 네이티브 도우미를 설치하거나 업데이트한 뒤 다시 시도하세요. FSB가 이 브라우저를 자동으로 연결합니다."
+  },
+  "copy_87db7a3927": {
+    "message": "FSB가 이 탭을 $NAME$에 되돌리지 못해 실행이 끝났고 탭은 계속 사용자 제어에 있습니다. 준비되면 새 작업을 시작하세요."
+  },
+  "copy_d1708202db": {
+    "message": "메시지 다시 시도"
+  },
+  "copy_39ccfe7853": {
+    "message": "자동화가 작동 중입니다"
+  },
+  "copy_e609da84a5": {
+    "message": "이 탭에서는 자동화 제어를 더 이상 사용할 수 없습니다."
+  },
+  "copy_a6b6ef6c4e": {
+    "message": "중지를 확인할 수 없습니다. 이전 에이전트 상태가 계속 표시됩니다."
+  },
+  "copy_ba4af741ad": {
+    "message": "원래 메시지가 아직 있습니다. 중지를 다시 시도해 정리를 마치세요."
+  },
+  "copy_e71b7995e6": {
+    "message": "FSB가 이 에이전트 실행을 저장하지 못했습니다. 해당 실행의 중지는 확인되었고 메시지는 유지되었습니다. 다시 시도하세요."
+  },
+  "copy_ee776a7565": {
+    "message": "다른 작업을 시작하기 전에 원래 탭과 대화에서 보류 중인 에이전트 정리를 마치세요. 메시지는 유지되었습니다."
+  },
+  "copy_b3715a6900": {
+    "message": "FSB가 이 탭을 $NAME$에 되돌리지 못해 실행이 끝났고 탭은 계속 사용자 제어에 있습니다."
+  },
+  "copy_47220517c7": {
+    "message": "FSB 로컬 도우미가 설치되어 있지 않습니다. 실행: npx -y fsb-mcp-server@latest install --native-host"
+  },
+  "copy_d0b5d103f7": {
+    "message": "$DOMAIN$에서 정찰을 시작하는 중..."
+  },
+  "copy_7654da628e": {
+    "message": "정찰을 시작하지 못했습니다: $ERROR$"
+  },
+  "copy_ca79bcd4d7": {
+    "message": "정찰이 완료되었습니다. $DOMAIN$의 사이트 맵을 저장했습니다."
+  },
+  "copy_0f654a723b": {
+    "message": "자동화는 완료되었지만 요약이 제공되지 않았습니다. 작업이 예상대로 끝나지 않았다면 다시 시도하세요."
+  },
+  "copy_b6c7f59d4f": {
+    "message": "로그인 페이지가 감지되었습니다..."
+  },
+  "copy_43d71bc905": {
+    "message": "이 결제에는 저장된 결제 수단을 사용할 수 없습니다."
+  },
+  "copy_e46796d601": {
+    "message": "저장된 카드가 없습니다"
+  },
+  "copy_40a0d5700e": {
+    "message": "금고 설정이 필요합니다"
+  },
+  "copy_eef91deafe": {
+    "message": "결제 접근이 잠겨 있습니다"
+  },
+  "copy_583fe8b004": {
+    "message": "저장된 결제를 사용할 수 없습니다"
+  },
+  "copy_5932e9b23f": {
+    "message": "청구 프로필이 저장되었습니다"
+  },
+  "copy_fbbc8ab36d": {
+    "message": "저장된 카드를 입력하는 중..."
+  },
+  "copy_e09653448c": {
+    "message": "중복될 수 있는 쓰기 전에 재생을 일시 중지했습니다."
+  },
+  "copy_a378a72986": {
+    "message": "재생 결정을 실패했습니다"
+  },
+  "copy_aacf80d079": {
+    "message": "재생 단계를 다시 시도하는 중..."
+  },
+  "copy_8e731074ee": {
+    "message": "재생 단계를 건너뛰는 중..."
+  },
+  "copy_2d7848007e": {
+    "message": "재생 결정을 적용할 수 없습니다: $ERROR$"
+  },
+  "copy_0d3db7357d": {
+    "message": "차단됨 · 가려진 입력"
+  },
+  "copy_4916a64c38": {
+    "message": "MCP 클라이언트가 이 재생을 새 탭 $COUNT$개에서 요청했습니다."
+  },
+  "copy_c15b9f2acd": {
+    "message": "MCP 클라이언트가 이 재생을 새 탭 $COUNT$개에서 요청했습니다."
+  },
+  "copy_552d4905b4": {
+    "message": "한 번의 승인은 검증된 매니페스트 자체만 다루며, 영향이 큰 단계 $COUNT$개를 포함합니다."
+  },
+  "copy_4c946b4834": {
+    "message": "한 번의 승인은 검증된 매니페스트 자체만 다루며, 영향이 큰 단계 $COUNT$개를 포함합니다."
+  },
+  "copy_9240c9c130": {
+    "message": "한 번의 승인은 검증된 매니페스트 자체만 다룹니다."
+  },
+  "copy_b0802ca35d": {
+    "message": "기록된 재생 탭을 여는 중..."
+  },
+  "copy_c8a00bd3b5": {
+    "message": "재생을 시작하지 못했습니다"
+  },
+  "copy_1a0ef83852": {
+    "message": "요청한 재생을 시작하지 못했습니다: $ERROR$"
+  },
+  "copy_98db9dc8c5": {
+    "message": "재생 취소에 실패했습니다"
+  },
+  "copy_4ed0e5ecba": {
+    "message": "재생 요청을 취소할 수 없습니다: $ERROR$"
+  },
+  "copy_0d9f4051eb": {
+    "message": "재생 검증에 실패했습니다"
+  },
+  "copy_fc1f569fa7": {
+    "message": "이 기록은 검사 전용입니다. 기록된 호출 $TOTAL$개 중 최근 $LATEST$개만 사용할 수 있습니다. 더 이전의 브라우저 상태는 안전하게 재구성할 수 없습니다."
+  },
+  "copy_a2f62124e7": {
+    "message": "검증된 타임라인을 새 탭 $COUNT$개에서 재생할까요?"
+  },
+  "copy_4c55f6bc6e": {
+    "message": "검증된 타임라인을 새 탭 $COUNT$개에서 재생할까요?"
+  },
+  "copy_dea4fcd3a0": {
+    "message": "이 한 번의 승인은 서명된 매니페스트 자체를 다룹니다: $DETAIL$."
+  },
+  "copy_82e80a0531": {
+    "message": "타임라인에는 읽기와 탐색 단계만 있습니다."
+  },
+  "copy_99b908db8f": {
+    "message": "새 재생 탭을 여는 중..."
+  },
+  "copy_b33e852b38": {
+    "message": "재생을 시작하지 못했습니다."
+  },
+  "copy_816797656b": {
+    "message": "재생을 시작하지 못했습니다: $ERROR$"
+  },
+  "copy_6a7fdeaea6": {
+    "message": "세션 기록을 삭제하지 못했습니다"
+  },
+  "copy_f50146d7ac": {
+    "message": "캡처 검증에 실패했습니다"
+  },
+  "copy_8249b3f554": {
+    "message": "캡처가 검증을 기다리고 있습니다"
+  },
+  "copy_712090559d": {
+    "message": "세션을 불러오지 못했습니다: $ERROR$"
+  },
+  "copy_c249c35164": {
+    "message": "모든 세션 기록을 삭제할까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_357bab7911": {
+    "message": "세션 기록을 지우지 못했습니다"
+  },
+  "copy_0d3875c352": {
+    "message": "작업이 부분적으로 완료되었습니다"
+  },
+  "copy_2786eaaa0e": {
+    "message": "권장값으로 재설정 ($COUNT$)"
+  },
+  "copy_03cea39622": {
+    "message": "아래에 모델 이름을 입력하세요"
+  },
+  "copy_df3a34abef": {
+    "message": "FSB는 별도의 비공개 Grok 프로필을 사용합니다. 브라우저 OAuth로 SuperGrok을 연결하세요. API 키나 모델 선택은 사용하지 않습니다."
+  },
+  "copy_5eb9258e1b": {
+    "message": "브라우저 OAuth로 연결됨"
+  },
+  "copy_4ebee382f9": {
+    "message": "로그인 상태를 사용할 수 없습니다"
+  },
+  "copy_ee531932b4": {
+    "message": "Grok 로그인을 여는 중..."
+  },
+  "copy_e591c14068": {
+    "message": "브라우저 로그인을 기다리는 중..."
+  },
+  "copy_82d261c870": {
+    "message": "작업이 진행 중일 때 Grok Build 연결을 끊지 못했습니다"
+  },
+  "copy_ab442992e8": {
+    "message": "Grok Build가 제때 연결 해제에 응답하지 않았습니다. 다시 시도하기 전에 로그인 상태를 확인하세요."
+  },
+  "copy_10e5c2a8ad": {
+    "message": "Grok Build 연결을 끊지 못했습니다. 다시 시도하세요."
+  },
+  "copy_2becee5507": {
+    "message": "Grok Build 연결을 끊지 못했습니다. 로컬 에이전트 서비스를 사용할 수 없습니다"
+  },
+  "copy_1d29342190": {
+    "message": "Grok Build가 제때 로그인에 응답하지 않았습니다. 다시 시도하기 전에 상태를 새로고침하세요."
+  },
+  "copy_b0fca87a8b": {
+    "message": "Grok Build에 로그인하지 못했습니다. 로컬 에이전트 서비스를 사용할 수 없습니다"
+  },
+  "copy_90ac4e0d62": {
+    "message": "설치된 Grok CLI가 FSB가 지원하는 버전이 아니어서 Grok Build 로그인이 차단되었습니다. 계정은 문제없습니다. 호환성 배지를 확인한 뒤 지원되는 CLI를 설치하세요."
+  },
+  "copy_9144f84f5c": {
+    "message": "작업이 실행 중일 때는 Grok Build에 로그인할 수 없습니다. 실행이 끝날 때까지 기다린 뒤 다시 시도하세요."
+  },
+  "copy_ca4a99be2b": {
+    "message": "이전 세션을 정리하지 못해 로그인이 차단되었습니다. 상태를 새로고침해 정리를 다시 시도하세요."
+  },
+  "copy_28c4c69520": {
+    "message": "Grok CLI가 FSB가 요구하는 엄격한 샌드박스에서 시작을 거부해 로그인이 차단되었습니다. CLI는 설치되어 있고 계정은 문제없습니다."
+  },
+  "copy_0b9a54a7f8": {
+    "message": "FSB가 Grok CLI를 실행하지 못했습니다. 설치되어 있는지 확인한 뒤 상태를 새로고침하세요."
+  },
+  "copy_3f7ae97289": {
+    "message": "Grok Build 로그인이 취소되었습니다"
+  },
+  "copy_6725ea7cca": {
+    "message": "Grok Build 로그인이 완료되지 않았습니다"
+  },
+  "copy_80d9a75cd7": {
+    "message": "Grok Build가 비공개 FSB 프로필에 연결되었습니다"
+  },
+  "copy_ec4c183761": {
+    "message": "Grok Build 로그인에 실패했습니다"
+  },
+  "copy_53296a80a3": {
+    "message": "비공개 FSB Grok Build 프로필의 연결을 끊을까요? 일반 Grok 로그인은 그대로입니다."
+  },
+  "copy_ca0786266f": {
+    "message": "Grok Build가 FSB에서 연결 해제되었습니다"
+  },
+  "copy_eb14344a7c": {
+    "message": "불러온 모델을 사용하는 중"
+  },
+  "copy_97e5afb52c": {
+    "message": "새 작업을 시작하기 전에 다른 AI 공급자를 선택하고 저장하세요"
+  },
+  "copy_682cc533d5": {
+    "message": "AI 공급자가 필요합니다"
+  },
+  "copy_0947800d1f": {
+    "message": "저장하기 전에 LM Studio 채팅 모델을 불러와 선택하세요"
+  },
+  "copy_eec68a3001": {
+    "message": "LM Studio 모델이 필요합니다"
+  },
+  "copy_79b57ba0c8": {
+    "message": "LM Studio를 시작하고 채팅 모델을 불러온 뒤 새로고침하고 선택하세요."
+  },
+  "copy_6dd8239043": {
+    "message": "이 공급자를 저장하기 전에 API 키를 입력하세요"
+  },
+  "copy_14249339ac": {
+    "message": "저장하기 전에 이 공급자에서 사용 가능한 모델을 불러오세요"
+  },
+  "copy_3b855d546e": {
+    "message": "API 키가 필요합니다"
+  },
+  "copy_32afa3cc46": {
+    "message": "모델 목록이 필요합니다"
+  },
+  "copy_954e78bbdc": {
+    "message": "API 키 필요"
+  },
+  "copy_074a372298": {
+    "message": "설정을 저장했습니다"
+  },
+  "copy_cdb46a2041": {
+    "message": "연결을 테스트하기 전에 LM Studio 채팅 모델을 불러와 선택하세요."
+  },
+  "copy_8332d4b3d9": {
+    "message": "API 키가 구성되지 않았습니다"
+  },
+  "copy_6bec306893": {
+    "message": "API 키 없음"
+  },
+  "copy_ec6c5d7132": {
+    "message": "시작하려면 $NAME$ API 키를 구성하세요"
+  },
+  "copy_59b831ea1c": {
+    "message": "API 키가 필요합니다"
+  },
+  "copy_7e4840a26d": {
+    "message": "연결을 테스트하기 전에 현재 모델 목록을 불러오세요."
+  },
+  "copy_220b5a97ab": {
+    "message": "알 수 없는 브리지 오류"
+  },
+  "copy_a45a37ddcc": {
+    "message": "연결 테스트에 실패했습니다"
+  },
+  "copy_ad0770f1aa": {
+    "message": "설치되었고 호환됩니다: Grok Build 1.0.4. 격리, ACP, 캐시된 OAuth 검사가 프롬프트를 보내지 않고 통과했습니다."
+  },
+  "copy_aab517a207": {
+    "message": "호환성 검사 실패: $ERROR$"
+  },
+  "copy_b33e732cc1": {
+    "message": "로그를 내보냈습니다"
+  },
+  "copy_11eb704622": {
+    "message": "$ORIGIN$의 동의 모드"
+  },
+  "copy_7655b9531e": {
+    "message": "감사 로그를 사용할 수 없습니다"
+  },
+  "copy_07856dc7ea": {
+    "message": "감사 로그를 내보냈습니다"
+  },
+  "copy_1945edab68": {
+    "message": "감사 로그 내보내기에 실패했습니다"
+  },
+  "copy_27efbed83b": {
+    "message": "감사 로그 지우기: 로컬 감사 항목이 모두 영구적으로 삭제됩니다. 사본이 필요하면 먼저 내보내세요. 계속할까요?"
+  },
+  "copy_1b9414c45e": {
+    "message": "감사 로그를 지웠습니다"
+  },
+  "copy_5e4c340bf4": {
+    "message": "감사 로그를 지우지 못했습니다"
+  },
+  "copy_e55422c604": {
+    "message": "이 출처는 자동화에서 차단되어 있습니다"
+  },
+  "copy_74f10b929e": {
+    "message": "접근이 허용되었습니다(민감한 출처)"
+  },
+  "copy_8378642189": {
+    "message": "모든 분석 데이터를 지울까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_a58a92d42a": {
+    "message": "분석 데이터를 지웠습니다"
+  },
+  "copy_53dd8a177f": {
+    "message": "분석 데이터를 내보냈습니다"
+  },
+  "copy_f5db4312c2": {
+    "message": "JSON 세션 데이터"
+  },
+  "copy_b0e3e5d7c3": {
+    "message": "스트리밍 세션 내보내기에는 다른 이름으로 저장을 지원하는 브라우저가 필요합니다"
+  },
+  "copy_0eecfd3ae0": {
+    "message": "세션 내보내기 전송을 사용할 수 없습니다"
+  },
+  "copy_0969eab862": {
+    "message": "세션을 찾을 수 없습니다"
+  },
+  "copy_fe13bdd0d0": {
+    "message": "세션 세부 정보를 불러오지 못했습니다"
+  },
+  "copy_3096433e6f": {
+    "message": "세션 이벤트를 불러오지 못했습니다"
+  },
+  "copy_952bb703c9": {
+    "message": "세션 이벤트를 더 불러오지 못했습니다: $ERROR$"
+  },
+  "copy_ce10cc25bb": {
+    "message": "선택된 세션이 없습니다"
+  },
+  "copy_d633c264e7": {
+    "message": "세션 JSON을 다운로드했습니다"
+  },
+  "copy_19404e5435": {
+    "message": "세션 기록의 다운로드 버튼에서 저널 내보내기를 다시 시도하세요"
+  },
+  "copy_f431c1057b": {
+    "message": "세션 로그를 다운로드하지 못했습니다"
+  },
+  "copy_ac475c80e9": {
+    "message": "이 세션을 삭제할까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_5c9c6608b4": {
+    "message": "세션을 삭제하지 못했습니다"
+  },
+  "copy_1a0b431718": {
+    "message": "모든 세션 기록을 삭제할까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_40260f861d": {
+    "message": "모든 세션을 지웠습니다"
+  },
+  "copy_ed9e6fe6eb": {
+    "message": "세션을 지우지 못했습니다"
+  },
+  "copy_14d37a14df": {
+    "message": "이 세션에 기록된 로그가 없습니다."
+  },
+  "copy_c892490bc5": {
+    "message": "FSB 자동화 세션 보고서"
+  },
+  "copy_76eb674a8c": {
+    "message": "AI 대화 로그"
+  },
+  "copy_5a60378692": {
+    "message": "범주 | 횟수 | 평균(ms) | 최소 | 최대 | 합계"
+  },
+  "copy_87968c8b4f": {
+    "message": "토큰 사용 요약"
+  },
+  "copy_09ed6ac4d2": {
+    "message": "세션 보고서를 내보냈습니다"
+  },
+  "copy_cc1e1981fb": {
+    "message": "세션 기록의 텍스트 내보내기 버튼에서 저널 내보내기를 다시 시도하세요"
+  },
+  "copy_c183663b5c": {
+    "message": "세션을 내보내지 못했습니다"
+  },
+  "copy_30784a43b1": {
+    "message": "금고 잠금 해제 오류: $ERROR$"
+  },
+  "copy_b621934f80": {
+    "message": "PIN이 일치하지 않습니다"
+  },
+  "copy_038efc029d": {
+    "message": "자격 증명 금고를 만들었습니다"
+  },
+  "copy_b27730b0ad": {
+    "message": "금고를 만들지 못했습니다"
+  },
+  "copy_be90a4301c": {
+    "message": "금고 만들기 오류: $ERROR$"
+  },
+  "copy_344e10f557": {
+    "message": "PIN을 입력하세요"
+  },
+  "copy_d8689df745": {
+    "message": "금고 잠금 오류: $ERROR$"
+  },
+  "copy_025f3d105c": {
+    "message": "도메인은 필수입니다"
+  },
+  "copy_f0413d8913": {
+    "message": "사용자 이름 또는 비밀번호가 필요합니다"
+  },
+  "copy_9afaa0cd06": {
+    "message": "저장하지 못했습니다: $ERROR$"
+  },
+  "copy_161d5eb702": {
+    "message": "자격 증명 저장 오류: $ERROR$"
+  },
+  "copy_2be1559933": {
+    "message": "\"$DOMAIN$\"의 저장된 자격 증명을 삭제할까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_742e696153": {
+    "message": "삭제하지 못했습니다: $ERROR$"
+  },
+  "copy_f91e85ab50": {
+    "message": "자격 증명 삭제 오류: $ERROR$"
+  },
+  "copy_6ddb0ed270": {
+    "message": "결제 수단 잠금을 해제했습니다"
+  },
+  "copy_c75e2cc897": {
+    "message": "결제 수단 잠금 해제 오류: $ERROR$"
+  },
+  "copy_b69b2dc301": {
+    "message": "결제 수단을 잠갔습니다"
+  },
+  "copy_454a57b219": {
+    "message": "결제 수단을 잠그지 못했습니다"
+  },
+  "copy_af2ea4b480": {
+    "message": "결제 수단 잠금 오류: $ERROR$"
+  },
+  "copy_38c2cc72e3": {
+    "message": "숫자 PIN을 입력하세요"
+  },
+  "copy_97334b1737": {
+    "message": "결제 수단 편집"
+  },
+  "copy_f8ab13ff2a": {
+    "message": "별칭과 주소 2행을 제외한 모든 항목은 필수입니다"
+  },
+  "copy_2389d7d2a2": {
+    "message": "카드 번호가 올바르지 않습니다"
+  },
+  "copy_cc08ac8162": {
+    "message": "카드가 만료되었거나 만료일이 올바르지 않습니다"
+  },
+  "copy_0aed24cdfa": {
+    "message": "결제 수단을 업데이트했습니다"
+  },
+  "copy_8fb5f3db97": {
+    "message": "결제 수단을 저장했습니다"
+  },
+  "copy_58adb591be": {
+    "message": "결제 수단 저장 오류: $ERROR$"
+  },
+  "copy_f03b63954b": {
+    "message": "이 결제 수단을 삭제할까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_62dd24dab7": {
+    "message": "결제 수단을 삭제했습니다"
+  },
+  "copy_2a0de92af3": {
+    "message": "결제 수단 삭제 오류: $ERROR$"
+  },
+  "copy_4f15f65f6e": {
+    "message": "탐색할 URL을 입력하세요"
+  },
+  "copy_fb05645171": {
+    "message": "URL 형식이 올바르지 않습니다"
+  },
+  "copy_a6215dba6d": {
+    "message": "탐색기를 시작하지 못했습니다: $ERROR$"
+  },
+  "copy_284429f90b": {
+    "message": "모든 크롤러를 중지했습니다"
+  },
+  "copy_aee9e10eae": {
+    "message": "$DOMAIN$ 크롤링에 실패했습니다"
+  },
+  "copy_d604ffed30": {
+    "message": "조사 데이터를 찾을 수 없습니다"
+  },
+  "copy_600bbdc0cf": {
+    "message": "조사 세부 정보를 불러오지 못했습니다"
+  },
+  "copy_b784ed64e1": {
+    "message": "조사 JSON을 다운로드했습니다"
+  },
+  "copy_4a64e6ca83": {
+    "message": "조사를 다운로드하지 못했습니다"
+  },
+  "copy_1a2e7f1116": {
+    "message": "이 조사 결과를 삭제할까요?"
+  },
+  "copy_ec95ccc29e": {
+    "message": "조사를 삭제하지 못했습니다"
+  },
+  "copy_dc94971b24": {
+    "message": "조사를 사이트 맵으로 변환하지 못했습니다"
+  },
+  "copy_382f902a79": {
+    "message": "메모리를 저장하지 못했습니다"
+  },
+  "copy_2049875d89": {
+    "message": "메모리에 저장했습니다"
+  },
+  "copy_d504fbf25e": {
+    "message": "AI로 사이트 맵을 다듬는 중..."
+  },
+  "copy_00834dcdc3": {
+    "message": "$DOMAIN$ 사이트 맵: 페이지 $PAGES$개, 양식 $FORMS$개(AI 향상)"
+  },
+  "copy_a249e56325": {
+    "message": "$DOMAIN$의 사이트 맵을 저장하고 다듬었습니다"
+  },
+  "copy_237923127b": {
+    "message": "$DOMAIN$의 사이트 맵을 저장했습니다(다듬기에서 데이터가 반환되지 않음)"
+  },
+  "copy_35d9e0c46c": {
+    "message": "사이트 맵을 저장했습니다(AI 다듬기 실패: $ERROR$)"
+  },
+  "copy_c8c83ca919": {
+    "message": "$DOMAIN$의 사이트 맵을 메모리에 저장했습니다"
+  },
+  "copy_c32ea6d22f": {
+    "message": "메모리에 저장하지 못했습니다: $ERROR$"
+  },
+  "copy_963ba004ea": {
+    "message": "모든 조사 결과를 삭제할까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_1044224528": {
+    "message": "모든 조사 결과를 지웠습니다"
+  },
+  "copy_84e9814ece": {
+    "message": "조사 결과를 지우지 못했습니다"
+  },
+  "copy_491c2ddc8e": {
+    "message": "먼저 서버 URL을 입력하세요"
+  },
+  "copy_9526d57756": {
+    "message": "해시 키를 생성하고 저장했습니다"
+  },
+  "copy_fdc08c5f7b": {
+    "message": "해시 키를 생성하지 못했습니다"
+  },
+  "copy_52b3b70484": {
+    "message": "서버에 연결할 수 없습니다: $ERROR$"
+  },
+  "copy_cbdbc53db1": {
+    "message": "복사할 해시 키가 없습니다"
+  },
+  "copy_f0b64c63d8": {
+    "message": "해시 키를 복사했습니다"
+  },
+  "copy_0cf23c4489": {
+    "message": "복사하지 못했습니다"
+  },
+  "copy_8cab3b4552": {
+    "message": "서버 URL과 해시 키를 입력하세요"
+  },
+  "copy_271b7b0f3b": {
+    "message": "서버에 연결했습니다"
+  },
+  "copy_3e8bcabc0b": {
+    "message": "해시 키가 올바르지 않습니다"
+  },
+  "copy_09f7c3ac2a": {
+    "message": "서버에 연결할 수 없습니다"
+  },
+  "copy_0ea446a05f": {
+    "message": "서버가 해시 키를 반환하지 않았습니다"
+  },
+  "copy_e5697f10b5": {
+    "message": "페어링 응답 형식이 올바르지 않습니다"
+  },
+  "copy_30fa7c27e5": {
+    "message": "페어링 코드를 생성할 수 없습니다: $ERROR$"
+  },
+  "copy_acce51c1d3": {
+    "message": "해시 키를 등록할 수 없습니다: $ERROR$"
+  },
+  "copy_cb4c956be2": {
+    "message": "이 메모리를 삭제할까요?"
+  },
+  "copy_7402b5cdc1": {
+    "message": "메모리 데이터를 불러오지 못했습니다"
+  },
+  "copy_3d391897c3": {
+    "message": "메모리를 찾을 수 없습니다"
+  },
+  "copy_1c461596d3": {
+    "message": "그래프 엔진을 사용할 수 없습니다"
+  },
+  "copy_d85c704af2": {
+    "message": "이 메모리에 사이트 패턴 데이터가 없습니다"
+  },
+  "copy_a658647978": {
+    "message": "사이트 맵에서 페이지를 찾지 못했습니다"
+  },
+  "copy_4b23a9fe70": {
+    "message": "AI 다듬기를 사용할 수 없습니다"
+  },
+  "copy_920d3a68d9": {
+    "message": "메모리를 찾을 수 없거나 사이트 맵이 아닙니다"
+  },
+  "copy_99a619a944": {
+    "message": "사이트 맵을 다듬었습니다"
+  },
+  "copy_a266f3a3ce": {
+    "message": "AI 다듬기 실패: $ERROR$"
+  },
+  "copy_0b0bdbabab": {
+    "message": "모든 메모리를 삭제할까요? 이 작업은 취소할 수 없습니다."
+  },
+  "copy_58589924e2": {
+    "message": "모든 메모리를 지웠습니다"
+  },
+  "copy_e158cd5a5e": {
+    "message": "메모리를 지우지 못했습니다: $ERROR$"
+  },
+  "copy_21ce69d58b": {
+    "message": "원격 제어가 활성입니다"
+  },
+  "copy_23a711ebd2": {
+    "message": "검색과 일치하는 모델이 없습니다"
+  },
+  "copy_a5a9895b02": {
+    "message": "사용 가능한 모델이 없습니다"
+  },
+  "copy_df9da4e214": {
+    "message": "API 키가 올바르지 않습니다"
+  },
+  "copy_e93db4ad9a": {
+    "message": "이 공급자에서 API 키가 올바르지 않습니다"
+  },
+  "copy_7b582d9989": {
+    "message": "호환되는 LM Studio 모델이 없습니다"
+  },
+  "copy_5742edc9d8": {
+    "message": "LM Studio를 시작하고 채팅 모델을 불러온 뒤 모델 목록을 새로고침하세요"
+  },
+  "copy_4b1527fd68": {
+    "message": "LM Studio 모델 검색을 사용할 수 없습니다"
+  },
+  "copy_bd94818b82": {
+    "message": "모델을 불러오지 못했습니다"
+  },
+  "copy_11c964536c": {
+    "message": "모델 검색을 사용할 수 없습니다"
+  },
+  "copy_c77feaa41e": {
+    "message": "LM Studio에 연결할 수 없습니다"
+  },
+  "copy_bdaaf4fde3": {
+    "message": "이 공급자에서 모델을 불러오지 못했습니다"
+  },
+  "copy_6b3e293f22": {
+    "message": "공급자 모델 목록을 새로고침하지 못했습니다"
+  },
+  "copy_9aed9949c4": {
+    "message": "LM Studio에 호환되는 채팅 모델이 로드되어 있지 않습니다"
+  },
+  "copy_d068f8bbe0": {
+    "message": "사용 가능한 모델이 없습니다"
+  },
+  "copy_ec819bcca6": {
+    "message": "공급자가 사용 가능한 텍스트 모델을 반환하지 않았습니다"
+  },
+  "copy_3329b92927": {
+    "message": "저장된 LM Studio 모델을 사용할 수 없습니다. 불러온 모델을 선택하고 저장하세요."
+  },
+  "copy_5cb6d3f4e6": {
+    "message": "모델 검색 시간이 초과되었습니다. 새로고침하여 다시 시도하세요."
+  },
+  "copy_e21ca6d204": {
+    "message": "모델 검색 및 선택"
+  },
+  "copy_d6699494ff": {
+    "message": "모델 목록 전환"
+  },
+  "copy_9606bfc49e": {
+    "message": "모델 목록 새로고침"
+  },
+  "copy_881bf7079c": {
+    "message": "xAI API 키 입력"
+  },
+  "copy_1e9720ad1e": {
+    "message": "Gemini API 키 입력"
+  },
+  "copy_699e26dc48": {
+    "message": "OpenAI API 키 입력"
+  },
+  "copy_e73283ba69": {
+    "message": "Anthropic API 키 입력"
+  },
+  "copy_c545294348": {
+    "message": "OpenRouter API 키 입력"
+  },
+  "copy_8001f1687a": {
+    "message": "사용자 지정 API 키 입력"
+  },
+  "copy_ec8571e74c": {
+    "message": "2Captcha API 키 입력"
+  },
+  "copy_9a679edbd3": {
+    "message": "최대 반복 횟수 줄이기"
+  },
+  "copy_7ff25a6879": {
+    "message": "최대 반복 횟수 늘리기"
+  },
+  "copy_1da98f8734": {
+    "message": "요소 한도 줄이기"
+  },
+  "copy_396f15bbfe": {
+    "message": "요소 한도 늘리기"
+  },
+  "copy_8418bb6be8": {
+    "message": "요소 캐시 크기 줄이기"
+  },
+  "copy_4d09f69eb1": {
+    "message": "요소 캐시 크기 늘리기"
+  },
+  "copy_8afc6eb606": {
+    "message": "에이전트 동시 실행 상한 낮추기"
+  },
+  "copy_484366fe68": {
+    "message": "에이전트 동시 실행 상한 높이기"
+  },
+  "copy_cffeed4c47": {
+    "message": "트리거 동시 실행 상한 낮추기"
+  },
+  "copy_3816b69dee": {
+    "message": "트리거 동시 실행 상한 높이기"
+  },
+  "copy_2a1df07657": {
+    "message": "MCP 재생 보존 기간 줄이기"
+  },
+  "copy_a346fdf291": {
+    "message": "MCP 재생 보존 일수"
+  },
+  "copy_71c20adba6": {
+    "message": "MCP 재생 보존 기간 늘리기"
+  },
+  "copy_f38984cf15": {
+    "message": "익명 사용 데이터를 보내는 중입니다. 클릭하여 중지하세요."
+  },
+  "copy_81649d0543": {
+    "message": "서버 해시 키"
+  },
+  "copy_e4cdf160f5": {
+    "message": "해시 키 복사"
+  },
+  "copy_81f7adf295": {
+    "message": "이전에 만든 백그라운드 에이전트"
+  },
+  "copy_8c16fe2070": {
+    "message": "사용하면 새 메모리가 AI에 의해 자동으로 분석되어 더 깊은 인사이트를 얻습니다"
+  },
+  "copy_0a221bc876": {
+    "message": "메모리를 JSON으로 내보내기"
+  },
+  "copy_70e6248096": {
+    "message": "JSON에서 메모리 가져오기"
+  },
+  "copy_1152ae520b": {
+    "message": "새 사이트의 기본 동의 모드"
+  },
+  "copy_f5af3ff4e6": {
+    "message": "출처의 동의 모드"
+  },
+  "copy_8371bee1a3": {
+    "message": "카드, 브랜드 또는 청구 정보 검색..."
+  },
+  "copy_18bf091ea7": {
+    "message": "카드 명의"
+  },
+  "copy_eb59dcee20": {
+    "message": "청구 프로필 이름"
+  },
+  "copy_e151fee074": {
+    "message": "아파트, 스위트, 호수"
+  },
+  "copy_7ec33c22aa": {
+    "message": "FSB - 제어판"
+  },
+  "copy_34c70e4722": {
+    "message": "FSB - 시작 설정"
+  },
+  "copy_1398385080": {
+    "message": "5단계 중 1단계"
+  },
+  "copy_b51e205a4a": {
+    "message": "불러온 LM Studio 채팅 모델 선택"
+  },
+  "copy_434171c580": {
+    "message": "LM Studio가 정상적으로 응답했습니다"
+  },
+  "copy_900b7aa263": {
+    "message": "클립보드에 API 키가 없었습니다"
+  },
+  "copy_8d78737e31": {
+    "message": "클립보드를 읽지 못했습니다"
+  },
+  "copy_08aae6eb74": {
+    "message": "지금은 건너뛰었습니다"
+  },
+  "lang_choose": {
+    "message": "언어"
+  },
+  "lang_follow_browser": {
+    "message": "브라우저 언어"
+  },
+  "lang_extensions_page": {
+    "message": "chrome://extensions의 이름은 브라우저 언어를 따릅니다."
   }
 }

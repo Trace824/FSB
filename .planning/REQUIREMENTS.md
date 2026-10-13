@@ -41,13 +41,13 @@
 
 ### Coverage
 
-- [ ] **COPY-01**: CI fails when an in-scope UI file still contains package-owned user-facing English prose outside the catalog and outside the producer-owned exceptions.
+- [x] **COPY-01**: CI fails when an in-scope UI file still contains package-owned user-facing English prose outside the catalog and outside the producer-owned exceptions.
 
 ### Language control
 
-- [ ] **LANG-01**: The user can choose one of the seven locales from a control that shows `English`, `Español`, `Deutsch`, `日本語`, `한국어`, `简体中文`, and `繁體中文`. Those autonyms are not translated.
-- [ ] **LANG-02**: The choice persists in `chrome.storage.local` and applies to the side panel, popup, options, onboarding, unlock, microphone permission, and overlay chrome without a Chrome restart.
-- [ ] **LANG-03**: The user can clear the choice and return to the browser UI language.
+- [x] **LANG-01**: The user can choose one of the seven locales from a control that shows `English`, `Español`, `Deutsch`, `日本語`, `한국어`, `简体中文`, and `繁體中文`. Those autonyms are not translated.
+- [x] **LANG-02**: The choice persists in `chrome.storage.local` and applies to the side panel, popup, options, onboarding, unlock, microphone permission, and overlay chrome without a Chrome restart.
+- [x] **LANG-03**: The user can clear the choice and return to the browser UI language.
 
 ## v2 Requirements
 

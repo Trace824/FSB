@@ -2163,5 +2163,938 @@
   },
   "entry_toast_copied": {
     "message": "Installationsbefehl kopiert"
+  },
+  "copy_26b2f925d8": {
+    "message": "FSB – Seitenleiste"
+  },
+  "copy_9ca9c869e9": {
+    "message": "Es kann keine Dateien bearbeiten, Shell-Befehle ausführen oder beliebige URLs abrufen."
+  },
+  "copy_65974683e8": {
+    "message": "$NAME$ für künftige Läufe vertrauen"
+  },
+  "copy_a9780e01fc": {
+    "message": "Dadurch entfällt die Bestätigung für künftige $NAME$-Läufe in diesem Browser."
+  },
+  "copy_88cad98751": {
+    "message": "Die Bestätigungseinstellung konnte nicht gespeichert werden. Erneut versuchen oder ohne Vertrauen fortfahren."
+  },
+  "copy_b6b3428299": {
+    "message": "Der Agent konnte nicht gestartet werden. Berechtigung prüfen und erneut versuchen."
+  },
+  "copy_02df469915": {
+    "message": "$NAME$ erlauben und starten"
+  },
+  "copy_63b90cc26c": {
+    "message": "Der native Helfer ist mit einer anderen Erweiterung gekoppelt"
+  },
+  "copy_606b6c7b99": {
+    "message": "Setze die Kopplung des nativen Helfers zurück und versuche diese Nachricht erneut. FSB koppelt diese Erweiterung automatisch."
+  },
+  "copy_4662e7e99e": {
+    "message": "Zurücksetzbefehl kopieren"
+  },
+  "copy_7d6ee224d7": {
+    "message": "Die lokale Agent-Sitzung ist nicht verfügbar"
+  },
+  "copy_abc3c6a9b5": {
+    "message": "Führe den Doctor-Befehl aus, starte den lokalen FSB-Dienst neu, falls du dazu aufgefordert wirst, und versuche diese Nachricht erneut."
+  },
+  "copy_392182513b": {
+    "message": "Der ausgewählte Anbieter unterstützt keine Agenten, die Browser-Tabs steuern. Wähle einen unterstützten Agent-Anbieter und versuche diese Nachricht erneut."
+  },
+  "copy_664ba782e6": {
+    "message": "Melde dich lokal bei $NAME$ an und versuche diese Nachricht erneut."
+  },
+  "copy_1c5510dd75": {
+    "message": "Verbindung testen kann trotzdem gelingen, weil dadurch kein delegierter Lauf startet. Nachricht erneut versuchen oder die Anbieter-Einrichtung prüfen."
+  },
+  "copy_266c761925": {
+    "message": "Der Agent konnte diese Aufgabe nicht starten"
+  },
+  "copy_6271a1aa0b": {
+    "message": "Behalte diese Nachricht im Eingabefeld, prüfe die Anbieter-Einstellungen und versuche es erneut."
+  },
+  "copy_07eab3e346": {
+    "message": "Der Agent-Lauf endete nach einem Daemon-Neustart"
+  },
+  "copy_00143d759f": {
+    "message": "Der Agent konnte diese Aufgabe nicht abschließen"
+  },
+  "copy_81dfbf1a8a": {
+    "message": "Agent-Verbindung verloren"
+  },
+  "copy_c1db132cee": {
+    "message": "Die Agent-Bereinigung braucht Aufmerksamkeit"
+  },
+  "copy_66defff597": {
+    "message": "Der Agent konnte die Steuerung nicht wiederaufnehmen"
+  },
+  "copy_f5bb81be63": {
+    "message": "FSB hat diesen Lauf angenommen, konnte ihn aber nicht speichern, und Stopp ist nicht bestätigt."
+  },
+  "copy_1c86e2b334": {
+    "message": "Der vorherige Agent-Prozess wurde beendet und nicht wieder verbunden. Starte eine neue Aufgabe, wenn der lokale Dienst bereit ist."
+  },
+  "copy_1a103bf447": {
+    "message": "Neue Aufgabe starten"
+  },
+  "copy_6c845be6a5": {
+    "message": "FSB hat drei Antworten des lokalen Agent-Dienstes verpasst. Der Lauf kann nicht sicher fortgesetzt werden."
+  },
+  "copy_4cf5603fc8": {
+    "message": "Installiere oder aktualisiere den nativen FSB-Helfer und versuche es erneut. FSB verbindet diesen Browser automatisch."
+  },
+  "copy_87db7a3927": {
+    "message": "FSB konnte diesen Tab nicht an $NAME$ zurückgeben, daher endete der Lauf und der Tab bleibt unter deiner Kontrolle. Starte eine neue Aufgabe, wenn du bereit bist."
+  },
+  "copy_d1708202db": {
+    "message": "Nachricht erneut versuchen"
+  },
+  "copy_39ccfe7853": {
+    "message": "Die Automatisierung arbeitet"
+  },
+  "copy_e609da84a5": {
+    "message": "Die Automatisierungssteuerung ist für diesen Tab nicht mehr verfügbar."
+  },
+  "copy_a6b6ef6c4e": {
+    "message": "Stopp konnte nicht bestätigt werden. Der vorherige Agent-Status wird weiterhin angezeigt."
+  },
+  "copy_ba4af741ad": {
+    "message": "Deine ursprüngliche Nachricht ist noch hier. Stopp erneut versuchen, um die Bereinigung abzuschließen."
+  },
+  "copy_e71b7995e6": {
+    "message": "FSB konnte diesen Agent-Lauf nicht speichern. Stopp wurde für genau diesen Lauf bestätigt, und deine Nachricht wurde behalten. Erneut versuchen."
+  },
+  "copy_ee776a7565": {
+    "message": "Schließe die ausstehende Agent-Bereinigung im ursprünglichen Tab und Gespräch ab, bevor du eine andere Aufgabe startest. Deine Nachricht wurde behalten."
+  },
+  "copy_b3715a6900": {
+    "message": "FSB konnte diesen Tab nicht an $NAME$ zurückgeben, daher endete der Lauf und der Tab bleibt unter deiner Kontrolle."
+  },
+  "copy_47220517c7": {
+    "message": "Der lokale Helfer von FSB ist nicht installiert. Ausführen: npx -y fsb-mcp-server@latest install --native-host"
+  },
+  "copy_d0b5d103f7": {
+    "message": "Erkundung auf $DOMAIN$ wird gestartet..."
+  },
+  "copy_7654da628e": {
+    "message": "Erkundung konnte nicht gestartet werden: $ERROR$"
+  },
+  "copy_ca79bcd4d7": {
+    "message": "Erkundung abgeschlossen! Sitemap für $DOMAIN$ gespeichert."
+  },
+  "copy_0f654a723b": {
+    "message": "Die Automatisierung wurde abgeschlossen, aber es wurde keine Zusammenfassung bereitgestellt. Versuche es erneut, wenn die Aufgabe nicht wie erwartet abgeschlossen wurde."
+  },
+  "copy_b6c7f59d4f": {
+    "message": "Anmeldeseite erkannt..."
+  },
+  "copy_43d71bc905": {
+    "message": "Gespeicherte Zahlungsmethoden sind für diesen Checkout nicht verfügbar."
+  },
+  "copy_e46796d601": {
+    "message": "Keine gespeicherten Karten"
+  },
+  "copy_40a0d5700e": {
+    "message": "Tresor-Einrichtung erforderlich"
+  },
+  "copy_eef91deafe": {
+    "message": "Zahlungszugriff gesperrt"
+  },
+  "copy_583fe8b004": {
+    "message": "Gespeicherte Zahlungen nicht verfügbar"
+  },
+  "copy_5932e9b23f": {
+    "message": "Abrechnungsprofil gespeichert"
+  },
+  "copy_fbbc8ab36d": {
+    "message": "Gespeicherte Karte wird ausgefüllt..."
+  },
+  "copy_e09653448c": {
+    "message": "Die Wiedergabe wurde vor einem möglicherweise doppelten Schreibvorgang angehalten."
+  },
+  "copy_a378a72986": {
+    "message": "Wiedergabe-Entscheidung fehlgeschlagen"
+  },
+  "copy_aacf80d079": {
+    "message": "Wiedergabeschritt wird erneut versucht..."
+  },
+  "copy_8e731074ee": {
+    "message": "Wiedergabeschritt wird übersprungen..."
+  },
+  "copy_2d7848007e": {
+    "message": "Wiedergabe-Entscheidung konnte nicht angewendet werden: $ERROR$"
+  },
+  "copy_0d3db7357d": {
+    "message": "Blockiert · geschwärzte Eingabe"
+  },
+  "copy_4916a64c38": {
+    "message": "Ein MCP-Client hat diese Wiedergabe in $COUNT$ neuem Tab angefordert."
+  },
+  "copy_c15b9f2acd": {
+    "message": "Ein MCP-Client hat diese Wiedergabe in $COUNT$ neuen Tabs angefordert."
+  },
+  "copy_552d4905b4": {
+    "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest, einschließlich $COUNT$ Schritts mit großer Auswirkung."
+  },
+  "copy_4c946b4834": {
+    "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest, einschließlich $COUNT$ Schritten mit großer Auswirkung."
+  },
+  "copy_9240c9c130": {
+    "message": "Eine Freigabe gilt nur für das genau geprüfte Manifest."
+  },
+  "copy_b0802ca35d": {
+    "message": "Aufgezeichnete Wiedergabe-Tabs werden geöffnet..."
+  },
+  "copy_c8a00bd3b5": {
+    "message": "Wiedergabe konnte nicht gestartet werden"
+  },
+  "copy_1a0ef83852": {
+    "message": "Angeforderte Wiedergabe konnte nicht gestartet werden: $ERROR$"
+  },
+  "copy_98db9dc8c5": {
+    "message": "Abbruch der Wiedergabe fehlgeschlagen"
+  },
+  "copy_4ed0e5ecba": {
+    "message": "Wiedergabeanforderung konnte nicht abgebrochen werden: $ERROR$"
+  },
+  "copy_0d9f4051eb": {
+    "message": "Wiedergabeprüfung fehlgeschlagen"
+  },
+  "copy_fc1f569fa7": {
+    "message": "Diese Aufnahme ist nur zur Ansicht, weil nur die letzten $LATEST$ von $TOTAL$ aufgezeichneten Aufrufen verfügbar sind. Früherer Browserzustand lässt sich nicht sicher rekonstruieren."
+  },
+  "copy_a2f62124e7": {
+    "message": "Diese geprüfte Zeitlinie in $COUNT$ neuem Tab wiedergeben?"
+  },
+  "copy_4c55f6bc6e": {
+    "message": "Diese geprüfte Zeitlinie in $COUNT$ neuen Tabs wiedergeben?"
+  },
+  "copy_dea4fcd3a0": {
+    "message": "Diese eine Freigabe gilt für das genau signierte Manifest: $DETAIL$."
+  },
+  "copy_82e80a0531": {
+    "message": "Die Zeitlinie enthält nur Lese- und Navigationsschritte."
+  },
+  "copy_99b908db8f": {
+    "message": "Ein neuer Wiedergabe-Tab wird geöffnet..."
+  },
+  "copy_b33e852b38": {
+    "message": "Wiedergabe konnte nicht gestartet werden."
+  },
+  "copy_816797656b": {
+    "message": "Wiedergabe konnte nicht gestartet werden: $ERROR$"
+  },
+  "copy_6a7fdeaea6": {
+    "message": "Sitzungsverlauf konnte nicht gelöscht werden"
+  },
+  "copy_f50146d7ac": {
+    "message": "Aufnahmeprüfung fehlgeschlagen"
+  },
+  "copy_8249b3f554": {
+    "message": "Aufnahme wartet auf Prüfung"
+  },
+  "copy_712090559d": {
+    "message": "Sitzung konnte nicht geladen werden: $ERROR$"
+  },
+  "copy_c249c35164": {
+    "message": "Gesamten Sitzungsverlauf löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_357bab7911": {
+    "message": "Sitzungsverlauf konnte nicht geleert werden"
+  },
+  "copy_0d3875c352": {
+    "message": "Aufgabe teilweise abgeschlossen"
+  },
+  "copy_2786eaaa0e": {
+    "message": "Auf empfohlen zurücksetzen ($COUNT$)"
+  },
+  "copy_03cea39622": {
+    "message": "Gib den Modellnamen unten ein"
+  },
+  "copy_df3a34abef": {
+    "message": "FSB verwendet ein separates privates Grok-Profil. Verbinde SuperGrok per Browser-OAuth; es werden kein API-Schlüssel und keine Modellauswahl verwendet."
+  },
+  "copy_5eb9258e1b": {
+    "message": "Mit Browser-OAuth verbunden"
+  },
+  "copy_4ebee382f9": {
+    "message": "Anmeldestatus nicht verfügbar"
+  },
+  "copy_ee531932b4": {
+    "message": "Grok-Anmeldung wird geöffnet..."
+  },
+  "copy_e591c14068": {
+    "message": "Auf die Browser-Anmeldung wird gewartet..."
+  },
+  "copy_82d261c870": {
+    "message": "Grok Build konnte die Verbindung nicht trennen, während eine Aufgabe aktiv ist"
+  },
+  "copy_ab442992e8": {
+    "message": "Grok Build hat die Trennung nicht rechtzeitig beantwortet. Prüfe den Anmeldestatus, bevor du es erneut versuchst."
+  },
+  "copy_10e5c2a8ad": {
+    "message": "Grok Build konnte die Verbindung nicht trennen. Erneut versuchen."
+  },
+  "copy_2becee5507": {
+    "message": "Grok Build konnte die Verbindung nicht trennen: Der lokale Agent-Dienst ist nicht verfügbar"
+  },
+  "copy_1d29342190": {
+    "message": "Grok Build hat die Anmeldung nicht rechtzeitig beantwortet. Aktualisiere den Status, bevor du es erneut versuchst."
+  },
+  "copy_b0fca87a8b": {
+    "message": "Grok Build konnte sich nicht anmelden: Der lokale Agent-Dienst ist nicht verfügbar"
+  },
+  "copy_90ac4e0d62": {
+    "message": "Die Anmeldung bei Grok Build ist blockiert, weil die installierte Grok CLI nicht die von FSB unterstützte Version ist. Dein Konto ist in Ordnung. Prüfe das Kompatibilitätskennzeichen und installiere eine unterstützte CLI."
+  },
+  "copy_9144f84f5c": {
+    "message": "Grok Build kann sich nicht anmelden, während eine Aufgabe läuft. Warte, bis der Lauf endet, und versuche es erneut."
+  },
+  "copy_ca4a99be2b": {
+    "message": "Grok Build konnte eine vorherige Sitzung nicht bereinigen, daher ist die Anmeldung blockiert. Aktualisiere den Status, um die Bereinigung erneut zu versuchen."
+  },
+  "copy_28c4c69520": {
+    "message": "Die Grok CLI hat sich geweigert, in der strengen Sandbox zu starten, die FSB verlangt, daher ist die Anmeldung blockiert. Die CLI ist installiert und dein Konto ist in Ordnung."
+  },
+  "copy_0b9a54a7f8": {
+    "message": "FSB konnte die Grok CLI nicht ausführen. Prüfe, ob sie installiert ist, und aktualisiere dann den Status."
+  },
+  "copy_3f7ae97289": {
+    "message": "Grok Build-Anmeldung wurde abgebrochen"
+  },
+  "copy_6725ea7cca": {
+    "message": "Grok Build-Anmeldung wurde nicht abgeschlossen"
+  },
+  "copy_80d9a75cd7": {
+    "message": "Grok Build ist mit dem privaten FSB-Profil verbunden"
+  },
+  "copy_ec4c183761": {
+    "message": "Grok Build-Anmeldung fehlgeschlagen"
+  },
+  "copy_53296a80a3": {
+    "message": "Privates FSB-Grok-Build-Profil trennen? Deine normale Grok-Anmeldung bleibt unverändert."
+  },
+  "copy_ca0786266f": {
+    "message": "Grok Build wurde von FSB getrennt"
+  },
+  "copy_eb14344a7c": {
+    "message": "Geladenes Modell wird verwendet"
+  },
+  "copy_97e5afb52c": {
+    "message": "Wähle und speichere einen anderen KI-Anbieter, bevor du eine neue Aufgabe startest"
+  },
+  "copy_682cc533d5": {
+    "message": "KI-Anbieter erforderlich"
+  },
+  "copy_0947800d1f": {
+    "message": "Lade und wähle ein LM Studio-Chatmodell, bevor du speicherst"
+  },
+  "copy_eec68a3001": {
+    "message": "LM Studio-Modell erforderlich"
+  },
+  "copy_79b57ba0c8": {
+    "message": "Starte LM Studio, lade ein Chatmodell, aktualisiere und wähle es aus."
+  },
+  "copy_6dd8239043": {
+    "message": "Gib einen API-Schlüssel an, bevor du diesen Anbieter speicherst"
+  },
+  "copy_14249339ac": {
+    "message": "Lade ein verfügbares Modell dieses Anbieters, bevor du speicherst"
+  },
+  "copy_3b855d546e": {
+    "message": "API-Schlüssel erforderlich"
+  },
+  "copy_32afa3cc46": {
+    "message": "Modellliste erforderlich"
+  },
+  "copy_954e78bbdc": {
+    "message": "API-Schlüssel erforderlich"
+  },
+  "copy_074a372298": {
+    "message": "Einstellungen erfolgreich gespeichert"
+  },
+  "copy_cdb46a2041": {
+    "message": "Lade und wähle ein LM Studio-Chatmodell, bevor du die Verbindung testest."
+  },
+  "copy_8332d4b3d9": {
+    "message": "Kein API-Schlüssel konfiguriert"
+  },
+  "copy_6bec306893": {
+    "message": "Kein API-Schlüssel"
+  },
+  "copy_ec6c5d7132": {
+    "message": "Konfiguriere deinen $NAME$-API-Schlüssel, um zu beginnen"
+  },
+  "copy_59b831ea1c": {
+    "message": "API-Schlüssel ist erforderlich"
+  },
+  "copy_7e4840a26d": {
+    "message": "Lade die aktuelle Modellliste, bevor du die Verbindung testest."
+  },
+  "copy_220b5a97ab": {
+    "message": "Unbekannter Bridge-Fehler"
+  },
+  "copy_a45a37ddcc": {
+    "message": "Verbindungstest fehlgeschlagen"
+  },
+  "copy_ad0770f1aa": {
+    "message": "Installiert und kompatibel: Grok Build 1.0.4. Isolation, ACP und zwischengespeicherte OAuth-Prüfungen sind ohne Prompt erfolgreich."
+  },
+  "copy_aab517a207": {
+    "message": "Kompatibilitätsprüfung fehlgeschlagen: $ERROR$"
+  },
+  "copy_b33e732cc1": {
+    "message": "Protokolle erfolgreich exportiert"
+  },
+  "copy_11eb704622": {
+    "message": "Einwilligungsmodus für $ORIGIN$"
+  },
+  "copy_7655b9531e": {
+    "message": "Prüfprotokoll nicht verfügbar"
+  },
+  "copy_07856dc7ea": {
+    "message": "Prüfprotokoll exportiert"
+  },
+  "copy_1945edab68": {
+    "message": "Export des Prüfprotokolls fehlgeschlagen"
+  },
+  "copy_27efbed83b": {
+    "message": "Prüfprotokoll leeren: Dadurch werden alle lokalen Einträge dauerhaft gelöscht. Exportiere zuerst, wenn du eine Kopie möchtest. Fortfahren?"
+  },
+  "copy_1b9414c45e": {
+    "message": "Prüfprotokoll geleert"
+  },
+  "copy_5e4c340bf4": {
+    "message": "Prüfprotokoll konnte nicht geleert werden"
+  },
+  "copy_e55422c604": {
+    "message": "Dieser Ursprung ist für die Automatisierung gesperrt"
+  },
+  "copy_74f10b929e": {
+    "message": "Zugriff gewährt (sensibler Ursprung)"
+  },
+  "copy_8378642189": {
+    "message": "Möchtest du wirklich alle Analysedaten löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_a58a92d42a": {
+    "message": "Analysedaten gelöscht"
+  },
+  "copy_53dd8a177f": {
+    "message": "Analysedaten exportiert"
+  },
+  "copy_f5db4312c2": {
+    "message": "JSON-Sitzungsdaten"
+  },
+  "copy_b0e3e5d7c3": {
+    "message": "Der Streaming-Export einer Sitzung erfordert einen Browser mit Unterstützung für Speichern unter"
+  },
+  "copy_0eecfd3ae0": {
+    "message": "Der Transport für den Sitzungsexport ist nicht verfügbar"
+  },
+  "copy_0969eab862": {
+    "message": "Sitzung nicht gefunden"
+  },
+  "copy_fe13bdd0d0": {
+    "message": "Sitzungsdetails konnten nicht geladen werden"
+  },
+  "copy_3096433e6f": {
+    "message": "Sitzungsereignisse konnten nicht geladen werden"
+  },
+  "copy_952bb703c9": {
+    "message": "Weitere Sitzungsereignisse konnten nicht geladen werden: $ERROR$"
+  },
+  "copy_ce10cc25bb": {
+    "message": "Keine Sitzung ausgewählt"
+  },
+  "copy_d633c264e7": {
+    "message": "Sitzungs-JSON heruntergeladen"
+  },
+  "copy_19404e5435": {
+    "message": "Versuche den Journalexport erneut über die Download-Schaltfläche im Sitzungsverlauf"
+  },
+  "copy_f431c1057b": {
+    "message": "Sitzungsprotokolle konnten nicht heruntergeladen werden"
+  },
+  "copy_ac475c80e9": {
+    "message": "Möchtest du diese Sitzung wirklich löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_5c9c6608b4": {
+    "message": "Sitzung konnte nicht gelöscht werden"
+  },
+  "copy_1a0b431718": {
+    "message": "Möchtest du wirklich den GESAMTEN Sitzungsverlauf löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_40260f861d": {
+    "message": "Alle Sitzungen gelöscht"
+  },
+  "copy_ed9e6fe6eb": {
+    "message": "Sitzungen konnten nicht geleert werden"
+  },
+  "copy_14d37a14df": {
+    "message": "Für diese Sitzung wurden keine Protokolle aufgezeichnet."
+  },
+  "copy_c892490bc5": {
+    "message": "FSB-Automatisierungssitzungsbericht"
+  },
+  "copy_76eb674a8c": {
+    "message": "KI-GESPRÄCHSPROTOKOLL"
+  },
+  "copy_5a60378692": {
+    "message": "Kategorie | Anzahl | Mittel (ms) | Min | Max | Summe"
+  },
+  "copy_87968c8b4f": {
+    "message": "ZUSAMMENFASSUNG DER TOKEN-NUTZUNG"
+  },
+  "copy_09ed6ac4d2": {
+    "message": "Sitzungsbericht exportiert"
+  },
+  "copy_cc1e1981fb": {
+    "message": "Versuche den Journalexport erneut über die Schaltfläche Text exportieren im Sitzungsverlauf"
+  },
+  "copy_c183663b5c": {
+    "message": "Sitzung konnte nicht exportiert werden"
+  },
+  "copy_30784a43b1": {
+    "message": "Fehler beim Entsperren des Tresors: $ERROR$"
+  },
+  "copy_b621934f80": {
+    "message": "PINs stimmen nicht überein"
+  },
+  "copy_038efc029d": {
+    "message": "Anmeldedatentresor erstellt"
+  },
+  "copy_b27730b0ad": {
+    "message": "Tresor konnte nicht erstellt werden"
+  },
+  "copy_be90a4301c": {
+    "message": "Fehler beim Erstellen des Tresors: $ERROR$"
+  },
+  "copy_344e10f557": {
+    "message": "Gib deinen PIN ein"
+  },
+  "copy_d8689df745": {
+    "message": "Fehler beim Sperren des Tresors: $ERROR$"
+  },
+  "copy_025f3d105c": {
+    "message": "Domäne ist erforderlich"
+  },
+  "copy_f0413d8913": {
+    "message": "Benutzername oder Passwort ist erforderlich"
+  },
+  "copy_9afaa0cd06": {
+    "message": "Speichern fehlgeschlagen: $ERROR$"
+  },
+  "copy_161d5eb702": {
+    "message": "Fehler beim Speichern der Anmeldedaten: $ERROR$"
+  },
+  "copy_2be1559933": {
+    "message": "Gespeicherte Anmeldedaten für „$DOMAIN$“ löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_742e696153": {
+    "message": "Löschen fehlgeschlagen: $ERROR$"
+  },
+  "copy_f91e85ab50": {
+    "message": "Fehler beim Löschen der Anmeldedaten: $ERROR$"
+  },
+  "copy_6ddb0ed270": {
+    "message": "Zahlungsmethoden entsperrt"
+  },
+  "copy_c75e2cc897": {
+    "message": "Fehler beim Entsperren der Zahlungsmethoden: $ERROR$"
+  },
+  "copy_b69b2dc301": {
+    "message": "Zahlungsmethoden gesperrt"
+  },
+  "copy_454a57b219": {
+    "message": "Zahlungsmethoden konnten nicht gesperrt werden"
+  },
+  "copy_af2ea4b480": {
+    "message": "Fehler beim Sperren der Zahlungsmethoden: $ERROR$"
+  },
+  "copy_38c2cc72e3": {
+    "message": "Bitte gib deinen numerischen PIN ein"
+  },
+  "copy_97334b1737": {
+    "message": "Zahlungsmethode bearbeiten"
+  },
+  "copy_f8ab13ff2a": {
+    "message": "Alle Felder außer Spitzname und Adresszeile 2 sind erforderlich"
+  },
+  "copy_2389d7d2a2": {
+    "message": "Ungültige Kartennummer"
+  },
+  "copy_cc08ac8162": {
+    "message": "Karte ist abgelaufen oder das Ablaufdatum ist ungültig"
+  },
+  "copy_0aed24cdfa": {
+    "message": "Zahlungsmethode aktualisiert"
+  },
+  "copy_8fb5f3db97": {
+    "message": "Zahlungsmethode gespeichert"
+  },
+  "copy_58adb591be": {
+    "message": "Fehler beim Speichern der Zahlungsmethode: $ERROR$"
+  },
+  "copy_f03b63954b": {
+    "message": "Diese Zahlungsmethode löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_62dd24dab7": {
+    "message": "Zahlungsmethode gelöscht"
+  },
+  "copy_2a0de92af3": {
+    "message": "Fehler beim Löschen der Zahlungsmethode: $ERROR$"
+  },
+  "copy_4f15f65f6e": {
+    "message": "Bitte gib eine URL zum Erkunden ein"
+  },
+  "copy_fb05645171": {
+    "message": "Ungültiges URL-Format"
+  },
+  "copy_a6215dba6d": {
+    "message": "Explorer konnte nicht gestartet werden: $ERROR$"
+  },
+  "copy_284429f90b": {
+    "message": "Alle Crawler gestoppt"
+  },
+  "copy_aee9e10eae": {
+    "message": "Crawl für $DOMAIN$ fehlgeschlagen"
+  },
+  "copy_d604ffed30": {
+    "message": "Forschungsdaten nicht gefunden"
+  },
+  "copy_600bbdc0cf": {
+    "message": "Forschungsdetails konnten nicht geladen werden"
+  },
+  "copy_b784ed64e1": {
+    "message": "Forschungs-JSON heruntergeladen"
+  },
+  "copy_4a64e6ca83": {
+    "message": "Forschung konnte nicht heruntergeladen werden"
+  },
+  "copy_1a2e7f1116": {
+    "message": "Möchtest du dieses Forschungsergebnis wirklich löschen?"
+  },
+  "copy_ec95ccc29e": {
+    "message": "Forschung konnte nicht gelöscht werden"
+  },
+  "copy_dc94971b24": {
+    "message": "Forschung konnte nicht in eine Sitemap umgewandelt werden"
+  },
+  "copy_382f902a79": {
+    "message": "Speicher konnte nicht gespeichert werden"
+  },
+  "copy_2049875d89": {
+    "message": "Im Speicher gespeichert"
+  },
+  "copy_d504fbf25e": {
+    "message": "Sitemap wird mit KI verfeinert..."
+  },
+  "copy_00834dcdc3": {
+    "message": "Sitemap für $DOMAIN$: $PAGES$ Seiten, $FORMS$ Formulare (mit KI verbessert)"
+  },
+  "copy_a249e56325": {
+    "message": "Sitemap für $DOMAIN$ gespeichert und verfeinert"
+  },
+  "copy_237923127b": {
+    "message": "Sitemap für $DOMAIN$ gespeichert (Verfeinerung lieferte keine Daten)"
+  },
+  "copy_35d9e0c46c": {
+    "message": "Sitemap gespeichert (KI-Verfeinerung fehlgeschlagen: $ERROR$)"
+  },
+  "copy_c8c83ca919": {
+    "message": "Sitemap für $DOMAIN$ im Speicher gespeichert"
+  },
+  "copy_c32ea6d22f": {
+    "message": "Speichern im Speicher fehlgeschlagen: $ERROR$"
+  },
+  "copy_963ba004ea": {
+    "message": "Möchtest du wirklich ALLE Forschungsergebnisse löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_1044224528": {
+    "message": "Alle Forschungsergebnisse gelöscht"
+  },
+  "copy_84e9814ece": {
+    "message": "Forschungsergebnisse konnten nicht gelöscht werden"
+  },
+  "copy_491c2ddc8e": {
+    "message": "Bitte gib zuerst eine Server-URL ein"
+  },
+  "copy_9526d57756": {
+    "message": "Hash-Schlüssel erzeugt und gespeichert"
+  },
+  "copy_fdc08c5f7b": {
+    "message": "Hash-Schlüssel konnte nicht erzeugt werden"
+  },
+  "copy_52b3b70484": {
+    "message": "Verbindung zum Server nicht möglich: $ERROR$"
+  },
+  "copy_cbdbc53db1": {
+    "message": "Kein Hash-Schlüssel zum Kopieren"
+  },
+  "copy_f0b64c63d8": {
+    "message": "Hash-Schlüssel kopiert"
+  },
+  "copy_0cf23c4489": {
+    "message": "Kopieren fehlgeschlagen"
+  },
+  "copy_8cab3b4552": {
+    "message": "Bitte gib Server-URL und Hash-Schlüssel ein"
+  },
+  "copy_271b7b0f3b": {
+    "message": "Serververbindung erfolgreich"
+  },
+  "copy_3e8bcabc0b": {
+    "message": "Hash-Schlüssel ist ungültig"
+  },
+  "copy_09f7c3ac2a": {
+    "message": "Verbindung zum Server nicht möglich"
+  },
+  "copy_0ea446a05f": {
+    "message": "Server hat keinen Hash-Schlüssel zurückgegeben"
+  },
+  "copy_e5697f10b5": {
+    "message": "Fehlerhafte Kopplungsantwort"
+  },
+  "copy_30fa7c27e5": {
+    "message": "Kopplungscode konnte nicht erzeugt werden: $ERROR$"
+  },
+  "copy_acce51c1d3": {
+    "message": "Hash-Schlüssel konnte nicht registriert werden: $ERROR$"
+  },
+  "copy_cb4c956be2": {
+    "message": "Diesen Speicher löschen?"
+  },
+  "copy_7402b5cdc1": {
+    "message": "Speicherdaten konnten nicht geladen werden"
+  },
+  "copy_3d391897c3": {
+    "message": "Speicher nicht gefunden"
+  },
+  "copy_1c461596d3": {
+    "message": "Graph-Engine nicht verfügbar"
+  },
+  "copy_d85c704af2": {
+    "message": "Keine Website-Musterdaten in diesem Speicher"
+  },
+  "copy_a658647978": {
+    "message": "Keine Seiten in der Sitemap gefunden"
+  },
+  "copy_4b23a9fe70": {
+    "message": "KI-Verfeinerung nicht verfügbar"
+  },
+  "copy_920d3a68d9": {
+    "message": "Speicher nicht gefunden oder keine Sitemap"
+  },
+  "copy_99a619a944": {
+    "message": "Sitemap erfolgreich verfeinert"
+  },
+  "copy_a266f3a3ce": {
+    "message": "KI-Verfeinerung fehlgeschlagen: $ERROR$"
+  },
+  "copy_0b0bdbabab": {
+    "message": "ALLE Speicher löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "copy_58589924e2": {
+    "message": "Alle Speicher gelöscht"
+  },
+  "copy_e158cd5a5e": {
+    "message": "Speicher konnten nicht gelöscht werden: $ERROR$"
+  },
+  "copy_21ce69d58b": {
+    "message": "Fernsteuerung aktiv"
+  },
+  "copy_23a711ebd2": {
+    "message": "Keine Modelle entsprechen der Suche"
+  },
+  "copy_a5a9895b02": {
+    "message": "Keine Modelle verfügbar"
+  },
+  "copy_df9da4e214": {
+    "message": "Ungültiger API-Schlüssel"
+  },
+  "copy_e93db4ad9a": {
+    "message": "API-Schlüssel ist für diesen Anbieter ungültig"
+  },
+  "copy_7b582d9989": {
+    "message": "Keine kompatiblen LM Studio-Modelle verfügbar"
+  },
+  "copy_5742edc9d8": {
+    "message": "Starte LM Studio, lade ein Chatmodell und aktualisiere die Modellliste"
+  },
+  "copy_4b1527fd68": {
+    "message": "LM Studio-Modellerkennung ist nicht verfügbar"
+  },
+  "copy_bd94818b82": {
+    "message": "Modelle konnten nicht geladen werden"
+  },
+  "copy_11c964536c": {
+    "message": "Modellerkennung ist nicht verfügbar"
+  },
+  "copy_c77feaa41e": {
+    "message": "Verbindung zu LM Studio nicht möglich"
+  },
+  "copy_bdaaf4fde3": {
+    "message": "Modelle dieses Anbieters konnten nicht geladen werden"
+  },
+  "copy_6b3e293f22": {
+    "message": "Anbieter-Modellliste konnte nicht aktualisiert werden"
+  },
+  "copy_9aed9949c4": {
+    "message": "In LM Studio sind keine kompatiblen Chatmodelle geladen"
+  },
+  "copy_d068f8bbe0": {
+    "message": "Keine verfügbaren Modelle"
+  },
+  "copy_ec819bcca6": {
+    "message": "Der Anbieter hat keine verfügbaren Textmodelle zurückgegeben"
+  },
+  "copy_3329b92927": {
+    "message": "Das gespeicherte LM Studio-Modell ist nicht verfügbar. Wähle ein geladenes Modell und speichere."
+  },
+  "copy_5cb6d3f4e6": {
+    "message": "Zeitüberschreitung bei der Modellerkennung. Aktualisieren, um es erneut zu versuchen."
+  },
+  "copy_e21ca6d204": {
+    "message": "Modell suchen und auswählen"
+  },
+  "copy_d6699494ff": {
+    "message": "Modellliste umschalten"
+  },
+  "copy_9606bfc49e": {
+    "message": "Modellliste aktualisieren"
+  },
+  "copy_881bf7079c": {
+    "message": "Gib deinen xAI-API-Schlüssel ein"
+  },
+  "copy_1e9720ad1e": {
+    "message": "Gib deinen Gemini-API-Schlüssel ein"
+  },
+  "copy_699e26dc48": {
+    "message": "Gib deinen OpenAI-API-Schlüssel ein"
+  },
+  "copy_e73283ba69": {
+    "message": "Gib deinen Anthropic-API-Schlüssel ein"
+  },
+  "copy_c545294348": {
+    "message": "Gib deinen OpenRouter-API-Schlüssel ein"
+  },
+  "copy_8001f1687a": {
+    "message": "Gib deinen eigenen API-Schlüssel ein"
+  },
+  "copy_ec8571e74c": {
+    "message": "Gib deinen 2Captcha-API-Schlüssel ein"
+  },
+  "copy_9a679edbd3": {
+    "message": "Maximale Iterationen verringern"
+  },
+  "copy_7ff25a6879": {
+    "message": "Maximale Iterationen erhöhen"
+  },
+  "copy_1da98f8734": {
+    "message": "Elementlimit verringern"
+  },
+  "copy_396f15bbfe": {
+    "message": "Elementlimit erhöhen"
+  },
+  "copy_8418bb6be8": {
+    "message": "Elementcache verkleinern"
+  },
+  "copy_4d09f69eb1": {
+    "message": "Elementcache vergrößern"
+  },
+  "copy_8afc6eb606": {
+    "message": "Agent-Parallelitätsgrenze verringern"
+  },
+  "copy_484366fe68": {
+    "message": "Agent-Parallelitätsgrenze erhöhen"
+  },
+  "copy_cffeed4c47": {
+    "message": "Auslöser-Parallelitätsgrenze verringern"
+  },
+  "copy_3816b69dee": {
+    "message": "Auslöser-Parallelitätsgrenze erhöhen"
+  },
+  "copy_2a1df07657": {
+    "message": "MCP-Wiedergabeaufbewahrung verringern"
+  },
+  "copy_a346fdf291": {
+    "message": "Tage der MCP-Wiedergabeaufbewahrung"
+  },
+  "copy_71c20adba6": {
+    "message": "MCP-Wiedergabeaufbewahrung erhöhen"
+  },
+  "copy_f38984cf15": {
+    "message": "Anonyme Nutzungsdaten werden gesendet. Klicken, um zu stoppen."
+  },
+  "copy_81649d0543": {
+    "message": "Dein Server-Hash-Schlüssel"
+  },
+  "copy_e4cdf160f5": {
+    "message": "Hash-Schlüssel kopieren"
+  },
+  "copy_81f7adf295": {
+    "message": "Zuvor erstellte Hintergrundagenten"
+  },
+  "copy_8c16fe2070": {
+    "message": "Wenn aktiviert, werden neue Speicher automatisch von der KI auf tiefere Erkenntnisse analysiert"
+  },
+  "copy_0a221bc876": {
+    "message": "Speicher als JSON exportieren"
+  },
+  "copy_70e6248096": {
+    "message": "Speicher aus JSON importieren"
+  },
+  "copy_1152ae520b": {
+    "message": "Standard-Einwilligungsmodus für neue Websites"
+  },
+  "copy_f5af3ff4e6": {
+    "message": "Einwilligungsmodus für den Ursprung"
+  },
+  "copy_8371bee1a3": {
+    "message": "Karten, Marken oder Rechnungsdaten suchen..."
+  },
+  "copy_18bf091ea7": {
+    "message": "Name auf der Karte"
+  },
+  "copy_eb59dcee20": {
+    "message": "Name des Abrechnungsprofils"
+  },
+  "copy_e151fee074": {
+    "message": "Wohnung, Suite, Einheit"
+  },
+  "copy_7ec33c22aa": {
+    "message": "FSB – Steuerfeld"
+  },
+  "copy_34c70e4722": {
+    "message": "FSB – Ersteinrichtung"
+  },
+  "copy_1398385080": {
+    "message": "Schritt 1 von 5"
+  },
+  "copy_b51e205a4a": {
+    "message": "Wähle ein geladenes LM Studio-Chatmodell"
+  },
+  "copy_434171c580": {
+    "message": "LM Studio hat erfolgreich geantwortet"
+  },
+  "copy_900b7aa263": {
+    "message": "Die Zwischenablage enthielt keinen API-Schlüssel"
+  },
+  "copy_8d78737e31": {
+    "message": "Lesen der Zwischenablage fehlgeschlagen"
+  },
+  "copy_08aae6eb74": {
+    "message": "Vorerst übersprungen"
+  },
+  "lang_choose": {
+    "message": "Sprache"
+  },
+  "lang_follow_browser": {
+    "message": "Browsersprache"
+  },
+  "lang_extensions_page": {
+    "message": "Der Name auf chrome://extensions folgt der Browsersprache."
   }
 }

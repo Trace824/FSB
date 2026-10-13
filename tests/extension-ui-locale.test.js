@@ -129,5 +129,32 @@ for (const name of ['bad-missing', 'bad-empty', 'bad-placeholder', 'bad-copy', '
   check(result.status === 1, `${name} fixture fails the gate`);
 }
 
+const autonyms = ['English', 'Español', 'Deutsch', '日本語', '한국어', '简体中文', '繁體中文'];
+check(JSON.stringify(locale.PUBLIC_LOCALES.map((code) => locale.NATIVE_LABELS[code])) === JSON.stringify(autonyms), 'language control uses the seven native autonyms');
+locale.setBrowserTag('en');
+locale.saveOverride('de');
+check(locale.current() === 'de', 'choosing German applies without a browser restart');
+locale.saveOverride('');
+check(locale.current() === 'en', 'clearing the choice follows the browser language');
+
+require('../extension/utils/copy-exact.js');
+const copyMismatches = Object.entries(locale.exact).filter(([english, key]) => {
+  return String(key).startsWith('copy_') && (!englishCatalog[key] || englishCatalog[key].message !== english);
+});
+check(copyMismatches.length === 0, 'copy exact map matches the English catalog');
+check(typeof locale.line === 'function', 'line translates a catalog template');
+locale.setCatalog('de', { copy_probe: 'Vertrauen für $NAME$' });
+locale.setOverride('de');
+locale.registerExact({ 'Trust $NAME$ probe': 'copy_probe' });
+check(locale.line('Trust $NAME$ probe', { name: 'Grok' }) === 'Vertrauen für Grok', 'line applies the active locale');
+locale.setOverride(null);
+
+const copyGate = spawnSync(process.execPath, ['scripts/verify-extension-copy.mjs'], { cwd: root, encoding: 'utf8' });
+check(copyGate.status === 0, 'in-scope chrome is cataloged');
+const badSentence = spawnSync(process.execPath, ['scripts/verify-extension-copy.mjs', '--file', 'tests/fixtures/extension-i18n/bad-sentence/ui.js'], { cwd: root, encoding: 'utf8' });
+check(badSentence.status === 1, 'uncataloged chrome fixture fails');
+check(String(badSentence.stderr).includes('This sentence is not cataloged.'), 'fixture reports the package-owned sentence');
+check(!String(badSentence.stderr).includes('User typed a secret sentence here.'), 'log sentences stay off the coverage gate');
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

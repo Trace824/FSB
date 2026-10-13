@@ -34,8 +34,8 @@
 - [x] **Phase 67: Manifest, side panel, and popup** - Localized store identity plus side-panel and popup chrome, with all six translations in the same change
 - [x] **Phase 68: Options and control panel** - Localized options and control-panel chrome, the largest surface
 - [x] **Phase 69: Onboarding, entry pages, and overlay chrome** - Localized onboarding, unlock, microphone permission, and FSB-authored overlay labels
-- [ ] **Phase 70: Coverage audit** - CI fails if in-scope files still contain package-owned English prose outside the catalog
-- [ ] **Phase 71: Language control** - A persistent seven-locale control that applies without restarting Chrome
+- [x] **Phase 70: Coverage audit** - CI fails if in-scope files still contain package-owned English prose outside the catalog
+- [x] **Phase 71: Language control** - A persistent seven-locale control that applies without restarting Chrome
 
 ## Phase Details
 
@@ -98,7 +98,8 @@
   1. The coverage check fails when a fixture UI file contains a package-owned English sentence that is not in the catalog and not on the producer-owned exception list.
   2. The same check passes on the side panel, popup, options, control panel, onboarding, unlock, microphone permission, and overlay chrome.
   3. Producer-owned exceptions still cover user text, model output, page DOM, secrets, and logs, and the check does not flag them.
-**Plans**: TBD
+**Plans**: 1/1 plans complete
+- [x] 70-01: Coverage gate and leftover package chrome.
 
 ### Phase 71: Language control
 **Goal**: The user can choose a locale inside the extension, keep that choice, and clear it.
@@ -109,7 +110,8 @@
   2. Choosing `de` and reopening the side panel, popup, and control panel shows German chrome. The on-page overlay chrome is German too. Chrome does not need a restart.
   3. Clearing the choice makes the UI follow the browser UI language again.
   4. The name shown in `chrome://extensions` still follows the browser UI language, because manifest `__MSG_` strings cannot follow the override.
-**Plans**: TBD
+**Plans**: 1/1 plans complete
+- [x] 71-01: Persistent language control.
 **UI hint**: yes
 
 ## Coverage
@@ -122,3 +124,5 @@
 *Roadmap created: 2026-10-11*
 *Phase 67 passed: 2026-10-11*
 *Phase 69 passed: 2026-10-11*
+*Phase 70 passed: 2026-10-13*
+*Phase 71 passed: 2026-10-13*

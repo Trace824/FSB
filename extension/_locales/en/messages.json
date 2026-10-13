@@ -2163,5 +2163,938 @@
   },
   "entry_toast_copied": {
     "message": "Install command copied"
+  },
+  "copy_26b2f925d8": {
+    "message": "FSB - Side Panel"
+  },
+  "copy_9ca9c869e9": {
+    "message": "It cannot edit files, run shell commands, or fetch arbitrary URLs."
+  },
+  "copy_65974683e8": {
+    "message": "Trust $NAME$ for future runs"
+  },
+  "copy_a9780e01fc": {
+    "message": "This turns off confirmation for future $NAME$ runs on this browser."
+  },
+  "copy_88cad98751": {
+    "message": "Confirmation preference could not be saved. Try again or continue without trust."
+  },
+  "copy_b6b3428299": {
+    "message": "The agent could not be started. Review the permission and try again."
+  },
+  "copy_02df469915": {
+    "message": "Allow & start $NAME$"
+  },
+  "copy_63b90cc26c": {
+    "message": "Native helper is paired with another extension"
+  },
+  "copy_606b6c7b99": {
+    "message": "Reset the native helper pairing, then try this message again. FSB will pair this extension automatically."
+  },
+  "copy_4662e7e99e": {
+    "message": "Copy reset command"
+  },
+  "copy_7d6ee224d7": {
+    "message": "Local agent session is unavailable"
+  },
+  "copy_abc3c6a9b5": {
+    "message": "Run the doctor command, restart the local FSB service if prompted, then try this message again."
+  },
+  "copy_392182513b": {
+    "message": "The selected provider does not support agents that control browser tabs. Choose a supported agent provider, then try this message again."
+  },
+  "copy_664ba782e6": {
+    "message": "Sign in to $NAME$ locally, then try this message again."
+  },
+  "copy_1c5510dd75": {
+    "message": "Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup."
+  },
+  "copy_266c761925": {
+    "message": "Agent could not start this task"
+  },
+  "copy_6271a1aa0b": {
+    "message": "Keep this message in the composer, review the provider settings, and try again."
+  },
+  "copy_07eab3e346": {
+    "message": "Agent run ended after daemon restart"
+  },
+  "copy_00143d759f": {
+    "message": "Agent could not finish this task"
+  },
+  "copy_81dfbf1a8a": {
+    "message": "Agent connection lost"
+  },
+  "copy_c1db132cee": {
+    "message": "Agent cleanup needs attention"
+  },
+  "copy_66defff597": {
+    "message": "Agent could not resume control"
+  },
+  "copy_f5bb81be63": {
+    "message": "FSB accepted this run but could not save it, and Stop is not confirmed."
+  },
+  "copy_1c86e2b334": {
+    "message": "The previous agent process was stopped and was not reattached. Start a new task when the local service is ready."
+  },
+  "copy_1a103bf447": {
+    "message": "Start a new task"
+  },
+  "copy_6c845be6a5": {
+    "message": "FSB missed three replies from the local agent service. The run cannot continue safely."
+  },
+  "copy_4cf5603fc8": {
+    "message": "Install or update the FSB native helper, then try again. FSB will connect this browser automatically."
+  },
+  "copy_87db7a3927": {
+    "message": "FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready."
+  },
+  "copy_d1708202db": {
+    "message": "Try message again"
+  },
+  "copy_39ccfe7853": {
+    "message": "Automation is working"
+  },
+  "copy_e609da84a5": {
+    "message": "Automation control is no longer available for this tab."
+  },
+  "copy_a6b6ef6c4e": {
+    "message": "Stop could not be confirmed. The previous agent state is still shown."
+  },
+  "copy_ba4af741ad": {
+    "message": "Your original message is still here. Retry Stop to finish cleanup."
+  },
+  "copy_e71b7995e6": {
+    "message": "FSB could not save this agent run. Stop was confirmed for that exact run, and your message was kept. Try again."
+  },
+  "copy_ee776a7565": {
+    "message": "Finish the pending agent cleanup in its original tab and conversation before starting another task. Your message was kept."
+  },
+  "copy_b3715a6900": {
+    "message": "FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control."
+  },
+  "copy_47220517c7": {
+    "message": "FSB’s local helper is not installed. Run: npx -y fsb-mcp-server@latest install --native-host"
+  },
+  "copy_d0b5d103f7": {
+    "message": "Starting reconnaissance on $DOMAIN$..."
+  },
+  "copy_7654da628e": {
+    "message": "Reconnaissance failed to start: $ERROR$"
+  },
+  "copy_ca79bcd4d7": {
+    "message": "Reconnaissance complete! Site map saved for $DOMAIN$."
+  },
+  "copy_0f654a723b": {
+    "message": "The automation completed but no summary was provided. Please try again if the task wasn't completed as expected."
+  },
+  "copy_b6c7f59d4f": {
+    "message": "Login page detected..."
+  },
+  "copy_43d71bc905": {
+    "message": "Saved payment methods are not available for this checkout."
+  },
+  "copy_e46796d601": {
+    "message": "No saved cards"
+  },
+  "copy_40a0d5700e": {
+    "message": "Vault setup required"
+  },
+  "copy_eef91deafe": {
+    "message": "Payment access locked"
+  },
+  "copy_583fe8b004": {
+    "message": "Saved payments unavailable"
+  },
+  "copy_5932e9b23f": {
+    "message": "Billing profile stored"
+  },
+  "copy_fbbc8ab36d": {
+    "message": "Filling saved card..."
+  },
+  "copy_e09653448c": {
+    "message": "Replay paused before a potentially duplicated write."
+  },
+  "copy_a378a72986": {
+    "message": "Replay decision failed"
+  },
+  "copy_aacf80d079": {
+    "message": "Retrying replay step..."
+  },
+  "copy_8e731074ee": {
+    "message": "Skipping replay step..."
+  },
+  "copy_2d7848007e": {
+    "message": "Could not apply replay decision: $ERROR$"
+  },
+  "copy_0d3db7357d": {
+    "message": "Blocked · redacted input"
+  },
+  "copy_4916a64c38": {
+    "message": "An MCP client requested this replay in $COUNT$ fresh tab."
+  },
+  "copy_c15b9f2acd": {
+    "message": "An MCP client requested this replay in $COUNT$ fresh tabs."
+  },
+  "copy_552d4905b4": {
+    "message": "One approval covers only the exact verified manifest, including $COUNT$ high-impact step."
+  },
+  "copy_4c946b4834": {
+    "message": "One approval covers only the exact verified manifest, including $COUNT$ high-impact steps."
+  },
+  "copy_9240c9c130": {
+    "message": "One approval covers only the exact verified manifest."
+  },
+  "copy_b0802ca35d": {
+    "message": "Opening recorded replay tabs..."
+  },
+  "copy_c8a00bd3b5": {
+    "message": "Failed to start replay"
+  },
+  "copy_1a0ef83852": {
+    "message": "Failed to start requested replay: $ERROR$"
+  },
+  "copy_98db9dc8c5": {
+    "message": "Replay cancellation failed"
+  },
+  "copy_4ed0e5ecba": {
+    "message": "Could not cancel replay request: $ERROR$"
+  },
+  "copy_0d9f4051eb": {
+    "message": "Replay verification failed"
+  },
+  "copy_fc1f569fa7": {
+    "message": "This recording is inspect-only because only the latest $LATEST$ of $TOTAL$ recorded calls are available. Earlier browser state cannot be reconstructed safely."
+  },
+  "copy_a2f62124e7": {
+    "message": "Replay this verified timeline in $COUNT$ fresh tab?"
+  },
+  "copy_4c55f6bc6e": {
+    "message": "Replay this verified timeline in $COUNT$ fresh tabs?"
+  },
+  "copy_dea4fcd3a0": {
+    "message": "This one approval covers the exact signed manifest: $DETAIL$."
+  },
+  "copy_82e80a0531": {
+    "message": "The timeline contains only read and navigation steps."
+  },
+  "copy_99b908db8f": {
+    "message": "Opening a fresh replay tab..."
+  },
+  "copy_b33e852b38": {
+    "message": "Failed to start replay."
+  },
+  "copy_816797656b": {
+    "message": "Failed to start replay: $ERROR$"
+  },
+  "copy_6a7fdeaea6": {
+    "message": "Failed to delete session history"
+  },
+  "copy_f50146d7ac": {
+    "message": "Capture verification failed"
+  },
+  "copy_8249b3f554": {
+    "message": "Capture awaiting verification"
+  },
+  "copy_712090559d": {
+    "message": "Failed to load session: $ERROR$"
+  },
+  "copy_c249c35164": {
+    "message": "Delete all session history? This cannot be undone."
+  },
+  "copy_357bab7911": {
+    "message": "Failed to clear session history"
+  },
+  "copy_0d3875c352": {
+    "message": "Task partially completed"
+  },
+  "copy_2786eaaa0e": {
+    "message": "Reset to recommended ($COUNT$)"
+  },
+  "copy_03cea39622": {
+    "message": "Enter your model name below"
+  },
+  "copy_df3a34abef": {
+    "message": "FSB uses a separate private Grok profile. Connect SuperGrok with browser OAuth; no API key or model selection is used."
+  },
+  "copy_5eb9258e1b": {
+    "message": "Connected with browser OAuth"
+  },
+  "copy_4ebee382f9": {
+    "message": "Sign-in status unavailable"
+  },
+  "copy_ee531932b4": {
+    "message": "Opening Grok sign-in..."
+  },
+  "copy_e591c14068": {
+    "message": "Waiting for browser sign-in..."
+  },
+  "copy_82d261c870": {
+    "message": "Grok Build could not disconnect while a task is active"
+  },
+  "copy_ab442992e8": {
+    "message": "Grok Build did not answer the disconnect in time. Check the sign-in status before trying again."
+  },
+  "copy_10e5c2a8ad": {
+    "message": "Grok Build could not disconnect. Try again."
+  },
+  "copy_2becee5507": {
+    "message": "Grok Build could not disconnect: the local agent service is unavailable"
+  },
+  "copy_1d29342190": {
+    "message": "Grok Build did not answer the sign-in in time. Refresh status before trying again."
+  },
+  "copy_b0fca87a8b": {
+    "message": "Grok Build could not sign in: the local agent service is unavailable"
+  },
+  "copy_90ac4e0d62": {
+    "message": "Grok Build sign-in is blocked because the installed Grok CLI is not the version FSB supports. Your account is fine. Check the compatibility badge, then install a supported CLI."
+  },
+  "copy_9144f84f5c": {
+    "message": "Grok Build cannot sign in while a task is running. Wait for the run to finish, then try again."
+  },
+  "copy_ca4a99be2b": {
+    "message": "Grok Build could not clean up a previous session, so sign-in is blocked. Refresh status to retry cleanup."
+  },
+  "copy_28c4c69520": {
+    "message": "The Grok CLI refused to start under the strict sandbox FSB requires, so sign-in is blocked. The CLI is installed and your account is fine."
+  },
+  "copy_0b9a54a7f8": {
+    "message": "FSB could not run the Grok CLI. Check that it is installed, then refresh status."
+  },
+  "copy_3f7ae97289": {
+    "message": "Grok Build sign-in was cancelled"
+  },
+  "copy_6725ea7cca": {
+    "message": "Grok Build sign-in did not complete"
+  },
+  "copy_80d9a75cd7": {
+    "message": "Grok Build connected to the private FSB profile"
+  },
+  "copy_ec4c183761": {
+    "message": "Grok Build sign-in failed"
+  },
+  "copy_53296a80a3": {
+    "message": "Disconnect the private FSB Grok Build profile? Your normal Grok login is unchanged."
+  },
+  "copy_ca0786266f": {
+    "message": "Grok Build disconnected from FSB"
+  },
+  "copy_eb14344a7c": {
+    "message": "Using loaded model"
+  },
+  "copy_97e5afb52c": {
+    "message": "Choose and save another AI provider before starting a new task"
+  },
+  "copy_682cc533d5": {
+    "message": "AI provider required"
+  },
+  "copy_0947800d1f": {
+    "message": "Load and select an LM Studio chat model before saving"
+  },
+  "copy_eec68a3001": {
+    "message": "LM Studio model required"
+  },
+  "copy_79b57ba0c8": {
+    "message": "Start LM Studio, load a chat model, then refresh and select it."
+  },
+  "copy_6dd8239043": {
+    "message": "Provide an API key before saving this provider"
+  },
+  "copy_14249339ac": {
+    "message": "Load an available model from this provider before saving"
+  },
+  "copy_3b855d546e": {
+    "message": "API key required"
+  },
+  "copy_32afa3cc46": {
+    "message": "Model list required"
+  },
+  "copy_954e78bbdc": {
+    "message": "API Key Required"
+  },
+  "copy_074a372298": {
+    "message": "Settings saved successfully"
+  },
+  "copy_cdb46a2041": {
+    "message": "Load and select an LM Studio chat model before testing the connection."
+  },
+  "copy_8332d4b3d9": {
+    "message": "No API key configured"
+  },
+  "copy_6bec306893": {
+    "message": "No API Key"
+  },
+  "copy_ec6c5d7132": {
+    "message": "Configure your $NAME$ API key to get started"
+  },
+  "copy_59b831ea1c": {
+    "message": "API key is required"
+  },
+  "copy_7e4840a26d": {
+    "message": "Load the current model list before testing the connection."
+  },
+  "copy_220b5a97ab": {
+    "message": "Unknown bridge error"
+  },
+  "copy_a45a37ddcc": {
+    "message": "Connection test failed"
+  },
+  "copy_ad0770f1aa": {
+    "message": "Installed and compatible: Grok Build 1.0.4. Isolation, ACP, and cached OAuth checks passed without sending a prompt."
+  },
+  "copy_aab517a207": {
+    "message": "Compatibility check failed: $ERROR$"
+  },
+  "copy_b33e732cc1": {
+    "message": "Logs exported successfully"
+  },
+  "copy_11eb704622": {
+    "message": "Consent mode for $ORIGIN$"
+  },
+  "copy_7655b9531e": {
+    "message": "Audit log unavailable"
+  },
+  "copy_07856dc7ea": {
+    "message": "Audit log exported"
+  },
+  "copy_1945edab68": {
+    "message": "Audit log export failed"
+  },
+  "copy_27efbed83b": {
+    "message": "Clear audit log: This permanently deletes all local audit entries. Export first if you want a copy. Continue?"
+  },
+  "copy_1b9414c45e": {
+    "message": "Audit log cleared"
+  },
+  "copy_5e4c340bf4": {
+    "message": "Could not clear audit log"
+  },
+  "copy_e55422c604": {
+    "message": "This origin is blocked from automation"
+  },
+  "copy_74f10b929e": {
+    "message": "Access granted (sensitive origin)"
+  },
+  "copy_8378642189": {
+    "message": "Are you sure you want to clear all analytics data? This cannot be undone."
+  },
+  "copy_a58a92d42a": {
+    "message": "Analytics data cleared"
+  },
+  "copy_53dd8a177f": {
+    "message": "Analytics data exported"
+  },
+  "copy_f5db4312c2": {
+    "message": "JSON session data"
+  },
+  "copy_b0e3e5d7c3": {
+    "message": "Streaming session export requires a browser with Save As support"
+  },
+  "copy_0eecfd3ae0": {
+    "message": "Session export transport is unavailable"
+  },
+  "copy_0969eab862": {
+    "message": "Session not found"
+  },
+  "copy_fe13bdd0d0": {
+    "message": "Failed to load session details"
+  },
+  "copy_3096433e6f": {
+    "message": "Session events could not be loaded"
+  },
+  "copy_952bb703c9": {
+    "message": "Failed to load more session events: $ERROR$"
+  },
+  "copy_ce10cc25bb": {
+    "message": "No session selected"
+  },
+  "copy_d633c264e7": {
+    "message": "Session JSON downloaded"
+  },
+  "copy_19404e5435": {
+    "message": "Retry the journal export from its session-history download button"
+  },
+  "copy_f431c1057b": {
+    "message": "Failed to download session logs"
+  },
+  "copy_ac475c80e9": {
+    "message": "Are you sure you want to delete this session? This cannot be undone."
+  },
+  "copy_5c9c6608b4": {
+    "message": "Failed to delete session"
+  },
+  "copy_1a0b431718": {
+    "message": "Are you sure you want to delete ALL session history? This cannot be undone."
+  },
+  "copy_40260f861d": {
+    "message": "All sessions cleared"
+  },
+  "copy_ed9e6fe6eb": {
+    "message": "Failed to clear sessions"
+  },
+  "copy_14d37a14df": {
+    "message": "No logs recorded for this session."
+  },
+  "copy_c892490bc5": {
+    "message": "FSB Automation Session Report"
+  },
+  "copy_76eb674a8c": {
+    "message": "AI CONVERSATION LOG"
+  },
+  "copy_5a60378692": {
+    "message": "Category | Count | Avg (ms) | Min | Max | Total"
+  },
+  "copy_87968c8b4f": {
+    "message": "TOKEN USAGE SUMMARY"
+  },
+  "copy_09ed6ac4d2": {
+    "message": "Session report exported"
+  },
+  "copy_cc1e1981fb": {
+    "message": "Retry the journal export from its session-history Export Text button"
+  },
+  "copy_c183663b5c": {
+    "message": "Failed to export session"
+  },
+  "copy_30784a43b1": {
+    "message": "Error unlocking vault: $ERROR$"
+  },
+  "copy_b621934f80": {
+    "message": "PINs do not match"
+  },
+  "copy_038efc029d": {
+    "message": "Credential vault created"
+  },
+  "copy_b27730b0ad": {
+    "message": "Failed to create vault"
+  },
+  "copy_be90a4301c": {
+    "message": "Error creating vault: $ERROR$"
+  },
+  "copy_344e10f557": {
+    "message": "Enter your PIN"
+  },
+  "copy_d8689df745": {
+    "message": "Error locking vault: $ERROR$"
+  },
+  "copy_025f3d105c": {
+    "message": "Domain is required"
+  },
+  "copy_f0413d8913": {
+    "message": "Username or password is required"
+  },
+  "copy_9afaa0cd06": {
+    "message": "Failed to save: $ERROR$"
+  },
+  "copy_161d5eb702": {
+    "message": "Error saving credential: $ERROR$"
+  },
+  "copy_2be1559933": {
+    "message": "Delete saved credential for \"$DOMAIN$\"? This cannot be undone."
+  },
+  "copy_742e696153": {
+    "message": "Failed to delete: $ERROR$"
+  },
+  "copy_f91e85ab50": {
+    "message": "Error deleting credential: $ERROR$"
+  },
+  "copy_6ddb0ed270": {
+    "message": "Payment methods unlocked"
+  },
+  "copy_c75e2cc897": {
+    "message": "Error unlocking payment methods: $ERROR$"
+  },
+  "copy_b69b2dc301": {
+    "message": "Payment methods locked"
+  },
+  "copy_454a57b219": {
+    "message": "Failed to lock payment methods"
+  },
+  "copy_af2ea4b480": {
+    "message": "Error locking payment methods: $ERROR$"
+  },
+  "copy_38c2cc72e3": {
+    "message": "Please enter your numeric PIN"
+  },
+  "copy_97334b1737": {
+    "message": "Edit Payment Method"
+  },
+  "copy_f8ab13ff2a": {
+    "message": "All fields except Nickname and Address Line 2 are required"
+  },
+  "copy_2389d7d2a2": {
+    "message": "Invalid card number"
+  },
+  "copy_cc08ac8162": {
+    "message": "Card is expired or expiry is invalid"
+  },
+  "copy_0aed24cdfa": {
+    "message": "Payment method updated"
+  },
+  "copy_8fb5f3db97": {
+    "message": "Payment method saved"
+  },
+  "copy_58adb591be": {
+    "message": "Error saving payment method: $ERROR$"
+  },
+  "copy_f03b63954b": {
+    "message": "Delete this payment method? This cannot be undone."
+  },
+  "copy_62dd24dab7": {
+    "message": "Payment method deleted"
+  },
+  "copy_2a0de92af3": {
+    "message": "Error deleting payment method: $ERROR$"
+  },
+  "copy_4f15f65f6e": {
+    "message": "Please enter a URL to explore"
+  },
+  "copy_fb05645171": {
+    "message": "Invalid URL format"
+  },
+  "copy_a6215dba6d": {
+    "message": "Failed to start explorer: $ERROR$"
+  },
+  "copy_284429f90b": {
+    "message": "All crawlers stopped"
+  },
+  "copy_aee9e10eae": {
+    "message": "Crawl failed for $DOMAIN$"
+  },
+  "copy_d604ffed30": {
+    "message": "Research data not found"
+  },
+  "copy_600bbdc0cf": {
+    "message": "Failed to load research details"
+  },
+  "copy_b784ed64e1": {
+    "message": "Research JSON downloaded"
+  },
+  "copy_4a64e6ca83": {
+    "message": "Failed to download research"
+  },
+  "copy_1a2e7f1116": {
+    "message": "Are you sure you want to delete this research result?"
+  },
+  "copy_ec95ccc29e": {
+    "message": "Failed to delete research"
+  },
+  "copy_dc94971b24": {
+    "message": "Failed to convert research to site map"
+  },
+  "copy_382f902a79": {
+    "message": "Failed to save memory"
+  },
+  "copy_2049875d89": {
+    "message": "Saved to memory"
+  },
+  "copy_d504fbf25e": {
+    "message": "Refining site map with AI..."
+  },
+  "copy_00834dcdc3": {
+    "message": "Site map for $DOMAIN$: $PAGES$ pages, $FORMS$ forms (AI enhanced)"
+  },
+  "copy_a249e56325": {
+    "message": "Site map saved and refined for $DOMAIN$"
+  },
+  "copy_237923127b": {
+    "message": "Site map saved for $DOMAIN$ (refinement returned no data)"
+  },
+  "copy_35d9e0c46c": {
+    "message": "Site map saved (AI refinement failed: $ERROR$)"
+  },
+  "copy_c8c83ca919": {
+    "message": "Site map saved to memory for $DOMAIN$"
+  },
+  "copy_c32ea6d22f": {
+    "message": "Failed to save to memory: $ERROR$"
+  },
+  "copy_963ba004ea": {
+    "message": "Are you sure you want to delete ALL research results? This cannot be undone."
+  },
+  "copy_1044224528": {
+    "message": "All research results cleared"
+  },
+  "copy_84e9814ece": {
+    "message": "Failed to clear research results"
+  },
+  "copy_491c2ddc8e": {
+    "message": "Please enter a server URL first"
+  },
+  "copy_9526d57756": {
+    "message": "Hash key generated and saved"
+  },
+  "copy_fdc08c5f7b": {
+    "message": "Failed to generate hash key"
+  },
+  "copy_52b3b70484": {
+    "message": "Cannot connect to server: $ERROR$"
+  },
+  "copy_cbdbc53db1": {
+    "message": "No hash key to copy"
+  },
+  "copy_f0b64c63d8": {
+    "message": "Hash key copied"
+  },
+  "copy_0cf23c4489": {
+    "message": "Failed to copy"
+  },
+  "copy_8cab3b4552": {
+    "message": "Please enter server URL and hash key"
+  },
+  "copy_271b7b0f3b": {
+    "message": "Server connection successful"
+  },
+  "copy_3e8bcabc0b": {
+    "message": "Hash key is invalid"
+  },
+  "copy_09f7c3ac2a": {
+    "message": "Cannot connect to server"
+  },
+  "copy_0ea446a05f": {
+    "message": "Server did not return a hash key"
+  },
+  "copy_e5697f10b5": {
+    "message": "Malformed pairing response"
+  },
+  "copy_30fa7c27e5": {
+    "message": "Could not generate pairing code: $ERROR$"
+  },
+  "copy_acce51c1d3": {
+    "message": "Could not register hash key: $ERROR$"
+  },
+  "copy_cb4c956be2": {
+    "message": "Delete this memory?"
+  },
+  "copy_7402b5cdc1": {
+    "message": "Failed to load memory data"
+  },
+  "copy_3d391897c3": {
+    "message": "Memory not found"
+  },
+  "copy_1c461596d3": {
+    "message": "Graph engine not available"
+  },
+  "copy_d85c704af2": {
+    "message": "No site pattern data in this memory"
+  },
+  "copy_a658647978": {
+    "message": "No pages found in site map"
+  },
+  "copy_4b23a9fe70": {
+    "message": "AI refiner not available"
+  },
+  "copy_920d3a68d9": {
+    "message": "Memory not found or not a site map"
+  },
+  "copy_99a619a944": {
+    "message": "Site map refined successfully"
+  },
+  "copy_a266f3a3ce": {
+    "message": "AI refinement failed: $ERROR$"
+  },
+  "copy_0b0bdbabab": {
+    "message": "Delete ALL memories? This cannot be undone."
+  },
+  "copy_58589924e2": {
+    "message": "All memories cleared"
+  },
+  "copy_e158cd5a5e": {
+    "message": "Failed to clear memories: $ERROR$"
+  },
+  "copy_21ce69d58b": {
+    "message": "Remote control active"
+  },
+  "copy_23a711ebd2": {
+    "message": "No models match search"
+  },
+  "copy_a5a9895b02": {
+    "message": "No models available"
+  },
+  "copy_df9da4e214": {
+    "message": "Invalid API key"
+  },
+  "copy_e93db4ad9a": {
+    "message": "API key invalid for this provider"
+  },
+  "copy_7b582d9989": {
+    "message": "No compatible LM Studio models available"
+  },
+  "copy_5742edc9d8": {
+    "message": "Start LM Studio, load a chat model, and refresh the model list"
+  },
+  "copy_4b1527fd68": {
+    "message": "LM Studio model discovery is unavailable"
+  },
+  "copy_bd94818b82": {
+    "message": "Couldn't load models"
+  },
+  "copy_11c964536c": {
+    "message": "Model discovery is unavailable"
+  },
+  "copy_c77feaa41e": {
+    "message": "Could not connect to LM Studio"
+  },
+  "copy_bdaaf4fde3": {
+    "message": "Could not load models from this provider"
+  },
+  "copy_6b3e293f22": {
+    "message": "Could not refresh the provider model list"
+  },
+  "copy_9aed9949c4": {
+    "message": "No compatible chat models are loaded in LM Studio"
+  },
+  "copy_d068f8bbe0": {
+    "message": "No available models"
+  },
+  "copy_ec819bcca6": {
+    "message": "The provider returned no available text models"
+  },
+  "copy_3329b92927": {
+    "message": "The saved LM Studio model is unavailable. Choose a loaded model and save."
+  },
+  "copy_5cb6d3f4e6": {
+    "message": "Model discovery timed out. Refresh to try again."
+  },
+  "copy_e21ca6d204": {
+    "message": "Search and select model"
+  },
+  "copy_d6699494ff": {
+    "message": "Toggle model list"
+  },
+  "copy_9606bfc49e": {
+    "message": "Refresh model list"
+  },
+  "copy_881bf7079c": {
+    "message": "Enter your xAI API key"
+  },
+  "copy_1e9720ad1e": {
+    "message": "Enter your Gemini API key"
+  },
+  "copy_699e26dc48": {
+    "message": "Enter your OpenAI API key"
+  },
+  "copy_e73283ba69": {
+    "message": "Enter your Anthropic API key"
+  },
+  "copy_c545294348": {
+    "message": "Enter your OpenRouter API key"
+  },
+  "copy_8001f1687a": {
+    "message": "Enter your custom API key"
+  },
+  "copy_ec8571e74c": {
+    "message": "Enter your 2Captcha API key"
+  },
+  "copy_9a679edbd3": {
+    "message": "Decrease max iterations"
+  },
+  "copy_7ff25a6879": {
+    "message": "Increase max iterations"
+  },
+  "copy_1da98f8734": {
+    "message": "Decrease element limit"
+  },
+  "copy_396f15bbfe": {
+    "message": "Increase element limit"
+  },
+  "copy_8418bb6be8": {
+    "message": "Decrease element cache size"
+  },
+  "copy_4d09f69eb1": {
+    "message": "Increase element cache size"
+  },
+  "copy_8afc6eb606": {
+    "message": "Decrease agent concurrency cap"
+  },
+  "copy_484366fe68": {
+    "message": "Increase agent concurrency cap"
+  },
+  "copy_cffeed4c47": {
+    "message": "Decrease trigger concurrency cap"
+  },
+  "copy_3816b69dee": {
+    "message": "Increase trigger concurrency cap"
+  },
+  "copy_2a1df07657": {
+    "message": "Decrease MCP replay retention"
+  },
+  "copy_a346fdf291": {
+    "message": "MCP replay retention days"
+  },
+  "copy_71c20adba6": {
+    "message": "Increase MCP replay retention"
+  },
+  "copy_f38984cf15": {
+    "message": "Anonymous usage data is being sent. Click to stop."
+  },
+  "copy_81649d0543": {
+    "message": "Your server hash key"
+  },
+  "copy_e4cdf160f5": {
+    "message": "Copy hash key"
+  },
+  "copy_81f7adf295": {
+    "message": "Previously created background agents"
+  },
+  "copy_8c16fe2070": {
+    "message": "When enabled, new memories are automatically analyzed by AI for deeper insights"
+  },
+  "copy_0a221bc876": {
+    "message": "Export memories as JSON"
+  },
+  "copy_70e6248096": {
+    "message": "Import memories from JSON"
+  },
+  "copy_1152ae520b": {
+    "message": "Default consent mode for new sites"
+  },
+  "copy_f5af3ff4e6": {
+    "message": "Consent mode for origin"
+  },
+  "copy_8371bee1a3": {
+    "message": "Search cards, brands, or billing details..."
+  },
+  "copy_18bf091ea7": {
+    "message": "Name on card"
+  },
+  "copy_eb59dcee20": {
+    "message": "Billing profile name"
+  },
+  "copy_e151fee074": {
+    "message": "Apt, suite, unit"
+  },
+  "copy_7ec33c22aa": {
+    "message": "FSB - Control Panel"
+  },
+  "copy_34c70e4722": {
+    "message": "FSB - Onboarding"
+  },
+  "copy_1398385080": {
+    "message": "Step 1 of 5"
+  },
+  "copy_b51e205a4a": {
+    "message": "Select a loaded LM Studio chat model"
+  },
+  "copy_434171c580": {
+    "message": "LM Studio responded successfully"
+  },
+  "copy_900b7aa263": {
+    "message": "Clipboard did not contain an API key"
+  },
+  "copy_8d78737e31": {
+    "message": "Clipboard read failed"
+  },
+  "copy_08aae6eb74": {
+    "message": "Skipped for now"
+  },
+  "lang_choose": {
+    "message": "Language"
+  },
+  "lang_follow_browser": {
+    "message": "Browser language"
+  },
+  "lang_extensions_page": {
+    "message": "The name on chrome://extensions follows the browser language."
   }
 }

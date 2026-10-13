@@ -66,6 +66,17 @@
     });
   }
 
+  function obExact(english, subs) {
+    const locale = globalThis.fsbUiLocale;
+    if (locale && typeof locale.line === 'function') return locale.line(english, subs);
+    if (!subs || typeof english !== 'string') return english;
+    return english.replace(/\$([A-Za-z0-9_]+)\$/g, (all, name) => {
+      if (subs[name] != null) return String(subs[name]);
+      const lower = name.toLowerCase();
+      return subs[lower] != null ? String(subs[lower]) : all;
+    });
+  }
+
   function stepLabel(step) {
     const labels = {
       welcome: ['entry_label_welcome', 'Welcome'],
@@ -148,6 +159,7 @@
     } catch (_e) { /* fall back to no-windowId open in openFsb() */ }
     render();
     if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
+      if (typeof fsbUiLocale.onChange === 'function') fsbUiLocale.onChange(() => render());
       fsbUiLocale.boot().then(() => render());
     }
     rollTimer = setInterval(advanceInstallClient, ROTATE_MS);
@@ -533,7 +545,7 @@
     if (!discovery || typeof discovery.discoverModels !== 'function') {
       if (generation !== lmstudioDiscoveryGeneration) return false;
       state.lmstudioDiscoveryStatus = 'error';
-      state.lmstudioDiscoveryMessage = 'LM Studio model discovery is unavailable';
+      state.lmstudioDiscoveryMessage = obExact('LM Studio model discovery is unavailable');
       state.lmstudioModels = [];
       state.lmstudioModel = '';
       render();
@@ -550,7 +562,7 @@
       result = {
         ok: false,
         reason: 'network-failed',
-        message: error && error.message ? error.message : 'Could not connect to LM Studio'
+        message: error && error.message ? error.message : obExact('Could not connect to LM Studio')
       };
     }
     if (generation !== lmstudioDiscoveryGeneration) return false;
@@ -558,8 +570,8 @@
     if (!result || result.ok !== true || !Array.isArray(result.models) || result.models.length === 0) {
       state.lmstudioDiscoveryStatus = 'error';
       state.lmstudioDiscoveryMessage = result && result.reason === 'empty-response'
-        ? 'No compatible chat models are loaded in LM Studio'
-        : ((result && result.message) || 'Could not connect to LM Studio');
+        ? obExact('No compatible chat models are loaded in LM Studio')
+        : ((result && result.message) || obExact('Could not connect to LM Studio'));
       state.lmstudioModels = [];
       state.lmstudioModel = '';
       state.lmstudioDiscoveredBaseUrl = baseUrl;
@@ -642,7 +654,7 @@
           : ''}${state.lmstudioModels.map(model => `
           <option value="${escapeAttr(model.id)}" ${model.id === state.lmstudioModel ? 'selected' : ''}>${escapeHtml(model.displayName)}</option>
         `).join('')}`
-      : `<option value="">${discovering ? 'Discovering models...' : 'No compatible models available'}</option>`;
+      : `<option value="">${discovering ? obExact('Discovering models...') : obExact('No compatible models available')}</option>`;
     return `
       <div class="ob-field">
         <div class="ob-input-row">
@@ -759,7 +771,7 @@
 
     if (!provider.local && !key) {
       state.keyStatus = 'invalid';
-      state.keyMessage = `${provider.name} API key is required`;
+      state.keyMessage = obExact('$NAME$ API key is required', { name: provider.name });
       render();
       return false;
     }
@@ -770,7 +782,7 @@
       if (!state.lmstudioModel
           || !state.lmstudioModels.some(model => model.id === state.lmstudioModel)) {
         state.keyStatus = 'invalid';
-        state.keyMessage = 'Select a loaded LM Studio chat model';
+        state.keyMessage = obExact('Select a loaded LM Studio chat model');
         render();
         return false;
       }
@@ -801,12 +813,12 @@
       await storageSet(patch);
       state.validating = false;
       state.keyStatus = 'valid';
-      state.keyMessage = provider.local ? 'LM Studio responded successfully' : `Key ending in ${key.slice(-4)} is valid`;
+      state.keyMessage = provider.local ? obExact('LM Studio responded successfully') : obExact('Key ending in $LAST$ is valid', { last: key.slice(-4) });
       return true;
     } catch (error) {
       state.validating = false;
       state.keyStatus = 'invalid';
-      state.keyMessage = error && error.message ? error.message : 'Connection test failed';
+      state.keyMessage = error && error.message ? error.message : obExact('Connection test failed');
       render();
       return false;
     }
@@ -821,7 +833,7 @@
           return;
         }
         if (!response || !response.ok) {
-          reject(new Error((response && response.error) || 'Connection test failed'));
+          reject(new Error((response && response.error) || obExact('Connection test failed')));
           return;
         }
         resolve(response);
@@ -853,10 +865,10 @@
       const text = await navigator.clipboard.readText();
       state.apiKey = (text || '').trim();
       state.keyStatus = state.apiKey ? 'idle' : 'invalid';
-      state.keyMessage = state.apiKey ? '' : 'Clipboard did not contain an API key';
+      state.keyMessage = state.apiKey ? '' : obExact('Clipboard did not contain an API key');
     } catch (error) {
       state.keyStatus = 'invalid';
-      state.keyMessage = error && error.message ? error.message : 'Clipboard read failed';
+      state.keyMessage = error && error.message ? error.message : obExact('Clipboard read failed');
     }
     render();
   }
@@ -922,7 +934,7 @@
       const provider = currentProvider();
       const keyText = provider.local
         ? 'Local endpoint'
-        : state.keyStatus === 'valid' && state.apiKey ? `****${state.apiKey.slice(-4)}` : 'Skipped for now';
+        : state.keyStatus === 'valid' && state.apiKey ? `****${state.apiKey.slice(-4)}` : obExact('Skipped for now');
       return [
         { k: ob('entry_sum_setup', 'Setup'), v: ob('entry_sum_byok', 'In-browser BYOK') },
         { k: ob('entry_sum_provider', 'Provider'), v: provider.name },

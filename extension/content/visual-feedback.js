@@ -18,23 +18,28 @@
   }
 
   var chromeRoots = [];
+  function ownedText(current, key, english) {
+    if (current === english) return true;
+    var locale = globalThis.fsbUiLocale;
+    return !!(locale && typeof locale.isMessage === 'function' && locale.isMessage(key, current));
+  }
   function refreshOwnedChrome(root) {
     if (!root || typeof root.querySelector !== 'function') return;
     var title = root.querySelector('.fsb-title');
-    if (title && title.textContent === 'FSB Automating') title.textContent = ov('entry_automating', 'FSB Automating');
+    if (title && ownedText(title.textContent, 'entry_automating', 'FSB Automating')) title.textContent = ov('entry_automating', 'FSB Automating');
     var stop = root.querySelector('.fsb-stop');
-    if (stop && stop.getAttribute('aria-label') === 'Stop') stop.setAttribute('aria-label', ov('entry_stop', 'Stop'));
+    if (stop && ownedText(stop.getAttribute('aria-label'), 'entry_stop', 'Stop')) stop.setAttribute('aria-label', ov('entry_stop', 'Stop'));
     var step = root.querySelector('.fsb-step-number');
-    if (step && step.textContent === 'Planning') step.textContent = ov('entry_planning', 'Planning');
+    if (step && ownedText(step.textContent, 'entry_planning', 'Planning')) step.textContent = ov('entry_planning', 'Planning');
     var detail = root.querySelector('.fsb-step-text');
-    if (detail && detail.textContent === 'Initializing...') detail.textContent = ov('entry_initializing', 'Initializing...');
-    if (root.getAttribute && root.getAttribute('aria-label') === 'Replay controls') {
+    if (detail && ownedText(detail.textContent, 'entry_initializing', 'Initializing...')) detail.textContent = ov('entry_initializing', 'Initializing...');
+    if (root.getAttribute && ownedText(root.getAttribute('aria-label'), 'entry_replay_controls', 'Replay controls')) {
       root.setAttribute('aria-label', ov('entry_replay_controls', 'Replay controls'));
     }
     var pause = root.querySelector('.fsb-replay-toggle');
-    if (pause && pause.getAttribute('aria-label') === 'Pause replay') pause.setAttribute('aria-label', ov('entry_pause_replay', 'Pause replay'));
+    if (pause && ownedText(pause.getAttribute('aria-label'), 'entry_pause_replay', 'Pause replay')) pause.setAttribute('aria-label', ov('entry_pause_replay', 'Pause replay'));
     var scrubber = root.querySelector('.fsb-replay-scrubber');
-    if (scrubber && scrubber.getAttribute('aria-label') === 'Replay position, forward seek only') {
+    if (scrubber && ownedText(scrubber.getAttribute('aria-label'), 'entry_replay_position', 'Replay position, forward seek only')) {
       scrubber.setAttribute('aria-label', ov('entry_replay_position', 'Replay position, forward seek only'));
       scrubber.setAttribute('title', ov('entry_seek_forward', 'Seek forward through the replay'));
     }
@@ -44,6 +49,14 @@
     refreshOwnedChrome(root);
   }
   if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
+    if (typeof fsbUiLocale.onChange === 'function') {
+      fsbUiLocale.onChange(function () {
+        chromeRoots.forEach(function (root) {
+          refreshOwnedChrome(root);
+          if (typeof fsbUiLocale.apply === 'function') fsbUiLocale.apply(root);
+        });
+      });
+    }
     fsbUiLocale.boot().then(function () {
       chromeRoots.forEach(refreshOwnedChrome);
     });

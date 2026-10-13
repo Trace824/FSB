@@ -99,6 +99,12 @@
     return applySubs(msg, subs);
   }
 
+  function line(english, subs) {
+    var key = EXACT[english];
+    if (key) return text(key, english, subs);
+    return applySubs(english, subs);
+  }
+
   function text(key, english, subs) {
     var value = t(key, subs);
     if (typeof value !== 'string' || value.length === 0 || value === key) {
@@ -289,10 +295,105 @@
     });
   }
 
+  var NATIVE_LABELS = {
+    en: 'English',
+    es: 'Español',
+    de: 'Deutsch',
+    ja: '日本語',
+    ko: '한국어',
+    'zh-CN': '简体中文',
+    'zh-TW': '繁體中文'
+  };
+  var refreshers = [];
+  var watching = false;
+
+  function isMessage(key, value) {
+    if (typeof value !== 'string' || !key) return false;
+    var i;
+    for (i = 0; i < PUBLIC_LOCALES.length; i++) {
+      var catalog = catalogs[PUBLIC_LOCALES[i]];
+      if (catalog && catalog[key] === value) return true;
+    }
+    return false;
+  }
+
+  function notifyLocaleChange() {
+    var i;
+    if (typeof location !== 'undefined' && location.protocol === 'chrome-extension:' && typeof document !== 'undefined') {
+      apply(document);
+    }
+    for (i = 0; i < refreshers.length; i++) {
+      try { refreshers[i](); } catch (err) { /* a surface refresh must not break the others */ }
+    }
+  }
+
+  function watchStorage() {
+    if (watching) return;
+    var chromeApi = root.chrome;
+    if (!chromeApi || !chromeApi.storage || !chromeApi.storage.onChanged || typeof chromeApi.storage.onChanged.addListener !== 'function') return;
+    watching = true;
+    chromeApi.storage.onChanged.addListener(function (changes, area) {
+      if (area !== 'local' || !changes || !changes[STORAGE_KEY]) return;
+      var next = changes[STORAGE_KEY].newValue;
+      setOverride(isPublicLocale(next) ? next : null);
+      notifyLocaleChange();
+    });
+  }
+
+  function saveOverride(code) {
+    return new Promise(function (resolve) {
+      var next = isPublicLocale(code) ? code : null;
+      setOverride(next);
+      var chromeApi = root.chrome;
+      var storage = chromeApi && chromeApi.storage && chromeApi.storage.local;
+      if (!storage || typeof storage.set !== 'function' || typeof storage.remove !== 'function') {
+        notifyLocaleChange();
+        resolve(next);
+        return;
+      }
+      var done = function () {
+        notifyLocaleChange();
+        resolve(next);
+      };
+      if (!next) storage.remove(STORAGE_KEY, done);
+      else {
+        var payload = {};
+        payload[STORAGE_KEY] = next;
+        storage.set(payload, done);
+      }
+    });
+  }
+
+  function onChange(fn) {
+    if (typeof fn === 'function') refreshers.push(fn);
+  }
+
+  function mountSelect(select) {
+    if (!select || select.getAttribute('data-fsb-lang') === 'ready') return;
+    select.setAttribute('translate', 'no');
+    select.setAttribute('data-fsb-lang', 'ready');
+    var browser = select.ownerDocument.createElement('option');
+    browser.value = '';
+    browser.setAttribute('data-i18n', 'lang_follow_browser');
+    browser.textContent = t('lang_follow_browser');
+    select.appendChild(browser);
+    PUBLIC_LOCALES.forEach(function (code) {
+      var option = select.ownerDocument.createElement('option');
+      option.value = code;
+      option.textContent = NATIVE_LABELS[code];
+      select.appendChild(option);
+    });
+    select.value = activeOverride || '';
+    select.addEventListener('change', function () {
+      saveOverride(select.value);
+    });
+  }
+
   function boot() {
     if (root.chrome && root.chrome.i18n && typeof root.chrome.i18n.getUILanguage === 'function') {
       browserTag = root.chrome.i18n.getUILanguage();
     }
+    watchStorage();
     return readStorageOverride().then(function () {
       return loadCatalogs();
     });
@@ -335,6 +436,7 @@
     resolveLocale: resolveLocale,
     t: t,
     text: text,
+    line: line,
     fill: fill,
     markExact: markExact,
     registerExact: registerExact,
@@ -344,6 +446,11 @@
     setBrowserTag: setBrowserTag,
     setOverride: setOverride,
     current: current,
+    NATIVE_LABELS: NATIVE_LABELS,
+    isMessage: isMessage,
+    saveOverride: saveOverride,
+    onChange: onChange,
+    mountSelect: mountSelect,
     boot: boot,
     parseMessages: parseMessages,
     loadCatalogs: loadCatalogs

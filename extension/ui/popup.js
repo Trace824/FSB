@@ -308,8 +308,8 @@ async function refreshOwnerChip() {
     _chatLockedByOwnerChip = true;
     chatInput.setAttribute('contenteditable', 'false');
     chatInput.title = (globalThis.fsbUiLocale && fsbUiLocale.text)
-    ? fsbUiLocale.text('shell_owned_title', 'Disabled while tab is owned by ' + label, { label: label })
-    : 'Disabled while tab is owned by ' + label;
+    ? fsbUiLocale.text('shell_owned_title', 'Disabled while tab is owned by $LABEL$', { label: label })
+    : 'Disabled while tab is owned by $LABEL$'.replace('$LABEL$', label);
     updateSendButtonState();
   } catch (_e) {
     // Chip is best-effort -- never poison popup boot.
@@ -508,14 +508,14 @@ async function handleSendMessage() {
           // Show Chrome page error as plain text, not in a bubble
           showChromepageError(response.error);
         } else {
-          addMessage(uiLine('shell_error_encountered', 'I encountered an error: ' + response.error, { error: response.error }), 'error');
+          addMessage(uiLine('shell_error_encountered', 'I encountered an error: $ERROR$', { error: response.error }), 'error');
         }
         setIdleState();
       }
     });
     
   } catch (error) {
-    addMessage(uiLine('shell_error_generic', 'Something went wrong: ' + error.message, { error: error.message }), 'error');
+    addMessage(uiLine('shell_error_generic', 'Something went wrong: $ERROR$', { error: error.message }), 'error');
     setIdleState();
   }
 }
@@ -543,7 +543,7 @@ function stopAutomation() {
     
     if (chrome.runtime.lastError) {
       console.error('Chrome runtime error:', chrome.runtime.lastError);
-      addMessage(uiLine('shell_error_background', 'Error communicating with background script: ' + chrome.runtime.lastError.message, { error: chrome.runtime.lastError.message }), 'error');
+      addMessage(uiLine('shell_error_background', 'Error communicating with background script: $ERROR$', { error: chrome.runtime.lastError.message }), 'error');
       stopRequested = false;
       return;
     }
@@ -560,7 +560,7 @@ function stopAutomation() {
       console.log('Automation stopped successfully');
     } else {
       const errorMsg = response ? response.error : 'Unknown error';
-      addMessage(uiLine('shell_error_stop', 'Error stopping automation: ' + errorMsg, { error: errorMsg }), 'error');
+      addMessage(uiLine('shell_error_stop', 'Error stopping automation: $ERROR$', { error: errorMsg }), 'error');
       console.error('Stop automation failed:', errorMsg);
       stopRequested = false;
     }
@@ -583,7 +583,7 @@ async function testAPI() {
   };
   const displayName = providerNames[provider] || provider;
 
-  addMessage(uiLine('shell_testing_api', 'Testing ' + displayName + ' API connection...', { name: displayName }), 'system');
+  addMessage(uiLine('shell_testing_api', 'Testing $NAME$ API connection...', { name: displayName }), 'system');
 
   const testIcon = testBtn.querySelector('i');
   if (testIcon) {
@@ -598,19 +598,19 @@ async function testAPI() {
     }
 
     if (response.success) {
-      addMessage(uiLine('shell_api_ok', displayName + ' API connection is working.', { name: displayName }), 'system');
+      addMessage(uiLine('shell_api_ok', '$NAME$ API connection is working.', { name: displayName }), 'system');
       if (response.result && response.result.data) {
-        addMessage(uiLine('shell_api_model', 'Connected to model: ' + (response.result.model || 'unknown'), { model: response.result.model || 'unknown' }), 'ai');
+        addMessage(uiLine('shell_api_model', 'Connected to model: $MODEL$', { model: response.result.model || 'unknown' }), 'ai');
       }
     } else {
-      addMessage(uiLine('shell_api_failed', displayName + ' API connection failed. Please check your settings.', { name: displayName }), 'error');
+      addMessage(uiLine('shell_api_failed', '$NAME$ API connection failed. Please check your settings.', { name: displayName }), 'error');
       if (response.result) {
-        addMessage(uiLine('shell_api_status', 'Status: ' + response.result.status + ' - ' + response.result.statusText, { status: response.result.status, detail: response.result.statusText }), 'error');
+        addMessage(uiLine('shell_api_status', 'Status: $STATUS$ - $DETAIL$', { status: response.result.status, detail: response.result.statusText }), 'error');
         if (response.result.error) {
-          addMessage(uiLine('shell_api_details', 'Details: ' + response.result.error, { error: response.result.error }), 'error');
+          addMessage(uiLine('shell_api_details', 'Details: $ERROR$', { error: response.result.error }), 'error');
         }
       } else if (response.error) {
-        addMessage(uiLine('shell_error_details', 'Error details: ' + response.error, { error: response.error }), 'error');
+        addMessage(uiLine('shell_error_details', 'Error details: $ERROR$', { error: response.error }), 'error');
       }
     }
   });
@@ -832,7 +832,8 @@ function completeStatusMessage(text, type = 'ai') {
       : 'Task completed';
     const statusTextEl = currentStatusMessage.querySelector('.status-text');
     if (statusTextEl) {
-      statusTextEl.textContent = briefLabel;
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(statusTextEl, briefLabel);
+      else statusTextEl.textContent = briefLabel;
     }
 
     // Style as completed
