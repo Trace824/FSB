@@ -306,20 +306,20 @@
           <context context-type="linenumber">91,92</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="shell.footer.community.discord" datatype="html">
-        <source>Discord</source>
-        <target state="translated">Discord</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/layout/showcase-shell/showcase-shell.component.html</context>
-          <context context-type="linenumber">92,93</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="shell.footer.community.x" datatype="html">
         <source>X</source>
         <target state="translated">X</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/layout/showcase-shell/showcase-shell.component.html</context>
-          <context context-type="linenumber">94</context>
+          <context context-type="linenumber">93</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="shell.footer.community.discord" datatype="html">
+        <source>Discord</source>
+        <target state="translated">Discord</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/layout/showcase-shell/showcase-shell.component.html</context>
+          <context context-type="linenumber">93,94</context>
         </context-group>
       </trans-unit>
       <trans-unit id="shell.footer.community.sitemaps" datatype="html">
@@ -330,20 +330,12 @@
           <context context-type="linenumber">94,97</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="shell.footer.bottom.credit" datatype="html">
-        <source>Made by <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
-        <target state="translated">Hecho por <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/layout/showcase-shell/showcase-shell.component.html</context>
-          <context context-type="linenumber">99,100</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="shell.footer.bottom.version" datatype="html">
         <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;version-tag&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>▽<x id="INTERPOLATION" equiv-text="{{ appVersion }}"/><x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
         <target state="translated"><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;version-tag&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>▽<x id="INTERPOLATION" equiv-text="{{ appVersion }}"/><x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/layout/showcase-shell/showcase-shell.component.html</context>
-          <context context-type="linenumber">100,101</context>
+          <context context-type="linenumber">99,100</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.hero.title" datatype="html">
@@ -3526,20 +3518,20 @@
           <context context-type="linenumber">448,449</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="concierge.footer.community.discord" datatype="html">
-        <source>Discord</source>
-        <target state="translated">Discord</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/concierge/concierge-page.component.html</context>
-          <context context-type="linenumber">449,450</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="concierge.footer.community.x" datatype="html">
         <source>X</source>
         <target state="translated">X</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/concierge/concierge-page.component.html</context>
-          <context context-type="linenumber">451</context>
+          <context context-type="linenumber">450</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="concierge.footer.community.discord" datatype="html">
+        <source>Discord</source>
+        <target state="translated">Discord</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/concierge/concierge-page.component.html</context>
+          <context context-type="linenumber">450,451</context>
         </context-group>
       </trans-unit>
       <trans-unit id="concierge.footer.community.sitemaps" datatype="html">
@@ -3548,14 +3540,6 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/concierge/concierge-page.component.html</context>
           <context context-type="linenumber">451,455</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="concierge.footer.credit" datatype="html">
-        <source>Made by <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
-        <target state="translated">Creado por <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/concierge/concierge-page.component.html</context>
-          <context context-type="linenumber">456,457</context>
         </context-group>
       </trans-unit>
       <trans-unit id="concierge.og.imageAlt" datatype="html">
@@ -7462,20 +7446,20 @@
           <context context-type="linenumber">370,371</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="lattice.footer.community.discord" datatype="html">
-        <source>Discord</source>
-        <target state="translated">Discord</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/lattice/lattice-page.component.html</context>
-          <context context-type="linenumber">371,372</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="lattice.footer.community.x" datatype="html">
         <source>X</source>
         <target state="translated">X</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/lattice/lattice-page.component.html</context>
-          <context context-type="linenumber">373</context>
+          <context context-type="linenumber">372</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lattice.footer.community.discord" datatype="html">
+        <source>Discord</source>
+        <target state="translated">Discord</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/lattice/lattice-page.component.html</context>
+          <context context-type="linenumber">372,373</context>
         </context-group>
       </trans-unit>
       <trans-unit id="lattice.footer.community.sitemaps" datatype="html">
@@ -7484,14 +7468,6 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/lattice/lattice-page.component.html</context>
           <context context-type="linenumber">373,376</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="lattice.footer.credit" datatype="html">
-        <source>Made by <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
-        <target state="translated">Creado por <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/lattice/lattice-page.component.html</context>
-          <context context-type="linenumber">378,379</context>
         </context-group>
       </trans-unit>
       <trans-unit id="lattice.og.imageAlt" datatype="html">
@@ -9454,20 +9430,20 @@
           <context context-type="linenumber">366,367</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="phantomStream.footer.community.discord" datatype="html">
-        <source>Discord</source>
-        <target state="translated">Discord</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/phantom-stream/phantom-stream-page.component.html</context>
-          <context context-type="linenumber">367,368</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="phantomStream.footer.community.x" datatype="html">
         <source>X</source>
         <target state="translated">X</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/phantom-stream/phantom-stream-page.component.html</context>
-          <context context-type="linenumber">369</context>
+          <context context-type="linenumber">368</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="phantomStream.footer.community.discord" datatype="html">
+        <source>Discord</source>
+        <target state="translated">Discord</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/phantom-stream/phantom-stream-page.component.html</context>
+          <context context-type="linenumber">368,369</context>
         </context-group>
       </trans-unit>
       <trans-unit id="phantomStream.footer.community.sitemaps" datatype="html">
@@ -9476,14 +9452,6 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/phantom-stream/phantom-stream-page.component.html</context>
           <context context-type="linenumber">369,373</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="phantomStream.footer.credit" datatype="html">
-        <source>Made by <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
-        <target state="translated">Creado por <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/phantom-stream/phantom-stream-page.component.html</context>
-          <context context-type="linenumber">374,375</context>
         </context-group>
       </trans-unit>
       <trans-unit id="phantomStream.og.imageAlt" datatype="html">
@@ -18870,20 +18838,12 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
           <context context-type="linenumber">120,121</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="stats.footer.credit" datatype="html">
-        <source>Made by <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
-        <target state="translated">Creado por <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Lakshman Turlapati<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/stats/stats-page.component.html</context>
-          <context context-type="linenumber">154,155</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="stats.footer.version" datatype="html">
         <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;version-tag&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>▽<x id="INTERPOLATION" equiv-text="{{ appVersion }}"/><x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
         <target state="translated"><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;version-tag&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>▽<x id="INTERPOLATION" equiv-text="{{ appVersion }}"/><x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/stats/stats-page.component.html</context>
-          <context context-type="linenumber">155,156</context>
+          <context context-type="linenumber">154,155</context>
         </context-group>
       </trans-unit>
       <trans-unit id="stats.error.default" datatype="html">

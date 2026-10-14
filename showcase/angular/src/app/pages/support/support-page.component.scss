@@ -88,17 +88,20 @@
 }
 
 .faq-answer {
-  max-height: 0;
+  display: grid;
+  grid-template-rows: 0fr;
   overflow: hidden;
-  transition: max-height 0.35s ease;
+  transition: grid-template-rows 0.35s ease;
 }
 
 .faq-item.active .faq-answer {
-  max-height: 600px;
+  grid-template-rows: 1fr;
 }
 
 .faq-answer-inner {
-  padding: 0 20px 16px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 20px;
 }
 
 .faq-answer-inner p {
@@ -116,7 +119,14 @@
   gap: 16px;
   flex-wrap: wrap;
   margin-top: 8px;
+  padding-bottom: 16px;
   font-size: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-answer {
+    transition: none;
+  }
 }
 
 /* --- Troubleshooting Cards --- */
@@ -255,7 +265,11 @@
   }
 
   .faq-answer-inner {
-    padding: 0 16px 14px;
+    padding: 0 16px;
+  }
+
+  .faq-resources {
+    padding-bottom: 14px;
   }
 
   .trouble-card {
