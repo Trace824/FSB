@@ -6439,7 +6439,7 @@ async function saveResearchToMemory(researchId) {
         if (refined && refined.refined === true) {
           memory.typeData.sitePattern = refined;
           memory.metadata.confidence = 0.95;
-          memory.text = fsbUiLine('Site map for $DOMAIN$: $PAGES$ pages, $FORMS$ forms (AI enhanced)', { domain: domain, pages: refined.pageCount || 0, forms: refined.formCount || 0 });
+          memory.text = siteMapMemoryText(domain, refined, true);
           memory.updatedAt = Date.now();
           await memoryStorage.update(memory.id, memory);
           showToast(fsbUiLine('Site map saved and refined for $DOMAIN$', { domain: domain }), 'success');

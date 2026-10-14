@@ -2019,8 +2019,14 @@
   "entry_mic_intro": {
     "message": "Chrome requires the first microphone approval in a regular extension tab. After that, voice input works from the FSB side panel on every website."
   },
-  "entry_mic_instruction": {
-    "message": "In Chrome’s prompt, choose Allow while visiting for a persistent FSB grant."
+  "entry_mic_instruction_lead": {
+    "message": "In Chrome’s prompt, choose"
+  },
+  "entry_mic_instruction_action": {
+    "message": "Allow while visiting"
+  },
+  "entry_mic_instruction_tail": {
+    "message": "for a persistent FSB grant."
   },
   "entry_mic_waiting": {
     "message": "Waiting for Chrome’s microphone prompt…"
@@ -2998,20 +3004,6 @@
   },
   "copy_d504fbf25e": {
     "message": "Refining site map with AI..."
-  },
-  "copy_00834dcdc3": {
-    "message": "Site map for $DOMAIN$: $PAGES$ pages, $FORMS$ forms (AI enhanced)",
-    "placeholders": {
-      "domain": {
-        "content": "$1"
-      },
-      "pages": {
-        "content": "$2"
-      },
-      "forms": {
-        "content": "$3"
-      }
-    }
   },
   "copy_a249e56325": {
     "message": "Site map saved and refined for $DOMAIN$",

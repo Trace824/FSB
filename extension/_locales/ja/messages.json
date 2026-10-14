@@ -2019,8 +2019,14 @@
   "entry_mic_intro": {
     "message": "Chrome は最初のマイク許可を通常の拡張機能タブで求めます。その後は、どのサイトでも FSB サイドパネルから音声入力できます。"
   },
-  "entry_mic_instruction": {
-    "message": "Chrome の確認で「アクセス中は許可」を選ぶと、FSB の許可が維持されます。"
+  "entry_mic_instruction_lead": {
+    "message": "Chrome の確認で"
+  },
+  "entry_mic_instruction_action": {
+    "message": "アクセス中は許可"
+  },
+  "entry_mic_instruction_tail": {
+    "message": "を選ぶと、FSB の許可が維持されます。"
   },
   "entry_mic_waiting": {
     "message": "Chrome のマイク確認を待っています…"
@@ -2998,20 +3004,6 @@
   },
   "copy_d504fbf25e": {
     "message": "AI でサイトマップを精緻化しています..."
-  },
-  "copy_00834dcdc3": {
-    "message": "$DOMAIN$ のサイトマップ: $PAGES$ ページ、$FORMS$ フォーム（AI で強化）",
-    "placeholders": {
-      "domain": {
-        "content": "$1"
-      },
-      "pages": {
-        "content": "$2"
-      },
-      "forms": {
-        "content": "$3"
-      }
-    }
   },
   "copy_a249e56325": {
     "message": "$DOMAIN$ のサイトマップを保存して精緻化しました",

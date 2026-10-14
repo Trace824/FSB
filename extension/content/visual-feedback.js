@@ -45,6 +45,8 @@
     }
   }
   function watchChrome(root) {
+    // Overlays are rebuilt after destroy(), so drop roots that left the page.
+    chromeRoots = chromeRoots.filter(function (r) { return r.isConnected; });
     chromeRoots.push(root);
     refreshOwnedChrome(root);
   }

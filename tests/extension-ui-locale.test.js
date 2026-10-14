@@ -226,6 +226,10 @@ function staticMismatches(file) {
     }
     if (match[2]) {
       const name = match[2].toLowerCase();
+      // apply() skips keyed nodes with child markup, so they would never translate.
+      for (const frame of open) {
+        if (frame.key) misses.push(`${frame.key}: contains <${name}> markup`);
+      }
       const attrs = {};
       for (const attr of (match[3] || '').matchAll(/([^\s=]+)\s*=\s*"([^"]*)"/g)) attrs[attr[1]] = decodeEntities(attr[2]);
       for (const part of (attrs['data-i18n-attr'] || '').split(',')) {
@@ -270,6 +274,25 @@ function fakeNode(attrs, textContent) {
   };
 }
 
+function fakeSelect() {
+  const doc = {
+    createElement() {
+      return { attrs: {}, setAttribute(name, value) { this.attrs[name] = String(value); } };
+    }
+  };
+  return {
+    attrs: {},
+    options: [],
+    listeners: {},
+    value: '',
+    ownerDocument: doc,
+    getAttribute(name) { return Object.prototype.hasOwnProperty.call(this.attrs, name) ? this.attrs[name] : null; },
+    setAttribute(name, value) { this.attrs[name] = String(value); },
+    appendChild(node) { this.options.push(node); },
+    addEventListener(type, fn) { this.listeners[type] = fn; }
+  };
+}
+
 function fakeDoc(nodes) {
   return {
     querySelectorAll(selector) {
@@ -309,6 +332,11 @@ async function asyncChecks() {
   check(clonedRow.getAttribute('aria-label') === 'Consent mode for example.com', 'apply leaves attributes that a page script replaced');
   check(templateRow.getAttribute('aria-label') === 'Einwilligungsmodus für Ursprung', 'apply translates attributes that still show their catalog message');
 
+  const withMarkup = fakeNode({ 'data-i18n': 'probe_title' }, 'Agent CLI');
+  withMarkup.children = [{}];
+  locale.apply(fakeDoc([withMarkup]));
+  check(withMarkup.textContent === 'Agent CLI', 'apply leaves static nodes that hold child markup');
+
   const status = fakeNode({ 'data-i18n': 'shell_ready' }, 'Ready');
   locale.markExact(status, 'Working');
   check(status.textContent === 'Arbeitet' && status.getAttribute('data-i18n-shown') === 'Arbeitet', 'fill records the shown text');
@@ -327,6 +355,22 @@ async function asyncChecks() {
     'markExact with uncataloged text clears the previous live key');
   locale.apply(fakeDoc([runner]));
   check(runner.textContent === 'Clicking the submit button', 'apply does not bring back a cleared live string');
+
+  const select = fakeSelect();
+  locale.mountSelect(select);
+  check(select.value === '', 'a new picker follows the browser');
+  await locale.saveOverride('de');
+  check(select.value === 'de', 'the picker follows a language change made elsewhere');
+  await locale.saveOverride(null);
+  check(select.value === '', 'the picker follows a return to the browser language');
+
+  // Content scripts are re-injected into live tabs. The second run must keep
+  // the booted instance and its override.
+  locale.setOverride('de');
+  new Function(source)();
+  check(globalThis.fsbUiLocale === locale, 're-injection keeps the booted instance');
+  check(locale.t('shell_working') === 'Arbeitet', 're-injection keeps the active override');
+  locale.setOverride(null);
 }
 
 asyncChecks().then(() => {

@@ -2019,8 +2019,14 @@
   "entry_mic_intro": {
     "message": "Chrome verlangt die erste Mikrofonfreigabe in einem normalen Erweiterungs-Tab. Danach funktioniert die Spracheingabe aus dem FSB-Seitenpanel auf jeder Website."
   },
-  "entry_mic_instruction": {
-    "message": "Wähle im Chrome-Hinweis „Beim Besuch zulassen“, damit FSB dauerhaft Zugriff hat."
+  "entry_mic_instruction_lead": {
+    "message": "Wähle im Chrome-Hinweis"
+  },
+  "entry_mic_instruction_action": {
+    "message": "Beim Besuch zulassen"
+  },
+  "entry_mic_instruction_tail": {
+    "message": "aus, damit FSB dauerhaft Zugriff hat."
   },
   "entry_mic_waiting": {
     "message": "Warte auf den Mikrofonhinweis von Chrome…"
@@ -2998,20 +3004,6 @@
   },
   "copy_d504fbf25e": {
     "message": "Sitemap wird mit KI verfeinert..."
-  },
-  "copy_00834dcdc3": {
-    "message": "Sitemap für $DOMAIN$: $PAGES$ Seiten, $FORMS$ Formulare (mit KI verbessert)",
-    "placeholders": {
-      "domain": {
-        "content": "$1"
-      },
-      "pages": {
-        "content": "$2"
-      },
-      "forms": {
-        "content": "$3"
-      }
-    }
   },
   "copy_a249e56325": {
     "message": "Sitemap für $DOMAIN$ gespeichert und verfeinert",

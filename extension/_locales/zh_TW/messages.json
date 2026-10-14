@@ -2019,8 +2019,14 @@
   "entry_mic_intro": {
     "message": "Chrome 要求第一次麥克風核准發生在一般的擴充功能分頁。之後，每個網站上的 FSB 側邊欄都可以使用語音輸入。"
   },
-  "entry_mic_instruction": {
-    "message": "在 Chrome 的提示中選擇「造訪時允許」，以便 FSB 獲得持久授權。"
+  "entry_mic_instruction_lead": {
+    "message": "在 Chrome 的提示中選擇"
+  },
+  "entry_mic_instruction_action": {
+    "message": "造訪時允許"
+  },
+  "entry_mic_instruction_tail": {
+    "message": "選項，以便 FSB 獲得持久授權。"
   },
   "entry_mic_waiting": {
     "message": "正在等待 Chrome 的麥克風提示…"
@@ -2998,20 +3004,6 @@
   },
   "copy_d504fbf25e": {
     "message": "正在用 AI 精煉網站地圖..."
-  },
-  "copy_00834dcdc3": {
-    "message": "$DOMAIN$ 的網站地圖：$PAGES$ 個頁面，$FORMS$ 個表單（AI 增強）",
-    "placeholders": {
-      "domain": {
-        "content": "$1"
-      },
-      "pages": {
-        "content": "$2"
-      },
-      "forms": {
-        "content": "$3"
-      }
-    }
   },
   "copy_a249e56325": {
     "message": "已儲存並精煉 $DOMAIN$ 的網站地圖",

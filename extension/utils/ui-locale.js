@@ -11,6 +11,13 @@
  * or the browser UI language.
  */
 (function (root) {
+  // Content scripts are re-injected into tabs that already run them. Keep the
+  // booted instance so earlier callers keep their catalogs and override.
+  if (root.fsbUiLocale && typeof root.fsbUiLocale.boot === 'function') {
+    if (typeof module !== 'undefined' && module.exports) module.exports = root.fsbUiLocale;
+    return;
+  }
+
   var PUBLIC_LOCALES = ['en', 'es', 'de', 'ja', 'ko', 'zh-CN', 'zh-TW'];
   var SOURCE_LOCALE = 'en';
   var STORAGE_KEY = 'fsbUiLocale';
@@ -427,6 +434,10 @@
     select.addEventListener('change', function () {
       saveOverride(select.value);
     });
+    // Another surface can change the language; keep this picker in step.
+    onChange(function () {
+      select.value = activeOverride || '';
+    });
   }
 
   function boot() {
@@ -473,6 +484,8 @@
     var nodes = doc.querySelectorAll('[data-i18n]');
     for (i = 0; i < nodes.length; i++) {
       if (nodes[i].getAttribute('data-i18n-live') != null) continue;
+      // Writing textContent would drop child markup; key the children instead.
+      if (nodes[i].children && nodes[i].children.length > 0) continue;
       var key = nodes[i].getAttribute('data-i18n');
       if (isMessage(key, nodes[i].textContent)) nodes[i].textContent = t(key);
     }

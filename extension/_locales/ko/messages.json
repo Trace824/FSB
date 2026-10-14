@@ -2019,8 +2019,14 @@
   "entry_mic_intro": {
     "message": "Chrome은 첫 마이크 승인을 일반 확장 프로그램 탭에서 요구합니다. 그 뒤에는 모든 사이트에서 FSB 사이드 패널의 음성 입력이 동작합니다."
   },
-  "entry_mic_instruction": {
-    "message": "Chrome 안내에서 “방문하는 동안 허용”을 고르면 FSB 권한이 유지됩니다."
+  "entry_mic_instruction_lead": {
+    "message": "Chrome 안내에서"
+  },
+  "entry_mic_instruction_action": {
+    "message": "방문하는 동안 허용"
+  },
+  "entry_mic_instruction_tail": {
+    "message": "옵션을 고르면 FSB 권한이 유지됩니다."
   },
   "entry_mic_waiting": {
     "message": "Chrome 마이크 안내를 기다리는 중…"
@@ -2998,20 +3004,6 @@
   },
   "copy_d504fbf25e": {
     "message": "AI로 사이트 맵을 다듬는 중..."
-  },
-  "copy_00834dcdc3": {
-    "message": "$DOMAIN$ 사이트 맵: 페이지 $PAGES$개, 양식 $FORMS$개(AI 향상)",
-    "placeholders": {
-      "domain": {
-        "content": "$1"
-      },
-      "pages": {
-        "content": "$2"
-      },
-      "forms": {
-        "content": "$3"
-      }
-    }
   },
   "copy_a249e56325": {
     "message": "$DOMAIN$의 사이트 맵을 저장하고 다듬었습니다",
