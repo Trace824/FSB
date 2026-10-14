@@ -11,11 +11,28 @@ Version-alignment release for FSB v1.0.0. Package metadata, generated runtime ve
 ### Compatibility
 
 - `fsb-mcp-server` 1.0.0 requires FSB extension 1.0.0 or newer for the existing `mcp:task-status` route.
-- Runtime behavior, MCP wire contracts, tool schemas, installer behavior, and dependency versions are unchanged from 0.11.1.
+- Runtime behavior, MCP wire contracts, tool schemas, installer behavior, and dependency versions are unchanged from 0.11.2, including its dark-logo server icon.
 
 ### Anti-scope (NOT in 1.0.0)
 
-- No publish or tag action is performed by this version update. Final `npm publish fsb-mcp-server@1.0.0` remains user-gated through the `mcp-v1.0.0` release tag.
+- No publish or tag action is performed by this version update itself. Merging it into `main` automatically publishes `fsb-mcp-server@1.0.0` and creates the `mcp-v1.0.0` GitHub release.
+
+<a id="v0.11.2"></a>
+
+## 0.11.2 (2026-10-14)
+
+Patch release adding the FSB dark logo to MCP server metadata.
+
+### Added
+
+- The unchanged dark logo is included in the npm package and advertised as a PNG data URI in server initialization metadata. Clients that support MCP server icons can display it after updating and restarting their MCP host.
+- MCP Registry metadata references the matching hosted PNG at its original 1000×1000 size.
+
+### Compatibility and update
+
+- Extension compatibility remains FSB 0.9.92 or newer. Server identity, capabilities, tool schemas, installer configuration, and dependency versions are unchanged.
+- Icon rendering depends on the MCP client; clients that ignore icon metadata keep their existing display.
+- Merging this release into `main` automatically publishes `fsb-mcp-server@0.11.2` and creates the `mcp-v0.11.2` GitHub release. Later main pushes skip publication when the MCP version is already on npm; explicit MCP release tags remain supported.
 
 <a id="v0.11.1"></a>
 

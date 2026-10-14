@@ -43,8 +43,14 @@ Use this package when you want your AI client to drive the browser directly whil
 This is the unified product version release. Full details live in `CHANGELOG.md`.
 
 - The FSB extension, showcase, skill, documentation, and store metadata align at 1.0.0, and `fsb-mcp-server` advances to 1.0.0 alongside them.
-- Runtime behavior, MCP wire contracts, tool schemas, installer behavior, and dependency versions are unchanged from 0.11.1.
+- Runtime behavior, MCP wire contracts, tool schemas, installer behavior, and dependency versions are unchanged from 0.11.2, including its dark-logo server icon.
 - **Compatibility:** `fsb-mcp-server` 1.0.0 requires FSB extension 1.0.0 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
+
+### What's New In v0.11.2
+
+- The FSB dark logo ships with the MCP package and is advertised as an embedded PNG server icon. Update the package and restart the MCP host to make it available to clients that render MCP icons.
+- The MCP Registry uses the matching hosted dark logo. Rendering remains client-controlled.
+- **0.11.2 compatibility:** `fsb-mcp-server` 0.11.2 requires FSB extension 0.9.92 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
 
 ### What's New In v0.11.1
 
@@ -55,7 +61,7 @@ This patch accompanies the bridge reliability and editing fixes in FSB extension
 - Bounded lifecycle diagnostics explain attachment failures, pairing mismatches, revocations, and shutdown causes through `doctor`, `status`, and health responses.
 - Action routing distinguishes undelivered requests from uncertain mutations and avoids repeating an action whose outcome is unknown.
 - Local HTTP runtime references support both numeric IPv4 and IPv6 loopback endpoints while preserving loopback-only access.
-- **0.11.1 compatibility:** `fsb-mcp-server` 0.11.1 requires FSB extension 0.9.92 or newer for `mcp:task-status`.
+- **0.11.1 compatibility:** `fsb-mcp-server` 0.11.1 requires FSB extension 0.9.92 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
 
 ### What's New In v0.11.0
 
@@ -684,14 +690,15 @@ Contract-sensitive changes should be covered by tests before publishing:
 
 ### Releasing 1.0.0
 
-This 1.0.0 build is release-prep ready. The actual `npm publish` remains user-gated through the MCP-only tag workflow.
+This 1.0.0 build is release-prep ready. Merging a new MCP version into `main` automatically publishes the verified npm package to `latest` and creates its `mcp-vX.Y.Z` tag and GitHub release. Main pushes whose MCP version is already published skip publishing. Bump the MCP version with `npm run version:set:mcp -- X.Y.Z` before merging a new release.
 
 To publish:
 
-- Preferred: after merging to `main`, run the MCP-only tag workflow (`git tag mcp-v1.0.0 && git push origin mcp-v1.0.0`). It publishes the verified npm artifact and creates the MCP GitHub release.
+- Preferred: merge the versioned release into `main`; the npm workflow builds the Windows native-host artifacts, verifies the packed payload, publishes to npm, and creates the release automatically.
+- Explicit tag alternative: for an unpublished version already on `main`, run `git tag mcp-v1.0.0 && git push origin mcp-v1.0.0`. Tag-triggered releases still require the tag to match the package version and reject an already-published version.
 - Manual MCP fallback: from the release commit, run `cd mcp && npm publish --tag latest` only after confirming `npm whoami`, `npm --prefix mcp run build`, and the MCP smoke/parity/schema gates all pass.
 
-Do not run `npm publish` from autonomous mode.
+Use the release workflow for normal releases so the native-host packaging and integrity checks run before publication.
 
 ---
 
