@@ -178,6 +178,18 @@
   font-size: 0.8rem;
 }
 
+/* --- Inline Code --- */
+/* No font-family here: the global code stack already applies, and a
+   scoped one would out-rank its :lang() CJK fallback. */
+.faq-answer-inner code,
+.trouble-card code {
+  font-size: 0.85em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
 /* --- Contact Section --- */
 .contact-section {
   max-width: 600px;

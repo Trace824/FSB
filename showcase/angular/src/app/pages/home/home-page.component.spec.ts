@@ -1,4 +1,4 @@
-import { detectBrowserIconClass } from './home-page.component';
+import { ENG_ORDER, type EngMode, detectBrowserIconClass, nextEngMode } from './home-page.component';
 
 /* Verbatim real-world user agents. CHROME_DESKTOP is shared by Chrome, Brave and
    Arc: that collision is exactly why Brave needs the navigator.brave namespace and
@@ -233,5 +233,29 @@ describe('detectBrowserIconClass', () => {
      type-checks. Matched loosely so a non-Chrome local launcher stays green. */
   it('accepts the real navigator (contract with ngOnInit)', () => {
     expect(detectBrowserIconClass(navigator)).toMatch(/^fa-[a-z-]+$/);
+  });
+});
+
+describe('nextEngMode', () => {
+  it('advances MCP to Agent CLI to your own key', () => {
+    expect(nextEngMode('mcp')).toBe('cli');
+    expect(nextEngMode('cli')).toBe('byok');
+  });
+
+  it('wraps from the last mode back to MCP', () => {
+    expect(nextEngMode('byok')).toBe('mcp');
+  });
+
+  /* The rotation must visit every panel exactly once per lap, otherwise one of the
+     three ways to run FSB would never be shown. */
+  it('visits every mode once per lap and returns to the start', () => {
+    const seen: EngMode[] = [];
+    let mode = ENG_ORDER[0];
+    for (let i = 0; i < ENG_ORDER.length; i++) {
+      seen.push(mode);
+      mode = nextEngMode(mode);
+    }
+    expect(seen).toEqual([...ENG_ORDER]);
+    expect(mode).toBe(ENG_ORDER[0]);
   });
 });

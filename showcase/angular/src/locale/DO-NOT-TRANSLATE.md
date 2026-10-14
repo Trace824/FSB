@@ -43,6 +43,7 @@ whole element only when all of its content is genuinely invariant.
 - Chromium
 - CID
 - ClawHub
+- CLI
 - Claude
 - Claude Code
 - Claude Desktop
@@ -62,6 +63,7 @@ whole element only when all of its content is genuinely invariant.
 - CVV
 - Discord
 - DOM
+- Dots
 - DSSE
 - Edge
 - Ed25519
@@ -78,6 +80,8 @@ whole element only when all of its content is genuinely invariant.
 - Grok
 - Grok 4.1
 - Grok 4.1 Fast
+- Grok Bot
+- Grok Build
 - Grok Code Fast
 - Hermes
 - Issues
@@ -91,7 +95,10 @@ whole element only when all of its content is genuinely invariant.
 - LZ-string
 - MCP
 - MCP server
+- Meta
 - MIT
+- Muse
+- Muse Code
 - MutationObserver
 - MV3
 - npm
@@ -114,9 +121,11 @@ whole element only when all of its content is genuinely invariant.
 - Safari
 - SDK
 - Standard Schema
+- SuperGrok
 - Svelte
 - TypeScript
 - Vivaldi
+- VS Code
 - WeakMap
 - WebRTC
 - WebSocket

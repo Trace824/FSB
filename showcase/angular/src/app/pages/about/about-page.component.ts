@@ -102,37 +102,6 @@ const KNOWLEDGE_GRAPH_COPY = {
   taskDiscovered: $localize`:@@about.memory.graph.taskDiscovered:task-discovered`,
 };
 
-const DEMO_VIDEOS = [
-  {
-    id: '_iQ4_LSXcTU',
-    name: $localize`:@@about.schema.demo.ecommerce.name:FSB: E-Commerce Autopilot by Grok 4.1`,
-    alternateName: $localize`:@@about.schema.demo.ecommerce.alternateName:FSB Test 2`,
-    description: $localize`:@@about.schema.demo.ecommerce.description:FSB drives a shopping workflow from instruction to browser actions, showing the practical side of full self-browsing.`,
-    uploadDate: '2026-05-03T05:31:01-07:00',
-  },
-  {
-    id: 'WbpOrFwgGME',
-    name: $localize`:@@about.schema.demo.flight.name:Flight Booking: Powered by Codex MCP`,
-    alternateName: $localize`:@@about.schema.demo.flight.alternateName:FSB Flight Booking`,
-    description: $localize`:@@about.schema.demo.flight.description:Codex uses FSB through MCP as the browser layer, turning coding-agent reasoning into real page interaction.`,
-    uploadDate: '2026-05-03T05:57:48-07:00',
-  },
-  {
-    id: 'PNTGCWGopf8',
-    name: $localize`:@@about.schema.demo.openClaw.name:OpenClaw Monitoring Doge Price`,
-    alternateName: $localize`:@@about.schema.demo.openClaw.alternateName:FSB OpenClaw`,
-    description: $localize`:@@about.schema.demo.openClaw.description:OpenClaw can provide the agent loop while FSB supplies the live browser control surface for real-world monitoring tasks.`,
-    uploadDate: '2026-05-03T05:56:22-07:00',
-  },
-  {
-    id: 'mD9oGB2JqVM',
-    name: $localize`:@@about.schema.demo.claude.name:An Aha Moment by Claude Opus 4.6`,
-    alternateName: $localize`:@@about.schema.demo.claude.alternateName:FSB Test #1`,
-    description: $localize`:@@about.schema.demo.claude.description:Claude pairs reasoning with FSB's browser execution so the agent can learn from the page and keep iterating.`,
-    uploadDate: '2026-05-02T23:10:58-07:00',
-  },
-] as const;
-
 interface KnowledgeCategory {
   readonly name: string;
   readonly color: string;
@@ -208,11 +177,11 @@ export class AboutPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
     // Title and description carry user-facing copy (browser tab + meta description / social cards).
     // Marked via $localize so per-locale builds emit translated strings; embedded brand tokens
-    // (FSB, Grok 4.1, Codex MCP, OpenClaw, Claude) are listed in DO-NOT-TRANSLATE.md for translators.
+    // (FSB, MCP) are listed in DO-NOT-TRANSLATE.md for translators.
     const t = $localize`:@@about.meta.title:FSB - About`;
-    const d = $localize`:@@about.meta.description:Watch real FSB demos: Grok 4.1 e-commerce autopilot, Codex MCP flight booking, OpenClaw monitoring, and Claude-powered browser iteration.`;
+    const d = $localize`:@@about.meta.description:Watch the FSB trailer, explore built-in memory for 130 popular sites, and browse the 60 browser actions FSB surfaces to MCP agents.`;
     this.applyMeta(t, d, url);
-    this.injectDemoVideoJsonLd();
+    this.injectTrailerVideoJsonLd();
   }
 
   ngAfterViewInit(): void {
@@ -253,34 +222,35 @@ export class AboutPageComponent implements OnInit, AfterViewInit, OnDestroy {
     emitLocaleHead(this.renderer, this.doc, this.localeId, ROUTE_PATH);
   }
 
-  private injectDemoVideoJsonLd(): void {
-    if (this.doc.head.querySelector('script[data-ld="about-demo-videos"]')) {
+  private injectTrailerVideoJsonLd(): void {
+    if (this.doc.head.querySelector('script[data-ld="about-trailer-video"]')) {
       return;
     }
+    // Mark up only the video embedded on this page: search engines' video
+    // guidelines reject VideoObject data for videos a visitor cannot watch here.
     const payload = {
       '@context': 'https://schema.org',
-      '@graph': DEMO_VIDEOS.map((video) => ({
-        '@type': 'VideoObject',
-        '@id': `${HOST}/about#demo-${video.id}`,
-        name: video.name,
-        alternateName: video.alternateName,
-        description: video.description,
-        url: `https://www.youtube.com/watch?v=${video.id}`,
-        embedUrl: `https://www.youtube.com/embed/${video.id}`,
-        thumbnailUrl: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
-        uploadDate: video.uploadDate,
-        publisher: { '@id': `${HOST}/#org` },
-        author: {
-          '@type': 'Person',
-          name: 'Parzival',
-          url: YOUTUBE_CHANNEL,
-        },
-      })),
+      '@type': 'VideoObject',
+      '@id': `${HOST}/about#demo-osNHSquClo0`,
+      name: $localize`:@@about.schema.trailer.name:FSB Trailer`,
+      // The video's exact YouTube title, kept verbatim rather than translated.
+      alternateName: 'v0.9.91 | Full Self-Browsing',
+      description: $localize`:@@about.schema.trailer.description:The official FSB trailer: Full Self-Browsing gives AI agents a real browser to act, observe, and verify in.`,
+      url: 'https://www.youtube.com/watch?v=osNHSquClo0',
+      embedUrl: 'https://www.youtube.com/embed/osNHSquClo0',
+      thumbnailUrl: 'https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg',
+      uploadDate: '2026-09-06T18:41:54-07:00',
+      publisher: { '@id': `${HOST}/#org` },
+      author: {
+        '@type': 'Person',
+        name: 'Parzival',
+        url: YOUTUBE_CHANNEL,
+      },
     };
     const json = JSON.stringify(payload).replace(/</g, '\\u003c');
     const script = this.renderer.createElement('script') as HTMLScriptElement;
     this.renderer.setAttribute(script, 'type', 'application/ld+json');
-    this.renderer.setAttribute(script, 'data-ld', 'about-demo-videos');
+    this.renderer.setAttribute(script, 'data-ld', 'about-trailer-video');
     const text = this.renderer.createText(json);
     this.renderer.appendChild(script, text);
     this.renderer.appendChild(this.doc.head, script);

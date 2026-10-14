@@ -56,21 +56,6 @@
       "reason": "brand, package, or CLI name"
     },
     {
-      "id": "about.videos.demo2.tag",
-      "sourceSha256": "53f13ae99ed53bd346eb8e1c8cefb7ef8260683b50401caf101360967ea052aa",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "about.videos.demo3.tag",
-      "sourceSha256": "a7b90ee8facf0aed66654381629a6ae2983257dfe5daad4ae455dbf49fc6d39b",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "about.videos.demo4.tag",
-      "sourceSha256": "0615570f9ea136946c5dc08a250010320707646f57f72cedab1dfb73d95eade6",
-      "reason": "product, provider, or model name"
-    },
-    {
       "id": "about.actions.tag.navigate",
       "sourceSha256": "d0cda6559bb347db706f6fa92a5b2491658e0c1e5bda98bb14e3c8a711b8fa33",
       "reason": "API/action identifier"
@@ -381,6 +366,11 @@
       "reason": "product, provider, or model name"
     },
     {
+      "id": "agents.flow.core.aria",
+      "sourceSha256": "83139e1a42a4c7033286d67f1c732d7067ea620fd6dbf5c5fb0df845d8b33e4a",
+      "reason": "brand, package, or CLI name"
+    },
+    {
       "id": "dashboard.template.022.placeholder",
       "sourceSha256": "100680ad546ce6a577f42f52df33b4cfdca756859e664b8d7de329b150d09ce9",
       "reason": "example URL"
@@ -439,71 +429,6 @@
       "id": "home.capabilities.credit.opentabs",
       "sourceSha256": "bb7f3b6bb53814dd4e9ca6665ecd77ee3147447e0f1170086c857fe67005089f",
       "reason": "brand, package, or CLI name"
-    },
-    {
-      "id": "home.providers.xai.logo.alt",
-      "sourceSha256": "daeed48c26239eefa88416ecb43801d6479a0919015fadd6e33f9956739ec716",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.xai.name",
-      "sourceSha256": "6e84114ba8be4411d3ca7b9cc2b820cb4096c3475061a6e9b6acb7d56d3a6709",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.xai.models",
-      "sourceSha256": "f147f82f52fdbaecff62eceeae8ea2be4a1d58973600cb6ba99eaf1f303bc512",
-      "reason": "model names"
-    },
-    {
-      "id": "home.providers.openai.name",
-      "sourceSha256": "8b7d1a3187ab355dc31bc683aaa71ab5ed217940c12196a9cd5f4ca984babfa4",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.openai.models",
-      "sourceSha256": "f557d6250da3f1db58a8f126f7753c464a2769fcbd9c60efb39f474949cc4a60",
-      "reason": "model names"
-    },
-    {
-      "id": "home.providers.anthropic.logo.alt",
-      "sourceSha256": "744205e43529c1fc39bc4ed37dbcd1e91facc78d2a2d136bc893b023ac3c75f5",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.anthropic.name",
-      "sourceSha256": "744205e43529c1fc39bc4ed37dbcd1e91facc78d2a2d136bc893b023ac3c75f5",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.anthropic.models",
-      "sourceSha256": "ad2cb2df1c52a39880d221f6e37d4fdc62c8b1d06aba9fb53c8b779fce99bcab",
-      "reason": "model names"
-    },
-    {
-      "id": "home.providers.gemini.logo.alt",
-      "sourceSha256": "063b7348027464769cf962f54c93cb5170a16c3763d000bf64c0e1198330e697",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.gemini.name",
-      "sourceSha256": "063b7348027464769cf962f54c93cb5170a16c3763d000bf64c0e1198330e697",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.openrouter.logo.alt",
-      "sourceSha256": "eb70c3bc14fa7ae14285b750955958e63b64b8f19546c30fc2223ad9057a959c",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.openrouter.name",
-      "sourceSha256": "eb70c3bc14fa7ae14285b750955958e63b64b8f19546c30fc2223ad9057a959c",
-      "reason": "product, provider, or model name"
-    },
-    {
-      "id": "home.providers.lmstudio.name",
-      "sourceSha256": "6b9727908e373676862e2de697aea360927c3ae8f98d85ebcd16eccfc32ce91e",
-      "reason": "product, provider, or model name"
     },
     {
       "id": "lattice.screen.label",
@@ -1552,22 +1477,17 @@
         "id": "home.install.manualFlag",
         "sourceSha256": "36bde66f289a35683683b041c6d8f418a5f36607b547da25d00ad55891e80b88",
         "reason": "natural Spanish technical term or product name"
+      },
+      {
+        "id": "home.engine.byok.tag.local",
+        "sourceSha256": "8c31e6e7223097e2e4847773c47a4efab6aaf79deeecc92a7759891c74976dde",
+        "reason": "Local is the standard Spanish adjective for a model running on the local machine."
       }
     ],
     "de": [
       {
-        "id": "about.videos.demo1.tag",
-        "sourceSha256": "0c62cfcf5c72673be0759f650d1bc0881071d1e9ad181b9a0e1ef4a925d8b5cb",
-        "reason": "natural German loanword or product name"
-      },
-      {
         "id": "about.memory.category.design",
         "sourceSha256": "5ed5105680207b4de7fda499d5a5c202b21424b4ee0465603ba99218a6c22891",
-        "reason": "natural German loanword or product name"
-      },
-      {
-        "id": "about.schema.demo.openClaw.alternateName",
-        "sourceSha256": "7b5cdef476949136a3492208c6802635f603ddc4036377ef5a5665cd055b51e6",
         "reason": "natural German loanword or product name"
       },
       {
@@ -1622,13 +1542,7 @@
       }
     ],
     "ja": [],
-    "zh-CN": [
-      {
-        "id": "about.schema.demo.openClaw.alternateName",
-        "sourceSha256": "7b5cdef476949136a3492208c6802635f603ddc4036377ef5a5665cd055b51e6",
-        "reason": "product name or locale-standard invariant"
-      }
-    ],
+    "zh-CN": [],
     "zh-TW": []
   },
   "equivalentByLocale": {
@@ -1650,12 +1564,6 @@
         "sourceSha256": "76fdefeb182deaf6f854e1de1612f48a88358af73b63752aff9a2ec2b06f7912",
         "targetSha256": "1ebe8cf4f395b169e5c6c60a5cf9214472f807b5600bbbd89e1f26cac52a6a8e",
         "reason": "natural German compound spelling for a technical product label"
-      },
-      {
-        "id": "about.schema.demo.ecommerce.alternateName",
-        "sourceSha256": "26e9773fe7f9b47d89f85ab5d9b59815b7893f983d58b27bd218061356d51ad4",
-        "targetSha256": "39877a237f88a8abc9fd1bddbef62e790e6b704e3ba45e790b1991837981bdeb",
-        "reason": "German compound punctuation around the invariant FSB test name"
       },
       {
         "id": "agents.og.imageAlt",
@@ -1716,6 +1624,30 @@
         "sourceSha256": "65f7edb2580687d3a2d6e2a0db29e863936bdc1c28f7d40be3d7ec8d77f8cc6d",
         "targetSha256": "090f0b931209a96f63f9682872e9680eb050991a7a6fdc21390b92905beb0fc4",
         "reason": "month name is identical in German"
+      },
+      {
+        "id": "about.videos.trailer.iframe.title",
+        "sourceSha256": "6066833a384ca8b45628a64c4bb62c077fe4c84901d13f02cd1b0649fc193fa1",
+        "targetSha256": "3e9a08f8a941a1618bbbc2529e96e8b2893a49abf1e02c6ff26623cd2231988f",
+        "reason": "Trailer is the standard German loanword; the German compound joins the unchanged FSB brand with a hyphen."
+      },
+      {
+        "id": "about.schema.trailer.name",
+        "sourceSha256": "6066833a384ca8b45628a64c4bb62c077fe4c84901d13f02cd1b0649fc193fa1",
+        "targetSha256": "3e9a08f8a941a1618bbbc2529e96e8b2893a49abf1e02c6ff26623cd2231988f",
+        "reason": "Trailer is the standard German loanword; the German compound joins the unchanged FSB brand with a hyphen."
+      },
+      {
+        "id": "agents.power.card.tools.stat",
+        "sourceSha256": "d73e58b89a81bb6abad87def2805d561e35d529433feff62f3ec91042031bac7",
+        "targetSha256": "d6169d5f466b1d50034c7847c5251fd380eeeaf6b49eaa1a5c21b67d372508f6",
+        "reason": "Tools is the standard German technical loanword, capitalized as a noun; the MCP compound uses a German hyphen."
+      },
+      {
+        "id": "home.engine.mcp.fact.tools",
+        "sourceSha256": "be82197e9662c8e2c9788aea0a27c4dc9e51db4ae7e456eefb39ab88c021de34",
+        "targetSha256": "04d914741631f87377073bf5fa253d9b4a9d90379573b16c970f16d2afaa886f",
+        "reason": "Tools is the standard German technical loanword, capitalized as a noun; the MCP compound uses a German hyphen."
       }
     ]
   }

@@ -65,6 +65,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   private copiedTimer?: ReturnType<typeof setTimeout>;
   private rafId?: number;
   private removeScrollListener?: () => void;
+  private engTimer?: ReturnType<typeof setInterval>;
+  private engSwapTimer?: ReturnType<typeof setTimeout>;
+  private engHover = false;
+  private engReducedMotion = false;
 
   readonly storeUrl = 'https://chromewebstore.google.com/detail/badgafnfchcihdfnjneklogedcdkmjfk?utm_source=item-share-cp';
   readonly githubRepo = GITHUB_REPO;
@@ -91,6 +95,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly capRow1: readonly CapabilityApp[] = CAPABILITY_ROW_1;
   private readonly manualFlagLabel = $localize`:@@home.install.manualFlag:manual`;
   readonly capRow2: readonly CapabilityApp[] = CAPABILITY_ROW_2;
+  readonly engMcpKind = 'MCP';
+  readonly engGlyphs = ENG_FLOW_GLYPHS;
+  readonly engChips = ENG_CHIPS;
+  readonly engCliMeta = ENG_CHIPS.cli.map((chip) => chip.name).join(' · ');
   browserIconClass = 'fa-chrome';
   iconIndex = 0;
   token = '--claude-code';
@@ -98,6 +106,9 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   paused = false;
   fanOpen = false;
   copied: string | null = null;
+  engMode: EngMode = 'mcp';
+  engLeaving = false;
+  engKeyFocus = false;
 
   /* Prerender-safe guard (matchMedia check mirrors the theme bootstrap). On
      coarse pointers the fan is click-toggled: taps fire synthetic mouseenter,
@@ -145,6 +156,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.rollTimer = setInterval(() => this.advance(), ROTATE_MS);
     this.removeScrollListener = this.renderer.listen('window', 'scroll', () => this.updateScrollCue());
     this.updateScrollCue();
+    // Read once, not subscribed: under reduced motion the engine panel never auto-rotates.
+    this.engReducedMotion =
+      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!this.engReducedMotion) this.startEngCycle();
   }
 
   ngOnDestroy(): void {
@@ -152,6 +167,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.hoverTimer) clearTimeout(this.hoverTimer);
     if (this.fanCloseTimer) clearTimeout(this.fanCloseTimer);
     if (this.copiedTimer) clearTimeout(this.copiedTimer);
+    if (this.engTimer) clearInterval(this.engTimer);
+    if (this.engSwapTimer) clearTimeout(this.engSwapTimer);
     if (this.rafId !== undefined && typeof window !== 'undefined') {
       window.cancelAnimationFrame(this.rafId);
     }
@@ -194,6 +211,39 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.copyCurrent();
+  }
+
+  onEngEnter(): void {
+    this.engHover = true;
+  }
+
+  onEngLeave(): void {
+    this.engHover = false;
+  }
+
+  /* Only keyboard focus holds the rotation. Chrome, Edge and touch browsers also
+     focus a button when it is clicked, and that focus outlives the pointer, so
+     plain focus would freeze the panel after every tab click. */
+  onEngFocusIn(event: FocusEvent): void {
+    this.engKeyFocus = (event.target as Element | null)?.matches?.(':focus-visible') === true;
+  }
+
+  onEngKeyDown(): void {
+    this.engKeyFocus = true;
+  }
+
+  /* focusout also fires when focus just moves between tabs, and the focusin that
+     follows re-evaluates it; only clear the hold once focus has actually left the
+     panel (relatedTarget is null when it leaves the document altogether). */
+  onEngFocusOut(event: FocusEvent): void {
+    const root = event.currentTarget as Element | null;
+    const next = event.relatedTarget as Node | null;
+    if (!root || !next || !root.contains(next)) this.engKeyFocus = false;
+  }
+
+  pickEng(mode: EngMode): void {
+    this.engGo(mode);
+    if (this.engTimer) this.startEngCycle();
   }
 
   @HostListener('document:click', ['$event'])
@@ -347,6 +397,37 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 1600);
   }
 
+  private startEngCycle(): void {
+    if (this.engTimer) clearInterval(this.engTimer);
+    this.engTimer = setInterval(() => {
+      if (this.engHover || this.engKeyFocus || this.doc.hidden) return;
+      this.engGo(nextEngMode(this.engMode));
+    }, ENG_CYCLE_MS);
+  }
+
+  /* The outgoing panel plays engOut while `leaving` is set; the mode flips only
+     once that has finished, which re-adds is-active on the next panel and replays
+     its engIn. */
+  private engGo(mode: EngMode): void {
+    if (this.engSwapTimer) clearTimeout(this.engSwapTimer);
+    this.engSwapTimer = undefined;
+    if (mode === this.engMode) {
+      // Picking the panel that is still on screen mid-swap cancels the swap.
+      this.engLeaving = false;
+      return;
+    }
+    if (this.engReducedMotion) {
+      this.engMode = mode;
+      return;
+    }
+    this.engLeaving = true;
+    this.engSwapTimer = setTimeout(() => {
+      this.engSwapTimer = undefined;
+      this.engMode = mode;
+      this.engLeaving = false;
+    }, ENG_SWAP_MS);
+  }
+
   private updateScrollCue(): void {
     if (typeof window === 'undefined') return;
     const el = this.scrollCue?.nativeElement;
@@ -371,7 +452,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 
 /* Declared in the module tail rather than beside the interfaces at the top of the
    file on purpose: messages.xlf pins a linenumber for every $localize call in this
-   module (the last one sits at line 269) and CI diffs `ng extract-i18n`
+   module (the last one sits at line 312) and CI diffs `ng extract-i18n`
    byte-for-byte, so nothing at or above that line may move. Same reason there is no
    separate browser-icon.ts -- importing it would shift every one of those numbers.
 
@@ -409,3 +490,62 @@ export function detectBrowserIconClass(nav: BrowserSignals): string {
   if (/Safari\//.test(ua) && !/Chrome\/|Chromium\//.test(ua)) return 'fa-safari';
   return 'fa-chrome';
 }
+
+/* Engine panel: the three ways to run FSB, auto-advanced in this order. The swap
+   delay matches the engOut keyframe in the stylesheet, so the outgoing panel has
+   finished blurring out before the next one becomes active. */
+export type EngMode = 'mcp' | 'cli' | 'byok';
+
+export const ENG_ORDER: readonly EngMode[] = ['mcp', 'cli', 'byok'];
+const ENG_CYCLE_MS = 3000;
+const ENG_SWAP_MS = 220;
+
+export function nextEngMode(mode: EngMode): EngMode {
+  return ENG_ORDER[(ENG_ORDER.indexOf(mode) + 1) % ENG_ORDER.length];
+}
+
+/* Product names are interpolated from here rather than marked in the template: a
+   trans-unit whose whole source is a brand would need a same-source allowlist entry
+   in every locale. Translatable chip tags stay as i18n markers in the template and
+   are selected by key. Logos are mask files under /assets/providers; LM Studio has
+   none, so it falls back to a Font Awesome icon. */
+export type EngChipTag = 'default' | 'freeTier' | 'local';
+
+export interface EngChip {
+  readonly name: string;
+  readonly logo?: string;
+  readonly icon?: string;
+  readonly tag?: EngChipTag;
+}
+
+const ENG_FLOW_GLYPHS: Readonly<Record<EngMode, readonly string[]>> = {
+  mcp: ['claude.svg', 'openai.svg', 'cursor.svg', 'vscode.svg'],
+  cli: ['claude.svg', 'xai.png'],
+  byok: ['xai.png', 'anthropic.webp', 'openai.svg', 'google.png'],
+};
+
+const ENG_CHIPS: Readonly<Record<EngMode, readonly EngChip[]>> = {
+  mcp: [
+    { name: 'Claude Code', logo: 'claude.svg' },
+    { name: 'Claude Desktop', logo: 'claude.svg' },
+    { name: 'Codex', logo: 'openai.svg' },
+    { name: 'Cursor', logo: 'cursor.svg' },
+    { name: 'VS Code', logo: 'vscode.svg' },
+    { name: 'Windsurf', logo: 'windsurf.svg' },
+    { name: 'OpenCode', logo: 'opencode.svg' },
+    { name: 'OpenClaw', logo: 'openclaw.svg' },
+    { name: 'Hermes', logo: 'hermes.png' },
+  ],
+  cli: [
+    { name: 'Claude Code', logo: 'claude.svg' },
+    { name: 'Grok Build', logo: 'xai.png' },
+  ],
+  byok: [
+    { name: 'xAI Grok', logo: 'xai.png', tag: 'default' },
+    { name: 'Anthropic', logo: 'anthropic.webp' },
+    { name: 'OpenAI', logo: 'openai.svg' },
+    { name: 'Gemini', logo: 'google.png', tag: 'freeTier' },
+    { name: 'OpenRouter', logo: 'openrouter.svg' },
+    { name: 'LM Studio', icon: 'fa-solid fa-cube', tag: 'local' },
+  ],
+};
