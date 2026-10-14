@@ -18823,11 +18823,11 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="SHOWCASE_STATS_FSB_GLOBE_ANNOTATION" datatype="html">
-        <source>Where installs were last seen over the past 365 days.</source>
-        <target state="translated">Dónde se vieron por última vez las instalaciones en los últimos 365 días.</target>
+        <source>Where installs were last seen over the past 365 days. Place data by <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;https://db-ip.com&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DB-IP<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>.</source>
+        <target state="translated">Dónde se vieron por última vez las instalaciones en los últimos 365 días. Datos de ubicación de <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;https://db-ip.com&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DB-IP<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/stats/stats-page.component.html</context>
-          <context context-type="linenumber">104,106</context>
+          <context context-type="linenumber">104,105</context>
         </context-group>
       </trans-unit>
       <trans-unit id="SHOWCASE_STATS_FSB_GLOBE_EMPTY" datatype="html">
