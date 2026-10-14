@@ -1,6 +1,6 @@
 # FSB (Full Self-Browsing)
 
-FSB (Full Self-Browsing) is an open-source Chrome extension that automates the browser through natural language. You describe a task; FSB plans the clicks, types, and navigation to complete it. Multi-model AI (xAI, OpenAI, Anthropic, Gemini, OpenRouter, LM Studio, local), 56 browser tools, a 68-tool MCP surface, 142+ site guides, local-first execution, and BYO API keys. Current release: FSB v1.0.0 (extension) with fsb-mcp-server 1.0.0 (npm).
+FSB (Full Self-Browsing) is an open-source Chrome extension that automates the browser through natural language. You describe a task; FSB plans the clicks, types, and navigation to complete it. Multi-model AI (xAI, OpenAI, Anthropic, Gemini, OpenRouter, LM Studio, local), 60 browser actions, a 68-tool MCP surface, 142+ site guides, local-first execution, and BYO API keys. Current release: FSB v1.0.0 (extension) with fsb-mcp-server 1.0.0 (npm).
 
 License: [MIT License](https://github.com/fullselfbrowsing/FSB/blob/main/LICENSE).
 
@@ -24,10 +24,12 @@ Unlike cloud browser agents that run in a headless container without your cookie
 - Trigger watchers: arm a watch on one page element (price, availability, status) and get notified on threshold, delta, regex, or compound conditions without manual polling.
 - Native capability calls: search the 128-app catalog for `t1-ready` first-party API actions, invoke supported actions through the guarded router, and keep sensitive origins visible in the audit trail.
 
+The About page embeds the public 33-second FSB trailer (uploaded September 6, 2026), with a visible synopsis and YouTube link. FSB can run from natural-language instructions with a chosen model, through an agent CLI, or as an MCP browser connection for a calling agent. Chrome 116 or a compatible desktop Chromium browser is required; Firefox is not currently supported. The extension is free and MIT licensed; hosted model usage is billed by the chosen provider. MCP agents can work across tabs using agent identity and tab ownership. Setup, costs, privacy, and troubleshooting answers are at https://full-selfbrowsing.com/support.
+
 ## Docs
 
-- [About](https://full-selfbrowsing.com/about): Real demo videos for Grok 4.1 e-commerce autopilot, Codex MCP flight booking, OpenClaw monitoring, and Claude-powered browser iteration, plus an interactive knowledge graph of FSB's site intelligence.
-- [Agents](https://full-selfbrowsing.com/agents): OpenClaw skill onboarding, ClawHub one-click install (`https://clawhub.ai/lakshmanturlapati/full-selfbrowsing`), FSB MCP power story (68 MCP tools, multi-agent identity, vault boundary, real Chrome session), 3-step install, and grounded use cases. Autopilot (`run_task`) only fires on explicit user delegation; manual tool calls are default.
+- [About](https://full-selfbrowsing.com/about): The official FSB trailer, an interactive knowledge graph of FSB's site intelligence, and a categorized library of the browser actions FSB exposes to agents.
+- [Agents](https://full-selfbrowsing.com/agents): How always-on agents (Grok Bot, Muse, Dots) and MCP hosts such as OpenClaw, Hermes, Claude Code, Codex, and Cursor drive the user's real Chrome through FSB, the FSB MCP power story (68 MCP tools, multi-agent identity, vault boundary, real Chrome session), the OpenClaw and Hermes skill, ClawHub one-click install (`https://clawhub.ai/lakshmanturlapati/full-selfbrowsing`), a one-line `npx -y fsb-mcp-server@latest install` connect command, and grounded use cases. Autopilot (`run_task`) only fires on explicit user delegation; manual tool calls are default.
 - [Support](https://full-selfbrowsing.com/support): Setup guides, MCP configuration, troubleshooting, GitHub issues, and direct contact.
 - [Release notes](https://full-selfbrowsing.com/release-notes): Every FSB release illustrated, from the 0.9.92 bridge recovery, at-most-once browser actions, and hung-page deadlines back to the first Chrome-extension prototype, with a sticky rail for switching between the fifteen published versions.
 - [Privacy](https://full-selfbrowsing.com/privacy): How FSB handles your data -- API keys encrypted in Chrome local storage, opt-out anonymous usage telemetry for aggregate public stats only, automation runs locally in your browser.
@@ -43,8 +45,9 @@ Unlike cloud browser agents that run in a headless container without your cookie
 
 ## Demo Videos
 
+- [FSB Trailer](https://www.youtube.com/watch?v=osNHSquClo0): The official trailer (YouTube title "FSB Demo: AI Browser Automation in Chrome | Full Self-Browsing v0.9.91"), embedded on the About page.
 - [FSB: E-Commerce Autopilot by Grok 4.1](https://www.youtube.com/watch?v=_iQ4_LSXcTU)
 - [Flight Booking: Powered by Codex MCP](https://www.youtube.com/watch?v=WbpOrFwgGME)
 - [OpenClaw Monitoring Doge Price](https://www.youtube.com/watch?v=PNTGCWGopf8)
 - [An Aha Moment by Claude Opus 4.6](https://www.youtube.com/watch?v=mD9oGB2JqVM)
-- [YouTube channel](https://www.youtube.com/@parzival5707)
+- [YouTube channel](https://www.youtube.com/@parzival5707): More FSB demos.
