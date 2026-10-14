@@ -165,12 +165,12 @@ function generateSitemap() {
       if (route.path === '/about') {
         const copy = localizedTrailerCopy(locale);
         lines.push('    <video:video>');
+        lines.push(`      <video:thumbnail_loc>${escapeXml(TRAILER_VIDEO.thumbnailUrl)}</video:thumbnail_loc>`);
         lines.push(`      <video:title>${escapeXml(copy.name)}</video:title>`);
         lines.push(`      <video:description>${escapeXml(copy.description)}</video:description>`);
-        lines.push(`      <video:thumbnail_loc>${escapeXml(TRAILER_VIDEO.thumbnailUrl)}</video:thumbnail_loc>`);
         lines.push(`      <video:player_loc>${escapeXml(TRAILER_VIDEO.embedUrl)}</video:player_loc>`);
-        lines.push(`      <video:publication_date>${TRAILER_VIDEO.uploadDate}</video:publication_date>`);
         lines.push(`      <video:duration>${TRAILER_VIDEO.durationSeconds}</video:duration>`);
+        lines.push(`      <video:publication_date>${TRAILER_VIDEO.uploadDate}</video:publication_date>`);
         lines.push('    </video:video>');
       }
       lines.push('  </url>');

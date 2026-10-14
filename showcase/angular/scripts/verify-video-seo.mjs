@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { validateVideoSitemap } from './validate-video-sitemap.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = process.env.DIST_ROOT || join(root, '..', 'dist', 'showcase-angular', 'browser');
@@ -11,6 +12,7 @@ const registry = readFileSync(join(root, 'src/app/core/i18n/locale-constants.ts'
 const locales = registry.match(/LOCALES\s*=\s*\[([^\]]+)\]/)[1]
   .split(',').map(value => value.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
 const sitemap = readFileSync(join(dist, 'sitemap.xml'), 'utf8');
+assert.equal(validateVideoSitemap(sitemap), locales.length, 'All localized video entries must pass Google\'s XSD');
 const sitemapEntries = [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(match => match[1]);
 
 function decode(value) {
@@ -87,4 +89,4 @@ for (const locale of locales) {
     assert.equal(nodes(other).filter(node => node['@type'] === 'VideoObject').length, 0);
   }
 }
-console.log(`Video metadata, initial HTML, localized video sitemaps, and FAQ parity passed for ${locales.length} locales.`);
+console.log(`Video XSD validation, metadata, initial HTML, localized video sitemaps, and FAQ parity passed for ${locales.length} locales.`);
