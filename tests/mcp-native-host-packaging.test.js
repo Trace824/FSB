@@ -918,6 +918,11 @@ function recursivelyListFiles(root) {
 function verifyExtractedRuntimePayload(packageRoot, lockBytes, productionClosure) {
   const packageManifest = readJson(path.join(packageRoot, 'package.json'));
   assert.equal(packageManifest.name, 'fsb-mcp-server');
+  assert.deepEqual(
+    readFileSync(path.join(packageRoot, 'assets/fsb_logo_dark.png')),
+    readFileSync(path.join(repositoryRoot, 'extension/assets/fsb_logo_dark.png')),
+    'packed server logo must preserve the original image',
+  );
   assert.deepEqual(packageManifest.dependencies, exactProductionDependencies);
   assert.deepEqual(packageManifest.bundleDependencies, bundledProductionDependencies);
   assert.deepEqual(
@@ -955,6 +960,37 @@ function verifyExtractedRuntimePayload(packageRoot, lockBytes, productionClosure
     'packed payload contains a forbidden launcher or historical shim',
   );
   verifyWindowsArtifactSet(packageRoot);
+}
+
+function verifyPackagedServerIcon(packageRoot) {
+  const result = run(process.execPath, ['--input-type=module', '--eval', `
+    import { join } from 'node:path';
+    import { pathToFileURL } from 'node:url';
+    const packageRoot = process.argv[1];
+    const sdkRoot = join(packageRoot, 'node_modules/@modelcontextprotocol/sdk/dist/esm');
+    const { createServer } = await import(pathToFileURL(join(packageRoot, 'build/server.js')));
+    const { Client } = await import(pathToFileURL(join(sdkRoot, 'client/index.js')));
+    const { InMemoryTransport } = await import(pathToFileURL(join(sdkRoot, 'inMemory.js')));
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = createServer();
+    const client = new Client({ name: 'packed-icon-test', version: '1.0.0' });
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      process.stdout.write(JSON.stringify(client.getServerVersion()));
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  `, packageRoot], { cwd: path.dirname(packageRoot) });
+  assert.equal(result.status, 0, result.stderr);
+  const serverInfo = JSON.parse(result.stdout);
+  assert.equal(serverInfo.name, 'fsb');
+  assert.equal(serverInfo.version, readJson(path.join(packageRoot, 'package.json')).version);
+  assert.deepEqual(serverInfo.icons, [{
+    src: `data:image/png;base64,${readFileSync(path.join(repositoryRoot, 'extension/assets/fsb_logo_dark.png')).toString('base64')}`,
+    mimeType: 'image/png',
+  }]);
 }
 
 function poisonedOfflineEnvironment(sentinelUrl) {
@@ -1342,6 +1378,7 @@ async function testWorkflowAndPackedArtifactContract() {
       lockBytes,
       productionClosure,
     );
+    verifyPackagedServerIcon(path.join(positiveInstall.installRoot, 'node_modules/fsb-mcp-server'));
 
     rmSync(path.join(extractedPackageRoot, 'node_modules/zod'), { recursive: true, force: true });
     assert.throws(
