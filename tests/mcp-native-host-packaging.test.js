@@ -38,6 +38,7 @@ const knownSections = new Set([
   'workflow-and-pack',
   'workspace-preserving-build',
   'import-boundary',
+  'release-planning',
 ]);
 
 const bundledProductionDependencies = Object.freeze([
@@ -1120,6 +1121,54 @@ function testWorkflowContracts() {
     publishSource,
     /Chrome Web Store installations update through Chrome's normal extension update channel\./,
   );
+
+  const workflow = require('../mcp/node_modules/yaml').parse(publishSource);
+  assert.deepEqual(workflow.on.push.branches, ['main']);
+  assert.equal(workflow.concurrency.group, 'mcp-release');
+  for (const job of ['windows-bootstrap', 'publish-mcp']) {
+    assert.equal(workflow.jobs[job].if, "needs.version-contract.outputs.publish == 'true'");
+  }
+  const release = workflow.jobs['publish-mcp'].steps.find(step => step.uses === 'softprops/action-gh-release@v2');
+  assert.equal(release.with.tag_name, '${{ needs.version-contract.outputs.tag }}');
+  assert.equal(release.with.target_commitish, '${{ github.sha }}');
+}
+
+function testReleasePlanning() {
+  testWorkflowContracts();
+  const source = readFileSync(path.join(repositoryRoot, '.github/workflows/npm-publish.yml'), 'utf8');
+  const workflow = require('../mcp/node_modules/yaml').parse(source);
+  const step = workflow.jobs['version-contract'].steps.find(value => value.id === 'release-plan');
+  const script = step.run.match(/node <<'NODE'\n([\s\S]*?)\nNODE/)[1];
+  assert.match(step.run, /^npm view fsb-mcp-server versions --json /m);
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsb-release-planning-'));
+  try {
+    mkdirSync(path.join(fixture, 'mcp'));
+    writeFileSync(path.join(fixture, 'mcp/package.json'), JSON.stringify({ version: '0.11.2' }));
+    for (const { name, ref, versions, succeeds, publish } of [
+      { name: 'new main version', ref: 'refs/heads/main', versions: '["0.11.1"]', succeeds: true, publish: true },
+      { name: 'unchanged main version', ref: 'refs/heads/main', versions: '["0.11.1","0.11.2"]', succeeds: true, publish: false },
+      { name: 'new tagged version', ref: 'refs/tags/mcp-v0.11.2', versions: '["0.11.1"]', succeeds: true, publish: true },
+      { name: 'published tagged version', ref: 'refs/tags/mcp-v0.11.2', versions: '["0.11.2"]', succeeds: false },
+      { name: 'malformed registry response', ref: 'refs/heads/main', versions: '{invalid', succeeds: false },
+      { name: 'registry error response', ref: 'refs/heads/main', versions: '{"error":{"code":"E401"}}', succeeds: false },
+      { name: 'invalid version list', ref: 'refs/heads/main', versions: '["0.11.1",null]', succeeds: false },
+    ]) {
+      const output = path.join(fixture, 'output');
+      const summary = path.join(fixture, 'summary');
+      writeFileSync(output, '');
+      writeFileSync(summary, '');
+      writeFileSync(path.join(fixture, 'fsb-published-versions.json'), versions);
+      const result = run(process.execPath, ['-e', script], {
+        cwd: fixture,
+        env: { ...process.env, RUNNER_TEMP: fixture, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary, GITHUB_REF: ref, GITHUB_SHA: 'a'.repeat(40) },
+      });
+      assert.equal(result.status === 0, succeeds, `${name}: ${result.stderr}`);
+      assert.equal(readFileSync(output, 'utf8'), succeeds ? `publish=${publish}\n` : '', name);
+      if (succeeds) assert.match(readFileSync(summary, 'utf8'), publish ? /Publishing/ : /skipping/);
+    }
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 }
 
 function writeBoundaryGraph(fixtureRoot, mode) {
@@ -1295,6 +1344,7 @@ async function testWorkflowAndPackedArtifactContract() {
     return;
   }
   testWorkflowContracts();
+  testReleasePlanning();
   const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'fsb-native-workflow-pack-'));
   const sourceCopy = path.join(fixtureRoot, 'invoking-source');
   const tarballDirectory = path.join(fixtureRoot, 'tarball');
@@ -1706,6 +1756,10 @@ async function main() {
     }
     if (section === 'import-boundary') {
       testNativeHostImportBoundary();
+      continue;
+    }
+    if (section === 'release-planning') {
+      testReleasePlanning();
       continue;
     }
     throw new Error(`section ${section} has not been implemented yet`);

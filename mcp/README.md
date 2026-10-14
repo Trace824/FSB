@@ -682,14 +682,15 @@ Contract-sensitive changes should be covered by tests before publishing:
 
 ### Releasing 0.11.2
 
-This 0.11.2 build is release-prep ready. The actual `npm publish` remains user-gated through the MCP-only tag workflow.
+This 0.11.2 build is release-prep ready. Merging a new MCP version into `main` automatically publishes the verified npm package to `latest` and creates its `mcp-vX.Y.Z` tag and GitHub release. Main pushes whose MCP version is already published skip publishing. Bump the MCP version with `npm run version:set:mcp -- X.Y.Z` before merging a new release.
 
 To publish:
 
-- Preferred: after merging to `main`, run the MCP-only tag workflow (`git tag mcp-v0.11.2 && git push origin mcp-v0.11.2`). It publishes the verified npm artifact and creates the MCP GitHub release.
+- Preferred: merge the versioned release into `main`; the npm workflow builds the Windows native-host artifacts, verifies the packed payload, publishes to npm, and creates the release automatically.
+- Explicit tag alternative: for an unpublished version already on `main`, run `git tag mcp-v0.11.2 && git push origin mcp-v0.11.2`. Tag-triggered releases still require the tag to match the package version and reject an already-published version.
 - Manual MCP fallback: from the release commit, run `cd mcp && npm publish --tag latest` only after confirming `npm whoami`, `npm --prefix mcp run build`, and the MCP smoke/parity/schema gates all pass.
 
-Do not run `npm publish` from autonomous mode.
+Use the release workflow for normal releases so the native-host packaging and integrity checks run before publication.
 
 ---
 
