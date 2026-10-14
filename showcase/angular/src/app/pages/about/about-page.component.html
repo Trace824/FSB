@@ -9,13 +9,18 @@
   <section class="video-demo-section section">
     <div class="container">
       <div class="section-header reveal">
-        <h2 i18n="@@about.videos.title">Real Demos, Real Browser Work</h2>
-        <p i18n="@@about.videos.subtitle"><span [attr.translate]="'no'">FSB</span> still starts with a simple instruction, but these demos show the stronger loop: models and <span [attr.translate]="'no'">MCP</span> agents operating the browser, observing what happened, and pushing the task forward.</p>
+        <h2 i18n="@@about.videos.title">AI Browser Automation Demo</h2>
+        <p i18n="@@about.videos.subtitle"><span [attr.translate]="'no'">FSB</span> connects natural-language instructions and <span [attr.translate]="'no'">MCP</span> agents to your real browser. Watch the official trailer, then explore its built-in memory and browser actions below.</p>
       </div>
       <div class="video-demo-grid">
         <article class="video-demo-card reveal delay-1">
           <div class="video-frame">
-            <iframe src="https://www.youtube-nocookie.com/embed/osNHSquClo0" i18n-title="@@about.videos.trailer.iframe.title" title="FSB Trailer" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            <iframe width="960" height="540" src="https://www.youtube-nocookie.com/embed/osNHSquClo0" i18n-title="@@about.videos.trailer.iframe.title" title="FSB Demo: AI Browser Automation in Chrome" loading="eager" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+          </div>
+          <div class="video-demo-copy">
+            <h3>{{ trailerName }}</h3>
+            <p>{{ trailerDescription }}</p>
+            <a [href]="trailerWatchUrl" target="_blank" rel="noopener" i18n="@@about.videos.trailer.watch">Watch on YouTube</a>
           </div>
         </article>
       </div>

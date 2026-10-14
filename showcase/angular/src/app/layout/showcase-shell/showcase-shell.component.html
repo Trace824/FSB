@@ -47,7 +47,7 @@
   <ng-content></ng-content>
 </main>
 
-@if (!shellless) {
+@if (!shellless && initialNavigationComplete) {
   <footer class="footer">
     <div class="container">
       <div class="footer-inner">

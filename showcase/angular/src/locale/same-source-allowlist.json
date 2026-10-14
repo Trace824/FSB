@@ -1454,6 +1454,11 @@
       "id": "releaseNotes.v0920.063.openrouter",
       "sourceSha256": "b7890f8207e83a0be1b218965ada9108f9fa85a10de9352688250218dad06ae7",
       "reason": "provider identifier with a numeric share"
+    },
+    {
+      "id": "home.hero.title",
+      "sourceSha256": "f3df064becf92b95c20eb3ef8b7a2cc75682ed658ca9be064ad6fa6a2c2baa46",
+      "reason": "Full Self-Browsing is the invariant full brand; Self retains its highlight styling."
     }
   ],
   "byLocale": {
@@ -1521,11 +1526,6 @@
         "reason": "natural German loanword or product name"
       },
       {
-        "id": "home.meta.title",
-        "sourceSha256": "3cebbdeff75ea832fd152ff96b2d5c23934df58a62429b8f34d4965274f4b80a",
-        "reason": "natural German loanword or product name"
-      },
-      {
         "id": "phantomStream.schema.runtimePlatform",
         "sourceSha256": "048b6128f69e4de61fbfdf5386cb32f955d365823a9f03d37b3b1643f5248055",
         "reason": "natural German loanword or product name"
@@ -1566,12 +1566,6 @@
         "reason": "natural German compound spelling for a technical product label"
       },
       {
-        "id": "agents.og.imageAlt",
-        "sourceSha256": "fae06cb91f85ae21bb15cfab481224254e7ea76c818bb1a0348f9335c3ca5b97",
-        "targetSha256": "424452a1b8dd293646049f919bffd03b89986a19a27b2d8595134f7724b06b0b",
-        "reason": "German compound punctuation around the invariant FSB brand name"
-      },
-      {
         "id": "dashboard.template.010",
         "sourceSha256": "0a878454544f2e300b6936a35fea1c4872b4c218636aa53634414e2c23287b6f",
         "targetSha256": "39054c349f52971fb276e575ca697f36cd0c51bdceabc4e94be05f88135f7ce1",
@@ -1602,12 +1596,6 @@
         "reason": "natural German compound spelling with the invariant Playwright name"
       },
       {
-        "id": "support.og.imageAlt",
-        "sourceSha256": "fae06cb91f85ae21bb15cfab481224254e7ea76c818bb1a0348f9335c3ca5b97",
-        "targetSha256": "424452a1b8dd293646049f919bffd03b89986a19a27b2d8595134f7724b06b0b",
-        "reason": "German compound punctuation around the invariant FSB brand name"
-      },
-      {
         "id": "releaseNotes.v0930.003.april",
         "sourceSha256": "7b35b8759b4c98453f782d6e6deffe11e721e45a62017811e7ac9effad4735de",
         "targetSha256": "af669edb611a567d0bcf52f5ae9834fbb797bb296c7c50581c7720bfe31a722a",
@@ -1624,18 +1612,6 @@
         "sourceSha256": "65f7edb2580687d3a2d6e2a0db29e863936bdc1c28f7d40be3d7ec8d77f8cc6d",
         "targetSha256": "090f0b931209a96f63f9682872e9680eb050991a7a6fdc21390b92905beb0fc4",
         "reason": "month name is identical in German"
-      },
-      {
-        "id": "about.videos.trailer.iframe.title",
-        "sourceSha256": "6066833a384ca8b45628a64c4bb62c077fe4c84901d13f02cd1b0649fc193fa1",
-        "targetSha256": "3e9a08f8a941a1618bbbc2529e96e8b2893a49abf1e02c6ff26623cd2231988f",
-        "reason": "Trailer is the standard German loanword; the German compound joins the unchanged FSB brand with a hyphen."
-      },
-      {
-        "id": "about.schema.trailer.name",
-        "sourceSha256": "6066833a384ca8b45628a64c4bb62c077fe4c84901d13f02cd1b0649fc193fa1",
-        "targetSha256": "3e9a08f8a941a1618bbbc2529e96e8b2893a49abf1e02c6ff26623cd2231988f",
-        "reason": "Trailer is the standard German loanword; the German compound joins the unchanged FSB brand with a hyphen."
       },
       {
         "id": "agents.power.card.tools.stat",

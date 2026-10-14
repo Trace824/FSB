@@ -318,665 +318,672 @@
         </context-group>
       </trans-unit>
       <trans-unit id="about.videos.title" datatype="html">
-        <source>Real Demos, Real Browser Work</source>
+        <source>AI Browser Automation Demo</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
           <context context-type="linenumber">12,13</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.videos.subtitle" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> still starts with a simple instruction, but these demos show the stronger loop: models and <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> agents operating the browser, observing what happened, and pushing the task forward.</source>
+        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> connects natural-language instructions and <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> agents to your real browser. Watch the official trailer, then explore its built-in memory and browser actions below.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
           <context context-type="linenumber">13,15</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.videos.trailer.iframe.title" datatype="html">
-        <source>FSB Trailer</source>
+        <source>FSB Demo: AI Browser Automation in Chrome</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
           <context context-type="linenumber">18</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="about.videos.trailer.watch" datatype="html">
+        <source>Watch on YouTube</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
+          <context context-type="linenumber">23,26</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.title" datatype="html">
         <source>Memory</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">29,30</context>
+          <context context-type="linenumber">34,35</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.subtitle" datatype="html">
         <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> ships with built-in memory for the web&apos;s most-used sites. It already knows their selectors, workflows, and gotchas. Start with the categories, then switch to <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>Expanded<x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> to branch out to every site <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> already understands.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">30,32</context>
+          <context context-type="linenumber">35,37</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.card.title" datatype="html">
         <source>Consolidated Memory</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">45,46</context>
+          <context context-type="linenumber">50,51</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.card.badge" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-cube&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Built-in</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">46,47</context>
+          <context context-type="linenumber">51,52</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.card.meta" datatype="html">
         <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span&gt;"/>130 sites<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span&gt;"/>·<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span&gt;"/>19 categories<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span&gt;"/>·<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span&gt;"/>1,440 selectors mapped<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">49,50</context>
+          <context context-type="linenumber">54,55</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.sitemaps.title" datatype="html">
         <source>Site Maps</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">54,55</context>
+          <context context-type="linenumber">59,60</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.sitemaps.sub" datatype="html">
         <source>Community</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">55,57</context>
+          <context context-type="linenumber">60,62</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.search.placeholder" datatype="html">
         <source>Highlight a site or category...</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">63</context>
+          <context context-type="linenumber">68</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.toggle.aria" datatype="html">
         <source>Graph detail level</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">65</context>
+          <context context-type="linenumber">70</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.toggle.overview" datatype="html">
         <source>Overview</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">66,67</context>
+          <context context-type="linenumber">71,72</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.toggle.expanded" datatype="html">
         <source>Expanded</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">67,70</context>
+          <context context-type="linenumber">72,75</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.hint" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-arrows-rotate&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Drag to rotate · scroll to zoom · hover a node</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">73,74</context>
+          <context context-type="linenumber">78,79</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.categories.label" datatype="html">
         <source>Knowledge by category</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">77,79</context>
+          <context context-type="linenumber">82,84</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.title" datatype="html">
         <source>Action Library</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">96,97</context>
+          <context context-type="linenumber">101,102</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.subtitle" datatype="html">
         <source>60 browser actions organized by category, all executable through natural language, and surfaced to agents as part of the 68-tool <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> catalog.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">97,99</context>
+          <context context-type="linenumber">102,104</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.nav.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-compass&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Navigation</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">101,102</context>
+          <context context-type="linenumber">106,107</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.navigate" datatype="html">
         <source>navigate</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">103,104</context>
+          <context context-type="linenumber">108,109</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.searchGoogle" datatype="html">
         <source>searchGoogle</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">104,105</context>
+          <context context-type="linenumber">109,110</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.refresh" datatype="html">
         <source>refresh</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">105,106</context>
+          <context context-type="linenumber">110,111</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.goBack" datatype="html">
         <source>goBack</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">106,107</context>
+          <context context-type="linenumber">111,112</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.goForward" datatype="html">
         <source>goForward</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">107,108</context>
+          <context context-type="linenumber">112,113</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.spaNavigation" datatype="html">
         <source>spaNavigation</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">108,111</context>
+          <context context-type="linenumber">113,116</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.clicking.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-hand-pointer&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Clicking</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">112,113</context>
+          <context context-type="linenumber">117,118</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.click" datatype="html">
         <source>click</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">114,115</context>
+          <context context-type="linenumber">119,120</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.rightClick" datatype="html">
         <source>rightClick</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">115,116</context>
+          <context context-type="linenumber">120,121</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.doubleClick" datatype="html">
         <source>doubleClick</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">116,117</context>
+          <context context-type="linenumber">121,122</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.hover" datatype="html">
         <source>hover</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">117,118</context>
+          <context context-type="linenumber">122,123</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.focus" datatype="html">
         <source>focus</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">118,119</context>
+          <context context-type="linenumber">123,124</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.blur" datatype="html">
         <source>blur</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">119,121</context>
+          <context context-type="linenumber">124,126</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.textInput.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-keyboard&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Text Input</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">123,124</context>
+          <context context-type="linenumber">128,129</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.type" datatype="html">
         <source>type</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">125,126</context>
+          <context context-type="linenumber">130,131</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.clearInput" datatype="html">
         <source>clearInput</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">126,127</context>
+          <context context-type="linenumber">131,132</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.selectText" datatype="html">
         <source>selectText</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">127,128</context>
+          <context context-type="linenumber">132,133</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.pressEnter" datatype="html">
         <source>pressEnter</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">128,129</context>
+          <context context-type="linenumber">133,134</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.keyPress" datatype="html">
         <source>keyPress</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">129,130</context>
+          <context context-type="linenumber">134,135</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.typeInto" datatype="html">
         <source>typeInto</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">130,131</context>
+          <context context-type="linenumber">135,136</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.clearAndType" datatype="html">
         <source>clearAndType</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">131,132</context>
+          <context context-type="linenumber">136,137</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.pasteText" datatype="html">
         <source>pasteText</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">132,135</context>
+          <context context-type="linenumber">137,140</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.forms.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-list-check&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Forms</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">136,137</context>
+          <context context-type="linenumber">141,142</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.selectOption" datatype="html">
         <source>selectOption</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">138,139</context>
+          <context context-type="linenumber">143,144</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.toggleCheckbox" datatype="html">
         <source>toggleCheckbox</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">139,142</context>
+          <context context-type="linenumber">144,147</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.info.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-circle-info&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Information</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">143,144</context>
+          <context context-type="linenumber">148,149</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.getText" datatype="html">
         <source>getText</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">145,146</context>
+          <context context-type="linenumber">150,151</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.getAttribute" datatype="html">
         <source>getAttribute</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">146,147</context>
+          <context context-type="linenumber">151,152</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.setAttribute" datatype="html">
         <source>setAttribute</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">147,148</context>
+          <context context-type="linenumber">152,153</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.readPage" datatype="html">
         <source>readPage</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">148,149</context>
+          <context context-type="linenumber">153,154</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.getPageSnapshot" datatype="html">
         <source>get_page_snapshot</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">149,152</context>
+          <context context-type="linenumber">154,157</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.scrolling.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-arrows-up-down&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Scrolling</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">153,154</context>
+          <context context-type="linenumber">158,159</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.scroll" datatype="html">
         <source>scroll</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">155,156</context>
+          <context context-type="linenumber">160,161</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.scrollToElement" datatype="html">
         <source>scrollToElement</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">156,157</context>
+          <context context-type="linenumber">161,162</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.scrollToTop" datatype="html">
         <source>scrollToTop</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">157,158</context>
+          <context context-type="linenumber">162,163</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.scrollToBottom" datatype="html">
         <source>scrollToBottom</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">158,161</context>
+          <context context-type="linenumber">163,166</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.multiTab.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-window-restore&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Multi-Tab</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">162,163</context>
+          <context context-type="linenumber">167,168</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.openTab" datatype="html">
         <source>openTab</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">164,165</context>
+          <context context-type="linenumber">169,170</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.closeTab" datatype="html">
         <source>closeTab</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">165,166</context>
+          <context context-type="linenumber">170,171</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.switchTab" datatype="html">
         <source>switchTab</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">166,167</context>
+          <context context-type="linenumber">171,172</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.listTabs" datatype="html">
         <source>listTabs</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">167,168</context>
+          <context context-type="linenumber">172,173</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.duplicateTab" datatype="html">
         <source>duplicateTab</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">168,169</context>
+          <context context-type="linenumber">173,174</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.moveTab" datatype="html">
         <source>moveTab</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">169,172</context>
+          <context context-type="linenumber">174,177</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.waiting.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-clock&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Waiting</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">173,174</context>
+          <context context-type="linenumber">178,179</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.waitForElement" datatype="html">
         <source>waitForElement</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">175,176</context>
+          <context context-type="linenumber">180,181</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.waitForDOMStable" datatype="html">
         <source>waitForDOMStable</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">176,177</context>
+          <context context-type="linenumber">181,182</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.detectLoadingState" datatype="html">
         <source>detectLoadingState</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">177,178</context>
+          <context context-type="linenumber">182,183</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.sleep" datatype="html">
         <source>sleep</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">178,180</context>
+          <context context-type="linenumber">183,185</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.powertool.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-code&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Powertool</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">182,183</context>
+          <context context-type="linenumber">187,188</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.execute_js" datatype="html">
         <source>execute_js</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">184,187</context>
+          <context context-type="linenumber">189,192</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.canvas.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-pen-nib&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Canvas &amp; Drawing</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">188,189</context>
+          <context context-type="linenumber">193,194</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.insertText" datatype="html">
         <source>insertText</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">190,191</context>
+          <context context-type="linenumber">195,196</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.dblClickAt" datatype="html">
         <source>dblClickAt</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">191,192</context>
+          <context context-type="linenumber">196,197</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.drawShape" datatype="html">
         <source>drawShape</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">192,193</context>
+          <context context-type="linenumber">197,198</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.monacoEditorInsert" datatype="html">
         <source>monacoEditorInsert</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">193,196</context>
+          <context context-type="linenumber">198,201</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.cdp.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-crosshairs&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> CDP Tools</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">197,198</context>
+          <context context-type="linenumber">202,203</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.cdpMouseClick" datatype="html">
         <source>cdpMouseClick</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">199,200</context>
+          <context context-type="linenumber">204,205</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.cdpMouseDrag" datatype="html">
         <source>cdpMouseDrag</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">200,201</context>
+          <context context-type="linenumber">205,206</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.cdpMouseWheel" datatype="html">
         <source>cdpMouseWheel</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">201,202</context>
+          <context context-type="linenumber">206,207</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.cdpClickAndHold" datatype="html">
         <source>cdpClickAndHold</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">202,203</context>
+          <context context-type="linenumber">207,208</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.dragDrop" datatype="html">
         <source>dragDrop</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">203,204</context>
+          <context context-type="linenumber">208,209</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.dropFile" datatype="html">
         <source>dropFile</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">204,205</context>
+          <context context-type="linenumber">209,210</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.selectTextRange" datatype="html">
         <source>selectTextRange</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">205,208</context>
+          <context context-type="linenumber">210,213</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.capabilities.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-bolt&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Capabilities</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">209,210</context>
+          <context context-type="linenumber">214,215</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.searchCapabilities" datatype="html">
         <source>search_capabilities</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">211,212</context>
+          <context context-type="linenumber">216,217</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.invokeCapability" datatype="html">
         <source>invoke_capability</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">212,215</context>
+          <context context-type="linenumber">217,220</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.monitoring.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-bell&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Monitoring</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">216,217</context>
+          <context context-type="linenumber">221,222</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.trigger" datatype="html">
         <source>trigger</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">218,219</context>
+          <context context-type="linenumber">223,224</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.stopTrigger" datatype="html">
         <source>stop_trigger</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">219,220</context>
+          <context context-type="linenumber">224,225</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.getTriggerStatus" datatype="html">
         <source>get_trigger_status</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">220,221</context>
+          <context context-type="linenumber">225,226</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.listTriggers" datatype="html">
         <source>list_triggers</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">221,224</context>
+          <context context-type="linenumber">226,229</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.cat.files.title" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-file-arrow-up&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Files</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">225,226</context>
+          <context context-type="linenumber">230,231</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.actions.tag.uploadFile" datatype="html">
         <source>upload_file</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.html</context>
-          <context context-type="linenumber">227,230</context>
+          <context context-type="linenumber">232,235</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.og.imageAlt" datatype="html">
         <source>FSB Full Self-Browsing logo</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">23</context>
+          <context context-type="linenumber">25</context>
         </context-group>
       </trans-unit>
       <trans-unit id="site.name" datatype="html">
         <source>FSB - Full Self-Browsing</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">24</context>
+          <context context-type="linenumber">26</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">11</context>
+          <context context-type="linenumber">12</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/concierge/concierge-page.component.ts</context>
@@ -984,7 +991,7 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">40</context>
+          <context context-type="linenumber">41</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/lattice/lattice-page.component.ts</context>
@@ -1016,497 +1023,497 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">9</context>
+          <context context-type="linenumber">11</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.ecommerce" datatype="html">
         <source>E-Commerce &amp; Shopping</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">28</context>
+          <context context-type="linenumber">30</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.social" datatype="html">
         <source>Social Media</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">29</context>
+          <context context-type="linenumber">31</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.finance" datatype="html">
         <source>Finance &amp; Trading</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">30</context>
+          <context context-type="linenumber">32</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.travel" datatype="html">
         <source>Travel &amp; Booking</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">31</context>
+          <context context-type="linenumber">33</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.email" datatype="html">
         <source>Email Platforms</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">32</context>
+          <context context-type="linenumber">34</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.coding" datatype="html">
         <source>Coding Platforms</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">33</context>
+          <context context-type="linenumber">35</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.career" datatype="html">
         <source>Career &amp; Job Search</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">34</context>
+          <context context-type="linenumber">36</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.gaming" datatype="html">
         <source>Gaming Platforms</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">35</context>
+          <context context-type="linenumber">37</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.productivityTools" datatype="html">
         <source>Productivity Tools</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">36</context>
+          <context context-type="linenumber">38</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.design" datatype="html">
         <source>Design &amp; Whiteboard</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">37</context>
+          <context context-type="linenumber">39</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.games" datatype="html">
         <source>Games</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">38</context>
+          <context context-type="linenumber">40</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.media" datatype="html">
         <source>Media</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">39</context>
+          <context context-type="linenumber">41</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.music" datatype="html">
         <source>Music</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">40</context>
+          <context context-type="linenumber">42</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.news" datatype="html">
         <source>News</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">41</context>
+          <context context-type="linenumber">43</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.productivity" datatype="html">
         <source>Productivity</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">42</context>
+          <context context-type="linenumber">44</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.reference" datatype="html">
         <source>Reference</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">43</context>
+          <context context-type="linenumber">45</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.sports" datatype="html">
         <source>Sports</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">44</context>
+          <context context-type="linenumber">46</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.maps" datatype="html">
         <source>Maps &amp; Navigation</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">45</context>
+          <context context-type="linenumber">47</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.category.utilities" datatype="html">
         <source>Utilities</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">46</context>
+          <context context-type="linenumber">48</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.genericCareerAts" datatype="html">
         <source>Generic Career / ATS</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">50</context>
+          <context context-type="linenumber">52</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.demoEcommerceStore" datatype="html">
         <source>Demo E-Commerce Store</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">51</context>
+          <context context-type="linenumber">53</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.megaMenuNavigation" datatype="html">
         <source>Mega-Menu Navigation</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">52</context>
+          <context context-type="linenumber">54</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.nike3dViewer" datatype="html">
         <source>Nike 3D Viewer</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">53</context>
+          <context context-type="linenumber">55</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.canvasBrowserGame" datatype="html">
         <source>Canvas Browser Game (HTML5/WebGL)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">54</context>
+          <context context-type="linenumber">56</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.podcastAudioPlayer" datatype="html">
         <source>Podcast Audio Player</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">55</context>
+          <context context-type="linenumber">57</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.html5VideoPlayer" datatype="html">
         <source>HTML5 Video Player</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">56</context>
+          <context context-type="linenumber">58</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.onlineVoiceRecorder" datatype="html">
         <source>Online Voice Recorder</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">57</context>
+          <context context-type="linenumber">59</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.onlineVirtualPiano" datatype="html">
         <source>Online Virtual Piano</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">58</context>
+          <context context-type="linenumber">60</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.newsFeedInfiniteScroll" datatype="html">
         <source>News Feed (Infinite Scroll)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">59</context>
+          <context context-type="linenumber">61</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.crmHrCrossReference" datatype="html">
         <source>CRM HR Cross-Reference</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">60</context>
+          <context context-type="linenumber">62</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.onlinePdfEditor" datatype="html">
         <source>Online PDF Editor</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">61</context>
+          <context context-type="linenumber">63</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.pdfViewerVirtualized" datatype="html">
         <source>PDF Viewer (Virtualized)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">62</context>
+          <context context-type="linenumber">64</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.saasPricingTable" datatype="html">
         <source>SaaS Pricing Table</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">63</context>
+          <context context-type="linenumber">65</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.liveSportsScores" datatype="html">
         <source>Live Sports Scores</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">64</context>
+          <context context-type="linenumber">66</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.adblockerModalBypass" datatype="html">
         <source>Adblocker Modal Bypass</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">65</context>
+          <context context-type="linenumber">67</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.antiScrapeTextExtraction" datatype="html">
         <source>Anti-Scrape Text Extraction</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">66</context>
+          <context context-type="linenumber">68</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.buriedLoginLink" datatype="html">
         <source>Buried Login Link</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">67</context>
+          <context context-type="linenumber">69</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.camouflagedCloseButton" datatype="html">
         <source>Camouflaged Close Button</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">68</context>
+          <context context-type="linenumber">70</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.horizontalCarousel" datatype="html">
         <source>Horizontal Carousel</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">69</context>
+          <context context-type="linenumber">71</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.colorPicker" datatype="html">
         <source>Color Picker</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">70</context>
+          <context context-type="linenumber">72</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.cookieOptOutHiddenReject" datatype="html">
         <source>Cookie Opt-Out Hidden Reject</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">71</context>
+          <context context-type="linenumber">73</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.fileUploadDropzone" datatype="html">
         <source>File Upload Dropzone</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">72</context>
+          <context context-type="linenumber">74</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.freewareDownloadAdAvoidance" datatype="html">
         <source>Freeware Download Ad Avoidance</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">73</context>
+          <context context-type="linenumber">75</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.newsletterUncheckBeforeSubmit" datatype="html">
         <source>Newsletter Uncheck Before Submit</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">74</context>
+          <context context-type="linenumber">76</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.premiumHighlightingAvoidance" datatype="html">
         <source>Premium Highlighting Avoidance</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">75</context>
+          <context context-type="linenumber">77</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.sessionExpiryReAuthentication" datatype="html">
         <source>Session Expiry Re-Authentication</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">76</context>
+          <context context-type="linenumber">78</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.shuffledCancelButton" datatype="html">
         <source>Shuffled Cancel Button</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">77</context>
+          <context context-type="linenumber">79</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.skipAdCountdown" datatype="html">
         <source>Skip Ad Countdown</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">78</context>
+          <context context-type="linenumber">80</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.sliderCaptcha" datatype="html">
         <source>Slider CAPTCHA</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">79</context>
+          <context context-type="linenumber">81</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.supportChatbot" datatype="html">
         <source>Support Chatbot</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">80</context>
+          <context context-type="linenumber">82</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.site.twoFactorAuthentication" datatype="html">
         <source>Two-Factor Authentication</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">81</context>
+          <context context-type="linenumber">83</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.unknown" datatype="html">
         <source>Unknown</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">85</context>
+          <context context-type="linenumber">87</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.siteCountOne" datatype="html">
         <source><x id="count" equiv-text="count"/> site</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">91</context>
+          <context context-type="linenumber">93</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.siteCount" datatype="html">
         <source><x id="count" equiv-text="count"/> sites</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">92</context>
+          <context context-type="linenumber">94</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.selectorCountOne" datatype="html">
         <source><x id="count" equiv-text="count"/> selector</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">94</context>
+          <context context-type="linenumber">96</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.selectorCount" datatype="html">
         <source><x id="count" equiv-text="count"/> selectors</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">95</context>
+          <context context-type="linenumber">97</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.workflowCountOne" datatype="html">
         <source><x id="count" equiv-text="count"/> workflow</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">97</context>
+          <context context-type="linenumber">99</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.workflowCount" datatype="html">
         <source><x id="count" equiv-text="count"/> workflows</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">98</context>
+          <context context-type="linenumber">100</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.warningCountOne" datatype="html">
         <source><x id="count" equiv-text="count"/> warning</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">100</context>
+          <context context-type="linenumber">102</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.warningCount" datatype="html">
         <source><x id="count" equiv-text="count"/> warnings</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">101</context>
+          <context context-type="linenumber">103</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.graph.taskDiscovered" datatype="html">
         <source>task-discovered</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">102</context>
+          <context context-type="linenumber">104</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.stats.sites" datatype="html">
         <source>Sites</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">157</context>
+          <context context-type="linenumber">160</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.stats.categories" datatype="html">
         <source>Categories</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">158</context>
+          <context context-type="linenumber">161</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.stats.selectors" datatype="html">
         <source>Selectors</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">159</context>
+          <context context-type="linenumber">162</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.stats.workflows" datatype="html">
         <source>Workflows</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">160</context>
+          <context context-type="linenumber">163</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.memory.stats.warnings" datatype="html">
         <source>Warnings</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">161</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="about.meta.title" datatype="html">
-        <source>FSB - About</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">181</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="about.meta.description" datatype="html">
-        <source>Watch the FSB trailer, explore built-in memory for 130 popular sites, and browse the 60 browser actions FSB surfaces to MCP agents.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">182</context>
+          <context context-type="linenumber">164</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.schema.trailer.name" datatype="html">
-        <source>FSB Trailer</source>
+        <source>FSB Demo: AI Browser Automation in Chrome</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">235</context>
+          <context context-type="linenumber">179</context>
         </context-group>
       </trans-unit>
       <trans-unit id="about.schema.trailer.description" datatype="html">
-        <source>The official FSB trailer: Full Self-Browsing gives AI agents a real browser to act, observe, and verify in.</source>
+        <source>Watch the 33-second Full Self-Browsing trailer. FSB is an open-source Chrome extension for natural-language browser automation and a real browser connection for AI agents through MCP.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
-          <context context-type="linenumber">238</context>
+          <context context-type="linenumber">180</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="about.meta.title" datatype="html">
+        <source>About FSB | AI Browser Automation Demo</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
+          <context context-type="linenumber">188</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="about.meta.description" datatype="html">
+        <source>Watch the 33-second FSB demo, explore built-in memory for 130 sites, and discover 60 browser actions available to AI agents through MCP.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/about/about-page.component.ts</context>
+          <context context-type="linenumber">189</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.hero.badge" datatype="html">
@@ -1587,7 +1594,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="agents.with.subtitle" datatype="html">
-        <source>Any runtime that speaks <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> can drive <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>. The new always-on agents are the best fit: they get a browser with your logins, cookies, and MFA state already in place.</source>
+        <source>Connect <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Codex<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Claude Code<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Cursor<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Hermes<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, or another <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> host to <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>. Install the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> extension, connect the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> bridge, and run <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>doctor<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> to verify access to your real browser session.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.html</context>
           <context context-type="linenumber">67,69</context>
@@ -1968,126 +1975,126 @@
         <source>FSB Full Self-Browsing logo</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">10</context>
+          <context context-type="linenumber">11</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.meta.title" datatype="html">
-        <source>FSB - Agents (OpenClaw Skill + MCP)</source>
+        <source>FSB for AI Agents | MCP Browser Automation</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">66</context>
+          <context context-type="linenumber">68</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.meta.description" datatype="html">
-        <source>Drive your real Chrome from OpenClaw, Hermes, Claude, Codex, Cursor, and more. FSB gives agents a skill plus 68 MCP tools to act, observe, verify.</source>
+        <source>Connect Codex, Claude Code, Cursor, OpenClaw, and Hermes to your real Chrome session with FSB. Install the MCP bridge and verify it with doctor.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">67</context>
+          <context context-type="linenumber">69</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.software.name" datatype="html">
         <source>FSB OpenClaw Skill</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">278</context>
+          <context context-type="linenumber">290</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.software.description" datatype="html">
         <source>Canonical OpenClaw and Hermes onboarding path for FSB. Doctor flow, stdio config printer, consent-gated multi-host installer, and 68 MCP browser tools for the FSB MCP server.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">282</context>
+          <context context-type="linenumber">294</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.software.feature.tools" datatype="html">
         <source>68 MCP tools for browser action, observation, verification, and recovery</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">284</context>
+          <context context-type="linenumber">296</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.software.feature.manual" datatype="html">
         <source>Manual mode by default; run_task autopilot only on explicit delegation</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">285</context>
+          <context context-type="linenumber">297</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.software.feature.vault" datatype="html">
         <source>Vault tools fill credentials and payment methods without exposing raw secrets</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">286</context>
+          <context context-type="linenumber">298</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.software.feature.triggers" datatype="html">
         <source>Trigger watcher tools for reactive page monitoring</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">287</context>
+          <context context-type="linenumber">299</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.software.feature.capabilities" datatype="html">
         <source>Native capability tools for guarded first-party API actions</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">288</context>
+          <context context-type="linenumber">300</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.name" datatype="html">
         <source>Install FSB for an MCP agent</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">297</context>
+          <context context-type="linenumber">312</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.description" datatype="html">
         <source>Install the FSB MCP bridge, verify it with doctor, then let an MCP host drive the user&apos;s real Chrome session.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">298</context>
+          <context context-type="linenumber">313</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.extension.name" datatype="html">
         <source>Install the Chrome extension</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">302</context>
+          <context context-type="linenumber">317</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.extension.text" datatype="html">
         <source>Install FSB from the Chrome Web Store or load the extension from source.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">303</context>
+          <context context-type="linenumber">318</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.server.name" datatype="html">
         <source>Configure the MCP server</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">307</context>
+          <context context-type="linenumber">322</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.server.text" datatype="html">
         <source>Use the FSB skill, ClawHub, or npx -y fsb-mcp-server@latest install for a supported MCP host.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">308</context>
+          <context context-type="linenumber">323</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.doctor.name" datatype="html">
         <source>Run doctor verification</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">312</context>
+          <context context-type="linenumber">327</context>
         </context-group>
       </trans-unit>
       <trans-unit id="agents.schema.howTo.doctor.text" datatype="html">
         <source>Run npx -y fsb-mcp-server@latest doctor and fix any failing package, bridge, extension, active-tab, content-script, or config layer.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/agents/agents-page.component.ts</context>
-          <context context-type="linenumber">313</context>
+          <context context-type="linenumber">328</context>
         </context-group>
       </trans-unit>
       <trans-unit id="concierge.screen.label" datatype="html">
@@ -4891,14 +4898,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="home.hero.title" datatype="html">
-        <source>Full <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;highlight&quot;&gt;"/>Self<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>-Browsing</source>
+        <source><x id="START_TAG_SPAN_1" ctype="x-span_1" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Full <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;highlight&quot;&gt;"/>Self<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>-Browsing<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.html</context>
           <context context-type="linenumber">5,6</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.hero.subtitle" datatype="html">
-        <source>AI-powered browser automation through natural language. Tell it what to do, and watch it browse for you.</source>
+        <source>AI-powered browser automation through natural language and connected AI agents. Built for the future of autonomous browsing.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.html</context>
           <context context-type="linenumber">6,7</context>
@@ -5615,105 +5622,105 @@
         <source>FSB Full Self-Browsing logo</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">39</context>
+          <context context-type="linenumber">40</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.install.allClients" datatype="html">
         <source>All Clients</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">93</context>
+          <context context-type="linenumber">95</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.install.manualFlag" datatype="html">
         <source>manual</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">96</context>
+          <context context-type="linenumber">98</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.meta.title" datatype="html">
-        <source>FSB - Full Self-Browsing</source>
+        <source>Full Self-Browsing | AI Browser Automation &amp; MCP</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">145</context>
+          <context context-type="linenumber">147</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.meta.description" datatype="html">
-        <source>Local-first Chrome automation and MCP browser layer for AI agents, with trigger watchers, real uploads, and guarded first-party API capability calls.</source>
+        <source>Automate Chrome with natural-language instructions or connect AI agents through MCP. FSB is open source and works in your real browser session.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">146</context>
+          <context context-type="linenumber">148</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.description" datatype="html">
         <source>Local-first Chrome automation and MCP browser layer that lets AI agents act, observe, verify, use trigger watchers, upload real files, and invoke guarded first-party API capabilities in the user&apos;s browser</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">302</context>
+          <context context-type="linenumber">303</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.subcategory" datatype="html">
         <source>AI browser automation and MCP tools</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">305</context>
+          <context context-type="linenumber">306</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.mcp" datatype="html">
         <source>MCP server for Claude Code, Codex, Cursor, Windsurf, and OpenClaw</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">311</context>
+          <context context-type="linenumber">312</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.browser" datatype="html">
         <source>Real browser automation through a local Chrome extension</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">312</context>
+          <context context-type="linenumber">313</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.triggers" datatype="html">
         <source>Trigger watchers for reactive DOM monitoring</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">313</context>
+          <context context-type="linenumber">314</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.capabilities" datatype="html">
         <source>Native first-party API capability catalog with guarded invoke_capability calls</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">314</context>
+          <context context-type="linenumber">315</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.uploads" datatype="html">
         <source>Real file uploads through upload_file plus synthetic drop_file support</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">315</context>
+          <context context-type="linenumber">316</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.vault" datatype="html">
         <source>Vault and payment autofill boundary where raw secrets never cross the MCP bridge</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">316</context>
+          <context context-type="linenumber">317</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.dom" datatype="html">
         <source>DOM-based page understanding, browser actions, visual feedback, local memory, and BYO model keys</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">317</context>
+          <context context-type="linenumber">318</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.keywords" datatype="html">
         <source>MCP browser automation, AI browser agent, trigger watchers, first-party API capability calling, Claude Code browser testing, Codex browser testing, self-browsing automation</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">319</context>
+          <context context-type="linenumber">320</context>
         </context-group>
       </trans-unit>
       <trans-unit id="lattice.screen.label" datatype="html">
@@ -8616,7 +8623,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.dataStorage.body" datatype="html">
-        <source>All settings and data are stored locally in <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s extension storage, with sensitive values encrypted at rest as described in the sections below.</source>
+        <source>All settings and data are stored locally in <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s extension storage.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">42,44</context>
@@ -8630,7 +8637,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.dataStorage.li.2" datatype="html">
-        <source>API keys, credentials, and payment methods are encrypted before storage, each detailed in its own section below</source>
+        <source>API keys, credentials, and payment methods are encrypted before storage</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">45,46</context>
@@ -8658,7 +8665,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.external.body" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> communicates with external AI providers only when you configure and use a hosted provider. If you use <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>LM Studio<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, AI requests stay on your machine through its local <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenAI<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>-compatible server. The choice of provider and what data is sent is under your control.</source>
+        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> contacts hosted AI providers only when you configure and use them. <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>LM Studio<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> offers a local <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenAI<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>-compatible alternative. You control the provider and the data sent.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">52,54</context>
@@ -8686,7 +8693,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.external.li.4" datatype="html">
-        <source>If you pair <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Remote Dashboard<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> or use legacy Background Agents sync, an optional relay server handles <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>WebSocket<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> messages for that session. Live-preview frames may pass through the relay transiently, but none of the following is ever persisted on an <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> server: page content, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DOM<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> data, browsing history, screenshots, AI prompts, AI responses, cookies, tokens, or site <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>API<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> payloads. This is opt-in only, and the rest of this policy refers back to this list rather than restating it</source>
+        <source>If you pair <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Remote Dashboard<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> or use legacy Background Agents sync, an optional relay server handles <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>WebSocket<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> messages for that session. Live-preview frames may pass through the relay transiently, but none of the following is ever persisted on an <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> server: page content, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DOM<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> data, browsing history, screenshots, AI prompts, AI responses, cookies, tokens, or site <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>API<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> payloads. This is opt-in only</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">57,58</context>
@@ -8777,7 +8784,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.delegatedAgents.li.2" datatype="html">
-        <source>While the run is in progress the tool calls back into <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> over the loopback connection to drive your browser. Whatever it reads that way — page text, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DOM<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> snapshots, spreadsheet values, screenshots — is returned to that tool, and therefore reaches its vendor: <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Anthropic<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> for <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Claude Code<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>xAI<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> for <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Grok Build<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
+        <source>During a run, the tool calls back into <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> over the loopback connection to drive your browser. Data it reads, including page text, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DOM<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> snapshots, spreadsheet values, and screenshots, is returned to the tool and reaches its vendor: <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Anthropic<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> for <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Claude Code<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> and <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>xAI<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> for <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Grok Build<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">78,79</context>
@@ -8826,7 +8833,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.sheets.li.2" datatype="html">
-        <source>Spreadsheet content is stripped out before anything is written to <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s local session history. Only shape counts survive — how many rows, columns, and values were involved. The spreadsheet address, sheet name, cell references, and every cell value are discarded</source>
+        <source>Spreadsheet content is stripped out before anything is written to <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s local session history. Only shape counts remain: how many rows, columns, and values were involved. The spreadsheet address, sheet name, cell references, and every cell value are discarded</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">89,90</context>
@@ -8854,7 +8861,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.phantomStream.li.1" datatype="html">
-        <source>The relay forwards those live-preview frames only to the paired dashboard session, and nothing from the preview stream is persisted on <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> servers — see the <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;#relay-non-persistence&quot;&gt;"/>list under External Services<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> above</source>
+        <source>The relay forwards live-preview frames only to the paired dashboard session. Nothing from the preview stream is persisted on <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> servers. See the <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;#relay-non-persistence&quot;&gt;"/>list under External Services<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> above</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">97,98</context>
@@ -8910,7 +8917,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.apiKeys.li.1" datatype="html">
-        <source>Keys are encrypted at rest in <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> storage</source>
+        <source>Keys are kept in <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> extension storage</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">111,112</context>
@@ -8938,7 +8945,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.autoPasswords.body" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> includes an optional credential manager that stores login credentials encrypted on your device. Passwords are never exposed to AI models. They are filled directly into pages by the content script, bypassing the AI entirely.</source>
+        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> includes an optional credential manager for saving logins on your device.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">118,120</context>
@@ -8987,7 +8994,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.paymentMethods.body" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> includes an optional payment-method vault that stores card details on your device for checkout auto-fill. Cards are treated with the same encryption and AI isolation as login credentials, and the full card number is never sent to any AI model.</source>
+        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> includes an optional payment-method vault for saving card details on your device and auto-filling them at checkout.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">129,131</context>
@@ -9169,7 +9176,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="privacy.section.bgAgents.li.2" datatype="html">
-        <source>Beyond that run metadata the server persists nothing derived from the pages you visit — see the <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;#relay-non-persistence&quot;&gt;"/>list under External Services<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> above</source>
+        <source>Beyond that run metadata, the server persists nothing derived from the pages you visit. See the <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;#relay-non-persistence&quot;&gt;"/>list under External Services<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> above</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">168,169</context>
@@ -9295,7 +9302,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="PRIVACY_TELEMETRY_INTRO" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> v0.9.69 introduced an opt-out anonymous usage telemetry pipeline so the project can publish aggregate adoption numbers (see <x id="START_LINK" ctype="x-a" equiv-text="&lt;a routerLink=&quot;/stats&quot;&gt;"/>/stats<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>) without ever touching the pages you browse. The only location signal is a coarse place label — city, state or province, and country — that the server derives from your request <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> at ingest (never from page content), published only in aggregate — see <x id="START_LINK_1" equiv-text="&lt;a href=&quot;#telemetry-region&quot;&gt;"/>Region (city-level) metric<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> below. Telemetry is on by default but can be disabled with a single toggle, and the per-install data can be erased on request.</source>
+        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> v0.9.69 introduced opt-out anonymous usage telemetry to publish aggregate adoption numbers at <x id="START_LINK" ctype="x-a" equiv-text="&lt;a routerLink=&quot;/stats&quot;&gt;"/>/stats<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> without accessing the pages you browse. The only location signal is a coarse label derived from your request <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> at ingest and published only in aggregate. See <x id="START_LINK_1" equiv-text="&lt;a href=&quot;#telemetry-region&quot;&gt;"/>Region (city-level) metric<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> below. Telemetry is on by default but can be disabled with one toggle, and per-install data can be erased on request.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">197,199</context>
@@ -9372,7 +9379,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="PRIVACY_TELEMETRY_NOT_COLLECT_IP" datatype="html">
-        <source>Plaintext <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> addresses. The server uses the request <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> transiently and inline for exactly three purposes — a daily-rotating-salt hash for rate limiting, deriving a coarse city, state, and country label (see below), and noting whether the address is IPv4 or IPv6 — then discards it immediately. The plaintext <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> is never stored or logged.</source>
+        <source>Plaintext <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> addresses. The server uses the request <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> transiently and inline for exactly three purposes: a hash with a salt that rotates daily for rate limiting, deriving a coarse city, state, and country label (see below), and recording whether the address is IPv4 or IPv6. It then discards the address immediately. The plaintext <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> is never stored or logged.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">213,214</context>
@@ -9400,7 +9407,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="PRIVACY_TELEMETRY_REGION_DERIVED" datatype="html">
-        <source>The server derives a coarse place label — country, state or province, and city — from your request <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> at ingest, using a self-hosted <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DB-IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>-to-City Lite dataset and our own lookup — <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>not<x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> a live third-party geolocation service, and never <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MaxMind<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>. The plaintext <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> is consumed inline and discarded; only the derived label and the address family (IPv4 or IPv6) are kept.</source>
+        <source>The server derives a coarse place label (country, state or province, and city) from your request <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> at ingest, using a self-hosted <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DB-IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>-to-City Lite dataset and our own lookup. This is <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>not<x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> a live third-party geolocation service, and <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MaxMind<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> is never used. The plaintext <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> is consumed inline and discarded; only the derived label and the address family (IPv4 or IPv6) are kept.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">220,221</context>
@@ -9414,14 +9421,14 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="PRIVACY_TELEMETRY_REGION_GLOBE" datatype="html">
-        <source>The <x id="START_LINK" ctype="x-a" equiv-text="&lt;a routerLink=&quot;/stats&quot;&gt;"/>/stats<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> globe places each published label at the approximate center of that city, state, or country, taken from the same dataset — never at the location of any install.</source>
+        <source>The <x id="START_LINK" ctype="x-a" equiv-text="&lt;a routerLink=&quot;/stats&quot;&gt;"/>/stats<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> globe places each published label at the approximate center of that city, state, or country, taken from the same dataset. It never shows the location of any install.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">222,223</context>
         </context-group>
       </trans-unit>
       <trans-unit id="PRIVACY_TELEMETRY_REGION_NOPROFILE" datatype="html">
-        <source>The coarse label is stored on the raw event (dropped by the 7-day retention) and on your install&apos;s daily rollup, which is kept for 365 days so <x id="START_LINK" ctype="x-a" equiv-text="&lt;a routerLink=&quot;/stats&quot;&gt;"/>/stats<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> can count each install once by its most recent region. It is never an <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> address, street address, or coordinates — a city name is the finest detail kept; it is deleted with the rest of your per-install data when you request erasure; and it is only published behind the k≥5 floor above. Geolocation data is by <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DB-IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> (<x id="START_LINK_1" equiv-text="&lt;a href=&quot;https://db-ip.com&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>https://db-ip.com<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>).</source>
+        <source>The coarse label is stored on raw events and your install&apos;s daily rollup so <x id="START_LINK" ctype="x-a" equiv-text="&lt;a routerLink=&quot;/stats&quot;&gt;"/>/stats<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> can count each install once by its most recent region. These records follow the retention periods below. The label is never an <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> address, street address, or coordinates. A city name is the finest detail kept. The label is deleted with the rest of your per-install data when you request erasure and is published only behind the k≥5 floor above. Geolocation data is by <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>DB-IP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> (<x id="START_LINK_1" equiv-text="&lt;a href=&quot;https://db-ip.com&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>https://db-ip.com<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>).</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/privacy/privacy-page.component.html</context>
           <context context-type="linenumber">223,224</context>
@@ -16811,530 +16818,366 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
           <context context-type="linenumber">10,11</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="support.faq.q.install.q" datatype="html">
-        <source>How do I install <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>?</source>
+      <trans-unit id="support.faq.links.agents" datatype="html">
+        <source>Agents page</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">14,15</context>
+          <context context-type="linenumber">34,36</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
+          <context context-type="linenumber">38,40</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="support.faq.q.install.a" datatype="html">
-        <source>Install from the <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;https://chromewebstore.google.com/detail/badgafnfchcihdfnjneklogedcdkmjfk&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;"/>Chrome Web Store<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>. One click and the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> icon appears in your toolbar. Prefer to run from source? Download the latest release from <x id="START_LINK_1" equiv-text="&lt;a href=&quot;https://github.com/fullselfbrowsing/FSB/releases&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>GitHub<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>, then load it unpacked: open <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>chrome://extensions<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, enable Developer Mode, click &quot;Load unpacked,&quot; and select the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> folder.</source>
+      <trans-unit id="support.faq.links.dashboard" datatype="html">
+        <source>Remote Dashboard</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">20,21</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.provider.q" datatype="html">
-        <source>Which AI provider should I use?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">27,28</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.provider.a" datatype="html">
-        <source>We recommend <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>xAI Grok 4.1 Fast<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> for the best balance of speed and accuracy. It has a 2M token context window and costs $0.20/$0.50 per million tokens. For a free hosted option, try <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Gemini 2.0 Flash<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> (experimental). For maximum quality, use <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Claude Opus 4.6<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> or <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Grok 4.1<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>. If you want broad model access, use <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenRouter<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>. If you want a privacy-friendly local setup with no API key, use <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>LM Studio<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">32,33</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.browsers.q" datatype="html">
-        <source>Which browsers are supported?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">39,40</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.browsers.a" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> supports <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> 88+ and all <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chromium<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>-based browsers including <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Microsoft Edge<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Brave<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Opera<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, and <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Vivaldi<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>. <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Firefox<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> support is planned for a future release.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">44,45</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.apiKeys.q" datatype="html">
-        <source>Are my API keys secure?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">51,52</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.apiKeys.a" datatype="html">
-        <source>Yes. API keys are encrypted using <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>AES-GCM<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> before being stored in <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s local storage. They are only decrypted in-memory when making API calls. Keys are never logged, exported, or transmitted to any server other than your chosen AI provider.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">56,57</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.safety.q" datatype="html">
-        <source>Is <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> safe to use?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">63,64</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.safety.a" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> includes action validation and safety checks. It only performs actions on the current tab and only when explicitly instructed. All code is open source and auditable. That said, use caution with tasks involving sensitive accounts or financial transactions -- always review what <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> is doing.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">68,69</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.reportBug.q" datatype="html">
-        <source>How do I report a bug?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">75,76</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.reportBug.a" datatype="html">
-        <source>Open an issue on the <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;https://github.com/fullselfbrowsing/FSB/issues&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>GitHub Issues<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> page. Include the website URL, your task description, and any error messages from the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> chat or browser console. Session logs from the Debug tab in Options can also help.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">81,82</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.mcp.q" datatype="html">
-        <source>What is <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> and how do I use it?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">88,89</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.mcp.a" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> (Model Context Protocol) lets you control <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> from AI coding tools like <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Claude Code<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Codex<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Cursor<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Windsurf<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, and <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>. The <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> server runs as <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>npx -y fsb-mcp-server@latest<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> and pairs with the running extension over a local WebSocket bridge. <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> exposes 68 <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> tools (click, type, navigate, read DOM, fill vault credentials, and more). For <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> users specifically, the fastest path is the one-click install on <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>ClawHub<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> at <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;https://clawhub.ai/lakshmanturlapati/full-selfbrowsing&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>clawhub.ai/lakshmanturlapati/full-selfbrowsing<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>, or load the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> skill at <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>skills/fsb/<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> which prints the stdio config block and runs the doctor diagnostic. The full rundown lives at the <x id="START_LINK_1" equiv-text="&lt;a routerLink=&quot;/agents&quot;&gt;"/>Agents page<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">94,95</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.testApps.q" datatype="html">
-        <source>How does <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> help <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Claude Code<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> or <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Codex<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> test apps?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">101,102</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.testApps.a" datatype="html">
-        <source>Connect <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> as an <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> server, then let the coding agent open the local app, click through real flows, observe DOM state, capture console or task errors, and report failures back into the coding session. This closes the manual loop between code generation, browser testing, logging, and fixing.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">106,107</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.remote.q" datatype="html">
-        <source>Can I control <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> remotely?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">113,114</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.remote.a" datatype="html">
-        <source>Yes. The Remote Dashboard at <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;https://full-selfbrowsing.com/dashboard&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>full-selfbrowsing.com<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/> lets you pair with your <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> extension via QR code, then send tasks, view a live DOM preview of the browser, and monitor current execution state from any device with a web browser.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">119,120</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.learn.q" datatype="html">
-        <source>Does <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> learn from my usage?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">126,127</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.learn.a" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> has a local memory system with three layers: semantic memory (site navigation patterns), episodic memory (past action sequences), and procedural memory (successful workflows). This data stays on your device and helps <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> navigate familiar sites faster and avoid repeating mistakes. Memory auto-consolidates after enough sessions.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">131,132</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.ideSetup.q" datatype="html">
-        <source>How do I set up <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> server with my IDE?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">138,139</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.ideSetup.a" datatype="html">
-        <source>Run <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>npx -y fsb-mcp-server@latest install --list<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> to see which <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> hosts the installer detects on your machine, then run the installer for one (for example <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>npx -y fsb-mcp-server@latest install --claude-desktop<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>). <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Cursor<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Codex<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Windsurf<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, and others have matching flags from <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>--list<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>. For <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, paste the canonical stdio block printed by the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> skill (loaded from <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>skills/fsb/<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>) into your <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> config -- the bare <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>--openclaw<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> installer flag is intentionally manual because <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> config schema is still unstable across builds. Verify the install with <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>npx -y fsb-mcp-server@latest doctor<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>; six green layers means you&apos;re ready.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">143,144</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.tools.q" datatype="html">
-        <source>What can I do with <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> through <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> tools?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">150,151</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.tools.a" datatype="html">
-        <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> exposes two modes through <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>. <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>Manual mode<x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> is the default and gives the calling agent 68 granular tools: navigate, click, type, scroll, read page state, take screenshots, upload real local files with <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>upload_file<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, arm trigger watchers with <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>trigger<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> / <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>get_trigger_status<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> / <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>list_triggers<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, and search or invoke guarded first-party <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>API<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> capabilities with <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>search_capabilities<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> and <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>invoke_capability<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>. Vault and payment helpers fill inside the encrypted extension store, so raw secrets do not cross the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> bridge. <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>Autopilot mode<x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/> (<x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>run_task<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>) only fires when the user explicitly delegates the whole task. For everything else the calling agent stays in the loop on every action.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">155,156</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.openclawInstall.q" datatype="html">
-        <source>How do I install <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> on <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">162,163</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.openclawInstall.a" datatype="html">
-        <source>Three options, fastest first. <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>One-click on <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>ClawHub<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/><x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>: install from <x id="START_LINK" ctype="x-a" equiv-text="&lt;a href=&quot;https://clawhub.ai/lakshmanturlapati/full-selfbrowsing&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>clawhub.ai/lakshmanturlapati/full-selfbrowsing<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>. <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> skill<x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>: load the skill from <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>skills/fsb/<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> in the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> repo. It prints the canonical <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> stdio block for you to paste into <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>&apos;s <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> config and offers consent-gated install for any other <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> hosts on your machine. The full 3-step walkthrough (<x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>Chrome<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> extension, <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> server config, doctor verification) lives at the <x id="START_LINK_1" equiv-text="&lt;a routerLink=&quot;/agents&quot;&gt;"/>Agents page<x id="CLOSE_LINK" ctype="x-a" equiv-text="&lt;/a&gt;"/>.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">168,169</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.mcpHealth.q" datatype="html">
-        <source>How do I verify the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB MCP<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> server is healthy?</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">175,176</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="support.faq.q.mcpHealth.a" datatype="html">
-        <source>Run <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>npx -y fsb-mcp-server@latest doctor<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>. The doctor walks six layers -- <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>package<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>bridge<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>extension<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>active-tab<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>content-script<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>config<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> -- and exits non-zero on the first failure with a one-line next-step recommendation. The full recovery table for each layer lives in <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>skills/fsb/USAGE.md<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, and the same diagnostic runs automatically when the <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> skill is loaded into <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>OpenClaw<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">180,181</context>
+          <context context-type="linenumber">41,43</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.title" datatype="html">
         <source>Common Issues</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">190,191</context>
+          <context context-type="linenumber">54,55</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.apiFailed.title" datatype="html">
         <source>API Connection Failed</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">194,195</context>
+          <context context-type="linenumber">58,59</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.apiFailed.desc" datatype="html">
         <source>The extension cannot reach the AI provider&apos;s API endpoint.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">195,197</context>
+          <context context-type="linenumber">59,61</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.fixLabel" datatype="html">
         <source>Fix</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">197,198</context>
+          <context context-type="linenumber">61,62</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">206,207</context>
+          <context context-type="linenumber">70,71</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">215,216</context>
+          <context context-type="linenumber">79,80</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.apiFailed.fix" datatype="html">
         <source>Verify your API key in Options. Check that the correct provider and model are selected. Ensure you have internet connectivity and the provider&apos;s service is not experiencing downtime.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">198,201</context>
+          <context context-type="linenumber">62,65</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.notResponding.title" datatype="html">
         <source>Extension Not Responding</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">203,204</context>
+          <context context-type="linenumber">67,68</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.notResponding.desc" datatype="html">
         <source>The <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> icon is grayed out or clicking it does nothing.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">204,205</context>
+          <context context-type="linenumber">68,69</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.notResponding.fix" datatype="html">
         <source>Go to <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>chrome://extensions<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>, find <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>, and click the refresh button. If that does not work, remove and re-load the extension. Make sure you are not on a <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>chrome://<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> or <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>edge://<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> page.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">207,208</context>
+          <context context-type="linenumber">71,72</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.actionsNotWorking.title" datatype="html">
         <source>Actions Not Working</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">212,213</context>
+          <context context-type="linenumber">76,77</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.actionsNotWorking.desc" datatype="html">
         <source><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>FSB<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/> clicks or types but nothing happens on the page.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">213,214</context>
+          <context context-type="linenumber">77,78</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.trouble.actionsNotWorking.fix" datatype="html">
         <source>Some websites use dynamic rendering that changes element selectors. Try refreshing the page and re-running the task. Enable Debug Mode in Options to see detailed action logs. Some sites with heavy anti-bot measures may block automated interactions.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">216,220</context>
+          <context context-type="linenumber">80,84</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.contact.title" datatype="html">
         <source>Need More Help?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">224,225</context>
+          <context context-type="linenumber">88,89</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.contact.body" datatype="html">
         <source>If you cannot find an answer here, reach out through <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span [attr.translate]=&quot;&apos;no&apos;&quot;&gt;"/>GitHub<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/>.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">225,226</context>
+          <context context-type="linenumber">89,90</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.contact.reportIssue" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-solid fa-bug&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> Report an Issue </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">229,231</context>
+          <context context-type="linenumber">93,95</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.contact.viewRepo" datatype="html">
         <source><x id="START_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;i class=&quot;fa-brands fa-github&quot;&gt;"/><x id="CLOSE_ITALIC_TEXT" ctype="x-i" equiv-text="&lt;/i&gt;"/> View Repository </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.html</context>
-          <context context-type="linenumber">233,235</context>
+          <context context-type="linenumber">97,99</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.og.imageAlt" datatype="html">
         <source>FSB Full Self-Browsing logo</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">8</context>
+          <context context-type="linenumber">10</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.install.q" datatype="html">
         <source>How do I install FSB?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">15</context>
+          <context context-type="linenumber">16</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.install.a" datatype="html">
         <source>Install from the Chrome Web Store. One click and the FSB icon appears in your toolbar. Prefer to run from source? Download the latest release from GitHub, then load it unpacked: open chrome://extensions, enable Developer Mode, click &quot;Load unpacked,&quot; and select the FSB folder.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">16</context>
+          <context context-type="linenumber">17</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.provider.q" datatype="html">
         <source>Which AI provider should I use?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">19</context>
+          <context context-type="linenumber">20</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.provider.a" datatype="html">
-        <source>We recommend xAI Grok 4.1 Fast for the best balance of speed and accuracy. It has a 2M token context window and costs $0.20/$0.50 per million tokens. For a free hosted option, try Gemini 2.0 Flash (experimental). For maximum quality, use Claude Opus 4.6 or Grok 4.1. If you want broad model access, use OpenRouter. If you want a privacy-friendly local setup with no API key, use LM Studio.</source>
+        <source>Choose a supported provider and model in Options based on your task, budget, and privacy needs. Use your own API key for hosted models, OpenRouter for access to multiple providers, or LM Studio for local models. Check your provider&apos;s current availability and pricing before choosing a model.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">20</context>
+          <context context-type="linenumber">21</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.browsers.q" datatype="html">
         <source>Which browsers are supported?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">23</context>
+          <context context-type="linenumber">24</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.browsers.a" datatype="html">
-        <source>FSB supports Chrome 88+ and all Chromium-based browsers including Microsoft Edge, Brave, Opera, and Vivaldi. Firefox support is planned for a future release.</source>
+        <source>FSB requires Chrome 116 or later, or a compatible desktop Chromium browser such as Microsoft Edge, Brave, Opera, or Vivaldi. Firefox is not currently supported.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">24</context>
+          <context context-type="linenumber">25</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.apiKeys.q" datatype="html">
         <source>Are my API keys secure?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">27</context>
+          <context context-type="linenumber">28</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.apiKeys.a" datatype="html">
-        <source>Yes. API keys are encrypted using AES-GCM before being stored in Chrome&apos;s local storage. They are only decrypted in-memory when making API calls. Keys are never logged, exported, or transmitted to any server other than your chosen AI provider.</source>
+        <source>API keys are encrypted with AES-GCM in Chrome&apos;s local storage. Requests to hosted AI models send task data to your selected provider. Vault tools can fill credentials and payment details in the browser without sending raw secrets across the MCP bridge.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">28</context>
+          <context context-type="linenumber">29</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.safety.q" datatype="html">
         <source>Is FSB safe to use?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">31</context>
+          <context context-type="linenumber">32</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.safety.a" datatype="html">
-        <source>FSB includes action validation and safety checks. It only performs actions on the current tab and only when explicitly instructed. All code is open source and auditable. That said, use caution with tasks involving sensitive accounts or financial transactions -- always review what FSB is doing.</source>
+        <source>FSB includes action validation and safety checks. It can work across multiple tabs; MCP agents use agent identity and tab ownership to scope actions. Autopilot runs when you explicitly delegate a task. Review automation involving sensitive accounts or payments. The source code is open and auditable.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">32</context>
+          <context context-type="linenumber">33</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.reportBug.q" datatype="html">
         <source>How do I report a bug?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">35</context>
+          <context context-type="linenumber">36</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.reportBug.a" datatype="html">
         <source>Open an issue on the GitHub Issues page at https://github.com/fullselfbrowsing/FSB/issues. Include the website URL, your task description, and any error messages from the FSB chat or browser console. Session logs from the Debug tab in Options can also help.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">36</context>
+          <context context-type="linenumber">37</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.mcp.q" datatype="html">
         <source>What is MCP and how do I use it?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">39</context>
+          <context context-type="linenumber">40</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.mcp.a" datatype="html">
         <source>MCP (Model Context Protocol) lets you control FSB from AI coding tools like Claude Code, Codex, Cursor, Windsurf, and OpenClaw. The MCP server runs as npx -y fsb-mcp-server@latest and pairs with the running extension over a local WebSocket bridge. FSB exposes 68 MCP tools (click, type, navigate, read DOM, fill vault credentials, and more). For OpenClaw users specifically, the fastest path is the one-click install on ClawHub at https://clawhub.ai/lakshmanturlapati/full-selfbrowsing, or load the FSB skill at skills/fsb/ which prints the stdio config block and runs the doctor diagnostic. The full rundown lives at https://full-selfbrowsing.com/agents.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">40</context>
+          <context context-type="linenumber">41</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.testApps.q" datatype="html">
         <source>How does FSB help Claude Code or Codex test apps?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">43</context>
+          <context context-type="linenumber">44</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.testApps.a" datatype="html">
         <source>Connect FSB as an MCP server, then let the coding agent open the local app, click through real flows, observe DOM state, capture console or task errors, and report failures back into the coding session. This closes the manual loop between code generation, browser testing, logging, and fixing.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">44</context>
+          <context context-type="linenumber">45</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.remote.q" datatype="html">
         <source>Can I control FSB remotely?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">47</context>
+          <context context-type="linenumber">48</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.remote.a" datatype="html">
         <source>Yes. The Remote Dashboard at full-selfbrowsing.com lets you pair with your FSB extension via QR code, then send tasks, view a live DOM preview of the browser, and monitor current execution state from any device with a web browser.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">48</context>
+          <context context-type="linenumber">49</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.learn.q" datatype="html">
         <source>Does FSB learn from my usage?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">51</context>
+          <context context-type="linenumber">52</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.learn.a" datatype="html">
         <source>FSB has a local memory system with three layers: semantic memory (site navigation patterns), episodic memory (past action sequences), and procedural memory (successful workflows). This data stays on your device and helps FSB navigate familiar sites faster and avoid repeating mistakes. Memory auto-consolidates after enough sessions.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">52</context>
+          <context context-type="linenumber">53</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.ideSetup.q" datatype="html">
         <source>How do I set up FSB&apos;s MCP server with my IDE?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">55</context>
+          <context context-type="linenumber">56</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.ideSetup.a" datatype="html">
         <source>Run npx -y fsb-mcp-server@latest install --list to see which MCP hosts the installer detects on your machine, then run the installer for one (for example npx -y fsb-mcp-server@latest install --claude-desktop). Cursor, Codex, Windsurf, and others have matching flags from --list. For OpenClaw, paste the canonical stdio block printed by the FSB skill (loaded from skills/fsb/) into your OpenClaw MCP config -- the bare --openclaw installer flag is intentionally manual because OpenClaw&apos;s MCP config schema is still unstable across builds. Verify the install with npx -y fsb-mcp-server@latest doctor; six green layers means you&apos;re ready.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">56</context>
+          <context context-type="linenumber">57</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.tools.q" datatype="html">
         <source>What can I do with FSB through MCP tools?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">59</context>
+          <context context-type="linenumber">60</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.tools.a" datatype="html">
         <source>FSB exposes two modes through MCP. Manual mode is the default and gives the calling agent 68 granular tools: navigate, click, type, scroll, read page state, take screenshots, upload real local files with upload_file, arm trigger watchers with trigger / get_trigger_status / list_triggers, and search or invoke guarded first-party API capabilities with search_capabilities and invoke_capability. Vault and payment helpers fill inside the encrypted extension store, so raw secrets do not cross the MCP bridge. Autopilot mode (run_task) only fires when the user explicitly delegates the whole task. For everything else the calling agent stays in the loop on every action.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">60</context>
+          <context context-type="linenumber">61</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.openclawInstall.q" datatype="html">
         <source>How do I install FSB on OpenClaw?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">63</context>
+          <context context-type="linenumber">64</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.openclawInstall.a" datatype="html">
         <source>Three options, fastest first. One-click on ClawHub: install from https://clawhub.ai/lakshmanturlapati/full-selfbrowsing. FSB skill: load the skill from skills/fsb/ in the FSB repo. It prints the canonical OpenClaw stdio block for you to paste into OpenClaw&apos;s MCP config and offers consent-gated install for any other MCP hosts on your machine. The full 3-step walkthrough (Chrome extension, MCP server config, doctor verification) lives at https://full-selfbrowsing.com/agents.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">64</context>
+          <context context-type="linenumber">65</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.mcpHealth.q" datatype="html">
         <source>How do I verify the FSB MCP server is healthy?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">67</context>
+          <context context-type="linenumber">68</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.schema.faq.mcpHealth.a" datatype="html">
         <source>Run npx -y fsb-mcp-server@latest doctor. The doctor walks six layers -- package, bridge, extension, active-tab, content-script, config -- and exits non-zero on the first failure with a one-line next-step recommendation. The full recovery table for each layer lives in skills/fsb/USAGE.md, and the same diagnostic runs automatically when the FSB skill is loaded into OpenClaw.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">68</context>
+          <context context-type="linenumber">69</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="support.schema.faq.costs.q" datatype="html">
+        <source>Is FSB free, and what does AI usage cost?</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
+          <context context-type="linenumber">72</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="support.schema.faq.costs.a" datatype="html">
+        <source>FSB is free and open source under the MIT license. When you use your own API key, your chosen provider sets and bills model usage. Agent CLI mode uses your existing agent setup; MCP mode uses the calling agent&apos;s model. Local models through LM Studio do not require a hosted-provider API key.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
+          <context context-type="linenumber">73</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.meta.title" datatype="html">
-        <source>FSB - Support</source>
+        <source>FSB Support | Installation &amp; MCP Setup</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">90</context>
+          <context context-type="linenumber">101</context>
         </context-group>
       </trans-unit>
       <trans-unit id="support.meta.description" datatype="html">
-        <source>Get help with FSB: setup guides, MCP configuration, troubleshooting, GitHub issues, and direct contact for the open-source Chrome extension.</source>
+        <source>Find FSB installation steps, Chrome requirements, model costs, privacy answers, MCP setup, and troubleshooting for browser automation.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/support/support-page.component.ts</context>
-          <context context-type="linenumber">91</context>
+          <context context-type="linenumber">102</context>
         </context-group>
       </trans-unit>
     </body>

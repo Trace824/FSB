@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
     <loc>https://full-selfbrowsing.com</loc>
     <lastmod>2026-10-14</lastmod>
@@ -111,6 +111,14 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://full-selfbrowsing.com/zh-CN/about"/>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://full-selfbrowsing.com/zh-TW/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://full-selfbrowsing.com/about"/>
+    <video:video>
+      <video:title>FSB Demo: AI Browser Automation in Chrome</video:title>
+      <video:description>Watch the 33-second Full Self-Browsing trailer. FSB is an open-source Chrome extension for natural-language browser automation and a real browser connection for AI agents through MCP.</video:description>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg</video:thumbnail_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/osNHSquClo0</video:player_loc>
+      <video:publication_date>2026-09-06T18:41:54-07:00</video:publication_date>
+      <video:duration>33</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://full-selfbrowsing.com/es/about</loc>
@@ -125,6 +133,14 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://full-selfbrowsing.com/zh-CN/about"/>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://full-selfbrowsing.com/zh-TW/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://full-selfbrowsing.com/about"/>
+    <video:video>
+      <video:title>Demostración de FSB: automatización del navegador con IA en Chrome</video:title>
+      <video:description>Mira el tráiler de 33 segundos de Full Self-Browsing. FSB es una extensión de Chrome de código abierto para automatizar el navegador con lenguaje natural y conectar agentes de IA con un navegador real mediante MCP.</video:description>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg</video:thumbnail_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/osNHSquClo0</video:player_loc>
+      <video:publication_date>2026-09-06T18:41:54-07:00</video:publication_date>
+      <video:duration>33</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://full-selfbrowsing.com/de/about</loc>
@@ -139,6 +155,14 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://full-selfbrowsing.com/zh-CN/about"/>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://full-selfbrowsing.com/zh-TW/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://full-selfbrowsing.com/about"/>
+    <video:video>
+      <video:title>FSB-Demo: Browserautomatisierung mit KI in Chrome</video:title>
+      <video:description>Sehen Sie sich den 33 Sekunden langen Trailer zu Full Self-Browsing an. FSB ist eine quelloffene Chrome-Erweiterung für Browserautomatisierung mit natürlicher Sprache und die Verbindung von KI-Agenten mit einem echten Browser über MCP.</video:description>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg</video:thumbnail_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/osNHSquClo0</video:player_loc>
+      <video:publication_date>2026-09-06T18:41:54-07:00</video:publication_date>
+      <video:duration>33</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://full-selfbrowsing.com/ja/about</loc>
@@ -153,6 +177,14 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://full-selfbrowsing.com/zh-CN/about"/>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://full-selfbrowsing.com/zh-TW/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://full-selfbrowsing.com/about"/>
+    <video:video>
+      <video:title>FSB デモ：Chrome での AI ブラウザー自動化</video:title>
+      <video:description>Full Self-Browsing の 33 秒のトレーラーをご覧ください。FSB は、自然言語でブラウザーを自動化し、MCP を通じて AI エージェントを実際のブラウザーにつなぐ、オープンソースの Chrome 拡張機能です。</video:description>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg</video:thumbnail_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/osNHSquClo0</video:player_loc>
+      <video:publication_date>2026-09-06T18:41:54-07:00</video:publication_date>
+      <video:duration>33</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://full-selfbrowsing.com/ko/about</loc>
@@ -167,6 +199,14 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://full-selfbrowsing.com/zh-CN/about"/>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://full-selfbrowsing.com/zh-TW/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://full-selfbrowsing.com/about"/>
+    <video:video>
+      <video:title>FSB 데모: Chrome에서 AI 브라우저 자동화</video:title>
+      <video:description>Full Self-Browsing의 33초 예고편을 시청하세요. FSB는 자연어로 브라우저를 자동화하고 MCP를 통해 AI 에이전트를 실제 브라우저에 연결하는 오픈 소스 Chrome 확장 프로그램입니다.</video:description>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg</video:thumbnail_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/osNHSquClo0</video:player_loc>
+      <video:publication_date>2026-09-06T18:41:54-07:00</video:publication_date>
+      <video:duration>33</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://full-selfbrowsing.com/zh-CN/about</loc>
@@ -181,6 +221,14 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://full-selfbrowsing.com/zh-CN/about"/>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://full-selfbrowsing.com/zh-TW/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://full-selfbrowsing.com/about"/>
+    <video:video>
+      <video:title>FSB 演示：在 Chrome 中实现 AI 浏览器自动化</video:title>
+      <video:description>观看 Full Self-Browsing 的 33 秒预告片。FSB 是一款开源 Chrome 扩展，可通过自然语言自动操作浏览器，并通过 MCP 将 AI 智能体连接到真实浏览器。</video:description>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg</video:thumbnail_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/osNHSquClo0</video:player_loc>
+      <video:publication_date>2026-09-06T18:41:54-07:00</video:publication_date>
+      <video:duration>33</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://full-selfbrowsing.com/zh-TW/about</loc>
@@ -195,6 +243,14 @@
     <xhtml:link rel="alternate" hreflang="zh-CN" href="https://full-selfbrowsing.com/zh-CN/about"/>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://full-selfbrowsing.com/zh-TW/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://full-selfbrowsing.com/about"/>
+    <video:video>
+      <video:title>FSB 示範：在 Chrome 中實現 AI 瀏覽器自動化</video:title>
+      <video:description>觀看 Full Self-Browsing 的 33 秒預告片。FSB 是一款開源 Chrome 擴充功能，可透過自然語言自動操作瀏覽器，並透過 MCP 將 AI 代理程式連接到真實瀏覽器。</video:description>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg</video:thumbnail_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/osNHSquClo0</video:player_loc>
+      <video:publication_date>2026-09-06T18:41:54-07:00</video:publication_date>
+      <video:duration>33</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://full-selfbrowsing.com/agents</loc>

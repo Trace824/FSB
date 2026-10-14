@@ -18,6 +18,7 @@ import { PixelLoaderComponent } from '../../components/pixel-loader/pixel-loader
 import { CAPABILITY_ROW_1, CAPABILITY_ROW_2, type CapabilityApp } from '../../core/capabilities/capability-apps';
 import { APP_VERSION } from '../../core/seo/version';
 import { HOST, buildLocaleUrl, emitLocaleHead } from '../../core/seo/locale-seo';
+import { PageJsonLdService } from '../../core/seo/page-json-ld.service';
 import { ThemeService } from '../../core/theme.service';
 
 interface InstallClient {
@@ -52,6 +53,7 @@ const ROTATE_MS = 1800;
 export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('scrollCue') private scrollCue?: ElementRef<HTMLElement>;
 
+  private readonly pageJsonLd = inject(PageJsonLdService);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
   private readonly renderer = inject(Renderer2);
@@ -142,8 +144,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
-    const t = $localize`:@@home.meta.title:FSB - Full Self-Browsing`;
-    const d = $localize`:@@home.meta.description:Local-first Chrome automation and MCP browser layer for AI agents, with trigger watchers, real uploads, and guarded first-party API capability calls.`;
+    const t = $localize`:@@home.meta.title:Full Self-Browsing | AI Browser Automation & MCP`;
+    const d = $localize`:@@home.meta.description:Automate Chrome with natural-language instructions or connect AI agents through MCP. FSB is open source and works in your real browser session.`;
     this.applyMeta(t, d, url);
     this.injectSoftwareApplicationJsonLd();
     if (typeof navigator !== 'undefined' && typeof navigator.userAgent === 'string') {
@@ -163,6 +165,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pageJsonLd.remove('software-application');
     if (this.rollTimer) clearInterval(this.rollTimer);
     if (this.hoverTimer) clearTimeout(this.hoverTimer);
     if (this.fanCloseTimer) clearTimeout(this.fanCloseTimer);
@@ -292,15 +295,13 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private injectSoftwareApplicationJsonLd(): void {
-    if (this.doc.head.querySelector('script[data-ld="software-application"]')) {
-      return;
-    }
-    const payload = {
-      '@context': 'https://schema.org',
+    const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
+    const software = {
       '@type': 'SoftwareApplication',
+      '@id': `${HOST}/#software`,
       name: 'FSB',
       description: $localize`:@@home.schema.description:Local-first Chrome automation and MCP browser layer that lets AI agents act, observe, verify, use trigger watchers, upload real files, and invoke guarded first-party API capabilities in the user's browser`,
-      url: 'https://full-selfbrowsing.com',
+      url: HOST,
       applicationCategory: 'BrowserApplication',
       applicationSubCategory: $localize`:@@home.schema.subcategory:AI browser automation and MCP tools`,
       operatingSystem: 'Chrome',
@@ -318,16 +319,25 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
       ],
       keywords: $localize`:@@home.schema.keywords:MCP browser automation, AI browser agent, trigger watchers, first-party API capability calling, Claude Code browser testing, Codex browser testing, self-browsing automation`,
       license: `${GITHUB_REPO}/blob/main/LICENSE`,
-      publisher: { '@id': 'https://full-selfbrowsing.com/#org' },
+      publisher: { '@id': `${HOST}/#org` },
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
     };
-    const json = JSON.stringify(payload).replace(/</g, '\\u003c');
-    const script = this.renderer.createElement('script') as HTMLScriptElement;
-    this.renderer.setAttribute(script, 'type', 'application/ld+json');
-    this.renderer.setAttribute(script, 'data-ld', 'software-application');
-    const text = this.renderer.createText(json);
-    this.renderer.appendChild(script, text);
-    this.renderer.appendChild(this.doc.head, script);
+    this.pageJsonLd.set('software-application', {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'WebPage',
+          '@id': `${url}#webpage`,
+          url,
+          inLanguage: this.localeId,
+          name: this.title.getTitle(),
+          description: this.meta.getTag('name="description"')?.content,
+          mainEntity: { '@id': software['@id'] },
+          publisher: { '@id': `${HOST}/#org` },
+        },
+        software,
+      ],
+    });
   }
 
   private advance(): void {

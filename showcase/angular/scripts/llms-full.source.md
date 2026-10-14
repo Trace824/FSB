@@ -1,5 +1,7 @@
 # FSB (Full Self-Browsing)
 
+The About page embeds the public 33-second FSB trailer (uploaded September 6, 2026), with a visible synopsis and YouTube link. FSB can run from natural-language instructions with a chosen model, through an agent CLI, or as an MCP browser connection for a calling agent. Chrome 116 or a compatible desktop Chromium browser is required; Firefox is not currently supported. The extension is free and MIT licensed; hosted model usage is billed by the chosen provider. MCP agents can work across tabs using agent identity and tab ownership. Setup, costs, privacy, and troubleshooting answers are at https://full-selfbrowsing.com/support.
+
 ## 1. Project Description
 
 FSB (Full Self-Browsing) is an open-source Chrome extension that automates the browser through natural language. You describe a task in plain English; FSB plans the clicks, types, and navigation to complete it. The extension runs in your browser with your own API keys, encrypted local storage, and opt-out anonymous usage telemetry for aggregate public stats only. Multi-model AI (xAI Grok, OpenAI, Anthropic Claude, Google Gemini, OpenRouter, LM Studio, custom OpenAI-compatible endpoints), 56 canonical browser tools, a 68-tool MCP surface, 142+ site-specific guides, reactive trigger watchers, real file uploads, and a 128-app native capability catalog for verified first-party API execution. Current release: FSB v0.9.92 (Chrome extension) with fsb-mcp-server 0.11.1 (npm MCP package).
@@ -15,7 +17,7 @@ A useful MCP framing: FSB is not only a "bot that browses." It is the browser su
 The About page embeds the official FSB trailer, an interactive knowledge-graph viewer of FSB's site intelligence and guide coverage, and a categorized library of the browser actions FSB exposes to agents.
 
 Trailer (embedded on the About page):
-- FSB Trailer (YouTube title "v0.9.91 | Full Self-Browsing"): https://www.youtube.com/watch?v=osNHSquClo0
+- FSB Trailer (YouTube title "FSB Demo: AI Browser Automation in Chrome | Full Self-Browsing v0.9.91"): https://www.youtube.com/watch?v=osNHSquClo0
 
 More demos on the YouTube channel:
 - FSB: E-Commerce Autopilot by Grok 4.1: https://www.youtube.com/watch?v=_iQ4_LSXcTU
@@ -72,20 +74,20 @@ Credential and payment helpers are supervised autofill tools, not secret-export 
 The remote dashboard's DOM live preview is powered by PhantomStream (published on npm as `@full-self-browsing/phantom-stream`): one style-inlined snapshot, then MutationObserver diffs instead of pixels. As of PhantomStream 0.2.1, progressive `<video>` and `<audio>` elements can mirror alongside DOM snapshots through a media side channel. Input fields are masked in captured frames; adaptive HLS/DASH discovery is deferred because it would require a new `webRequest` permission.
 
 ### Supported AI providers
-- xAI: grok-4-1-fast (default, recommended), grok-4-1-fast-non-reasoning, grok-4, grok-code-fast-1, grok-3, grok-3-mini
-- OpenAI: GPT-4o (default), ChatGPT-4o Latest, GPT-4o Mini, GPT-4 Turbo
-- Anthropic: Claude Sonnet 4.6 (default), Claude Opus 4.6, Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5, and older Claude models
-- Google: Gemini 2.5 Flash (default), Gemini 2.5 Flash-Lite, Gemini 2.5 Pro, Gemini 2.0 Flash (free experimental)
-- OpenRouter: one key routes many models (GPT-4o, Claude, Gemini, Grok, Llama 4, DeepSeek R1 presets) with live discovery
-- LM Studio: local models with no API key; FSB reads the live list from the local server's /v1/models
+- xAI: Grok models
+- OpenAI: models available through the OpenAI API
+- Anthropic: Claude models
+- Google: Gemini models
+- OpenRouter: access to multiple providers through one key, with live model discovery
+- LM Studio: local models with no hosted-provider API key; FSB reads the live list from the local server's /v1/models
 - Custom: any OpenAI-compatible chat-completions endpoint
 
-Live model discovery queries provider model endpoints where available and falls back to the bundled lists above when a provider is offline or a key is missing.
+FSB uses live model discovery where available and bundled presets as a fallback. Check your selected provider's current model availability and pricing before choosing a model.
 
 ### Install posture
-- Chrome 88+ (Manifest V3); also runs on Chromium-based browsers (Edge, Brave)
+- Chrome 116+ (Manifest V3); compatible desktop Chromium-based browsers include Microsoft Edge, Brave, Opera, and Vivaldi. Firefox is not currently supported.
 - Single-user, single-machine: extension is local; no shared infrastructure
-- BYO API key: stored encrypted in Chrome local storage; never leaves the browser
+- BYO API key: stored encrypted in Chrome local storage and used to authenticate requests to the selected AI provider
 
 ## 3. Install Instructions
 

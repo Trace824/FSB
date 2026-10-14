@@ -4,13 +4,13 @@ This list is the authoritative source of terms that MUST NOT be translated when
 preparing the per-locale XLIFF targets (messages.es.xlf, .de.xlf,
 .ja.xlf, .ko.xlf, .zh-CN.xlf, .zh-TW.xlf). When any of these appear inside a translatable
 string, they are wrapped in `<span translate="no">...</span>` in the source HTML
-so the XLIFF extractor preserves them as `<ph>` placeholders the translator must
+so the XLIFF extractor preserves them as `<x>` placeholders the translator must
 keep verbatim.
 
 **Marking discipline:** brand names inside prose are wrapped inline;
 code identifiers and CLI commands inside `<code>` are protected by `translate="no"`
 on the `<code>` element itself. The default Angular i18n extractor preserves
-`<ph>` placeholders for both forms.
+`<x>` placeholders for both forms.
 
 **Lint-rule note (Plan 262-01 deviation, carries forward):** the project's
 `@angular-eslint/template/i18n` rule runs with `checkAttributes: true` and flags
@@ -71,6 +71,7 @@ whole element only when all of its content is genuinely invariant.
 - Firefox
 - FSB
 - Full Self-Browsing
+- Full Self Browsing
 - GDPR
 - fsb-mcp-server
 - Gemini
@@ -141,6 +142,7 @@ whole element only when all of its content is genuinely invariant.
 
 - All `<code>` element contents (CLI commands, config keys, file paths, URLs).
 - `active-tab`, `bridge`, `config`, `content-script`, `extension`, `package` (Doctor layers).
+- `doctor` (CLI command).
 - `AES-GCM`
 - `chrome.storage.local`
 - `chrome://extensions`
@@ -186,6 +188,13 @@ static form is preferred:
 ```html
 <span translate="no">FSB</span>
 ```
+
+Preserve the source spelling of `FSB`, `Full Self-Browsing`, and
+`Full Self Browsing`; do not translate them or add compound-word punctuation.
+The Home heading wraps the complete `Full Self-Browsing` brand inline, including
+its nested highlighted `Self`, so translators preserve the name and styling
+together. The resulting invariant message has a source-hash-bound allowlist
+entry.
 
 When a `<code>` element wraps a CLI command, mark `translate="no"` directly on
 the `<code>` element:

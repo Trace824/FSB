@@ -4,6 +4,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
 import { HOST, buildLocaleUrl, emitLocaleHead } from '../../core/seo/locale-seo';
+import { PageJsonLdService } from '../../core/seo/page-json-ld.service';
 
 const ROUTE_PATH = '/agents';
 const OG_IMAGE = `${HOST}/assets/fsb_logo_dark.png`;
@@ -18,6 +19,7 @@ const SITE_NAME = $localize`:@@site.name:FSB - Full Self-Browsing`;
   styleUrl: './agents-page.component.scss',
 })
 export class AgentsPageComponent implements OnInit, OnDestroy {
+  private readonly pageJsonLd = inject(PageJsonLdService);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
   private readonly renderer = inject(Renderer2);
@@ -63,8 +65,8 @@ export class AgentsPageComponent implements OnInit, OnDestroy {
     // Marked via $localize so per-locale builds emit translated strings; embedded brand
     // tokens (FSB, OpenClaw, Claude, Codex, Cursor, MCP, Chrome) are preserved verbatim
     // by translators per showcase/angular/src/locale/DO-NOT-TRANSLATE.md.
-    const t = $localize`:@@agents.meta.title:FSB - Agents (OpenClaw Skill + MCP)`;
-    const d = $localize`:@@agents.meta.description:Drive your real Chrome from OpenClaw, Hermes, Claude, Codex, Cursor, and more. FSB gives agents a skill plus 68 MCP tools to act, observe, verify.`;
+    const t = $localize`:@@agents.meta.title:FSB for AI Agents | MCP Browser Automation`;
+    const d = $localize`:@@agents.meta.description:Connect Codex, Claude Code, Cursor, OpenClaw, and Hermes to your real Chrome session with FSB. Install the MCP bridge and verify it with doctor.`;
     this.applyMeta(t, d, url);
     this.injectAgentsPageJsonLd();
 
@@ -74,6 +76,7 @@ export class AgentsPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pageJsonLd.remove('agents-page');
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
@@ -266,12 +269,21 @@ export class AgentsPageComponent implements OnInit, OnDestroy {
   }
 
   private injectAgentsPageJsonLd(): void {
-    if (this.doc.head.querySelector('script[data-ld="agents-page"]')) {
-      return;
-    }
+    const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
     const payload = {
       '@context': 'https://schema.org',
       '@graph': [
+        {
+          '@type': 'WebPage',
+          '@id': `${url}#webpage`,
+          url,
+          inLanguage: this.localeId,
+          name: this.title.getTitle(),
+          description: this.meta.getTag('name="description"')?.content,
+          mainEntity: { '@id': `${HOST}/agents#fsb-skill` },
+          hasPart: { '@id': `${url}#install-howto` },
+          publisher: { '@id': `${HOST}/#org` },
+        },
         {
           '@type': 'SoftwareApplication',
           '@id': `${HOST}/agents#fsb-skill`,
@@ -287,13 +299,16 @@ export class AgentsPageComponent implements OnInit, OnDestroy {
             $localize`:@@agents.schema.software.feature.triggers:Trigger watcher tools for reactive page monitoring`,
             $localize`:@@agents.schema.software.feature.capabilities:Native capability tools for guarded first-party API actions`,
           ],
+          license: 'https://github.com/fullselfbrowsing/FSB/blob/main/LICENSE',
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
           publisher: { '@id': `${HOST}/#org` },
-          isPartOf: { '@id': `${HOST}/#site` },
+          mainEntityOfPage: { '@id': `${url}#webpage` },
         },
         {
           '@type': 'HowTo',
-          '@id': `${HOST}/agents#install-howto`,
+          '@id': `${url}#install-howto`,
+          url: `${url}#install-howto`,
+          inLanguage: this.localeId,
           name: $localize`:@@agents.schema.howTo.name:Install FSB for an MCP agent`,
           description: $localize`:@@agents.schema.howTo.description:Install the FSB MCP bridge, verify it with doctor, then let an MCP host drive the user's real Chrome session.`,
           step: [
@@ -313,21 +328,12 @@ export class AgentsPageComponent implements OnInit, OnDestroy {
               text: $localize`:@@agents.schema.howTo.doctor.text:Run npx -y fsb-mcp-server@latest doctor and fix any failing package, bridge, extension, active-tab, content-script, or config layer.`,
             },
           ],
-          isPartOf: { '@id': `${HOST}/agents#fsb-skill` },
+          isPartOf: { '@id': `${url}#webpage` },
+          about: { '@id': `${HOST}/agents#fsb-skill` },
         },
       ],
     };
-    // Assigned after the literal instead of inside it: messages.xlf pins a linenumber
-    // for every $localize call above (the last is the doctor HowToStep text) and CI
-    // diffs `ng extract-i18n` byte-for-byte, so nothing at or above that line may move.
-    Object.assign(payload['@graph'][0], { license: 'https://github.com/fullselfbrowsing/FSB/blob/main/LICENSE' });
-    const json = JSON.stringify(payload).replace(/</g, '\\u003c');
-    const script = this.renderer.createElement('script') as HTMLScriptElement;
-    this.renderer.setAttribute(script, 'type', 'application/ld+json');
-    this.renderer.setAttribute(script, 'data-ld', 'agents-page');
-    const text = this.renderer.createText(json);
-    this.renderer.appendChild(script, text);
-    this.renderer.appendChild(this.doc.head, script);
+    this.pageJsonLd.set('agents-page', payload);
   }
 
 }

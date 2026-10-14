@@ -16,6 +16,8 @@ import { Title, Meta } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
 import { HOST, buildLocaleUrl, emitLocaleHead } from '../../core/seo/locale-seo';
+import { PageJsonLdService } from '../../core/seo/page-json-ld.service';
+import TRAILER_VIDEO from '../../core/seo/trailer-video.json';
 import { ThemeService } from '../../core/theme.service';
 
 const ROUTE_PATH = '/about';
@@ -138,6 +140,7 @@ let knowledgeGraphLoadPromise: Promise<void> | null = null;
 export class AboutPageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('graphHost') private graphHost?: ElementRef<HTMLElement>;
 
+  private readonly pageJsonLd = inject(PageJsonLdService);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
   private readonly renderer = inject(Renderer2);
@@ -173,13 +176,17 @@ export class AboutPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.themeService.isDark() ? 'dark' : 'light';
   }
 
+  readonly trailerName = $localize`:@@about.schema.trailer.name:FSB Demo: AI Browser Automation in Chrome`;
+  readonly trailerDescription = $localize`:@@about.schema.trailer.description:Watch the 33-second Full Self-Browsing trailer. FSB is an open-source Chrome extension for natural-language browser automation and a real browser connection for AI agents through MCP.`;
+  readonly trailerWatchUrl = TRAILER_VIDEO.watchUrl;
+
   ngOnInit(): void {
     const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
     // Title and description carry user-facing copy (browser tab + meta description / social cards).
     // Marked via $localize so per-locale builds emit translated strings; embedded brand tokens
     // (FSB, MCP) are listed in DO-NOT-TRANSLATE.md for translators.
-    const t = $localize`:@@about.meta.title:FSB - About`;
-    const d = $localize`:@@about.meta.description:Watch the FSB trailer, explore built-in memory for 130 popular sites, and browse the 60 browser actions FSB surfaces to MCP agents.`;
+    const t = $localize`:@@about.meta.title:About FSB | AI Browser Automation Demo`;
+    const d = $localize`:@@about.meta.description:Watch the 33-second FSB demo, explore built-in memory for 130 sites, and discover 60 browser actions available to AI agents through MCP.`;
     this.applyMeta(t, d, url);
     this.injectTrailerVideoJsonLd();
   }
@@ -189,6 +196,7 @@ export class AboutPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pageJsonLd.remove('about-trailer-video');
     this.destroyMemoryGraph();
   }
 
@@ -223,37 +231,39 @@ export class AboutPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private injectTrailerVideoJsonLd(): void {
-    if (this.doc.head.querySelector('script[data-ld="about-trailer-video"]')) {
-      return;
-    }
-    // Mark up only the video embedded on this page: search engines' video
-    // guidelines reject VideoObject data for videos a visitor cannot watch here.
+    const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
+    const videoId = `${HOST}/about#demo-${TRAILER_VIDEO.id}`;
     const payload = {
       '@context': 'https://schema.org',
-      '@type': 'VideoObject',
-      '@id': `${HOST}/about#demo-osNHSquClo0`,
-      name: $localize`:@@about.schema.trailer.name:FSB Trailer`,
-      // The video's exact YouTube title, kept verbatim rather than translated.
-      alternateName: 'v0.9.91 | Full Self-Browsing',
-      description: $localize`:@@about.schema.trailer.description:The official FSB trailer: Full Self-Browsing gives AI agents a real browser to act, observe, and verify in.`,
-      url: 'https://www.youtube.com/watch?v=osNHSquClo0',
-      embedUrl: 'https://www.youtube.com/embed/osNHSquClo0',
-      thumbnailUrl: 'https://i.ytimg.com/vi/osNHSquClo0/hqdefault.jpg',
-      uploadDate: '2026-09-06T18:41:54-07:00',
-      publisher: { '@id': `${HOST}/#org` },
-      author: {
-        '@type': 'Person',
-        name: 'Parzival',
-        url: YOUTUBE_CHANNEL,
-      },
+      '@graph': [
+        {
+          '@type': 'AboutPage',
+          '@id': `${url}#webpage`,
+          url,
+          inLanguage: this.localeId,
+          name: this.title.getTitle(),
+          description: this.meta.getTag('name="description"')?.content,
+          video: { '@id': videoId },
+          publisher: { '@id': `${HOST}/#org` },
+        },
+        {
+          '@type': 'VideoObject',
+          '@id': videoId,
+          name: this.trailerName,
+          alternateName: TRAILER_VIDEO.originalTitle,
+          description: this.trailerDescription,
+          url: TRAILER_VIDEO.watchUrl,
+          embedUrl: TRAILER_VIDEO.embedUrl,
+          thumbnailUrl: TRAILER_VIDEO.thumbnailUrl,
+          uploadDate: TRAILER_VIDEO.uploadDate,
+          duration: TRAILER_VIDEO.duration,
+          isPartOf: { '@id': `${url}#webpage` },
+          publisher: { '@id': `${HOST}/#org` },
+          author: { '@type': 'Person', name: 'Parzival', url: YOUTUBE_CHANNEL },
+        },
+      ],
     };
-    const json = JSON.stringify(payload).replace(/</g, '\\u003c');
-    const script = this.renderer.createElement('script') as HTMLScriptElement;
-    this.renderer.setAttribute(script, 'type', 'application/ld+json');
-    this.renderer.setAttribute(script, 'data-ld', 'about-trailer-video');
-    const text = this.renderer.createText(json);
-    this.renderer.appendChild(script, text);
-    this.renderer.appendChild(this.doc.head, script);
+    this.pageJsonLd.set('about-trailer-video', payload);
   }
 
   private async initMemoryGraph(): Promise<void> {

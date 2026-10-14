@@ -62,9 +62,15 @@
   cursor: pointer;
   user-select: none;
   gap: 12px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-family: inherit;
 }
 
-.faq-question h3 {
+.faq-question {
   font-size: 0.95rem;
   font-weight: 600;
 }
@@ -98,10 +104,19 @@
 .faq-answer-inner p {
   font-size: 0.9rem;
   line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .faq-answer-inner a {
   color: var(--primary);
+}
+
+.faq-resources {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 0.85rem;
 }
 
 /* --- Troubleshooting Cards --- */
@@ -235,7 +250,7 @@
     padding: 14px 16px;
   }
 
-  .faq-question h3 {
+  .faq-question {
     font-size: 0.9rem;
   }
 
