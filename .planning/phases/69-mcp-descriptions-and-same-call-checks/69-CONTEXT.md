@@ -14,6 +14,7 @@ In scope:
 - One optional `expect` parameter on a fixed set of 29 action tools. It is evaluated in the same call, with a bounded observation after the action, and reports `verified`, `unmet` or `uncertain`.
 - Contract tests proving that tool names, required arguments, defaults and serialized payloads and responses are unchanged when `expect` is omitted.
 - An automated caller test proving that one call can perform an action and read its effect.
+- Redacting sensitive input values in `change_report.inputs_changed` and in the `value` entries of `change_report.attrs_changed` (D-25). This is the one recorded security exception to byte-stability.
 
 Out of scope:
 - Autopilot tool text and schemas. The shared registry `extension/ai/tool-definitions.js` is not edited, so with Jev off FSB behaves as before.
@@ -37,7 +38,8 @@ Out of scope:
     - the evaluator in `extension/utils/action-verification.js`;
     - the gate refactor in `wrapWithChangeReport`;
     - the `mcp:go-back` route;
-    - the sidecar key lists.
+    - the sidecar key lists;
+    - the change-report harvest's input capture, the stop serialiser's masking of `value` attribute records, and the `inputs_changed` and `attrs_changed` masking in `buildChangeReport` (D-25).
   - **Not changed:**
     - the registry;
     - `importScripts` lines (the pins stay at 334 tokens and 330 calls in `tests/lattice-provider-bridge-smoke.test.js:635-636`);
@@ -247,7 +249,7 @@ Out of scope:
     - The harvest still runs only when it would run today.
     - `expect` is evaluated after `execute()` regardless of the toggle or the tool's `_emitChangeReport` flag.
     - For navigation tools, it is evaluated after the navigation commits. `navigate` waits only for the commit (`mcp-tool-dispatcher.js:1430`).
-  - **`back`:** the `mcp:go-back` route (`handleBackRoute`, dispatcher around line 1697) calls the same evaluator after its own settle.
+  - **`back`:** the `mcp:go-back` route (`handleBackRoute`, dispatcher around line 1697) calls the same evaluator after its own settle. When history exists and `expect` is present, it subscribes the main-frame commit watcher before `chrome.tabs.goBack`, because `waitForBackSettle` can return on its 2 s timeout before the new document commits (planner, plan-checker round 2, 2026-10-15).
 - **D-18: How the page is probed.**
   - **URL and title.** `url_includes` and `title_includes` read `chrome.tabs.get(tabId)`, with no injection, so they stay observable across cross-origin and restricted transitions.
   - **DOM predicates.** These use self-contained functions injected in the **ISOLATED** world, the default for `chrome.scripting.executeScript`, so page scripts cannot spoof them. Today `_injectFn` hardcodes `MAIN` (`:4398-4403`). A world option or a sibling helper is added, and existing MAIN calls keep their behavior.
@@ -358,6 +360,29 @@ Out of scope:
   - **Hygiene:**
     - `showcase/angular/public/{llms.txt,llms-full.txt,sitemap.xml}` are restored after full runs, never committed.
     - No AI attribution goes in commits.
+
+### Security exception to MCP-04
+
+- **D-25: Sensitive input values in `change_report.inputs_changed` and in the `value` entries of `change_report.attrs_changed` are redacted (owner-level security decision, made by the orchestrator on 2026-10-15; extended to `attrs_changed` the same day).**
+  - **Problem (RESEARCH Finding 17).** The change-report harvest records `inp.value` for every input, password fields included. This happens in `extension/ws/mcp-tool-dispatcher.js` `_fsbHarvestStartInPage` and `_fsbHarvestStopInPage`, at about lines 4158-4163 and 4255. `buildChangeReport` (`extension/utils/action-verification.js:558-590`) then echoes the value in `change_report.inputs_changed` to the MCP caller, which is an LLM.
+  - **Second channel (found in plan review, 2026-10-15).** The harvest observes attributes with `attributeOldValue: true` (`mcp-tool-dispatcher.js:4209`). `_fsbHarvestStopInPage` serialises `rec.oldValue` unfiltered (`:4322`), and `buildChangeReport` copies it into `attrs_changed[].before` (`action-verification.js:539-551`). Two common cases carry raw secrets there. React-controlled password inputs sync the `value` content attribute on every change, so typing leaks prefixes and a later clear or submit leaks the full value. Hidden inputs reflect `.value` to the content attribute (the HTML "default" value mode), so rotating a CSRF token leaks the old token. Redacting only `inputs_changed` would leave the "raw values never leave the page" claim false.
+  - **Decision.** Fix it in this phase (plan 69-03, Task 3) instead of leaving it as a Validation Block note.
+    - **Predicate.** The same one the `expect` evaluator uses (`isRedactedField`, D-19), applied to:
+      - `input` type `password` or `hidden`;
+      - autocomplete `current-password`, `new-password`, `one-time-code`, or any `cc-` token;
+      - a name, id or autocomplete matching the sensitive-name pattern (password, passcode, pwd, cvv, cvc, card number, security code, one-time code, otp).
+      - The short terms (otp, pwd, cvv, cvc, cc number) are boundary-aware: no letter may stand on either side, after a camelCase word split. So `otp-code`, `otpCode` and `userPwd` are sensitive, while ordinary ids such as `footprint`, `hotpot` and `notpad` are not and keep today's bytes. Run-together lowercase ids such as `otpcode` are not caught by the name rule; the type and autocomplete rules still apply.
+    - **Vault-filled fields** are covered where they can be detected. Credential fills land in password fields, and payment fills land in `cc-*` or card-like fields. No vault-filled marker exists, and content scripts stay frozen (D-01), so nothing else can be detected.
+    - **Marker.** For a sensitive field, each side of an `inputs_changed` entry is the fixed marker `[redacted]` when the value is non-empty, and `''` when it is empty. This is the evaluator's `EXPECT_REDACTED`, so callers see one marker.
+    - **Value-attribute records (`attrs_changed`).** For an `attributes` mutation record whose `attributeName` is `value` and whose target passes the same predicate, both `before` and `after` of its `attrs_changed` entry follow the same rule: `[redacted]` when non-empty, `''` when empty, `null` when absent. The page serialiser masks `oldValue` and flags the record `valueRedacted: true`. The flag exists only on the page-to-service-worker hop and never reaches the caller. Records for other attributes, and `value` records on non-sensitive inputs, are unchanged.
+    - **Change detection.** A changed secret is still reported as changed. Raw values never leave the page: the comparison runs on the page-side harvest handle, which is deleted at stop or expiry as today.
+    - **Defence in depth.** `buildChangeReport` masks the listed keys again. It also masks both sides of any `value` record that is flagged, or whose target id is a listed sensitive key.
+  - **Scope of the exception.**
+    - This is the only intentional change to an existing response shape in Phase 69.
+    - The keys and structure of `change_report` stay the same; only the values of sensitive entries change: sensitive `inputs_changed` entries and the `value` entries of `attrs_changed` for sensitive inputs.
+    - Non-sensitive inputs and every other byte of `change_report` stay as today, and the six existing change-report suites pass unmodified.
+    - The exception is recorded in the contract test `tests/change-report-redaction.test.js` (its header and a check named "MCP-04 security exception (CONTEXT D-25)") and in `69-VALIDATION.md` row MCP-04-g.
+  - **Effect on recordings.** Session recordings and the journal store responses, so they stop holding these values too.
 
 ### Claude's Discretion
 - File names and locations for:

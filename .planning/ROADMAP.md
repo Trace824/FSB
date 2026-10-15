@@ -101,11 +101,11 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 66.1-02-PLAN.md — Write planner with D-15 provider group rules and shared DEFAULT_MODELS; inventory, default and bounds parity with the control panel (wave 2)
+- [ ] 66.1-02-PLAN.md — Write planner with D-15 provider group rules, shared DEFAULT_MODELS and a value-free Allowed clause in invalid-value errors; inventory, default and bounds parity with the control panel (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 66.1-03-PLAN.md — MCP surface: two additive wire types, SETTING_ error rendering with a value-free Allowed line, the settings tool with a value-safe write preflight, runtime wiring and smoke (wave 3)
+- [ ] 66.1-03-PLAN.md — MCP surface: two additive wire types, SETTING_ error passthrough under a Settings label, the settings tool with a value-safe write preflight, runtime wiring and smoke (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -121,7 +121,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 66.1-07-PLAN.md — Built-runtime contract: tool shape, 8a058bdf tools digest, MCP-edge rules, end-to-end round trip, SC4 fixture, delegated refusal (wave 7)
+- [ ] 66.1-07-PLAN.md — Built-runtime contract: tool shape, 8a058bdf tools, prompt and resource digests, MCP-edge rules, end-to-end round trip, SC4 fixture, delegated refusal (wave 7)
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
@@ -189,7 +189,7 @@ Plans:
 ### Phase 69: MCP Descriptions and Same-Call Checks
 
 **Goal:** Cut MCP tool-list context and avoid follow-up verification calls through additive optional expectations.
-**Depends on:** Phase 66 (tool-call measurement baseline).
+**Depends on:** Phase 66 (tool-call measurement baseline) and Phase 66.1 (the settings tool, `mcp/src/tools/settings.ts` and its 8a058bdf tools/list freeze, which this phase migrates).
 **Requirements:** MCP-01, MCP-02, MCP-04.
 **Success Criteria:**
 
@@ -208,12 +208,12 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [ ] 69-02-PLAN.md — MCP-only description module, jsonSchemaToZod text override, short text for the 37 manual action tools, per-tool 2,048 cap on, Phase 66.1 freeze migration (wave 2)
-- [ ] 69-03-PLAN.md — Extension expect contract: constants, spec normalization, read-only page probe and bounded evaluation loop in action-verification.js (wave 2)
+- [ ] 69-03-PLAN.md — Extension expect contract: constants, spec normalization, read-only page probe and bounded evaluation loop in action-verification.js; sensitive values redacted in change_report.inputs_changed (D-25, the recorded MCP-04 security exception) (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 69-04-PLAN.md — Remaining descriptions (read-only, trigger, screenshot, vault, capability, back, observability, autopilot, visual-session, settings), full coverage, must-keep table, D-06 budget floors on (wave 3)
-- [ ] 69-05-PLAN.md — Dispatcher wiring: ISOLATED probes, commit-gated navigation, back-route hook, bridge-client forwarding, expect stripped from journal and replay payloads (wave 3)
+- [ ] 69-04-PLAN.md — Remaining descriptions (read-only, trigger, screenshot, vault, capability, back, observability, autopilot, visual-session, settings), then a gate-only commit: full coverage, must-keep table, D-06 budget floors on (wave 3)
+- [ ] 69-05-PLAN.md — Dispatcher wiring: ISOLATED probes, commit-gated navigation (back included), back-route hook, bridge-client forwarding, expect stripped from journal and replay payloads (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 

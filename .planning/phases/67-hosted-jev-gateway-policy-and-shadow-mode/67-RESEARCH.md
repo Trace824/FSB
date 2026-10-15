@@ -594,7 +594,7 @@ tests/
 **When to use:** Always. This also keeps `tests/showcase-route-fallback.test.js` safe. That test spawns `server.js` with `...process.env` and no Jev variables, and must still boot (D-05). If a developer's local `showcase/server/.env` holds Jev variables, `dotenv` loads them, so config errors must never throw.
 
 ### Pattern 2: An async handler that cannot escape
-**What:** One outer `try { … } catch { respond(500, server_error) } finally { release(); clearTimeout(t) }` around the whole decision pipeline, plus a router-local error middleware that always terminates the response.
+**What:** One outer `try { … } catch { respond(500, server_error) } finally { release(); clearTimeout(t) }` around the whole decision pipeline, plus a router-local error middleware that always terminates the response. Every send goes through one `respond` helper that does nothing when `res.headersSent` is true, and the catch body never throws: on express 4.22.1 a second send from an async handler's catch block raises `ERR_HTTP_HEADERS_SENT`, which `Layer.prototype.handle_request` (`express/lib/router/layer.js:86-99`, synchronous try/catch only) cannot catch, so it surfaces as an unhandled rejection (re-checked 2026-10-15 with a local probe). 67-09 resolves this with a three-branch outer catch keyed on `upstreamAttempted` and `ledgerWritten`.
 **Why:** Verified locally on express 4.22.1: an `async` handler that throws produces an unhandled rejection. The process exits with code 1 and prints the error message to stderr. `server.js` has no `unhandledRejection` handler. One bug would take down the showcase site and could print data into `fly logs`.
 
 ### Pattern 3: Body-free error mapping
@@ -799,11 +799,11 @@ Each cut has an effective threshold. Precision mode (operation, target, completi
 ### Pitfall 13: Write amplification on an open route
 **What goes wrong:** With no per-IP limiter (D-08), every rejected request can cost a SQLite write.
 **How to avoid:** Write per-decision ledger rows for requests that pass validation (and certainly for every upstream attempt). Count cheap pre-validation rejections (`disabled`, `not_configured`, `invalid_request`, `payload_too_large`) only in the daily aggregate, with one UPSERT, or batch them in memory and flush on the housekeeper tick. Planner's choice; document the trade-off.
-**Planner's choice (67-05, 67-09):** a ledger row and a log line exist only for requests that acquired the semaphore (every upstream attempt), so rows per UTC day are bounded by the spend ceiling. Every refusal before that point, including `invalid_request`, `sensitive_goal`, budget `payload_too_large`, `busy`, `spend_cap_reached` and `server_error`, is one UPSERT on a bounded (day, outcome) row in the daily aggregate. `recordDecision` rejects outcomes outside the post-acquisition set and kinds outside `CONTRACT.KINDS`.
+**Planner's choice (67-05, 67-09):** a ledger row and a log line exist for every upstream attempt and only for upstream attempts, so rows per UTC day are bounded by the spend ceiling. The decision id is drawn right after the semaphore is acquired, before `callUpstream`. A fault after the upstream attempt is recorded as a `server_error` ledger row that carries the attempt's spend accrual, so a same-day restart reseeds the ceiling correctly (Pitfall 9). Every refusal before the upstream attempt, including `invalid_request`, `sensitive_goal`, budget `payload_too_large`, `busy`, `spend_cap_reached` and a `server_error` raised before `callUpstream`, is one UPSERT on a bounded (day, outcome) row in the daily aggregate. `recordDecision` rejects outcomes outside the post-upstream set ('ok', the upstream-stage reasons and `server_error`) and kinds outside `CONTRACT.KINDS`.
 
 ### Pitfall 14: CI and local-environment traps
 - CI is Node 20 with a shallow clone. Locally, port 7225 is held, so `npm test` halts at the first port-bound suite. Run Phase 67's suites directly and use CI-like conditions for the full chain.
-- After any full run, restore `showcase/angular/public/{llms.txt,llms-full.txt,sitemap.xml}`.
+- Run every regression sweep in the background and wait for it; never use the `timeout` command. A BASELINE sweep may exit non-zero by design: record pre-existing failures, never 'fix' them. After any sweep that selects `tests/showcase-build-smoke.test.js` (its Angular `prebuild` runs `build-crawler-files.mjs`), restore `showcase/angular/public/{llms.txt,llms-full.txt,sitemap.xml}` and confirm `git status --short showcase/angular/public` is empty before committing.
 
 ## Code Examples
 
