@@ -230,6 +230,7 @@ async function loadMcp() {
     InMemoryTransport: transportModule.InMemoryTransport,
     createRuntime: runtimeModule.createRuntime,
     mapFSBError: errorsModule.mapFSBError,
+    FSB_ERROR_MESSAGES: errorsModule.FSB_ERROR_MESSAGES,
     TaskQueue: queueModule.TaskQueue,
     resetInventory: () => inventoryModule.__configureClientInventoryForTests(null),
     toolsListDigest: identityModule.toolsListDigest,
@@ -666,6 +667,111 @@ async function partContract() {
       check(result.isError === true, 'a failed preflight (AGENT_CAP_REACHED) is an error');
       check(capBridge.setCalls().length === 0, 'a failed preflight sends no mcp:set-setting');
       check(!result.text.includes('SENTINEL'), 'a failed preflight does not echo the value');
+    });
+  });
+
+  await section('transport failures render under Settings, never as page navigation (WR-07)', async () => {
+    const UNCONFIRMED_HINT = 'The change may have been applied. Call settings with only this key to check its current value before retrying.';
+    const UNAVAILABLE_HINT = 'Check that the FSB extension is connected, then call settings again.';
+    const writablePreflight = (payload) => ({ success: true, key: payload.key, value: false, type: 'boolean', writable: true });
+    const timeoutError = (type) => new Error('Request req_1 (' + type + ') timed out after 10000ms');
+    const expectSettingsText = (result, label) => {
+      check(result.isError === true && result.text.startsWith('Detected: Settings\n'), label + ' renders Detected: Settings');
+      check(!result.text.includes('Page navigation') && !result.text.includes('Refresh page state'), label + ' never renders page-navigation advice');
+      check(result.text.includes('SETTING_UNAVAILABLE'), label + ' carries SETTING_UNAVAILABLE');
+      check(!result.text.includes('SENTINEL'), label + ' never echoes the value');
+    };
+
+    // A write that times out after it was sent: its outcome is unknown.
+    const lateBridge = makeBridge({
+      respond: (type, payload) => {
+        if (type === 'mcp:get-settings') return writablePreflight(payload);
+        if (type === 'mcp:set-setting') throw timeoutError(type);
+        return undefined;
+      }
+    });
+    await withSession(lateBridge, async (client) => {
+      const result = await callSettings(client, { key: 'debugMode', value: 'SENTINEL-LATE' });
+      expectSettingsText(result, 'a write timeout');
+      check(lineStarting(result.text, 'Next action: ') === 'Next action: ' + UNCONFIRMED_HINT,
+        'a write timeout says the change may have been applied and to check the key');
+      check(result.text.includes('(timeout)'), 'a write timeout names the timeout');
+      check(lateBridge.setCalls().length === 1, 'the write was sent once and is not retried');
+    });
+
+    // A read (or the write preflight) that times out: nothing was written.
+    const readTimeoutBridge = makeBridge({
+      respond: (type) => {
+        if (type === 'mcp:get-settings') throw timeoutError(type);
+        return undefined;
+      }
+    });
+    await withSession(readTimeoutBridge, async (client) => {
+      const read = await callSettings(client, { key: 'debugMode' });
+      expectSettingsText(read, 'a read timeout');
+      check(lineStarting(read.text, 'Next action: ') === 'Next action: ' + UNAVAILABLE_HINT, 'a read timeout asks to check the connection');
+      const preflight = await callSettings(client, { key: 'debugMode', value: 'SENTINEL-PRE-TIMEOUT' });
+      expectSettingsText(preflight, 'a preflight timeout');
+      check(!preflight.text.includes('may have been applied'), 'a preflight timeout never claims the change may have been applied');
+      check(readTimeoutBridge.setCalls().length === 0, 'a preflight timeout sends no mcp:set-setting');
+    });
+
+    // A lost link mid-write is also an unconfirmed write.
+    const droppedBridge = makeBridge({
+      respond: (type, payload) => {
+        if (type === 'mcp:get-settings') return writablePreflight(payload);
+        if (type === 'mcp:set-setting') throw new Error('Extension disconnected');
+        return undefined;
+      }
+    });
+    await withSession(droppedBridge, async (client) => {
+      const result = await callSettings(client, { key: 'debugMode', value: 'true' });
+      expectSettingsText(result, 'a dropped link during a write');
+      check(result.text.includes('(disconnected)') && result.text.includes('may have been applied'),
+        'a dropped link during a write is reported as unconfirmed');
+    });
+
+    // The extension answers without running the route (mcp_authority_not_ready).
+    const notReadyBridge = makeBridge({
+      respond: (type) => (type === 'mcp:get-settings' || type === 'mcp:set-setting'
+        ? { success: false, error: 'mcp_authority_not_ready' }
+        : undefined)
+    });
+    await withSession(notReadyBridge, async (client) => {
+      const read = await callSettings(client, { key: 'debugMode' });
+      expectSettingsText(read, 'mcp_authority_not_ready on a read');
+      check(read.text.includes('(mcp_authority_not_ready)') && read.text.includes('Nothing was changed.'),
+        'mcp_authority_not_ready is named and says nothing was changed');
+      const write = await callSettings(client, { key: 'debugMode', value: 'SENTINEL-AUTH' });
+      expectSettingsText(write, 'mcp_authority_not_ready on a write preflight');
+      check(notReadyBridge.setCalls().length === 0, 'a not-ready preflight sends no mcp:set-setting');
+    });
+
+    // A code-less write refusal with free text: the text is not shown.
+    const freeTextBridge = makeBridge({
+      respond: (type, payload) => {
+        if (type === 'mcp:get-settings') return writablePreflight(payload);
+        if (type === 'mcp:set-setting') return { success: false, error: 'handler blew up near SENTINEL-FREE' };
+        return undefined;
+      }
+    });
+    await withSession(freeTextBridge, async (client) => {
+      const result = await callSettings(client, { key: 'debugMode', value: 'true' });
+      expectSettingsText(result, 'a code-less write refusal');
+      check(!result.text.includes('Raw error:') && !result.text.includes('blew up'), 'free-text extension errors are not rendered');
+    });
+
+    // Not connected keeps the extension-layer rendering.
+    const offlineBridge = makeBridge({
+      respond: () => { throw new Error(mcp.FSB_ERROR_MESSAGES['extension_not_connected']); }
+    });
+    await withSession(offlineBridge, async (client) => {
+      const result = await callSettings(client, { key: 'debugMode', value: 'SENTINEL-OFFLINE' });
+      check(result.isError === true && !result.text.includes('SETTING_UNAVAILABLE') && !result.text.includes('Page navigation'),
+        'a not-connected bridge keeps the extension-not-connected rendering');
+      check(lineStarting(result.text, 'Detected: ') === 'Detected: ' + errorText(mcp.mapFSBError({ success: false, error: 'extension_not_connected' })).split('\n')[0].slice('Detected: '.length),
+        'a not-connected bridge renders exactly like the tool\'s own not-connected answer');
+      check(!result.text.includes('SENTINEL'), 'a not-connected bridge never echoes the value');
     });
   });
 

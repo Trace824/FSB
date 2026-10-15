@@ -4,7 +4,7 @@ import type { WebSocketBridge } from '../bridge.js';
 import type { TaskQueue } from '../queue.js';
 import { AgentScope } from '../agent-scope.js';
 import { sendAgentScopedBridgeMessage } from '../agent-bridge.js';
-import { mapFSBError } from '../errors.js';
+import { FSB_ERROR_MESSAGES, mapFSBError } from '../errors.js';
 
 const SETTINGS_TIMEOUT_MS = 10_000;
 const SETTINGS_KEY_MAX = 64;
@@ -19,6 +19,12 @@ const SETTINGS_DESCRIPTION =
 const REQUEST_INVALID_HINT =
   'Call settings with only a key to see its type and allowed values, or with no arguments to list every setting.';
 const UNSUPPORTED_HINT = 'Update the FSB extension, or change the setting in the FSB Control Panel.';
+const UNAVAILABLE_HINT = 'Check that the FSB extension is connected, then call settings again.';
+const UNCONFIRMED_WRITE_HINT =
+  'The change may have been applied. Call settings with only this key to check its current value before retrying.';
+// A bridge or extension reason shown in an unavailable error only when it is
+// a bare token such as mcp_authority_not_ready; free text never is.
+const REASON_TOKEN = /^[a-z][a-z0-9_]{0,63}$/;
 
 // Success bodies are built from these fields only (D-07), so nothing else the
 // extension adds to its answer reaches the client.
@@ -30,7 +36,13 @@ const WRITE_FIELDS = ['key', 'value', 'previous', 'changed', 'coupled'] as const
 
 type BridgeResult = Record<string, unknown> | null | undefined;
 type SettingsToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: boolean };
-type LocalSettingCode = 'SETTING_REQUEST_INVALID' | 'SETTING_UNSUPPORTED';
+type LocalSettingCode = 'SETTING_REQUEST_INVALID' | 'SETTING_UNSUPPORTED' | 'SETTING_UNAVAILABLE';
+// How a settings call failed outside the extension's settings routes:
+// no_answer       the bridge threw before a write was sent (timeout, lost link)
+// unconfirmed     the bridge threw after the write was sent: outcome unknown
+// not_run         the extension answered without running the route
+//                 (mcp_authority_not_ready, ...), so nothing was changed
+type UnavailableKind = 'no_answer' | 'unconfirmed' | 'not_run';
 
 // Hosts may send JSON booleans or numbers for `value`; they become strings
 // before validation, so the wire schema stays a plain {type: string}. null,
@@ -41,14 +53,40 @@ function toWireString(v: unknown): unknown {
   return v;
 }
 
-function localFailure(code: LocalSettingCode, error: string): SettingsToolResult {
+function localFailure(code: LocalSettingCode, error: string, recoveryHint?: string): SettingsToolResult {
   return mapFSBError({
     success: false,
     code,
     errorCode: code,
     error,
-    recoveryHint: code === 'SETTING_UNSUPPORTED' ? UNSUPPORTED_HINT : REQUEST_INVALID_HINT,
+    recoveryHint: recoveryHint ?? (code === 'SETTING_UNSUPPORTED' ? UNSUPPORTED_HINT : REQUEST_INVALID_HINT),
   });
+}
+
+// Rendered under Settings rather than the page-navigation fallback, which
+// would tell the client to re-read the page. A timeout after the write was
+// sent does not mean it failed: the extension may still finish the storage
+// write, so the client is told to check before retrying.
+function unavailable(kind: UnavailableKind, reason?: unknown): SettingsToolResult {
+  const token = typeof reason === 'string' && REASON_TOKEN.test(reason) ? ` (${reason})` : '';
+  if (kind === 'unconfirmed') {
+    return localFailure('SETTING_UNAVAILABLE',
+      `The FSB extension did not confirm the settings change${token}.`, UNCONFIRMED_WRITE_HINT);
+  }
+  if (kind === 'not_run') {
+    return localFailure('SETTING_UNAVAILABLE',
+      `The FSB extension could not run the settings request${token}. Nothing was changed.`, UNAVAILABLE_HINT);
+  }
+  return localFailure('SETTING_UNAVAILABLE',
+    `The FSB extension did not answer the settings request${token}.`, UNAVAILABLE_HINT);
+}
+
+// A bridge error reduced to a token: the timeout and disconnect messages name
+// only the message type and id, and the reason never carries the payload.
+function bridgeFailureReason(message: string): string {
+  if (/timed out/i.test(message)) return 'timeout';
+  if (/disconnected|lost connection/i.test(message)) return 'disconnected';
+  return '';
 }
 
 function unsupported(): SettingsToolResult {
@@ -85,7 +123,11 @@ function compact(result: Record<string, unknown>, fields: readonly string[]): Se
   return { content: [{ type: 'text', text: JSON.stringify(body) }] };
 }
 
+// A coded failure (the SETTING_ family, or an agent-scope code) keeps its own
+// rendering. A failure with no code never reached the settings route, so it
+// is reported as SETTING_UNAVAILABLE instead of the page-navigation fallback.
 function failure(result: BridgeResult): SettingsToolResult {
+  if (resultCode(result) === '') return unavailable('not_run', result ? result.error : undefined);
   return mapFSBError(result ?? { success: false });
 }
 
@@ -139,6 +181,7 @@ export function registerSettingsTool(
         return localFailure('SETTING_REQUEST_INVALID', `value must be at most ${SETTINGS_VALUE_MAX} characters.`);
       }
 
+      let writeSent = false;
       try {
         if (value === undefined) {
           const read = await send('mcp:get-settings', key === undefined ? {} : { key });
@@ -161,14 +204,21 @@ export function registerSettingsTool(
           return failure(preflight);
         }
 
+        writeSent = writePayload.value !== undefined;
         const written = await send('mcp:set-setting', writePayload);
         if (isUnsupported(written)) return unsupported();
         if (!isSuccess(written)) return failure(written);
         return compact(written, WRITE_FIELDS);
       } catch (err) {
-        // Bridge errors (not connected, timeout) name only the message type
-        // and id, never the payload.
-        return mapFSBError({ success: false, error: err instanceof Error ? err.message : String(err) });
+        // Bridge errors (not connected, timeout, lost link) name only the
+        // message type and id, never the payload. Not connected means nothing
+        // was sent; anything else after the write went out leaves its outcome
+        // unknown.
+        const message = err instanceof Error ? err.message : String(err);
+        if (message === FSB_ERROR_MESSAGES['extension_not_connected']) {
+          return mapFSBError({ success: false, error: 'extension_not_connected' });
+        }
+        return unavailable(writeSent ? 'unconfirmed' : 'no_answer', bridgeFailureReason(message));
       }
     },
   );
