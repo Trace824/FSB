@@ -18,6 +18,7 @@ import { PixelLoaderComponent } from '../../components/pixel-loader/pixel-loader
 import { CAPABILITY_ROW_1, CAPABILITY_ROW_2, type CapabilityApp } from '../../core/capabilities/capability-apps';
 import { APP_VERSION } from '../../core/seo/version';
 import { HOST, buildLocaleUrl, emitLocaleHead } from '../../core/seo/locale-seo';
+import { PageJsonLdService } from '../../core/seo/page-json-ld.service';
 import { ThemeService } from '../../core/theme.service';
 
 interface InstallClient {
@@ -52,6 +53,7 @@ const ROTATE_MS = 1800;
 export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('scrollCue') private scrollCue?: ElementRef<HTMLElement>;
 
+  private readonly pageJsonLd = inject(PageJsonLdService);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
   private readonly renderer = inject(Renderer2);
@@ -65,6 +67,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   private copiedTimer?: ReturnType<typeof setTimeout>;
   private rafId?: number;
   private removeScrollListener?: () => void;
+  private engTimer?: ReturnType<typeof setInterval>;
+  private engSwapTimer?: ReturnType<typeof setTimeout>;
+  private engHover = false;
+  private engReducedMotion = false;
 
   readonly storeUrl = 'https://chromewebstore.google.com/detail/badgafnfchcihdfnjneklogedcdkmjfk?utm_source=item-share-cp';
   readonly githubRepo = GITHUB_REPO;
@@ -91,6 +97,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly capRow1: readonly CapabilityApp[] = CAPABILITY_ROW_1;
   private readonly manualFlagLabel = $localize`:@@home.install.manualFlag:manual`;
   readonly capRow2: readonly CapabilityApp[] = CAPABILITY_ROW_2;
+  readonly engMcpKind = 'MCP';
+  readonly engGlyphs = ENG_FLOW_GLYPHS;
+  readonly engChips = ENG_CHIPS;
+  readonly engCliMeta = ENG_CHIPS.cli.map((chip) => chip.name).join(' · ');
   browserIconClass = 'fa-chrome';
   iconIndex = 0;
   token = '--claude-code';
@@ -98,6 +108,9 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   paused = false;
   fanOpen = false;
   copied: string | null = null;
+  engMode: EngMode = 'mcp';
+  engLeaving = false;
+  engKeyFocus = false;
 
   /* Prerender-safe guard (matchMedia check mirrors the theme bootstrap). On
      coarse pointers the fan is click-toggled: taps fire synthetic mouseenter,
@@ -131,8 +144,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
-    const t = $localize`:@@home.meta.title:FSB - Full Self-Browsing`;
-    const d = $localize`:@@home.meta.description:Local-first Chrome automation and MCP browser layer for AI agents, with trigger watchers, real uploads, and guarded first-party API capability calls.`;
+    const t = $localize`:@@home.meta.title:Full Self-Browsing | AI Browser Automation & MCP`;
+    const d = $localize`:@@home.meta.description:Automate Chrome with natural-language instructions or connect AI agents through MCP. FSB is open source and works in your real browser session.`;
     this.applyMeta(t, d, url);
     this.injectSoftwareApplicationJsonLd();
     if (typeof navigator !== 'undefined' && typeof navigator.userAgent === 'string') {
@@ -145,13 +158,20 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.rollTimer = setInterval(() => this.advance(), ROTATE_MS);
     this.removeScrollListener = this.renderer.listen('window', 'scroll', () => this.updateScrollCue());
     this.updateScrollCue();
+    // Read once, not subscribed: under reduced motion the engine panel never auto-rotates.
+    this.engReducedMotion =
+      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!this.engReducedMotion) this.startEngCycle();
   }
 
   ngOnDestroy(): void {
+    this.pageJsonLd.remove('software-application');
     if (this.rollTimer) clearInterval(this.rollTimer);
     if (this.hoverTimer) clearTimeout(this.hoverTimer);
     if (this.fanCloseTimer) clearTimeout(this.fanCloseTimer);
     if (this.copiedTimer) clearTimeout(this.copiedTimer);
+    if (this.engTimer) clearInterval(this.engTimer);
+    if (this.engSwapTimer) clearTimeout(this.engSwapTimer);
     if (this.rafId !== undefined && typeof window !== 'undefined') {
       window.cancelAnimationFrame(this.rafId);
     }
@@ -194,6 +214,39 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.copyCurrent();
+  }
+
+  onEngEnter(): void {
+    this.engHover = true;
+  }
+
+  onEngLeave(): void {
+    this.engHover = false;
+  }
+
+  /* Only keyboard focus holds the rotation. Chrome, Edge and touch browsers also
+     focus a button when it is clicked, and that focus outlives the pointer, so
+     plain focus would freeze the panel after every tab click. */
+  onEngFocusIn(event: FocusEvent): void {
+    this.engKeyFocus = (event.target as Element | null)?.matches?.(':focus-visible') === true;
+  }
+
+  onEngKeyDown(): void {
+    this.engKeyFocus = true;
+  }
+
+  /* focusout also fires when focus just moves between tabs, and the focusin that
+     follows re-evaluates it; only clear the hold once focus has actually left the
+     panel (relatedTarget is null when it leaves the document altogether). */
+  onEngFocusOut(event: FocusEvent): void {
+    const root = event.currentTarget as Element | null;
+    const next = event.relatedTarget as Node | null;
+    if (!root || !next || !root.contains(next)) this.engKeyFocus = false;
+  }
+
+  pickEng(mode: EngMode): void {
+    this.engGo(mode);
+    if (this.engTimer) this.startEngCycle();
   }
 
   @HostListener('document:click', ['$event'])
@@ -242,15 +295,13 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private injectSoftwareApplicationJsonLd(): void {
-    if (this.doc.head.querySelector('script[data-ld="software-application"]')) {
-      return;
-    }
-    const payload = {
-      '@context': 'https://schema.org',
+    const url = buildLocaleUrl(this.localeId, ROUTE_PATH);
+    const software = {
       '@type': 'SoftwareApplication',
+      '@id': `${HOST}/#software`,
       name: 'FSB',
       description: $localize`:@@home.schema.description:Local-first Chrome automation and MCP browser layer that lets AI agents act, observe, verify, use trigger watchers, upload real files, and invoke guarded first-party API capabilities in the user's browser`,
-      url: 'https://full-selfbrowsing.com',
+      url: HOST,
       applicationCategory: 'BrowserApplication',
       applicationSubCategory: $localize`:@@home.schema.subcategory:AI browser automation and MCP tools`,
       operatingSystem: 'Chrome',
@@ -268,16 +319,25 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
       ],
       keywords: $localize`:@@home.schema.keywords:MCP browser automation, AI browser agent, trigger watchers, first-party API capability calling, Claude Code browser testing, Codex browser testing, self-browsing automation`,
       license: `${GITHUB_REPO}/blob/main/LICENSE`,
-      publisher: { '@id': 'https://full-selfbrowsing.com/#org' },
+      publisher: { '@id': `${HOST}/#org` },
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
     };
-    const json = JSON.stringify(payload).replace(/</g, '\\u003c');
-    const script = this.renderer.createElement('script') as HTMLScriptElement;
-    this.renderer.setAttribute(script, 'type', 'application/ld+json');
-    this.renderer.setAttribute(script, 'data-ld', 'software-application');
-    const text = this.renderer.createText(json);
-    this.renderer.appendChild(script, text);
-    this.renderer.appendChild(this.doc.head, script);
+    this.pageJsonLd.set('software-application', {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'WebPage',
+          '@id': `${url}#webpage`,
+          url,
+          inLanguage: this.localeId,
+          name: this.title.getTitle(),
+          description: this.meta.getTag('name="description"')?.content,
+          mainEntity: { '@id': software['@id'] },
+          publisher: { '@id': `${HOST}/#org` },
+        },
+        software,
+      ],
+    });
   }
 
   private advance(): void {
@@ -347,6 +407,37 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 1600);
   }
 
+  private startEngCycle(): void {
+    if (this.engTimer) clearInterval(this.engTimer);
+    this.engTimer = setInterval(() => {
+      if (this.engHover || this.engKeyFocus || this.doc.hidden) return;
+      this.engGo(nextEngMode(this.engMode));
+    }, ENG_CYCLE_MS);
+  }
+
+  /* The outgoing panel plays engOut while `leaving` is set; the mode flips only
+     once that has finished, which re-adds is-active on the next panel and replays
+     its engIn. */
+  private engGo(mode: EngMode): void {
+    if (this.engSwapTimer) clearTimeout(this.engSwapTimer);
+    this.engSwapTimer = undefined;
+    if (mode === this.engMode) {
+      // Picking the panel that is still on screen mid-swap cancels the swap.
+      this.engLeaving = false;
+      return;
+    }
+    if (this.engReducedMotion) {
+      this.engMode = mode;
+      return;
+    }
+    this.engLeaving = true;
+    this.engSwapTimer = setTimeout(() => {
+      this.engSwapTimer = undefined;
+      this.engMode = mode;
+      this.engLeaving = false;
+    }, ENG_SWAP_MS);
+  }
+
   private updateScrollCue(): void {
     if (typeof window === 'undefined') return;
     const el = this.scrollCue?.nativeElement;
@@ -371,7 +462,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 
 /* Declared in the module tail rather than beside the interfaces at the top of the
    file on purpose: messages.xlf pins a linenumber for every $localize call in this
-   module (the last one sits at line 269) and CI diffs `ng extract-i18n`
+   module (the last one sits at line 312) and CI diffs `ng extract-i18n`
    byte-for-byte, so nothing at or above that line may move. Same reason there is no
    separate browser-icon.ts -- importing it would shift every one of those numbers.
 
@@ -409,3 +500,62 @@ export function detectBrowserIconClass(nav: BrowserSignals): string {
   if (/Safari\//.test(ua) && !/Chrome\/|Chromium\//.test(ua)) return 'fa-safari';
   return 'fa-chrome';
 }
+
+/* Engine panel: the three ways to run FSB, auto-advanced in this order. The swap
+   delay matches the engOut keyframe in the stylesheet, so the outgoing panel has
+   finished blurring out before the next one becomes active. */
+export type EngMode = 'mcp' | 'cli' | 'byok';
+
+export const ENG_ORDER: readonly EngMode[] = ['mcp', 'cli', 'byok'];
+const ENG_CYCLE_MS = 3000;
+const ENG_SWAP_MS = 220;
+
+export function nextEngMode(mode: EngMode): EngMode {
+  return ENG_ORDER[(ENG_ORDER.indexOf(mode) + 1) % ENG_ORDER.length];
+}
+
+/* Product names are interpolated from here rather than marked in the template: a
+   trans-unit whose whole source is a brand would need a same-source allowlist entry
+   in every locale. Translatable chip tags stay as i18n markers in the template and
+   are selected by key. Logos are mask files under /assets/providers; LM Studio has
+   none, so it falls back to a Font Awesome icon. */
+export type EngChipTag = 'default' | 'freeTier' | 'local';
+
+export interface EngChip {
+  readonly name: string;
+  readonly logo?: string;
+  readonly icon?: string;
+  readonly tag?: EngChipTag;
+}
+
+const ENG_FLOW_GLYPHS: Readonly<Record<EngMode, readonly string[]>> = {
+  mcp: ['claude.svg', 'openai.svg', 'cursor.svg', 'vscode.svg'],
+  cli: ['claude.svg', 'xai.png'],
+  byok: ['xai.png', 'anthropic.webp', 'openai.svg', 'google.png'],
+};
+
+const ENG_CHIPS: Readonly<Record<EngMode, readonly EngChip[]>> = {
+  mcp: [
+    { name: 'Claude Code', logo: 'claude.svg' },
+    { name: 'Claude Desktop', logo: 'claude.svg' },
+    { name: 'Codex', logo: 'openai.svg' },
+    { name: 'Cursor', logo: 'cursor.svg' },
+    { name: 'VS Code', logo: 'vscode.svg' },
+    { name: 'Windsurf', logo: 'windsurf.svg' },
+    { name: 'OpenCode', logo: 'opencode.svg' },
+    { name: 'OpenClaw', logo: 'openclaw.svg' },
+    { name: 'Hermes', logo: 'hermes.png' },
+  ],
+  cli: [
+    { name: 'Claude Code', logo: 'claude.svg' },
+    { name: 'Grok Build', logo: 'xai.png' },
+  ],
+  byok: [
+    { name: 'xAI Grok', logo: 'xai.png', tag: 'default' },
+    { name: 'Anthropic', logo: 'anthropic.webp' },
+    { name: 'OpenAI', logo: 'openai.svg' },
+    { name: 'Gemini', logo: 'google.png', tag: 'freeTier' },
+    { name: 'OpenRouter', logo: 'openrouter.svg' },
+    { name: 'LM Studio', icon: 'fa-solid fa-cube', tag: 'local' },
+  ],
+};
