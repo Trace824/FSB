@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: executing
-stopped_at: Phase 66: 9/11 (66-01 closed, source data lost); origin/main merged; 66-10 waiting at H2 (bench setup)
-last_updated: "2026-10-12T19:44:29.000Z"
-last_activity: 2026-10-12 -- 66-01 closed; origin/main merged into Jev
+stopped_at: Phase 66 code-complete (9/11; 66-10/66-11 deferred to Validation Block V1); next Phase 66.1
+last_updated: "2026-10-15T06:37:07.000Z"
+last_activity: 2026-10-15 -- validations deferred to the milestone-end Validation Block; origin/main merged
 progress:
   total_phases: 7
   completed_phases: 0
@@ -37,14 +37,14 @@ See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIRE
 
 Phase: 66 (Baseline and Session Timing) — EXECUTING
 Plan: 9 of 11 complete (66-02..66-09, plus 66-01 closed without execution because its source sessions were lost). Remaining plans are human-gated: 66-10 (H2/H3 bench profile, smoke), then 66-11 (H4 campaign approval, H5 restore)
-Status: Executing Phase 66: origin/main merged into Jev (cd480dbd); full chain 320/320 green; 66-10 waits at H2
-Last activity: 2026-10-12 -- 66-01 closed (the 2026-10-09 Web Store reinstall wiped the 40 sessions); origin/main merged so the baseline measures the build that ships (main's single-click design kept, plus Jev's toggle-state click checks)
+Status: Phase 66 code-complete; 66-10/66-11 deferred to the milestone-end Validation Block (V1). Next: plan and build Phases 66.1, 67, 69, then 68, 70, 71
+Last activity: 2026-10-15 -- owner deferred all human validations to one end-of-milestone Validation Block; origin/main (MCP 0.11.2, showcase refresh) merged into Jev
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 66 | Baseline and Session Timing | MEAS-01..03 | Executing (9/11; 66-10 at H2) |
+| 66 | Baseline and Session Timing | MEAS-01..03 | Code-complete (9/11; 66-10/66-11 in Validation Block V1) |
 | 66.1 | MCP Settings Tool (inserted) | SET-01..02 | Not started |
 | 67 | Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01..07 | Not started |
 | 68 | Autopilot Fast Mode | AUTO-01..05 | Not started |
@@ -94,6 +94,17 @@ Coverage: 51/51 v0.9.91 requirements complete. The 48 deferred live UAT scenario
 ### Decisions
 
 Full decision log for prior milestones (v0.9.99 Phase 26-34, v0.13.0, v1.1.0, v1.2.0) lives in PROJECT.md, ROADMAP.md's `## Completed Milestones` section, and the archived `.planning/milestones/*` files. Those decisions concern the T1 capability-catalog surface and the showcase-i18n surface; they have zero shared surface with v0.9.91's provider/delegation work and are not repeated here to keep this file a digest.
+
+v1.0.0-specific decisions:
+
+- [Milestone 2026-10-15, owner direction]: **All human validations are deferred to one Validation Block at the end of the milestone.** Phases 66.1 and 67-71 are built and verified with automated checks only (unit, contract, fixture, fake-upstream and headless tests); no phase waits on a human checkpoint. Items that need the operator, live accounts, production, or spend are collected into the Validation Block instead:
+  - **V1, baseline:** 66-10 (H2/H3, smoke) and 66-11 (H4 campaign, H5 restore), run from a worktree pinned at `8a058bdf`, the last commit before any Phase 66.1+ product code. That keeps the baseline a measurement of FSB before this milestone, as Phase 66 requires.
+  - **V2, Jev gateway live:** set the server-side Jev credential and deploy the gateway (Fly). Pushing to `main` deploys the server, packages the extension, and publishes MCP to npm (`.github/workflows/deploy.yml`, `chrome-extension.yml`, `npm-publish.yml`), so nothing from this milestone reaches `main` before the Validation Block.
+  - **V3, shadow calibration (JEV-05):** run shadow mode on the labelled corpus against the pinned live model and set the live thresholds from that evidence. Until then, thresholds ship as explicit uncalibrated defaults, fast mode stays default-off, and anything that would turn it on for users is gated on V3 evidence.
+  - **V4, comparative gate (EVAL-01/02):** baseline vs. non-Jev control vs. fast mode on the same corpus, with the predeclared gate.
+  - **V5, human UAT:** every `human_needed` verification item and every UI check from Phases 66.1-71.
+  - **V6, release:** the version commits can be prepared in code, but publishing and merging to `main` wait for V4's gate and the owner's approval.
+- [Phase 66, 2026-10-15]: Phase 66 is code-complete (9/11). 66-10 and 66-11 are deferred to Validation Block V1, and later phases treat the pinned commit `8a058bdf` as "the Phase 66 baseline" (for example, Phase 69's tool-list token count is measured against the tool list at `8a058bdf`).
 
 v0.9.91-specific decisions so far:
 
