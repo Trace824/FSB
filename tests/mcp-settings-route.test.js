@@ -22,6 +22,14 @@
  * no chrome.runtime.onMessage path names the types and _handleGetConfig is
  * byte-identical to 469907cb (D-06, D-21).
  *
+ * Part C (plan 66.1-06) covers session recording (D-18, D-19, Pitfalls 3-5):
+ * - the dispatcher's recording sanitizers
+ * - the real mcp-session-recorder.js handing its snapshots to a journal stub
+ *   (the tests/mcp-session-recorder-journal.test.js pattern)
+ * - a sentinel sweep of refused writes across storage, recorder entries, the
+ *   journal, automationLogger calls, route responses, console and stderr
+ * - lattice-replay.js classifying both types as unsupported
+ *
  * Every response, set call, logger call and console line is kept and scanned
  * at the end: no submitted SENTINEL value may appear in any of them.
  *
@@ -1245,12 +1253,14 @@ async function resetRealRecorder(recordingEnabled) {
   const recorder = await loadRealRecorder();
   await recorder._drainForTests();
   recorder._resetForTests();
-  recorder._setStorageShim(makeRecorderStorage());
-  recorder._setLocalStorageShim(makeRecorderStorage());
+  const sessionStore = makeRecorderStorage();
+  const localStore = makeRecorderStorage();
+  recorder._setStorageShim(sessionStore);
+  recorder._setLocalStorageShim(localStore);
   const journal = makeJournalStub();
   globalThis.FsbMcpLatticeJournal = journal;
   await recorder._applyPolicyForTests(recordingEnabled !== false, 30, recorder.FSB_MCP_RECORDER_BACKEND_JOURNAL);
-  return { recorder, journal };
+  return { recorder, journal, sessionStore, localStore };
 }
 
 // Installs the dispatcher's session-recorder global as a capture that keeps
@@ -1289,6 +1299,146 @@ function sinkText(value) {
 
 function recordedPayload(key, value, callId, extra) {
   return writePayload(key, value, Object.assign({ recordingRunId: RECORDING_RUN_ID, recordingCallId: callId }, extra || {}));
+}
+
+const LATTICE_REPLAY_PATH = path.join(ROOT, 'extension', 'utils', 'lattice-replay.js');
+const TOOL_DEFINITIONS_PATH = path.join(ROOT, 'extension', 'ai', 'tool-definitions.js');
+const SWEEP_SENTINEL = 'sk-SENTINEL-ALL-9';
+
+// [label, key, submitted value, expected code, extra payload fields, logged key]
+const REFUSAL_SWEEP_CASES = Object.freeze([
+  ['apiKey', 'apiKey', SWEEP_SENTINEL, 'SETTING_PROTECTED_KEY', null, 'apiKey'],
+  ['serverHashKey', 'serverHashKey', SWEEP_SENTINEL, 'SETTING_PROTECTED_KEY', null, 'serverHashKey'],
+  ['customEndpoint', 'customEndpoint', 'https://' + SWEEP_SENTINEL + '.example.test/v1?token=' + SWEEP_SENTINEL,
+    'SETTING_PROTECTED_KEY', null, 'customEndpoint'],
+  ['serverUrl', 'serverUrl', 'https://example.test/' + SWEEP_SENTINEL, 'SETTING_PROTECTED_KEY', null, 'serverUrl'],
+  ['lmstudioBaseUrl', 'lmstudioBaseUrl', 'http://user:' + SWEEP_SENTINEL + '@127.0.0.1:1234/v1',
+    'SETTING_PROTECTED_KEY', null, 'lmstudioBaseUrl'],
+  ['an unknown key', 'fsbNoSuchSetting', SWEEP_SENTINEL, 'SETTING_UNKNOWN_KEY', null, 'fsbNoSuchSetting'],
+  ['an invalid key', 'bad key', SWEEP_SENTINEL, 'SETTING_UNKNOWN_KEY', null, '[invalid]'],
+  ['a delegated agent writing debugMode', 'debugMode', SWEEP_SENTINEL, 'SETTING_DELEGATED_WRITE_REFUSED',
+    { agentId: 'agent_delegated' }, 'debugMode'],
+  ['a debugMode write whose value is the sentinel', 'debugMode', SWEEP_SENTINEL, 'SETTING_VALUE_INVALID', null, 'debugMode']
+]);
+
+function captureText(args) {
+  return args.map((arg) => (typeof arg === 'string' ? arg : util.inspect(arg, { depth: 12, breakLength: Infinity }))).join(' ');
+}
+
+// Sends every refused write through the real dispatcher while console and
+// process.stderr are wrapped, a capture recorder forwards each entry to the
+// real recorder, and the recorder hands its snapshots to a journal stub. The
+// wrappers are restored before any check runs, so a failing check can never
+// write into the captured text.
+async function runRefusalSweep(recordingEnabled) {
+  const { recorder, journal, sessionStore, localStore } = await resetRealRecorder(recordingEnabled);
+  const capture = installCaptureRecorder(recorder);
+  globalThis.FsbMcpLatticeJournal = journal;
+  resetStorage({
+    fsbMcpSessionRecordingEnabled: recordingEnabled,
+    apiKey: 'stored-key-value',
+    debugMode: false,
+    serverUrl: 'https://full-selfbrowsing.com'
+  });
+  const storeBefore = clone(fakeStorage.store);
+  const loggerStart = loggerCalls.length;
+  const responses = [];
+  const text = [];
+  let stderrWrites = 0;
+  const methods = ['log', 'info', 'warn', 'error', 'debug'];
+  const originalConsole = {};
+  for (const method of methods) originalConsole[method] = console[method];
+  const originalStderrWrite = process.stderr.write;
+  try {
+    for (const method of methods) {
+      console[method] = function (...args) {
+        try { text.push(captureText(args)); } catch (_e) { /* capture is best-effort */ }
+        return originalConsole[method].apply(console, args);
+      };
+    }
+    process.stderr.write = function (chunk, ...rest) {
+      stderrWrites += 1;
+      try { text.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')); } catch (_e) { /* best-effort */ }
+      return originalStderrWrite.call(process.stderr, chunk, ...rest);
+    };
+    console.debug('settings sweep: console capture is live');
+    process.stderr.write('');
+    let call = 0;
+    for (const [, key, value, , extra] of REFUSAL_SWEEP_CASES) {
+      call += 1;
+      responses.push(await setSetting(recordedPayload(key, value, 'recording-call-sweep-' + call, extra)));
+    }
+    await recorder._drainForTests();
+    await nextTick();
+  } finally {
+    for (const method of methods) console[method] = originalConsole[method];
+    process.stderr.write = originalStderrWrite;
+    capture.restore();
+  }
+  return {
+    responses,
+    entries: capture.entries,
+    journal,
+    sessionStore,
+    localStore,
+    storeBefore,
+    loggerLines: loggerCalls.slice(loggerStart),
+    text,
+    stderrWrites
+  };
+}
+
+function checkRefusalSweep(label, result, recordingEnabled) {
+  const count = REFUSAL_SWEEP_CASES.length;
+  REFUSAL_SWEEP_CASES.forEach(([name, , , code], index) => {
+    const response = result.responses[index];
+    check(isFailure(response, code), label + ': ' + name + ' is refused with ' + code
+      + (response && response.code !== code ? ' (got ' + response.code + ')' : ''));
+  });
+  check(fakeStorage.setCalls.length === 0, label + ': no storage set call was made');
+  checkDeep(fakeStorage.store, result.storeBefore, label + ': the storage map is unchanged');
+
+  check(result.entries.length === count, label + ': the dispatcher recorded one entry per refused write (got ' + result.entries.length + ')');
+  check(result.entries.every((entry) => entry.requestPayload && !hasOwn(entry.requestPayload, 'value')),
+    label + ': no recorded request has a value');
+  check(result.entries.every((entry) => !sinkText(entry).includes('SENTINEL-ALL')), label + ': no recorder entry contains the sentinel');
+
+  const journaled = result.journal.dispatches;
+  if (recordingEnabled) {
+    check(journaled.length === count, label + ': the real recorder journaled every refused write (got ' + journaled.length + ')');
+    checkDeep(journaled.map((event) => event.response && event.response.code), REFUSAL_SWEEP_CASES.map((row) => row[3]),
+      label + ': each journal event keeps its refusal code');
+  } else {
+    check(journaled.length === 0, label + ': recording off journals nothing (got ' + journaled.length + ')');
+  }
+  check(journaled.every((event) => !sinkText(event).includes('SENTINEL-ALL')), label + ': no journal event contains the sentinel');
+  check(!sinkText(result.sessionStore.state).includes('SENTINEL-ALL') && !sinkText(result.localStore.state).includes('SENTINEL-ALL'),
+    label + ': the recorder storage holds no sentinel');
+
+  const warnLines = result.loggerLines.filter((line) => line.level === 'warn' && line.message === 'MCP settings write refused');
+  check(warnLines.length === count && result.loggerLines.length === count,
+    label + ': exactly one automationLogger warn per refused write (got ' + warnLines.length + ' of ' + result.loggerLines.length + ')');
+  checkDeep(warnLines.map((line) => line.data && line.data.key), REFUSAL_SWEEP_CASES.map((row) => row[5]),
+    label + ': each warn line names the safe key label');
+  checkDeep(warnLines.map((line) => line.data && line.data.code), REFUSAL_SWEEP_CASES.map((row) => row[3]),
+    label + ': each warn line names its refusal code');
+  check(result.loggerLines.every((line) => !sinkText(line).includes('SENTINEL-ALL')), label + ': no automationLogger call contains the sentinel');
+
+  check(result.responses.every((response) => !sinkText(response).includes('SENTINEL-ALL')), label + ': no route response contains the sentinel');
+  check(result.text.some((line) => line.includes('settings sweep: console capture is live')) && result.stderrWrites > 0,
+    label + ': the console and stderr capture was live');
+  check(result.text.every((line) => !line.includes('SENTINEL-ALL')), label + ': no console or stderr text contains the sentinel');
+}
+
+// Loads lattice-replay.js without leaving its FsbLatticeReplay global behind.
+function loadLatticeReplay() {
+  const saved = globalThis.FsbLatticeReplay;
+  try {
+    return require(LATTICE_REPLAY_PATH);
+  } finally {
+    if (saved === undefined) delete globalThis.FsbLatticeReplay;
+    else globalThis.FsbLatticeReplay = saved;
+  }
 }
 
 async function partC() {
@@ -1444,6 +1594,88 @@ async function partC() {
     } finally {
       capture.restore();
     }
+  });
+
+  await runSection('a refused value leaves no trace in any sink (SC2)', async () => {
+    const result = await runRefusalSweep(true);
+    checkRefusalSweep('recording on', result, true);
+  });
+
+  await runSection('the operator log still holds every refusal with recording off (D-18)', async () => {
+    const result = await runRefusalSweep(false);
+    check(fakeStorage.store.fsbMcpSessionRecordingEnabled === false, 'recording off: fsbMcpSessionRecordingEnabled is stored false');
+    checkRefusalSweep('recording off', result, false);
+  });
+
+  await runSection('replay never re-runs a settings call (Pitfall 5)', async () => {
+    const replay = loadLatticeReplay();
+    check(replay && typeof replay.classifyReplayEntry === 'function', 'lattice-replay.js exports classifyReplayEntry');
+    const writeSummary = { success: true, key: 'debugMode', value: true, previous: false, changed: ['debugMode'] };
+    const readSummary = { success: true, keyCount: PRODUCTION_SCHEMA.keys().length };
+    const toolDefinitions = require(TOOL_DEFINITIONS_PATH);
+    const savedLookup = globalThis.getToolByName;
+    try {
+      for (const withRegistry of [false, true]) {
+        if (withRegistry) globalThis.getToolByName = toolDefinitions.getToolByName;
+        else delete globalThis.getToolByName;
+        const suffix = withRegistry ? ' with the real tool registry' : ' without a tool registry';
+        const write = replay.classifyReplayEntry({ tool: 'mcp:set-setting', success: true, response: writeSummary,
+          requestPayload: { key: 'debugMode', agentId: 'agent_ok' } });
+        check(write && write.availability === 'unsupported' && write.risk === 'inspect-only',
+          'classifyReplayEntry reports mcp:set-setting as inspect-only and unsupported' + suffix);
+        const read = replay.classifyReplayEntry({ tool: 'mcp:get-settings', success: true, response: readSummary,
+          requestPayload: { agentId: 'agent_ok' } });
+        check(read && read.availability === 'unsupported' && read.risk === 'inspect-only',
+          'classifyReplayEntry reports mcp:get-settings as inspect-only and unsupported' + suffix);
+      }
+      check(replay.classifyReplayEntry({ tool: 'click', success: true }).availability === 'approval-once',
+        'control: a registry tool still classifies as replayable');
+    } finally {
+      if (savedLookup === undefined) delete globalThis.getToolByName;
+      else globalThis.getToolByName = savedLookup;
+    }
+
+    // The journal's own snapshots of settings calls become replay steps that
+    // replay_session never executes and that carry no submitted value.
+    const { recorder, journal } = await resetRealRecorder(true);
+    const capture = installCaptureRecorder(recorder);
+    globalThis.FsbMcpLatticeJournal = journal;
+    try {
+      resetStorage({});
+      await setSetting(recordedPayload('debugMode', 'true', 'recording-call-replay-1'));
+      await getSettings({ agentId: 'agent_ok', recordingRunId: RECORDING_RUN_ID, recordingCallId: 'recording-call-replay-2' });
+      await getSettings({ agentId: 'agent_ok', key: 'maxIterations', recordingRunId: RECORDING_RUN_ID, recordingCallId: 'recording-call-replay-3' });
+      await setSetting(recordedPayload('apiKey', 'sk-SENTINEL-7', 'recording-call-replay-4'));
+      await recorder._drainForTests();
+    } finally {
+      capture.restore();
+    }
+    check(journal.dispatches.length === 4, 'four settings calls were journaled (got ' + journal.dispatches.length + ')');
+    const record = replay.createReplayRecord({ sessionId: 'settings-replay', task: 'settings' }, journal.dispatches);
+    const steps = (record && record.manifest && record.manifest.steps) || [];
+    check(steps.length === 4, 'the replay manifest has one step per journaled settings call');
+    const executable = ['ready', 'approval-once', 'approval-per-step'];
+    check(steps.every((step) => step.replay && step.replay.availability === 'unsupported'),
+      'every settings replay step is unsupported');
+    check(steps.every((step) => step.replay && executable.indexOf(step.replay.availability) === -1),
+      'no settings replay step is executable (background fsbReplayIsExecutable)');
+    check(steps.every((step) => step.arguments && !hasOwn(step.arguments, 'value')), 'no settings replay step carries a value argument');
+    check(!sinkText(steps).includes('SENTINEL'), 'no settings replay step contains a SENTINEL value');
+    let validated = true;
+    try { replay.validateReplayClassifications(steps); } catch (_e) { validated = false; }
+    check(validated, 'the stored classifications match classifyReplayEntry');
+    check(record && record.counts && record.counts.executable === 0, 'the replay counts show no executable step');
+
+    const replaySource = fs.readFileSync(LATTICE_REPLAY_PATH, 'utf8');
+    for (const setName of ['READ_TOOLS', 'PER_STEP_TOOLS', 'LEGACY_WRITE_TOOLS']) {
+      const start = replaySource.indexOf('var ' + setName + ' = new Set([');
+      const end = start === -1 ? -1 : replaySource.indexOf(']);', start);
+      const body = start === -1 || end === -1 ? null : replaySource.slice(start, end);
+      check(body !== null && !body.includes('mcp:set-setting') && !body.includes('mcp:get-settings'),
+        setName + ' in lattice-replay.js names neither settings type');
+    }
+    check(!replaySource.includes('mcp:set-setting') && !replaySource.includes('mcp:get-settings'),
+      'lattice-replay.js names neither settings type anywhere');
   });
 }
 
