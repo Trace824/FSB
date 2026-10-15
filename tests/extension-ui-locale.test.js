@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const vm = require('vm');
 
 const locale = require('../extension/utils/ui-locale.js');
 const root = path.join(__dirname, '..');
@@ -142,6 +143,9 @@ const copyMismatches = Object.entries(locale.exact).filter(([english, key]) => {
   return String(key).startsWith('copy_') && (!englishCatalog[key] || englishCatalog[key].message !== english);
 });
 check(copyMismatches.length === 0, 'copy exact map matches the English catalog');
+const panelExact = JSON.parse(fs.readFileSync(path.join(root, 'extension/utils/panel-exact.js'), 'utf8').match(/var extra = (\{.*\});/)[1]);
+const panelMismatches = Object.entries(panelExact).filter(([english, key]) => !englishCatalog[key] || englishCatalog[key].message !== english);
+check(panelMismatches.length === 0, 'panel exact map matches the English catalog');
 check(typeof locale.line === 'function', 'line translates a catalog template');
 locale.setCatalog('de', { copy_probe: 'Vertrauen für $NAME$' });
 locale.setOverride('de');
@@ -181,6 +185,45 @@ const badUnwired = spawnSync(process.execPath, ['scripts/verify-extension-copy.m
 check(badUnwired.status === 1, 'cataloged but unwired HTML text fails');
 check(String(badUnwired.stderr).includes('page.html:1: unwired chrome'), 'fixture reports the unwired button label');
 check(!/page\.html:[23]:/.test(String(badUnwired.stderr)), 'keyed and translate="no" text stay off the coverage gate');
+// Text in markup that JS builds is never translated in place, and a quote or
+// `//` inside a regex literal must not shift the scan.
+const badMarkup = spawnSync(process.execPath, ['scripts/verify-extension-copy.mjs', '--file', 'tests/fixtures/extension-i18n/bad-markup/ui.js'], { cwd: root, encoding: 'utf8' });
+const markupErrors = String(badMarkup.stderr);
+check(badMarkup.status === 1, 'unwired markup fixture fails');
+check(markupErrors.includes('ui.js:1: unwired chrome in markup (route through the locale helper): Markup sentence is not wired.'),
+  'fixture reports markup text in a quoted string');
+check(markupErrors.includes('ui.js:2: unwired chrome in markup (route through the locale helper): Sign Up Now'),
+  'fixture reports a short label in template markup');
+check(markupErrors.includes('ui.js:3: unwired chrome in markup (route through the locale helper): Close this panel'),
+  'fixture reports a labelled attribute in template markup');
+check(markupErrors.includes('ui.js:5: uncataloged chrome: This sentence follows a regex literal.'),
+  'quotes and a trailing \\/\\/ inside a regex literal do not shift the scan');
+check(!/ui\.js:(?:[4679]|10):/.test(markupErrors), 'wired, keyed, translate="no", brand, and logged markup stay off the gate');
+
+// The gate only proves copy goes through a helper. Each English literal handed
+// to an exact-map helper must also resolve to a key on its page.
+function pageExactMap(files) {
+  const sandbox = { module: undefined };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  for (const file of files) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), sandbox);
+  return sandbox.fsbUiLocale.exact;
+}
+const literal = "'((?:[^'\\\\]|\\\\.)*)'";
+for (const [file, maps, helpers] of [
+  ['extension/ui/options.js', ['extension/utils/panel-exact.js', 'extension/utils/copy-exact.js'], 'fsbUiLine|fsbUiHtml|fsbUiMarkup'],
+  ['extension/ui/sidepanel.js', ['extension/utils/copy-exact.js'], 'spLine']
+]) {
+  const exactMap = pageExactMap(['extension/utils/ui-locale.js', ...maps]);
+  const source = fs.readFileSync(path.join(root, file), 'utf8');
+  const direct = new RegExp(`\\b(?:${helpers})\\(\\s*${literal}`, 'g');
+  const ternary = new RegExp(`\\b(?:${helpers})\\([^'()\\n]*\\?\\s*${literal}\\s*:\\s*${literal}`, 'g');
+  const english = [];
+  for (const match of source.matchAll(direct)) english.push(match[1]);
+  for (const match of source.matchAll(ternary)) english.push(match[1], match[2]);
+  const unresolved = english.map((text) => text.replace(/\\'/g, "'")).filter((text) => !Object.prototype.hasOwnProperty.call(exactMap, text));
+  check(english.length > 0 && unresolved.length === 0, `${file} copy helpers resolve to catalog keys${unresolved.length ? ': ' + unresolved.join(' | ') : ''}`);
+}
 
 // MV3's default CSP blocks inline scripts on extension pages, so a boot call
 // placed inline never runs.

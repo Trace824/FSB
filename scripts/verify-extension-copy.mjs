@@ -6,7 +6,8 @@
  * English catalog message and is not producer-owned (user text, model output,
  * page DOM, secrets, or logs) or a provider name. Static HTML text must also
  * sit inside a data-i18n (or translate="no") element, because apply() only
- * translates keyed nodes.
+ * translates keyed nodes. Text and labelled attributes in markup that JS
+ * builds must go through a locale helper, for the same reason.
  *
  * Usage:
  *   node scripts/verify-extension-copy.mjs
@@ -54,7 +55,8 @@ const PROVIDERS = new Set([
 
 const BRANDS = new Set([
   'FSB',
-  'Discord'
+  'Discord',
+  'GitHub'
 ]);
 
 function arg(name) {
@@ -69,7 +71,7 @@ function stripComments(source) {
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-function decodeJs(body, quote) {
+function decodeJs(body) {
   return body
     .replace(/\\n/g, '\n')
     .replace(/\\r/g, '')
@@ -82,68 +84,156 @@ function decodeJs(body, quote) {
     .replace(/\\u2026/g, '…');
 }
 
-function extractJsStrings(source) {
-  const found = [];
-  let i = 0;
-  while (i < source.length) {
-    const ch = source[i];
-    if (ch !== "'" && ch !== '"' && ch !== '`') {
-      i += 1;
+const MARKUP = /<\/?[A-Za-z]/;
+const REGEX_KEYWORDS = /^(?:return|typeof|case|in|of|delete|void|throw|new|else|do|yield|await|instanceof)$/;
+
+// A slash after an operator, punctuation, or keyword opens a regex literal.
+// After a value (name, number, `)` or `]`) it is division.
+function regexAllowed(source, i) {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(source[j])) j -= 1;
+  if (j < 0) return true;
+  if (/[(,=:[!&|?{};+\-*%<>~^]/.test(source[j])) return true;
+  const word = source.slice(Math.max(0, j - 12), j + 1).match(/[A-Za-z_$]+$/);
+  return Boolean(word && REGEX_KEYWORDS.test(word[0]));
+}
+
+function skipRegex(source, start) {
+  let i = start + 1;
+  let inClass = false;
+  while (i < source.length && source[i] !== '\n') {
+    const c = source[i];
+    if (c === '\\') {
+      i += 2;
       continue;
     }
-    const start = i;
-    i += 1;
-    let body = '';
-    let closed = false;
-    while (i < source.length) {
-      const c = source[i];
-      if (c === '\\') {
-        body += c + (source[i + 1] || '');
-        i += 2;
-        continue;
-      }
-      if (c === ch) {
-        closed = true;
-        i += 1;
-        break;
-      }
-      if (ch === '`' && c === '$' && source[i + 1] === '{') {
-        const part = decodeJs(body, ch).replace(/\s+/g, ' ').trim();
-        if (part) found.push({ text: part, index: start });
-        body = '';
-        i += 2;
-        const exprStart = i;
-        let depth = 1;
-        while (i < source.length && depth > 0) {
-          if (source[i] === '{') depth += 1;
-          else if (source[i] === '}') depth -= 1;
-          i += 1;
-        }
-        // Strings inside ${...} render too (option labels, status lines), so
-        // scan the expression instead of skipping it.
-        for (const inner of extractJsStrings(source.slice(exprStart, i - 1))) {
-          found.push({ text: inner.text, index: exprStart + inner.index });
-        }
-        continue;
-      }
-      body += c;
+    if (inClass) {
+      if (c === ']') inClass = false;
+    } else if (c === '[') {
+      inClass = true;
+    } else if (c === '/') {
       i += 1;
+      while (/[a-z]/.test(source[i] || '')) i += 1;
+      return i;
     }
-    if (!closed) continue;
-    const text = decodeJs(body, ch).replace(/\s+/g, ' ').trim();
-    if (text) found.push({ text, index: start });
+    i += 1;
+  }
+  // No closing slash on the line, so it was division after all.
+  return start + 1;
+}
+
+// index is the opening quote or backtick, which isLog() looks behind; rawIndex
+// is where body starts in the source.
+function pushJsText(found, body, index, rawIndex) {
+  const text = decodeJs(body).replace(/\s+/g, ' ').trim();
+  if (text) found.push({ text, index, raw: body, rawIndex });
+}
+
+function scanQuoted(source, start, found) {
+  const quote = source[start];
+  let i = start + 1;
+  let body = '';
+  while (i < source.length && source[i] !== quote && source[i] !== '\n') {
+    if (source[i] === '\\') {
+      body += source[i] + (source[i + 1] || '');
+      i += 2;
+      continue;
+    }
+    body += source[i];
+    i += 1;
+  }
+  if (source[i] === quote) pushJsText(found, body, start, start + 1);
+  return i + 1;
+}
+
+function scanTemplate(source, start, found) {
+  let i = start + 1;
+  let partStart = i;
+  let body = '';
+  while (i < source.length && source[i] !== '`') {
+    if (source[i] === '\\') {
+      body += source[i] + (source[i + 1] || '');
+      i += 2;
+      continue;
+    }
+    if (source[i] === '$' && source[i + 1] === '{') {
+      pushJsText(found, body, start, partStart);
+      body = '';
+      // Strings inside ${...} render too (option labels, status lines).
+      i = scanJs(source, i + 2, found, true);
+      partStart = i;
+      continue;
+    }
+    body += source[i];
+    i += 1;
+  }
+  pushJsText(found, body, start, partStart);
+  return i + 1;
+}
+
+// Walks code once, skipping comments and regex literals, so a quote or `//`
+// inside either cannot shift the scan. With nested set, returns just past the
+// `}` that closes a template ${...} expression.
+function scanJs(source, start, found, nested) {
+  let i = start;
+  let depth = 0;
+  while (i < source.length) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < source.length && source[i] !== '\n') i += 1;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      i = end === -1 ? source.length : end + 2;
+      continue;
+    }
+    if (c === '/' && regexAllowed(source, i)) {
+      i = skipRegex(source, i);
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      i = scanQuoted(source, i, found);
+      continue;
+    }
+    if (c === '`') {
+      i = scanTemplate(source, i, found);
+      continue;
+    }
+    if (nested) {
+      if (c === '{') {
+        depth += 1;
+      } else if (c === '}') {
+        if (depth === 0) return i + 1;
+        depth -= 1;
+      }
+    }
+    i += 1;
+  }
+  return i;
+}
+
+function extractJsStrings(source) {
+  const found = [];
+  scanJs(source, 0, found, false);
+  return found;
+}
+
+function labelledAttrs(source) {
+  const found = [];
+  const attr = /(?:aria-label|placeholder|title|alt)="([^"]+)"/g;
+  let match;
+  while ((match = attr.exec(source))) {
+    found.push({ kind: 'attr', text: decodeEntities(match[1]).replace(/\s+/g, ' ').trim(), index: match.index });
   }
   return found;
 }
 
 function extractHtmlStrings(source) {
-  const found = [];
   const withoutScripts = source.replace(/<script[\s\S]*?<\/script>/gi, (block) => ' '.repeat(block.length)).replace(/<style[\s\S]*?<\/style>/gi, (block) => ' '.repeat(block.length));
-  const attr = /(?:aria-label|placeholder|title|alt)="([^"]+)"/g;
+  const found = labelledAttrs(withoutScripts);
   let match;
-  while ((match = attr.exec(withoutScripts))) {
-    found.push({ kind: 'attr', text: decodeEntities(match[1]).replace(/\s+/g, ' ').trim(), index: match.index });
-  }
   // Open elements whose text is keyed (data-i18n) or deliberately left
   // untranslated (translate="no").
   const i18nDepth = [];
@@ -181,6 +271,8 @@ function decodeEntities(text) {
     .replace(/&middot;/g, '·')
     .replace(/&rarr;/g, '→')
     .replace(/&times;/g, '×')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ');
 }
 
@@ -201,13 +293,48 @@ function isProse(text) {
 // are not copy.
 function isHtmlCopy(text) {
   if (!text || /[<>]/.test(text) || text.startsWith('!')) return false;
-  if (PROVIDERS.has(text) || UNTRANSLATED.has(text) || BRANDS.has(text)) return false;
-  if ((text.match(/[A-Za-z]/g) || []).length < 2) return false;
-  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(text)) return false;
-  if (/^\/\S*$/.test(text)) return false;
-  if (/^[\d.,:]+\s*[A-Za-z%]{0,3}$/.test(text)) return false;
-  if (/^[A-Z0-9_]{2,}$/.test(text)) return false;
+  // A trailing separator does not make a token copy ("MCP ·").
+  const core = text.replace(/[\s·:|,;]+$/, '');
+  if (PROVIDERS.has(core) || UNTRANSLATED.has(core) || BRANDS.has(core)) return false;
+  if ((core.match(/[A-Za-z]/g) || []).length < 2) return false;
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(core)) return false;
+  if (/^\/\S*$/.test(core)) return false;
+  if (/^[\d.,:]+\s*[A-Za-z%]{0,3}$/.test(core)) return false;
+  if (/^[A-Z0-9_]{2,}$/.test(core)) return false;
   return true;
+}
+
+// Template parts split at ${...} can open inside a tag (`" id="x">`) or end
+// inside one (`<input value="`). Drop those partial tags before tokenizing.
+function trimPartialTags(text) {
+  let start = 0;
+  let end = text.length;
+  const firstOpen = text.indexOf('<');
+  const firstClose = text.indexOf('>');
+  if (firstClose !== -1 && (firstOpen === -1 || firstClose < firstOpen)) start = firstClose + 1;
+  const lastOpen = text.lastIndexOf('<');
+  if (lastOpen >= start && lastOpen > text.lastIndexOf('>')) end = lastOpen;
+  return { text: text.slice(start, end), offset: start };
+}
+
+// Text and labelled attributes in markup that JS builds. Raw markup text is
+// never translated, so a catalog match does not count; it must go through a
+// locale helper (or sit in a data-i18n / translate="no" element).
+function markupCopy(item) {
+  const out = [];
+  const add = (seg, base, lead) => {
+    const value = decodeJs(seg.text).replace(/\s+/g, ' ').trim();
+    if (isHtmlCopy(value)) out.push({ text: value, index: base + seg.index + lead });
+  };
+  // Attributes are read from the whole part: a closed title="..." after a
+  // ${...} value still sits in the partial tag that trimming drops.
+  for (const seg of labelledAttrs(item.raw)) add(seg, item.rawIndex, 0);
+  const { text, offset } = trimPartialTags(item.raw);
+  for (const seg of extractHtmlStrings(text)) {
+    if (seg.kind !== 'text') continue;
+    add(seg, item.rawIndex + offset, Math.max(0, text.slice(seg.index).search(/\S/)));
+  }
+  return out.sort((a, b) => a.index - b.index);
 }
 
 function isLog(source, index) {
@@ -235,20 +362,30 @@ export function findUncataloged(files, catalog) {
   const misses = [];
   for (const file of files) {
     const raw = readFileSync(join(ROOT, file), 'utf8');
-    const source = stripComments(raw);
-    const items = file.endsWith('.html') ? extractHtmlStrings(source) : extractJsStrings(source);
+    const isHtml = file.endsWith('.html');
+    // The JS scanner skips comments itself and needs the raw source to tell
+    // a regex literal from a comment.
+    const source = isHtml ? stripComments(raw) : raw;
+    const lineAt = (index) => source.slice(0, index).split('\n').length;
+    const items = isHtml ? extractHtmlStrings(source) : extractJsStrings(source);
     for (const item of items) {
-      const line = () => source.slice(0, item.index).split('\n').length;
       if (item.kind === 'text') {
         // apply() only translates static text through a data-i18n hook, so a
         // catalog match alone leaves the text in English.
-        if (isHtmlCopy(item.text)) misses.push({ file, line: line(), text: item.text, reason: 'unwired chrome (needs data-i18n)' });
+        if (isHtmlCopy(item.text)) misses.push({ file, line: lineAt(item.index), text: item.text, reason: 'unwired chrome (needs data-i18n)' });
+        continue;
+      }
+      if (item.raw !== undefined && MARKUP.test(item.raw)) {
+        if (isLog(source, item.index)) continue;
+        for (const seg of markupCopy(item)) {
+          misses.push({ file, line: lineAt(seg.index), text: seg.text, reason: 'unwired chrome in markup (route through the locale helper)' });
+        }
         continue;
       }
       if (!isProse(item.text)) continue;
       if (isLog(source, item.index)) continue;
       if (catalog.has(item.text)) continue;
-      misses.push({ file, line: line(), text: item.text, reason: 'uncataloged chrome' });
+      misses.push({ file, line: lineAt(item.index), text: item.text, reason: 'uncataloged chrome' });
     }
   }
   return misses;
