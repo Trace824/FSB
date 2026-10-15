@@ -38,6 +38,10 @@ function section(title) {
   console.log('\n--- ' + title + ' ---');
 }
 
+function hasOwnKey(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
 function sameJson(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
@@ -717,6 +721,211 @@ check(sameJson(result.apply, {}) && sync.filterForSave(settings).length === 0 &&
   'without FsbSettingsSchema nothing is applied or dropped');
 check(sync.keyForElementId('debugMode') === null, 'without FsbSettingsSchema no id maps to a key');
 global.FsbSettingsSchema = savedSchema;
+sync.reset({});
+
+// ---------------------------------------------------------------------------
+section('Source contract: saveSettings, loadSettings, discardChanges');
+// ---------------------------------------------------------------------------
+
+function between(text, startMarker, endMarker) {
+  const start = text.indexOf(startMarker);
+  if (start === -1) return '';
+  const end = text.indexOf(endMarker, start + startMarker.length);
+  return end === -1 ? '' : text.slice(start, end);
+}
+
+// .trim() calls in the saveSettings slice at 469907cb (8a058bdf source), measured
+// once while implementing 66.1-04: selectedModelName, the LM Studio URL, the
+// seven key/endpoint inputs and the CAPTCHA key. CI uses shallow clones, so the
+// test never calls git.
+const BASELINE_SAVE_SETTINGS_TRIM_COUNT = 10;
+
+const saveSlice = between(OPTIONS_SOURCE, 'function saveSettings() {', 'function discardChanges() {');
+check(saveSlice !== '', 'the saveSettings slice is found');
+const lmGuardAt = saveSlice.indexOf('validateLmStudioSettingsSelection(normalizedProviderSettings, selectedModelName)');
+const filterAt = saveSlice.indexOf('filterForSave(settings)');
+const selfWriteAt = saveSlice.indexOf('noteSelfWrite(settings)');
+const storageWriteAt = saveSlice.indexOf('chrome.storage.local.set(settings');
+check(lmGuardAt !== -1 && filterAt > lmGuardAt && selfWriteAt > filterAt && storageWriteAt > selfWriteAt,
+  'saveSettings runs the LM guard, then filterForSave(settings), then noteSelfWrite(settings), then the storage write');
+check(saveSlice.split('filterForSave(').length - 1 === 1 && saveSlice.split('noteSelfWrite(').length - 1 === 1,
+  'saveSettings filters and records once');
+check(saveSlice.includes("modelName: selectedModelName || persistedProviderSelection.modelName || 'grok-4-1-fast',"),
+  'the exact modelName fallback line is still present');
+const trimCount = (saveSlice.match(/\.trim\(\)/g) || []).length;
+check(trimCount === BASELINE_SAVE_SETTINGS_TRIM_COUNT && trimCount >= 9,
+  'saveSettings keeps its ' + BASELINE_SAVE_SETTINGS_TRIM_COUNT + ' .trim() calls (got ' + trimCount + ')');
+check(!/\n\s*(?:async\s+)?function\s+\w+\s*\(/.test(saveSlice.slice('function saveSettings() {'.length)),
+  'no function is declared between saveSettings and discardChanges');
+
+const callback = saveSlice.slice(storageWriteAt);
+check(/const wroteVoiceInput = Object\.prototype\.hasOwnProperty\.call\(settings, 'voiceInputEnabled'\);/.test(callback),
+  'the Save callback checks whether voiceInputEnabled was written');
+check(/if \(wroteVoiceInput\) persistedVoiceInputEnabled = settings\.voiceInputEnabled;/.test(callback),
+  'persistedVoiceInputEnabled moves only when voiceInputEnabled was written');
+check(/if \(voiceInputSettingsController && wroteVoiceInput\) \{\s*void voiceInputSettingsController\.handleSavedChange\(\s*previousVoiceInputEnabled,\s*settings\.voiceInputEnabled/.test(callback),
+  'handleSavedChange runs only when voiceInputEnabled was written');
+for (const field of ['providerKind', 'modelProvider', 'modelName']) {
+  check(new RegExp(field + ": wrote\\('" + field + "'\\) \\? settings\\." + field + ' : previousProviderSelection\\.' + field).test(callback),
+    'persistedProviderSelection keeps its previous ' + field + ' when the key was dropped');
+}
+check(callback.includes('globalThis.FSBSettingsSync.noteSaved(Object.keys(settings))'),
+  'noteSaved receives the keys actually written');
+check(/function discardChanges\(\) \{\s*loadSettings\(\);/.test(OPTIONS_SOURCE), 'discardChanges still starts with loadSettings()');
+check(!OPTIONS_SOURCE.includes('FSB_DELEGATION_CLEAR_TRUST'), 'options.js does not mention FSB_DELEGATION_CLEAR_TRUST');
+
+const loadSlice = between(OPTIONS_SOURCE, 'function loadSettings() {', '// ---------------------------------------------------------------------------\n// Phase 243');
+check(/data = data \|\| \{\};\n\s*if \(globalThis\.FSBSettingsSync\) globalThis\.FSBSettingsSync\.reset\(data\);\n\s*fsbRecommendedAgentCap = await/.test(loadSlice),
+  'loadSettings seeds the sync from its storage snapshot right after data = data || {}, before the first await');
+check(/globalThis\.FSBSettingsSync\.noteSelfWrite\(\{ modelName: migratedModel \}\);\s*chrome\.storage\.local\.set\(\{ modelName: migratedModel \}, resolve\);/.test(loadSlice),
+  'the LM Studio migration records its own write immediately before it');
+const lmUrlAt = loadSlice.indexOf("lmstudioBaseUrl.value = settings.lmstudioBaseUrl || 'http://localhost:1234'");
+check(lmUrlAt !== -1 && lmUrlAt < loadSlice.indexOf('discoveryResult = await setProviderSelection('),
+  'the LM Studio URL is still restored before discovery starts');
+
+// ---------------------------------------------------------------------------
+section('Source contract: setupEventListeners and the IIFE');
+// ---------------------------------------------------------------------------
+
+const EXISTING_ON_CHANGED_BLOCK = [
+  "    chrome.storage.onChanged.addListener((changes, area) => {",
+  "      if (area === 'session' && changes && changes.fsbAgentRegistry) {",
+  '        scheduleRefreshActiveAgentCount();',
+  "      } else if (area === 'local' && changes && changes.fsbAgentCap) {",
+  '        scheduleRefreshActiveAgentCount();',
+  "      } else if (area === 'session' && changes && changes.fsbTriggerRegistry) {",
+  '        scheduleRefreshActiveTriggerCount();',
+  "      } else if (area === 'local' && changes && changes.fsbTriggerCap) {",
+  '        scheduleRefreshActiveTriggerCount();',
+  "      } else if (area === 'local' && changes",
+  '          && (changes.fsbConsentPolicies || changes.fsbAuditLog)) {'
+].join('\n');
+const setupSlice = between(OPTIONS_SOURCE, 'function setupEventListeners() {', '\nfunction ');
+const existingBlockAt = setupSlice.indexOf(EXISTING_ON_CHANGED_BLOCK);
+const attachAt = setupSlice.indexOf("if (globalThis.FSBSettingsSync && typeof globalThis.FSBSettingsSync.attach === 'function') globalThis.FSBSettingsSync.attach();");
+check(existingBlockAt !== -1, 'the existing chrome.storage.onChanged listener keeps its arms');
+check(attachAt > existingBlockAt, 'setupEventListeners calls FSBSettingsSync.attach() after the existing listener block');
+check(OPTIONS_SOURCE.split('FSBSettingsSync.attach()').length - 1 === 1, 'FSBSettingsSync.attach() is called exactly once');
+check(setupSlice.split('chrome.storage.onChanged.addListener(').length - 1 === 2,
+  'setupEventListeners still registers only its two existing listeners (the sync installs its own through attach)');
+
+const iifeStart = OPTIONS_SOURCE.indexOf('/**\n * FSBSettingsSync (Phase 66.1');
+const iifeEnd = OPTIONS_SOURCE.indexOf('// Export for potential use by other scripts', iifeStart);
+const iifeText = iifeStart === -1 || iifeEnd === -1 ? '' : OPTIONS_SOURCE.slice(iifeStart, iifeEnd);
+check(iifeText.length > 0 && iifeText.includes('global.FSBSettingsSync = Object.freeze(api);'), 'the FSBSettingsSync IIFE text is found');
+check(iifeText.includes('persistedProviderSelection ='), 'the IIFE refreshes the persisted provider baseline');
+for (const forbidden of ['setProviderSelection(', 'runDiscovery', 'runApiProviderSelectionPath(', 'updateModelOptions(',
+  'loadSettings(', 'checkApiConnection(', 'markUnsavedChanges(', 'fetch(', 'dispatchEvent(', 'showToast(',
+  'handleSavedChange(', 'console.log(']) {
+  check(!iifeText.includes(forbidden), 'the IIFE never contains ' + forbidden);
+}
+check(!/[^\x00-\x7f]/.test(iifeText), 'the IIFE is plain ASCII');
+check(!/function (?:renderProviderKind|refreshStepper|saveSettings|loadSettings|updateApiKeyVisibility)\(/.test(iifeText),
+  'the IIFE declares no function that shadows an options.js function');
+
+// ---------------------------------------------------------------------------
+section('attach(): the live listeners under the shim');
+// ---------------------------------------------------------------------------
+
+buildRegistry();
+dispatchCount = 0;
+fetchCalls = 0;
+documentListeners.length = 0;
+onChangedListeners.length = 0;
+global.FSBProvidersPanel = providersPanel;
+const discoveryUi = global.FSBDiscoveryUI;
+let runDiscoveryCalls = 0;
+if (discoveryUi && !Object.isFrozen(discoveryUi) && typeof discoveryUi.runDiscovery === 'function') {
+  const realRunDiscovery = discoveryUi.runDiscovery;
+  discoveryUi.runDiscovery = function (...args) {
+    runDiscoveryCalls += 1;
+    return realRunDiscovery.apply(this, args);
+  };
+}
+
+check(sync.attach() === true, 'attach() installs the listeners');
+check(sync.attach() === false, 'a second attach() is a no-op');
+check(onChangedListeners.length === 1, 'exactly one chrome.storage.onChanged listener is installed');
+const captureTypes = documentListeners.filter((l) => l.options === true).map((l) => l.type).sort();
+check(sameJson(captureTypes, ['change', 'click', 'input']), 'capture-phase input, change and click listeners are installed once');
+const fireStorage = (changes, area) => onChangedListeners.forEach((fn) => fn(changes, area || 'local'));
+const fireDocument = (type, target) => documentListeners
+  .filter((l) => l.type === type)
+  .forEach((l) => l.fn({ type, target }));
+
+sync.reset({ maxIterations: 100, debugMode: false, providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' });
+fireStorage({ maxIterations: { oldValue: 100, newValue: 150 } });
+check(String(registry.get('maxIterations').value) === '150' && String(registry.get('maxIterationsSlider').value) === '150'
+  && String(registry.get('maxIterationsDisplay').textContent) === '150', 'an external maxIterations write shows in the registry inputs');
+fireStorage({ maxIterations: { oldValue: 150, newValue: 175 } }, 'session');
+check(String(registry.get('maxIterations').value) === '150', 'a session-area change is ignored');
+
+fireDocument('input', registry.get('maxIterationsSlider'));
+fireStorage({ maxIterations: { oldValue: 150, newValue: 300 } });
+check(String(registry.get('maxIterationsSlider').value) === '150', 'after an edit of the stepper an external write is not applied');
+settings = fullSettings({ maxIterations: 150 });
+check(sync.filterForSave(settings).indexOf('maxIterations') === -1 && settings.maxIterations === 150,
+  'and the edited value is not dropped (the user edit wins)');
+
+const resetButton = makeEl('button', 'fsbAgentCapReset');
+const capLabel = makeEl('span');
+capLabel.closest = (selector) => (selector.indexOf('#fsbAgentCapReset') !== -1 ? resetButton : null);
+fireDocument('click', capLabel);
+check(sync.inspect().touched.indexOf('fsbAgentCap') !== -1, 'a click inside the agent-cap reset button marks fsbAgentCap touched');
+const plainClick = makeEl('div', 'maxDOMElementsSlider');
+plainClick.closest = () => null;
+fireDocument('click', plainClick);
+check(sync.inspect().touched.indexOf('maxDOMElements') === -1, 'a plain click on a field does not mark it touched');
+
+// Provider group through the real default deps (no discovery, no network).
+buildRegistry();
+registry.get('modelProvider').value = 'xai';
+registry.get('modelName').value = 'grok-4-1-fast';
+sync.reset({ providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' });
+fetchCalls = 0;
+dispatchCount = 0;
+runDiscoveryCalls = 0;
+fireStorage({
+  modelProvider: { oldValue: 'xai', newValue: 'gemini' },
+  modelName: { oldValue: 'grok-4-1-fast', newValue: 'gemini-2.5-flash' }
+});
+check(registry.get('modelProvider').value === 'gemini', 'the provider select shows gemini');
+check(registry.get('modelName').options.length === 1 && registry.get('modelName').value === 'gemini-2.5-flash',
+  'the model select holds only the stored gemini model, selected');
+check(registry.get('geminiApiKeyGroup').style.display === 'block' && registry.get('xaiApiKeyGroup').style.display === 'none',
+  'the gemini API-key group is shown');
+check(/Provider changed outside this panel/.test(registry.get('modelDiscoveryStatus').textContent), 'the discovery chip explains the change');
+check(fetchCalls === 0, 'no fetch during the provider refresh');
+check(runDiscoveryCalls === 0, 'FSBDiscoveryUI.runDiscovery is never called');
+check(dispatchCount === 0, 'no element event is dispatched');
+settings = fullSettings({ modelProvider: 'gemini', modelName: 'gemini-2.5-flash' });
+check(sameJson(sync.filterForSave(settings).sort(), ['modelName', 'modelProvider']), 'a later Save drops both provider keys');
+
+buildRegistry();
+registry.get('modelProvider').value = 'xai';
+registry.get('modelName').value = 'grok-4-1-fast';
+sync.reset({ providerKind: 'api', modelProvider: 'gemini', modelName: 'gemini-2.5-flash' });
+fireDocument('change', registry.get('modelProvider'));
+fireStorage({
+  modelProvider: { oldValue: 'gemini', newValue: 'openai' },
+  modelName: { oldValue: 'gemini-2.5-flash', newValue: 'gpt-4.1-mini' }
+});
+check(registry.get('modelProvider').value === 'xai', 'after a provider edit the provider select is left alone');
+check(registry.get('modelName').options.length === 3 && registry.get('modelName').value === 'grok-4-1-fast',
+  'after a provider edit the model select is left alone');
+settings = fullSettings();
+check(sync.filterForSave(settings).length === 0 && sync.PROVIDER_GROUP_KEYS.every((k) => hasOwnKey(settings, k)),
+  'after a provider edit no provider key is dropped');
+check(fetchCalls === 0 && runDiscoveryCalls === 0, 'still no fetch and no discovery');
+
+// The panel's own Save echo is not an external change.
+sync.reset({ debugMode: false, maxIterations: 100 });
+settings = fullSettings({ debugMode: true, maxIterations: 100 });
+sync.filterForSave(settings);
+sync.noteSelfWrite(settings);
+fireStorage({ debugMode: { oldValue: false, newValue: true } });
+sync.noteSaved(Object.keys(settings));
+check(sync.inspect().pending.length === 0, 'the Save echo leaves nothing pending');
 sync.reset({});
 
 // ---------------------------------------------------------------------------

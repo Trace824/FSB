@@ -1034,6 +1034,10 @@ function setupEventListeners() {
     });
   }
 
+  // Phase 66.1 D-16: follow settings written outside this panel (the MCP
+  // settings tool, another panel tab) and track the fields the user edits.
+  if (globalThis.FSBSettingsSync && typeof globalThis.FSBSettingsSync.attach === 'function') globalThis.FSBSettingsSync.attach();
+
   // Phase 30 (GOV-07): Consent & Audit wiring. Consent/audit state lives in its
   // OWN stores (consent-policy-store.js, audit-log.js), NOT defaultSettings, so
   // these controls deliberately do NOT join the formInputs Save-bar array -- they
@@ -1819,6 +1823,7 @@ function loadSettings() {
   const loadGeneration = providerSettingsLoadGeneration;
   chrome.storage.local.get(Object.keys(defaultSettings), async (data) => {
     data = data || {};
+    if (globalThis.FSBSettingsSync) globalThis.FSBSettingsSync.reset(data);
     fsbRecommendedAgentCap = await resolveRecommendedAgentCap();
     if (loadGeneration !== providerSettingsLoadGeneration) return;
     const hasStoredAgentCap = Object.prototype.hasOwnProperty.call(data, 'fsbAgentCap')
@@ -1919,6 +1924,7 @@ function loadSettings() {
           const migratedModel = String(models[0].id || '');
           elements.modelName.value = migratedModel;
           await new Promise(resolve => {
+            if (globalThis.FSBSettingsSync) globalThis.FSBSettingsSync.noteSelfWrite({ modelName: migratedModel });
             chrome.storage.local.set({ modelName: migratedModel }, resolve);
           });
           persistedProviderSelection.modelName = migratedModel;
@@ -2376,14 +2382,25 @@ function saveSettings() {
     fsbMcpSessionRecordingEnabled: elements.fsbMcpSessionRecordingEnabled?.checked ?? true,
     fsbMcpSessionRetentionDays: clampMcpSessionRetentionDays(elements.fsbMcpSessionRetentionDays?.value)
   };
-  
+
+  // Phase 66.1 D-16: leave out keys another writer changed that the user has
+  // not touched, then record what this Save actually writes.
+  if (globalThis.FSBSettingsSync) {
+    globalThis.FSBSettingsSync.filterForSave(settings);
+    globalThis.FSBSettingsSync.noteSelfWrite(settings);
+  }
+
   chrome.storage.local.set(settings, () => {
-    persistedVoiceInputEnabled = settings.voiceInputEnabled;
+    const wroteVoiceInput = Object.prototype.hasOwnProperty.call(settings, 'voiceInputEnabled');
+    if (wroteVoiceInput) persistedVoiceInputEnabled = settings.voiceInputEnabled;
+    const previousProviderSelection = persistedProviderSelection;
+    const wrote = (key) => Object.prototype.hasOwnProperty.call(settings, key);
     persistedProviderSelection = {
-      providerKind: settings.providerKind,
-      modelProvider: settings.modelProvider,
-      modelName: settings.modelName
+      providerKind: wrote('providerKind') ? settings.providerKind : previousProviderSelection.providerKind,
+      modelProvider: wrote('modelProvider') ? settings.modelProvider : previousProviderSelection.modelProvider,
+      modelName: wrote('modelName') ? settings.modelName : previousProviderSelection.modelName
     };
+    if (globalThis.FSBSettingsSync) globalThis.FSBSettingsSync.noteSaved(Object.keys(settings));
     dashboardState.hasUnsavedChanges = false;
     hideSaveBar();
     showToast('Settings saved successfully', 'success');
@@ -2394,7 +2411,7 @@ function saveSettings() {
       checkApiConnection();
     }
 
-    if (voiceInputSettingsController) {
+    if (voiceInputSettingsController && wroteVoiceInput) {
       void voiceInputSettingsController.handleSavedChange(
         previousVoiceInputEnabled,
         settings.voiceInputEnabled
@@ -9474,12 +9491,12 @@ function initializeSyncSection() {
     return { apply };
   }
 
-  function filterForSave(settings) {
+  function filterForSave(toWrite) {
     const dropped = [];
-    if (!settings || typeof settings !== 'object' || !getSchema()) return dropped;
+    if (!toWrite || typeof toWrite !== 'object' || !getSchema()) return dropped;
     pending.forEach((key) => {
-      if (touched.has(key) || !hasOwn(settings, key)) return;
-      delete settings[key];
+      if (touched.has(key) || !hasOwn(toWrite, key)) return;
+      delete toWrite[key];
       dropped.push(key);
     });
     return dropped;
