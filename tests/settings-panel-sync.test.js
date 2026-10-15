@@ -481,6 +481,19 @@ sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'loc
 sync.noteSaved(['debugMode']);
 check(sameJson(sync.inspect().pending, ['modelProvider']), 'noteSaved removes written keys from pending');
 
+// IN-04: a field first edited while the Save's storage write is in flight
+// stays touched; only the keys touched at the click are cleared.
+sync.reset({ debugMode: false, maxIterations: 100 });
+sync.noteTouched('debugMode');
+const touchedAtClick = sync.inspect().touched;
+sync.noteTouched('maxIterations'); // edited after the click, before the callback
+sync.noteSaved(['debugMode', 'maxIterations'], touchedAtClick);
+check(sameJson(sync.inspect().touched, ['maxIterations']), 'noteSaved clears only the keys touched when Save was clicked');
+result = sync.noteStorageChanges({ maxIterations: { oldValue: 100, newValue: 300 } }, 'local');
+check(sameJson(result.apply, {}), 'so an external write does not overwrite the in-flight edit');
+sync.noteSaved([], 'not-an-array');
+check(sync.inspect().touched.length === 0, 'noteSaved without a touched list clears every touched mark');
+
 sync.noteTouched('maxIterations');
 sync.noteSelfWrite({ maxIterations: 300 });
 sync.reset({});
@@ -872,8 +885,12 @@ for (const field of ['providerKind', 'modelProvider', 'modelName']) {
   check(new RegExp(field + ": wrote\\('" + field + "'\\) \\? settings\\." + field + ' : previousProviderSelection\\.' + field).test(callback),
     'persistedProviderSelection keeps its previous ' + field + ' when the key was dropped');
 }
-check(callback.includes('globalThis.FSBSettingsSync.noteSaved(Object.keys(settings))'),
-  'noteSaved receives the keys actually written');
+check(callback.includes('globalThis.FSBSettingsSync.noteSaved(Object.keys(settings), touchedAtSave)'),
+  'noteSaved receives the keys actually written and the touched keys at Save');
+// IN-04: the touched snapshot is taken before the storage write starts.
+const touchedSnapshotAt = saveSlice.indexOf('touchedAtSave = globalThis.FSBSettingsSync.inspect().touched;');
+check(touchedSnapshotAt > selfWriteAt && touchedSnapshotAt < storageWriteAt,
+  'saveSettings snapshots the touched keys after recording its write and before chrome.storage.local.set');
 check(/function discardChanges\(\) \{\s*loadSettings\(\);/.test(OPTIONS_SOURCE), 'discardChanges still starts with loadSettings()');
 check(!OPTIONS_SOURCE.includes('FSB_DELEGATION_CLEAR_TRUST'), 'options.js does not mention FSB_DELEGATION_CLEAR_TRUST');
 

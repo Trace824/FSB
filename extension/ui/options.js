@@ -2397,10 +2397,13 @@ function saveSettings() {
   };
 
   // Phase 66.1 D-16: leave out keys another writer changed that the user has
-  // not touched, then record what this Save actually writes.
+  // not touched, then record what this Save actually writes and which fields
+  // it covers.
+  let touchedAtSave = null;
   if (globalThis.FSBSettingsSync) {
     globalThis.FSBSettingsSync.filterForSave(settings);
     globalThis.FSBSettingsSync.noteSelfWrite(settings);
+    touchedAtSave = globalThis.FSBSettingsSync.inspect().touched;
   }
 
   chrome.storage.local.set(settings, () => {
@@ -2413,7 +2416,7 @@ function saveSettings() {
       modelProvider: wrote('modelProvider') ? settings.modelProvider : previousProviderSelection.modelProvider,
       modelName: wrote('modelName') ? settings.modelName : previousProviderSelection.modelName
     };
-    if (globalThis.FSBSettingsSync) globalThis.FSBSettingsSync.noteSaved(Object.keys(settings));
+    if (globalThis.FSBSettingsSync) globalThis.FSBSettingsSync.noteSaved(Object.keys(settings), touchedAtSave);
     dashboardState.hasUnsavedChanges = false;
     hideSaveBar();
     showToast('Settings saved successfully', 'success');
@@ -9526,8 +9529,12 @@ function initializeSyncSection() {
     return !PROVIDER_GROUP_KEYS.some((key) => pending.has(key));
   }
 
-  function noteSaved(writtenKeys) {
-    touched.clear();
+  // touchedAtSave: the touched keys when Save was clicked. Only those are
+  // cleared, so a field first edited while the storage write was in flight
+  // stays touched. Without it every touched mark is cleared.
+  function noteSaved(writtenKeys, touchedAtSave) {
+    if (Array.isArray(touchedAtSave)) touchedAtSave.forEach((key) => touched.delete(key));
+    else touched.clear();
     if (Array.isArray(writtenKeys)) writtenKeys.forEach((key) => pending.delete(key));
   }
 
