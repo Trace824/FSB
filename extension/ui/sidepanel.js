@@ -5928,7 +5928,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Snapshot previous status as completed action message
         const prevText = currentStatusMessage?.querySelector('.status-text')?.textContent;
         const skipTexts = ['Starting automation...', 'Connecting to page...', 'Connected. Analyzing page...', 'Analyzing page...'];
-        if (prevText && !skipTexts.includes(prevText)) {
+        // addStatusMessage() shows these through fsbUiLocale, so the DOM may hold a translation.
+        const isTransient = (english) => prevText === english
+          || (globalThis.fsbUiLocale && typeof fsbUiLocale.isLine === 'function' && fsbUiLocale.isLine(english, prevText));
+        if (prevText && !skipTexts.some(isTransient)) {
           addActionMessage(prevText);
         }
         updateStatusMessage(request.message, {

@@ -1968,6 +1968,20 @@
       }
     }
   },
+  "entry_key_required": {
+    "message": "$NAME$ API key is required",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_discovering_models": {
+    "message": "Discovering models..."
+  },
+  "entry_no_models": {
+    "message": "No compatible models available"
+  },
   "entry_get_key": {
     "message": "Get your key from"
   },

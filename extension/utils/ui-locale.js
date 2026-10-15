@@ -363,6 +363,16 @@
     return false;
   }
 
+  // True when value shows english or a loaded translation of it, so callers can
+  // compare DOM text that line() or markExact() may have translated.
+  function isLine(english, value) {
+    if (typeof english !== 'string' || typeof value !== 'string') return false;
+    var wanted = norm(value);
+    if (wanted === norm(english)) return true;
+    if (!Object.prototype.hasOwnProperty.call(EXACT, english)) return false;
+    return wanted === norm(line(english)) || isMessage(EXACT[english], value);
+  }
+
   function notifyLocaleChange() {
     var i;
     if (isExtensionPage() && typeof document !== 'undefined') {
@@ -526,6 +536,7 @@
     current: current,
     NATIVE_LABELS: NATIVE_LABELS,
     isMessage: isMessage,
+    isLine: isLine,
     saveOverride: saveOverride,
     onChange: onChange,
     mountSelect: mountSelect,

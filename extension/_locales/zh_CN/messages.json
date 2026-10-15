@@ -1968,6 +1968,20 @@
       }
     }
   },
+  "entry_key_required": {
+    "message": "需要 $NAME$ API 密钥",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_discovering_models": {
+    "message": "正在发现模型..."
+  },
+  "entry_no_models": {
+    "message": "没有可用的兼容模型"
+  },
   "entry_get_key": {
     "message": "在此获取密钥"
   },

@@ -657,7 +657,7 @@
           : ''}${state.lmstudioModels.map(model => `
           <option value="${escapeAttr(model.id)}" ${model.id === state.lmstudioModel ? 'selected' : ''}>${escapeHtml(model.displayName)}</option>
         `).join('')}`
-      : `<option value="">${discovering ? obExact('Discovering models...') : obExact('No compatible models available')}</option>`;
+      : `<option value="">${discovering ? escapeHtml(ob('entry_discovering_models', 'Discovering models...')) : escapeHtml(ob('entry_no_models', 'No compatible models available'))}</option>`;
     return `
       <div class="ob-field">
         <div class="ob-input-row">
@@ -774,7 +774,7 @@
 
     if (!provider.local && !key) {
       state.keyStatus = 'invalid';
-      state.keyMessage = obExact('$NAME$ API key is required', { name: provider.name });
+      state.keyMessage = ob('entry_key_required', '$NAME$ API key is required', { name: provider.name });
       render();
       return false;
     }
@@ -816,7 +816,7 @@
       await storageSet(patch);
       state.validating = false;
       state.keyStatus = 'valid';
-      state.keyMessage = provider.local ? obExact('LM Studio responded successfully') : obExact('Key ending in $LAST$ is valid', { last: key.slice(-4) });
+      state.keyMessage = provider.local ? obExact('LM Studio responded successfully') : ob('entry_key_valid', 'Key ending in $LAST$ is valid', { last: key.slice(-4) });
       return true;
     } catch (error) {
       state.validating = false;

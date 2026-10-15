@@ -1968,6 +1968,20 @@
       }
     }
   },
+  "entry_key_required": {
+    "message": "La clave de API de $NAME$ es obligatoria",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_discovering_models": {
+    "message": "Buscando modelos..."
+  },
+  "entry_no_models": {
+    "message": "No hay modelos compatibles disponibles"
+  },
   "entry_get_key": {
     "message": "Obtén tu clave en"
   },

@@ -149,11 +149,33 @@ locale.registerExact({ 'Trust $NAME$ probe': 'copy_probe' });
 check(locale.line('Trust $NAME$ probe', { name: 'Grok' }) === 'Vertrauen für Grok', 'line applies the active locale');
 locale.setOverride(null);
 
+// statusUpdate compares the shown status against English transient labels,
+// which addStatusMessage() may have translated.
+locale.registerExact({ 'Probe starting...': 'probe_transient' });
+locale.setCatalog('de', { probe_transient: 'Probe wird gestartet...' });
+locale.setOverride('de');
+check(locale.isLine('Probe starting...', 'Probe wird gestartet...'), 'isLine matches the active translation of an exact line');
+check(locale.isLine('Probe starting...', 'Probe starting...'), 'isLine matches the English source');
+check(!locale.isLine('Probe starting...', 'Clicked the Submit button'), 'isLine rejects other text');
+check(!locale.isLine('Probe starting...', undefined), 'isLine rejects a missing value');
+check(!locale.isLine('Not an exact line', 'Probe wird gestartet...'), 'isLine needs the English line in the exact map');
+check(!locale.isLine('constructor', 'function Object() { [native code] }'), 'isLine ignores inherited object keys');
+locale.setOverride(null);
+check(locale.isLine('Probe starting...', 'Probe wird gestartet...'), 'isLine still matches text drawn before the language changed');
+for (const file of ['extension/ui/sidepanel.js', 'extension/ui/popup.js']) {
+  const source = fs.readFileSync(path.join(root, file), 'utf8');
+  check(!source.includes('!skipTexts.includes(prevText)') && source.includes('fsbUiLocale.isLine(english, prevText)'),
+    `${file} skips translated transient status lines`);
+}
+
 const copyGate = spawnSync(process.execPath, ['scripts/verify-extension-copy.mjs'], { cwd: root, encoding: 'utf8' });
 check(copyGate.status === 0, 'in-scope chrome is cataloged');
 const badSentence = spawnSync(process.execPath, ['scripts/verify-extension-copy.mjs', '--file', 'tests/fixtures/extension-i18n/bad-sentence/ui.js'], { cwd: root, encoding: 'utf8' });
 check(badSentence.status === 1, 'uncataloged chrome fixture fails');
 check(String(badSentence.stderr).includes('This sentence is not cataloged.'), 'fixture reports the package-owned sentence');
+check(String(badSentence.stderr).includes('ui.js:3: uncataloged chrome: This template sentence is not cataloged.'),
+  'fixture reports a sentence inside a template expression on its own line');
+check(String(badSentence.stderr).includes('$NAME$ sentence is not cataloged here.'), 'fixture reports a sentence that opens with a placeholder');
 check(!String(badSentence.stderr).includes('User typed a secret sentence here.'), 'log sentences stay off the coverage gate');
 const badUnwired = spawnSync(process.execPath, ['scripts/verify-extension-copy.mjs', '--file', 'tests/fixtures/extension-i18n/bad-unwired/page.html'], { cwd: root, encoding: 'utf8' });
 check(badUnwired.status === 1, 'cataloged but unwired HTML text fails');

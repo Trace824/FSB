@@ -1968,6 +1968,20 @@
       }
     }
   },
+  "entry_key_required": {
+    "message": "Der $NAME$-API-Schlüssel ist erforderlich",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_discovering_models": {
+    "message": "Modelle werden gesucht..."
+  },
+  "entry_no_models": {
+    "message": "Keine kompatiblen Modelle verfügbar"
+  },
   "entry_get_key": {
     "message": "Hol deinen Schlüssel von"
   },

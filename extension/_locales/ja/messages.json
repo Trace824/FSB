@@ -1968,6 +1968,20 @@
       }
     }
   },
+  "entry_key_required": {
+    "message": "$NAME$ の API キーが必要です",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_discovering_models": {
+    "message": "モデルを探しています..."
+  },
+  "entry_no_models": {
+    "message": "互換性のあるモデルがありません"
+  },
   "entry_get_key": {
     "message": "鍵の取得先"
   },

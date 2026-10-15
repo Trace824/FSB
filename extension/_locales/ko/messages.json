@@ -1968,6 +1968,20 @@
       }
     }
   },
+  "entry_key_required": {
+    "message": "$NAME$ API 키가 필요합니다",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_discovering_models": {
+    "message": "모델을 찾는 중..."
+  },
+  "entry_no_models": {
+    "message": "사용 가능한 호환 모델이 없습니다"
+  },
   "entry_get_key": {
     "message": "키를 받는 곳"
   },

@@ -112,11 +112,17 @@ function extractJsStrings(source) {
         if (part) found.push({ text: part, index: start });
         body = '';
         i += 2;
+        const exprStart = i;
         let depth = 1;
         while (i < source.length && depth > 0) {
           if (source[i] === '{') depth += 1;
           else if (source[i] === '}') depth -= 1;
           i += 1;
+        }
+        // Strings inside ${...} render too (option labels, status lines), so
+        // scan the expression instead of skipping it.
+        for (const inner of extractJsStrings(source.slice(exprStart, i - 1))) {
+          found.push({ text: inner.text, index: exprStart + inner.index });
         }
         continue;
       }
@@ -181,7 +187,8 @@ function decodeEntities(text) {
 function isProse(text) {
   if (!text || text.includes('<') || text.includes('>')) return false;
   if (PROVIDERS.has(text) || UNTRANSLATED.has(text)) return false;
-  if (!/^[A-Z]/.test(text)) return false;
+  // A sentence may open with a placeholder, e.g. "$NAME$ API key is required".
+  if (!/^(?:[A-Z]|\$[A-Z][A-Z0-9_]*\$)/.test(text)) return false;
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length < 3) return false;
   if (/^https?:\/\//.test(text)) return false;
