@@ -90,7 +90,42 @@ Plans:
 - Should endpoint settings that receive API keys or page data (custom endpoint, sync server URL, LM Studio URL) count as secrets?
 - Should settings changed over MCP be logged for the operator?
 
-**Plans:** Not planned.
+**Open questions auto-resolved (66.1-CONTEXT, 2026-10-15):** (a) yes, for writing: `customEndpoint`, `lmstudioBaseUrl` and `serverUrl` are refused on write like secrets and read as origin only (D-11); (b) yes: every accepted or refused MCP write is logged to `automationLogs` (key, previous/new value or error code, client label, time; never a refused value) independent of session recording, and journaled (D-18).
+
+**Plans:** 8 plans in 8 waves (serialized: one shared working tree; every plan runs an MCP build or a regression sweep)
+
+Plans:
+**Wave 1**
+
+- [ ] 66.1-01-PLAN.md — Pre-edit sweep and tools/list digest baselines; FsbSettingsSchema in config.js with masked reads, origin-only endpoints, effective defaults and strict parsing (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 66.1-02-PLAN.md — Write planner with D-15 provider group rules and shared DEFAULT_MODELS; inventory, default and bounds parity with the control panel (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 66.1-03-PLAN.md — MCP surface: two additive wire types, SETTING_ error rendering with a value-free Allowed line, the settings tool with a value-safe write preflight, runtime wiring and smoke (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 66.1-04-PLAN.md — Control-panel sync (FSBSettingsSync): touched tracking, no-network in-place refresh of simple fields and the provider group, and a Save-time filter so MCP writes are never reverted (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 66.1-05-PLAN.md — Service-worker settings routes, write lock, fail-closed delegated-write refusal, operator log lines, bridge routing and icon class (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 66.1-06-PLAN.md — Recording hygiene: request/response sanitizers, journal projection, sentinel sweep across every sink, replay classification (wave 6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 66.1-07-PLAN.md — Built-runtime contract: tool shape, 8a058bdf tools digest, MCP-edge rules, end-to-end round trip, SC4 fixture, delegated refusal (wave 7)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 66.1-08-PLAN.md — Phase gate: full chain, MCP smoke, Node 20, regression sweep, mcp/ footprint and byte-identity audits, VALIDATION.md results (wave 8)
 
 ### Phase 67: Hosted Jev Gateway, Policy, and Shadow Mode
 
@@ -105,7 +140,36 @@ Plans:
 4. Timeout, rate-limit, invalid-response, unavailable-model, and key errors produce typed fallback results; actual model version, usage, and FSB-borne cost are recorded where supplied, without fabricated values.
 5. Shadow runs on labelled tasks produce operation, target, completion, stuck, and risk accuracy by confidence bucket; live thresholds are selected from that evidence and tied to the pinned model. Tests prove Jev cannot remove confirmation or bypass existing safety breakers.
 
-**Plans:** Not planned.
+**Plans:** 13 plans in 5 waves (all autonomous; live deploy, secret and calibration deferred to Validation Blocks V2/V3)
+
+Plans:
+**Wave 1**
+
+- [ ] 67-01-PLAN.md — Server Jev contract (19-reason fallback enum, key sets, caps), mirrored secret scrubber + injection filter, exact-key request validator, shared fixtures (wave 1)
+- [ ] 67-02-PLAN.md — Shadow scoring by confidence bucket, predeclared Bonferroni/Wilson threshold selection, committed targets.json (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 67-03-PLAN.md — Server-owned versioned instrument with byte budget, calibration profiles and the explicit UNCALIBRATED default (wave 2)
+- [ ] 67-04-PLAN.md — Boot-time config (route + pin as configuration, operator switch), single-attempt upstream client with D-16 classification, loopback fake upstream (wave 2)
+- [ ] 67-05-PLAN.md — Body-free SQLite ledger and daily aggregate, housekeeper retention, read-only report CLI (wave 2)
+- [ ] 67-06-PLAN.md — FsbJevState: mirrored contract with parity test, gateway-response validator, sanitizer and budgeted request builder (wave 2)
+- [ ] 67-07-PLAN.md — FsbJevPolicy tighten-only lattice with exhaustive tables, real breaker invariance and HookPipeline ordering proof (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 67-08-PLAN.md — FsbJevClient.decide(): never-rejecting fixed-endpoint client, typed fallbacks, abort/deadline, in-memory cool-down (wave 3)
+- [ ] 67-09-PLAN.md — /api/jev/decide router, server.js and global-parser wiring, crash-resistance and log-hygiene proofs (wave 3)
+- [ ] 67-10-PLAN.md — Labelled shadow step-record format and 25-record seed set over the 12 core fixtures (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 67-11-PLAN.md — Inert importScripts loads with paired lattice pin bump, extension boundary suite (wave 4)
+- [ ] 67-12-PLAN.md — Gateway-only shadow harness, offline end-to-end run, profile round-trip, V2 smoke command (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 67-13-PLAN.md — Register the 14 Jev suites in the test chain and refinement contract; full-chain, Node 20 and compatibility audits (wave 5)
 
 ### Phase 68: Autopilot Fast Mode
 
@@ -134,7 +198,34 @@ Plans:
 3. Contract tests prove existing tool names, required arguments, default behavior, and serialized wire shapes remain unchanged when `expect` is omitted.
 4. A representative MCP caller can complete an action and read its effect without an extra verification call when the outcome is observable.
 
-**Plans:** Not planned.
+**Plans:** 8 plans in 6 waves
+
+Plans:
+**Wave 1**
+
+- [ ] 69-01-PLAN.md — Record $P69_START and the sweep baseline; freeze the 8a058bdf tools/list fixture with its git-free listing library and --write/--check generator; fixture-integrity, shape-freeze and report-only budget suites (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 69-02-PLAN.md — MCP-only description module, jsonSchemaToZod text override, short text for the 37 manual action tools, per-tool 2,048 cap on, Phase 66.1 freeze migration (wave 2)
+- [ ] 69-03-PLAN.md — Extension expect contract: constants, spec normalization, read-only page probe and bounded evaluation loop in action-verification.js (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 69-04-PLAN.md — Remaining descriptions (read-only, trigger, screenshot, vault, capability, back, observability, autopilot, visual-session, settings), full coverage, must-keep table, D-06 budget floors on (wave 3)
+- [ ] 69-05-PLAN.md — Dispatcher wiring: ISOLATED probes, commit-gated navigation, back-route hook, bridge-client forwarding, expect stripped from journal and replay payloads (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 69-06-PLAN.md — Optional expect on the 29 tools: zod shape, top-level sidecar, back timeout, version-skew fill, unknown-outcome text; byte-identity goldens without expect (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 69-07-PLAN.md — expect contract parity test, SC4 in-process caller test (one tools/call), headless Chrome fixture probe test (wave 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 69-08-PLAN.md — Tool-count wording fix (72 at 8a058bdf, 73 with settings) and the phase gate: footprint, full chain, Node 20, fixture --check, VALIDATION sign-off (wave 6)
 
 ### Phase 70: Bounded MCP Fast Task
 
