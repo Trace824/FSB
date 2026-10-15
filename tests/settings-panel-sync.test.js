@@ -282,7 +282,8 @@ for (const [id, key] of Object.entries(ALIASES)) {
 }
 check(sync.PROVIDER_GROUP_KEYS.includes(sync.keyForElementId('modelProvider')), 'keyForElementId(modelProvider) is a provider key');
 check(sync.PROVIDER_GROUP_KEYS.includes(sync.keyForElementId('modelName')), 'keyForElementId(modelName) is a provider key');
-check(sync.PROVIDER_GROUP_KEYS.includes(sync.keyForElementId('modelSearch')), 'keyForElementId(modelSearch) is a provider key');
+// WR-06: the combobox filter box is not an edit of modelName.
+check(sync.keyForElementId('modelSearch') === null, 'keyForElementId(modelSearch) -> null (typing a filter is not an edit)');
 for (const id of ['unknownId', '', 'saveBtn', 'refreshModelsBtn', '__proto__', 'constructor', 'toString']) {
   check(sync.keyForElementId(id) === null, 'keyForElementId(' + JSON.stringify(id) + ') -> null');
 }
@@ -986,6 +987,22 @@ const plainClick = makeEl('div', 'maxDOMElementsSlider');
 plainClick.closest = () => null;
 fireDocument('click', plainClick);
 check(sync.inspect().touched.indexOf('maxDOMElements') === -1, 'a plain click on a field does not mark it touched');
+
+// WR-06: typing in the model filter box leaves the provider group untouched,
+// so an external provider write is still shown and not reverted by Save; the
+// combobox commit (change on #modelName) is the edit.
+sync.reset({ providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' });
+fireDocument('input', registry.get('modelSearch'));
+check(sync.PROVIDER_GROUP_KEYS.every((key) => sync.inspect().touched.indexOf(key) === -1),
+  'an input event on #modelSearch marks no provider key touched');
+result = sync.noteStorageChanges({ modelProvider: { oldValue: 'xai', newValue: 'gemini' } }, 'local');
+check(sameJson(result.apply, { modelProvider: 'gemini' }), 'after typing a filter an external provider write is still applied');
+fireDocument('change', registry.get('modelName'));
+check(sync.PROVIDER_GROUP_KEYS.every((key) => sync.inspect().touched.indexOf(key) !== -1),
+  'a change event on #modelName (the combobox commit) marks the provider group touched');
+check(/function _commit\(value\) \{[\s\S]*?_select\.dispatchEvent\(new Event\('change', \{ bubbles: true \}\)\);/.test(OPTIONS_SOURCE),
+  'the combobox commit still dispatches change on the model select');
+sync.reset({});
 
 // Provider group through the real default deps (no discovery, no network).
 buildRegistry();

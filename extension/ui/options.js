@@ -9370,7 +9370,9 @@ function initializeSyncSection() {
   const PROVIDER_GROUP_KEYS = Object.freeze(['providerKind', 'agentProviderId', 'modelProvider', 'modelName']);
 
   // Control ids that edit a schema key under another name. Any other control
-  // whose id is itself a schema key edits that key.
+  // whose id is itself a schema key edits that key. #modelSearch is left out on
+  // purpose: it only filters the model list, and a committed choice fires
+  // change on #modelName itself, so typing a filter is not an edit.
   const ELEMENT_KEY_ALIASES = Object.freeze({
     maxIterationsSlider: 'maxIterations',
     maxDOMElementsSlider: 'maxDOMElements',
@@ -9378,8 +9380,7 @@ function initializeSyncSection() {
     elementCacheSizeCustom: 'elementCacheSize',
     fsbAgentCapReset: 'fsbAgentCap',
     fsbTriggerCapReset: 'fsbTriggerCap',
-    autoAnalyzeToggle: 'autoAnalyzeMemories',
-    modelSearch: 'modelName'
+    autoAnalyzeToggle: 'autoAnalyzeMemories'
   });
 
   // Buttons that change a value on click without an input or change event.
