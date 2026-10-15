@@ -929,6 +929,30 @@ check(sync.inspect().pending.length === 0, 'the Save echo leaves nothing pending
 sync.reset({});
 
 // ---------------------------------------------------------------------------
+section('Parity: every writable schema key refreshes in place');
+// ---------------------------------------------------------------------------
+
+// filterForSave protects any schema key automatically. Showing the new value
+// needs a refresher, so a writable key added to the schema (Phase 68's Jev
+// switch) without one fails here instead of silently staying stale on screen.
+const writableKeys = FsbSettingsSchema.keys().filter((key) => FsbSettingsSchema.isWritable(key));
+check(writableKeys.length > 0 && sync.PROVIDER_GROUP_KEYS.every((key) => writableKeys.includes(key)),
+  'the provider group keys are writable schema keys');
+for (const key of writableKeys) {
+  if (sync.PROVIDER_GROUP_KEYS.includes(key)) continue;
+  buildRegistry();
+  const parityDeps = simpleDeps();
+  const refreshed = sync.applyToForm({ [key]: undefined }, parityDeps.deps);
+  check(sameJson(refreshed, [key]), key + ' has an in-place refresh in FSBSettingsSync');
+}
+for (const key of FsbSettingsSchema.readOnlyKeys()) {
+  sync.reset({});
+  check(sameJson(sync.noteStorageChanges({ [key]: { newValue: 'x' } }, 'local').apply, {}),
+    key + ' (read-only over MCP) is never refreshed from storage');
+}
+sync.reset({});
+
+// ---------------------------------------------------------------------------
 section('Registration');
 // ---------------------------------------------------------------------------
 
