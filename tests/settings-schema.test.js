@@ -1111,7 +1111,349 @@ runSection('planWrite in the SW and panel scopes (lazy Config access)', () => {
     'the panel scope plans a write');
 });
 
+// ===========================================================================
+// 66.1-02 Task 2: the schema is pinned to the control panel. D-09 inventory
+// (every panel writer), D-12 defaults (three default copies, known
+// divergences pinned, not fixed), D-14 bounds (steppers and clamp helpers).
+// Source extraction only reads files.
+// ===========================================================================
+const REPO_ROOT = path.join(__dirname, '..');
+function readRepo(rel) {
+  return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+}
+const OPTIONS_SOURCE = readRepo('extension/ui/options.js');
+const CONTROL_PANEL_HTML = readRepo('extension/ui/control_panel.html');
+const INIT_CONFIG_SOURCE = readRepo('extension/config/init-config.js');
+const INSTALL_IDENTITY_SOURCE = readRepo('extension/utils/install-identity.js');
+const INSTALL_IDENTITY_UI_SOURCE = readRepo('extension/ui/install-identity-ui.js');
+const MODEL_DISCOVERY_SOURCE = readRepo('extension/ai/model-discovery.js');
+const SIDEPANEL_SOURCE = readRepo('extension/ui/sidepanel.js');
+const WS_CLIENT_SOURCE = readRepo('extension/ws/ws-client.js');
+
+function sliceBetween(text, startMarker, endMarker) {
+  const start = text.indexOf(startMarker);
+  if (start === -1) return null;
+  const end = text.indexOf(endMarker, start + startMarker.length);
+  if (end === -1) return null;
+  return text.slice(start, end);
+}
+
+function countOf(text, needle) {
+  return text.split(needle).length - 1;
+}
+
+// D-09: the property names of saveSettings' `const settings = {` object, at
+// the object's own indent (nested IIFE lines are deeper). Returns null when
+// the function, the object or its closing `  };` line cannot be found, so a
+// refactor fails loudly instead of yielding a short list.
+function extractSaveSettingsKeys(sourceText) {
+  const body = sliceBetween(sourceText, 'function saveSettings() {', 'function discardChanges() {');
+  if (body === null) return null;
+  const lines = body.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^\s*const settings = \{\s*$/.test(line));
+  if (start === -1) return null;
+  const propertyIndent = `${lines[start].match(/^(\s*)/)[1]}  `;
+  const keys = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (lines[i] === '  };') return keys;
+    const match = lines[i].match(/^(\s*)([A-Za-z_$][A-Za-z0-9_$]*)\s*:/);
+    if (match && match[1] === propertyIndent) keys.push(match[2]);
+  }
+  return null;
+}
+
+// The four control-panel writers outside saveSettings (D-09).
+const OTHER_PANEL_WRITERS = ['autoAnalyzeMemories', 'fsbTelemetryOptOut', 'serverUrl', 'serverHashKey'];
+
+// Keys the panel or Config knows that are deliberately not settings (D-09).
+const EXCLUDED_FROM_SCHEMA = {
+  speedMode: 'legacy: Config.defaults marks it deprecated in favour of modelName; no control-panel writer',
+  enableSavedPayments: 'no reader or writer: the control_panel.html checkbox is never read or saved by any script',
+  serverSyncEnabled: 'no control-panel writer (only Config.defaults and init-config.js carry it)',
+  fsb_sunset_notice_dismissed: 'UI dismissal flag the panel writes when the sunset notice is closed, not a setting',
+};
+
+function inventoryDiff(panelKeys, schemaKeys) {
+  const panelSet = new Set(panelKeys);
+  const schemaSet = new Set(schemaKeys);
+  return {
+    // Written by the panel with no schema entry (a Phase 68 key added to saveSettings alone lands here).
+    extra: [...panelSet].filter((key) => !schemaSet.has(key)),
+    // Schema entries no panel writer writes.
+    missing: [...schemaSet].filter((key) => !panelSet.has(key)),
+  };
+}
+
+runSection('D-09 inventory parity: schema keys equal every control-panel writer', () => {
+  const saveKeys = extractSaveSettingsKeys(OPTIONS_SOURCE);
+  check(Array.isArray(saveKeys), 'extractSaveSettingsKeys finds the saveSettings settings object');
+  const keysFound = saveKeys || [];
+  check(keysFound.length === 31, `saveSettings writes 31 keys (got ${keysFound.length})`);
+  check(new Set(keysFound).size === keysFound.length, 'saveSettings lists each key once');
+  check(keysFound.includes('fsbTriggerCap') && keysFound.includes('fsbMcpSessionRetentionDays'),
+    'the extractor reads past the nested IIFEs to the last keys');
+  check(!keysFound.includes('raw') && !keysFound.includes('var'), 'the extractor ignores lines inside the nested IIFEs');
+  const inventory = [...keysFound, ...OTHER_PANEL_WRITERS];
+  const diff = inventoryDiff(inventory, schema.keys());
+  check(diff.extra.length === 0, `every panel-written key has a schema entry (extra: ${diff.extra.join(', ') || 'none'})`);
+  check(diff.missing.length === 0, `every schema key has a panel writer (missing: ${diff.missing.join(', ') || 'none'})`);
+  check(inventory.length === schema.keys().length, 'the inventory and the schema have the same size');
+
+  for (const [key, reason] of Object.entries(EXCLUDED_FROM_SCHEMA)) {
+    check(schema.get(key) === null, `${key} is not a schema key (${reason})`);
+    check(!inventory.includes(key), `${key} is not in the panel settings inventory`);
+  }
+  check(OPTIONS_SOURCE.includes('chrome.storage.local.set({ fsb_sunset_notice_dismissed: true })'),
+    'options.js still writes fsb_sunset_notice_dismissed as a UI flag');
+
+  // The four writers outside saveSettings still exist.
+  check(OPTIONS_SOURCE.includes('chrome.storage.local.set({ autoAnalyzeMemories'), 'options.js still writes autoAnalyzeMemories');
+  check(OPTIONS_SOURCE.includes('chrome.storage.local.set({ serverUrl, serverHashKey'), 'options.js still writes serverUrl and serverHashKey together');
+  check(/var FSB_TELEMETRY_OPT_OUT_KEY = 'fsbTelemetryOptOut';/.test(INSTALL_IDENTITY_SOURCE),
+    'install-identity.js FSB_TELEMETRY_OPT_OUT_KEY is fsbTelemetryOptOut');
+  check(INSTALL_IDENTITY_SOURCE.includes('chrome.storage.local.set({ [FSB_TELEMETRY_OPT_OUT_KEY]:'),
+    'install-identity.js writes FSB_TELEMETRY_OPT_OUT_KEY');
+  check(INSTALL_IDENTITY_UI_SOURCE.includes('chrome.storage.local.set({ fsbTelemetryOptOut:'),
+    'install-identity-ui.js keeps its direct fsbTelemetryOptOut fallback write');
+
+  // Self-check: a key added to saveSettings without a schema entry fails (SC4).
+  const marker = 'const settings = {\n';
+  const objectAt = OPTIONS_SOURCE.indexOf(marker, OPTIONS_SOURCE.indexOf('function saveSettings() {'));
+  check(objectAt !== -1, 'the probe finds the saveSettings settings object');
+  const probed = `${OPTIONS_SOURCE.slice(0, objectAt + marker.length)}    fsbParityProbe: true,\n${OPTIONS_SOURCE.slice(objectAt + marker.length)}`;
+  const probedKeys = extractSaveSettingsKeys(probed) || [];
+  check(probedKeys.includes('fsbParityProbe'), 'extractSaveSettingsKeys returns an injected fsbParityProbe key');
+  const probedDiff = inventoryDiff([...probedKeys, ...OTHER_PANEL_WRITERS], schema.keys());
+  checkDeep(probedDiff, { extra: ['fsbParityProbe'], missing: [] }, 'the inventory comparison reports fsbParityProbe as an extra key');
+  const removed = OPTIONS_SOURCE.replace('    fsbTriggerCap: (function() {', '    notTheTriggerCap: (function() {');
+  const removedDiff = inventoryDiff([...(extractSaveSettingsKeys(removed) || []), ...OTHER_PANEL_WRITERS], schema.keys());
+  check(removedDiff.missing.includes('fsbTriggerCap'), 'a schema key dropped from saveSettings is reported as missing');
+  check(extractSaveSettingsKeys(OPTIONS_SOURCE.replace('function discardChanges() {', 'function discardEdits() {')) === null,
+    'the extractor returns null when its end marker is gone');
+  const closeAt = OPTIONS_SOURCE.indexOf('\n  };\n', objectAt);
+  check(closeAt !== -1, 'the probe finds the settings object closing line');
+  const unclosed = `${OPTIONS_SOURCE.slice(0, closeAt)}\n  }; // moved${OPTIONS_SOURCE.slice(closeAt + '\n  };'.length)}`;
+  check(extractSaveSettingsKeys(unclosed) === null, 'the extractor returns null when the object has no exact closing line');
+});
+
+// D-12: the value each copy should hold, and the source that proves the
+// effective value. Each entry is pinned exactly: a fix or a new drift fails.
+const ABSENT = Object.freeze({ absent: true });
+const KNOWN_DEFAULT_DIVERGENCES = {
+  showSidepanelProgress: {
+    schema: true,
+    config: false,
+    initConfig: false,
+    options: true,
+    proof: ['extension/ui/sidepanel.js', SIDEPANEL_SOURCE, 'showSidepanelProgressEnabled = stored.showSidepanelProgress ?? true;'],
+  },
+  serverUrl: {
+    schema: 'https://full-selfbrowsing.com',
+    config: 'https://fsb-server.fly.dev',
+    initConfig: 'https://fsb-server.fly.dev',
+    options: ABSENT,
+    proof: ['extension/ws/ws-client.js', WS_CLIENT_SOURCE, "const FSB_SERVER_URL = 'https://full-selfbrowsing.com';"],
+  },
+};
+
+function schemaDefaultFor(key) {
+  const entry = schema.get(key);
+  if (entry.cls === 'endpoint') return entry.default;
+  return schema.projectAll({}, {}).settings[key];
+}
+
+function loadOptionsDefaultSettings() {
+  const literal = sliceBetween(OPTIONS_SOURCE, 'const defaultSettings = {', '\n};\n');
+  if (literal === null) return null;
+  return vm.runInNewContext(`(${literal.slice('const defaultSettings = '.length)}\n})`, {}, { filename: 'options.js defaultSettings' });
+}
+
+// The onboarding-first-run harness, steered onto init-config's PRODUCTION
+// branch: isDevelopment() is !getManifest().update_url, and the dev branch
+// writes debugMode: true (a false drift).
+async function loadInitConfigProductionDefaults() {
+  const storageSets = [];
+  let installListener = null;
+  const context = {
+    console,
+    window: {},
+    chrome: {
+      runtime: {
+        getManifest: () => ({ version: '0.0.0-test', update_url: 'https://clients2.google.com/service/update2/crx' }),
+        getURL: (rel) => `chrome-extension://fsb/${rel}`,
+        onInstalled: { addListener: (fn) => { installListener = fn; } },
+      },
+      storage: {
+        local: {
+          get: async () => ({}),
+          set: async (patch) => { storageSets.push(patch); },
+        },
+      },
+      tabs: { create: async () => {} },
+    },
+  };
+  vm.runInNewContext(INIT_CONFIG_SOURCE, context, { filename: 'init-config.js' });
+  if (typeof installListener !== 'function') return { patch: null, storageSets, defaultConfig: null };
+  await installListener({ reason: 'install' });
+  const patch = storageSets.find((set) => set && Object.prototype.hasOwnProperty.call(set, 'modelProvider')) || null;
+  const defaultConfig = context.window.initConfig ? context.window.initConfig.defaultConfig : null;
+  return { patch, storageSets, defaultConfig };
+}
+
+async function runDefaultParity() {
+  console.log('\n--- D-12 default parity: schema effective defaults vs the three default copies ---');
+  const init = await loadInitConfigProductionDefaults();
+  check(init.patch !== null, 'init-config.js writes its defaults on install');
+  check(init.defaultConfig !== null, 'init-config.js exposes window.initConfig.defaultConfig');
+  check(init.patch !== null && init.defaultConfig !== null && isDeepEqual({ ...init.patch }, { ...init.defaultConfig }),
+    'the install patch deep-equals window.initConfig.defaultConfig (production branch)');
+  check(init.patch !== null && init.patch.debugMode === false, 'the harness took the production branch (debugMode false, not the dev true)');
+  check(init.storageSets.length === 2 && init.storageSets.some((set) => set && 'fsbOnboardingAutoOpenedAt' in set),
+    'the separate onboarding timestamp write is ignored');
+  const optionsDefaults = loadOptionsDefaultSettings();
+  check(optionsDefaults !== null && typeof optionsDefaults === 'object', 'options.js defaultSettings evaluates from its source slice');
+
+  const copies = [
+    { id: 'config', label: 'Config.defaults', values: new Config().defaults },
+    { id: 'initConfig', label: 'init-config.js', values: init.patch || {} },
+    { id: 'options', label: 'options.js defaultSettings', values: optionsDefaults || {} },
+  ];
+  checkDeep(Object.keys(KNOWN_DEFAULT_DIVERGENCES), ['showSidepanelProgress', 'serverUrl'],
+    'KNOWN_DEFAULT_DIVERGENCES holds exactly showSidepanelProgress and serverUrl');
+
+  let compared = 0;
+  for (const key of schema.keys()) {
+    const expected = schemaDefaultFor(key);
+    const divergence = KNOWN_DEFAULT_DIVERGENCES[key];
+    if (divergence) {
+      check(divergence.schema === expected, `${key}: the schema still carries the effective default ${JSON.stringify(divergence.schema)}`);
+      const [proofFile, proofSource, proofLine] = divergence.proof;
+      check(proofSource.includes(proofLine), `${key}: ${proofFile} still proves the effective default (${proofLine})`);
+    }
+    for (const copy of copies) {
+      const has = Object.prototype.hasOwnProperty.call(copy.values, key);
+      const actual = has ? copy.values[key] : ABSENT;
+      if (divergence) {
+        const pinned = divergence[copy.id];
+        check(actual === pinned,
+          `${key}: ${copy.label} still holds the pinned ${pinned === ABSENT ? 'absence' : JSON.stringify(pinned)} (got ${actual === ABSENT ? 'absent' : JSON.stringify(actual)})`);
+      } else if (has) {
+        compared += 1;
+        check(actual === expected, `${key}: ${copy.label} default ${JSON.stringify(actual)} equals the schema default ${JSON.stringify(expected)}`);
+      }
+    }
+  }
+  check(compared >= 70, `the ordinary equality check compared ${compared} copy values`);
+  for (const [key, divergence] of Object.entries(KNOWN_DEFAULT_DIVERGENCES)) {
+    const differs = ['config', 'initConfig', 'options'].some((id) => divergence[id] !== ABSENT && divergence[id] !== divergence.schema);
+    check(differs, `${key}: the pinned divergence is a real disagreement`);
+  }
+  const fsbDefaultServerUrl = OPTIONS_SOURCE.match(/const FSB_DEFAULT_SERVER_URL = '([^']+)';/);
+  check(Boolean(fsbDefaultServerUrl) && fsbDefaultServerUrl[1] === schemaDefaultFor('serverUrl'),
+    'options.js FSB_DEFAULT_SERVER_URL equals the schema serverUrl default');
+  check(OPTIONS_SOURCE.includes('result.autoAnalyzeMemories !== false'), 'options.js still reads autoAnalyzeMemories as default true');
+  check(schemaDefaultFor('autoAnalyzeMemories') === true, 'the schema autoAnalyzeMemories default is true');
+
+  // fsbAgentCap is a computed default, not a divergence: its fallback equals options.js 8.
+  check(!('fsbAgentCap' in KNOWN_DEFAULT_DIVERGENCES), 'fsbAgentCap is not in KNOWN_DEFAULT_DIVERGENCES');
+  check(schema.projectAll({}, {}).settings.fsbAgentCap === 8 && optionsDefaults !== null && optionsDefaults.fsbAgentCap === 8,
+    'the fsbAgentCap fallback 8 equals options.js defaultSettings.fsbAgentCap');
+  check(!('fsbAgentCap' in copies[0].values) && !('fsbAgentCap' in copies[1].values), 'Config.defaults and init-config.js have no fsbAgentCap');
+  check(schema.effectiveDefault('fsbAgentCap', { agentCapRecommendation: 12 }) === 12, 'a recommendation of 12 is the fsbAgentCap default');
+  for (const rec of [0, 65, 7.5]) {
+    check(schema.effectiveDefault('fsbAgentCap', { agentCapRecommendation: rec }) === 8, `a recommendation of ${rec} falls back to 8`);
+  }
+}
+
+// D-14: the stepper input id for every integer key.
+const STEPPER_INPUT_IDS = {
+  maxIterations: 'maxIterationsSlider',
+  maxDOMElements: 'maxDOMElementsSlider',
+  elementCacheSize: 'elementCacheSizeCustom',
+  fsbAgentCap: 'fsbAgentCap',
+  fsbTriggerCap: 'fsbTriggerCap',
+  fsbMcpSessionRetentionDays: 'fsbMcpSessionRetentionDays',
+};
+
+// The data-min/data-max of the .fsb-stepper div that directly holds the input.
+function stepperBounds(html, inputId) {
+  const idAttr = `id="${inputId}"`;
+  if (countOf(html, idAttr) !== 1) return null;
+  const idIndex = html.indexOf(idAttr);
+  const open = html.lastIndexOf('<div class="fsb-stepper"', idIndex);
+  if (open === -1 || html.slice(open, idIndex).includes('</div>')) return null;
+  const tag = html.slice(open, html.indexOf('>', open) + 1);
+  const min = tag.match(/\bdata-min="(-?\d+)"/);
+  const max = tag.match(/\bdata-max="(-?\d+)"/);
+  if (!min || !max) return null;
+  return { min: Number(min[1]), max: Number(max[1]) };
+}
+
+function literalBounds(body, variable) {
+  if (typeof body !== 'string') return null;
+  const low = body.match(new RegExp(`if \\(${variable} < (\\d+)\\) return (\\d+);`));
+  const high = body.match(new RegExp(`if \\(${variable} > (\\d+)\\) return (\\d+);`));
+  if (!low || !high || low[1] !== low[2] || high[1] !== high[2]) return null;
+  return { min: Number(low[1]), max: Number(high[1]) };
+}
+
+runSection('D-14 bounds parity: schema bounds equal the panel steppers and clamps', () => {
+  const integerKeys = schema.entries.filter((entry) => entry.type === 'integer').map((entry) => entry.key);
+  checkDeep(integerKeys.slice().sort(), Object.keys(STEPPER_INPUT_IDS).sort(), 'every integer key has a mapped control-panel stepper');
+  for (const key of integerKeys) {
+    const entry = schema.get(key);
+    const bounds = stepperBounds(CONTROL_PANEL_HTML, STEPPER_INPUT_IDS[key]);
+    checkDeep(bounds, { min: entry.min, max: entry.max },
+      `${key}: the #${STEPPER_INPUT_IDS[key]} stepper data-min/data-max equal the schema bounds ${entry.min}-${entry.max}`);
+  }
+  check(stepperBounds(CONTROL_PANEL_HTML, 'elementCacheSizePreset') === null, 'stepperBounds refuses an input outside a stepper');
+  const presetBlock = sliceBetween(CONTROL_PANEL_HTML, '<select id="elementCacheSizePreset"', '</select>') || '';
+  const presetValues = [...presetBlock.matchAll(/<option value="(\d+)"/g)].map((match) => Number(match[1]));
+  const cacheEntry = schema.get('elementCacheSize');
+  check(presetValues.length >= 3 && presetValues.every((value) => value >= cacheEntry.min && value <= cacheEntry.max),
+    `the element cache presets (${presetValues.join(', ')}) sit inside the schema bounds`);
+
+  const retentionBody = sliceBetween(OPTIONS_SOURCE, 'function clampMcpSessionRetentionDays(value) {', '\n}\n');
+  checkDeep(literalBounds(retentionBody, 'days'), { min: 1, max: 365 }, 'clampMcpSessionRetentionDays clamps to 1 and 365');
+  const retention = schema.get('fsbMcpSessionRetentionDays');
+  checkDeep(literalBounds(retentionBody, 'days'), { min: retention.min, max: retention.max }, 'clampMcpSessionRetentionDays equals the schema bounds');
+
+  const saveBody = sliceBetween(OPTIONS_SOURCE, 'function saveSettings() {', 'function discardChanges() {');
+  const triggerBody = sliceBetween(saveBody || '', 'fsbTriggerCap: (function() {', '})(),');
+  const trigger = schema.get('fsbTriggerCap');
+  checkDeep(literalBounds(triggerBody, 'raw'), { min: 1, max: 64 }, 'the saveSettings fsbTriggerCap IIFE returns 1 and 64 at its bounds');
+  checkDeep(literalBounds(triggerBody, 'raw'), { min: trigger.min, max: trigger.max }, 'the fsbTriggerCap clamp equals the schema bounds');
+  check(typeof triggerBody === 'string' && triggerBody.includes(`if (!Number.isFinite(raw)) return ${trigger.default};`),
+    'the fsbTriggerCap fallback equals the schema default');
+
+  const agentCap = schema.get('fsbAgentCap');
+  const panelAgentClamp = sliceBetween(OPTIONS_SOURCE, 'function clampAgentCapValue(value, fallbackValue) {', '\n}\n');
+  checkDeep(literalBounds(panelAgentClamp, 'raw'), { min: agentCap.min, max: agentCap.max }, 'the clampAgentCapValue fallback clamps to the schema bounds');
+  const agentCapModule = require('../extension/utils/agent-cap-recommendation.js');
+  check(agentCapModule.clampAgentCap(0) === 1 && agentCapModule.clampAgentCap(1000) === 64, 'clampAgentCap(0) is 1 and clampAgentCap(1000) is 64');
+  check(agentCapModule.clampAgentCap(0) === agentCap.min && agentCapModule.clampAgentCap(1000) === agentCap.max, 'clampAgentCap equals the schema bounds');
+  check(agentCapModule.AGENT_CAP_MIN === agentCap.min && agentCapModule.AGENT_CAP_MAX === agentCap.max, 'AGENT_CAP_MIN/MAX equal the schema bounds');
+
+  const sttLine = (saveBody || '').match(/sttProvider:[^\n]*\?\s*'([^']+)'\s*:\s*'([^']+)'/);
+  check(Boolean(sttLine), 'saveSettings still writes sttProvider from a two-literal choice');
+  checkDeep(sttLine ? [sttLine[1], sttLine[2]].sort() : null, [...schema.get('sttProvider').values].sort(),
+    'the sttProvider values equal the two literals saveSettings writes (whisper, browser)');
+  checkDeep([...schema.get('modelProvider').values], PROVIDER_IDS, 'the modelProvider values equal the seven INV-03 provider ids');
+});
+
+runSection('discovery-rule tripwire: discoveredIdsFromCache mirrors getDiscoveredModelIds', () => {
+  const body = sliceBetween(MODEL_DISCOVERY_SOURCE, 'function getDiscoveredModelIds(provider) {', '\n  }\n');
+  check(typeof body === 'string', 'model-discovery.js still defines getDiscoveredModelIds(provider)');
+  for (const token of ["const prefix = provider + ':';", 'key.startsWith(prefix)', 'entry.expiresAt <= now', 'entry.result.ok !== true', 'm.id']) {
+    check(typeof body === 'string' && body.includes(token), `getDiscoveredModelIds still contains ${token}`);
+  }
+});
+
 async function runAsyncChecks() {
+  await runDefaultParity().catch((err) => {
+    check(false, `D-12 default parity threw: ${err && err.message}`);
+  });
+
   console.log('\n--- PROVIDER_API_KEY parity with Config.prototype.getApiKey ---');
   try {
     const markerConfig = new Config();
