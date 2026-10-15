@@ -241,7 +241,7 @@ check(typeof first.sync === 'object' && first.sync !== null, 'requiring options.
 check(first.exported && first.exported.FSBSettingsSync === first.sync, 'module.exports.FSBSettingsSync is the same object');
 check(Object.isFrozen(first.sync), 'FSBSettingsSync is frozen');
 for (const name of ['keyForElementId', 'noteTouched', 'noteSelfWrite', 'noteStorageChanges',
-  'filterForSave', 'noteSaved', 'reset', 'applyToForm', 'attach']) {
+  'filterForSave', 'willWriteProviderGroup', 'noteSaved', 'reset', 'applyToForm', 'attach']) {
   check(typeof (first.sync && first.sync[name]) === 'function', 'FSBSettingsSync.' + name + ' is a function');
 }
 check(first.sync && sameJson(first.sync.PROVIDER_GROUP_KEYS, ['providerKind', 'agentProviderId', 'modelProvider', 'modelName']),
@@ -352,6 +352,29 @@ sync.reset({});
 sync.noteTouched('providerKind');
 result = sync.noteStorageChanges({ agentProviderId: { newValue: 'grok-build' } }, 'local');
 check(sameJson(result.apply, {}), 'touching providerKind marks agentProviderId touched too');
+
+// WR-03: the Save-time provider guards run only when the Save writes the
+// provider group, so an MCP switch to lmstudio (empty model) cannot lock an
+// unrelated Save.
+sync.reset({ providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast', debugMode: false });
+check(sync.willWriteProviderGroup() === true, 'after a load the Save writes the provider group');
+sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'local');
+check(sync.willWriteProviderGroup() === true, 'an external non-provider change keeps the provider group written');
+sync.noteStorageChanges({
+  modelProvider: { oldValue: 'xai', newValue: 'lmstudio' },
+  modelName: { oldValue: 'grok-4-1-fast', newValue: '' }
+}, 'local');
+check(sync.willWriteProviderGroup() === false, 'an untouched external provider change means the Save leaves the group out');
+settings = fullSettings({ modelProvider: 'lmstudio', modelName: 'grok-4-1-fast', debugMode: false });
+dropped = sync.filterForSave(settings);
+check(dropped.indexOf('modelProvider') !== -1 && dropped.indexOf('modelName') !== -1,
+  'and filterForSave does drop the changed provider keys');
+sync.noteTouched('debugMode');
+check(sync.willWriteProviderGroup() === false, 'touching an unrelated field does not make the Save write the provider group');
+sync.noteTouched('modelName');
+check(sync.willWriteProviderGroup() === true, 'touching the provider group makes the Save write it (the guards run)');
+sync.noteSaved(['providerKind', 'agentProviderId', 'modelProvider', 'modelName', 'debugMode']);
+check(sync.willWriteProviderGroup() === true, 'after a Save that wrote the group nothing is pending');
 
 // Area and key filters.
 sync.reset({});
@@ -720,6 +743,7 @@ settings = fullSettings();
 check(sameJson(result.apply, {}) && sync.filterForSave(settings).length === 0 && settings.debugMode === false,
   'without FsbSettingsSchema nothing is applied or dropped');
 check(sync.keyForElementId('debugMode') === null, 'without FsbSettingsSchema no id maps to a key');
+check(sync.willWriteProviderGroup() === true, 'without FsbSettingsSchema the provider guards always run');
 global.FsbSettingsSchema = savedSchema;
 sync.reset({});
 
@@ -748,6 +772,13 @@ const selfWriteAt = saveSlice.indexOf('noteSelfWrite(settings)');
 const storageWriteAt = saveSlice.indexOf('chrome.storage.local.set(settings');
 check(lmGuardAt !== -1 && filterAt > lmGuardAt && selfWriteAt > filterAt && storageWriteAt > selfWriteAt,
   'saveSettings runs the LM guard, then filterForSave(settings), then noteSelfWrite(settings), then the storage write');
+// WR-03: both provider guards sit inside the branch that runs only when this
+// Save writes the provider group.
+check(/const providerGroupWritten = !globalThis\.FSBSettingsSync\s*\|\| globalThis\.FSBSettingsSync\.willWriteProviderGroup\(\);\s*if \(providerGroupWritten\) \{\s*if \(!validateLmStudioSettingsSelection\(normalizedProviderSettings, selectedModelName\)\) return false;\s*if \(!validateHostedApiSettingsSelection\(normalizedProviderSettings, selectedModelName\)\) return false;\s*\}/.test(saveSlice),
+  'saveSettings runs the LM and hosted guards only when willWriteProviderGroup() says the Save writes the provider group');
+check(saveSlice.split('validateLmStudioSettingsSelection(').length - 1 === 1
+  && saveSlice.split('validateHostedApiSettingsSelection(').length - 1 === 1,
+'saveSettings calls each provider guard once');
 check(saveSlice.split('filterForSave(').length - 1 === 1 && saveSlice.split('noteSelfWrite(').length - 1 === 1,
   'saveSettings filters and records once');
 check(saveSlice.includes("modelName: selectedModelName || persistedProviderSelection.modelName || 'grok-4-1-fast',"),

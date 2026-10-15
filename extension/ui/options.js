@@ -2328,8 +2328,16 @@ function saveSettings() {
   const previousVoiceInputEnabled = persistedVoiceInputEnabled;
   const selectedModelName = String(elements.modelName?.value || '').trim();
   if (!validateProviderReselection(normalizedProviderSettings)) return false;
-  if (!validateLmStudioSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
-  if (!validateHostedApiSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
+  // Phase 66.1 D-16: the provider guards judge only a selection this Save
+  // writes. When the provider group changed outside the panel and the user
+  // has not touched it, filterForSave below leaves it out, so an unrelated
+  // edit must still save (an MCP switch to lmstudio stores an empty model).
+  const providerGroupWritten = !globalThis.FSBSettingsSync
+    || globalThis.FSBSettingsSync.willWriteProviderGroup();
+  if (providerGroupWritten) {
+    if (!validateLmStudioSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
+    if (!validateHostedApiSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
+  }
   const rawLmStudioBaseUrl = (document.getElementById('lmstudioBaseUrl')?.value || 'http://localhost:1234').trim();
   const normalizedLmStudioBaseUrl = normalizeLmStudioSettingsBaseUrl(rawLmStudioBaseUrl);
   const settings = {
@@ -9502,6 +9510,16 @@ function initializeSyncSection() {
     return dropped;
   }
 
+  // True when the next Save writes the provider group: the user edited it, or
+  // nothing outside the panel changed it since the last load or save. False
+  // means filterForSave will leave the changed provider keys out, so the Save
+  // cannot change the stored provider selection.
+  function willWriteProviderGroup() {
+    if (!getSchema()) return true;
+    if (PROVIDER_GROUP_KEYS.some((key) => touched.has(key))) return true;
+    return !PROVIDER_GROUP_KEYS.some((key) => pending.has(key));
+  }
+
   function noteSaved(writtenKeys) {
     touched.clear();
     if (Array.isArray(writtenKeys)) writtenKeys.forEach((key) => pending.delete(key));
@@ -9884,6 +9902,7 @@ function initializeSyncSection() {
     noteSelfWrite,
     noteStorageChanges,
     filterForSave,
+    willWriteProviderGroup,
     noteSaved,
     reset,
     applyToForm,
