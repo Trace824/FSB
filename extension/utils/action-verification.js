@@ -509,6 +509,16 @@ function buildChangeReport(beforeState, afterState, mutations, options) {
   const dialogsOpened = [];
   const seenDialogSelectors = new Set();
 
+  // D-25 (Phase 69): optional redaction data from the page-side harvest.
+  // Non-array values are ignored; without these fields, and without a
+  // valueRedacted record, every branch below is today's code path.
+  const beforeRedacted = Array.isArray(before.redactedInputKeys) ? before.redactedInputKeys : null;
+  const afterRedacted = Array.isArray(after.redactedInputKeys) ? after.redactedInputKeys : null;
+  const changedRedacted = Array.isArray(after.redactedInputsChanged) ? after.redactedInputsChanged : null;
+  const redactedKeys = (beforeRedacted || afterRedacted || changedRedacted)
+    ? new Set([].concat(beforeRedacted || [], afterRedacted || [], changedRedacted || []))
+    : null;
+
   for (let i = 0; i < rawMutations.length; i++) {
     const rec = rawMutations[i];
     if (isNoiseMutation(rec)) continue;
@@ -543,11 +553,20 @@ function buildChangeReport(beforeState, afterState, mutations, options) {
       if (target && typeof target.getAttribute === 'function') {
         try { afterVal = target.getAttribute(attr); } catch (_) { afterVal = null; }
       }
+      let beforeOut = rec.oldValue == null ? null : String(rec.oldValue);
+      let afterOut = afterVal == null ? null : String(afterVal);
+      // D-25: a 'value' attribute record on a sensitive input is masked on
+      // both sides when the page flagged it, or when its target id is a
+      // listed sensitive key (defence in depth). The flag is not copied.
+      if (attr === 'value' && (rec.valueRedacted === true || _fsbRedactionListsTarget(redactedKeys, target))) {
+        beforeOut = _fsbRedactChangeValue(beforeOut);
+        afterOut = _fsbRedactChangeValue(afterOut);
+      }
       attrsChanged.push({
         selector: buildNodeSelector(target),
         attr,
-        before: rec.oldValue == null ? null : String(rec.oldValue),
-        after: afterVal == null ? null : String(afterVal)
+        before: beforeOut,
+        after: afterOut
       });
     }
     // characterData mutations that survive the noise filter could be surfaced
@@ -567,6 +586,28 @@ function buildChangeReport(beforeState, afterState, mutations, options) {
   for (const key in beforeInputs) {
     if (!(key in afterInputs)) {
       inputsChanged[key] = { before: beforeInputs[key], after: '' };
+    }
+  }
+  if (redactedKeys) {
+    // D-25: a secret that changed is still reported as changed, although the
+    // page already replaced both values with the same marker.
+    if (changedRedacted) {
+      for (let i = 0; i < changedRedacted.length; i++) {
+        const key = changedRedacted[i];
+        if (typeof key !== 'string' || Object.prototype.hasOwnProperty.call(inputsChanged, key)) continue;
+        inputsChanged[key] = {
+          before: beforeInputs[key] == null ? '' : beforeInputs[key],
+          after: afterInputs[key] == null ? '' : afterInputs[key]
+        };
+      }
+    }
+    // Defence in depth: mask every listed key again, whatever the page sent.
+    for (const key of redactedKeys) {
+      if (typeof key !== 'string' || !Object.prototype.hasOwnProperty.call(inputsChanged, key)) continue;
+      inputsChanged[key] = {
+        before: _fsbRedactChangeValue(inputsChanged[key].before),
+        after: _fsbRedactChangeValue(inputsChanged[key].after)
+      };
     }
   }
 
@@ -864,6 +905,32 @@ function isRedactedField(desc) {
     if (typeof v === 'string' && v.length > 0 && _fsbExpectSensitiveNameRe.test(_fsbExpectSplitWords(v))) return true;
   }
   return false;
+}
+
+/**
+ * D-25 change_report marker rule for one side of a sensitive entry:
+ * EXPECT_REDACTED when non-empty, '' when empty, null when absent.
+ */
+function _fsbRedactChangeValue(value) {
+  if (value === null) return null;
+  if (value === undefined || value === '') return '';
+  return EXPECT_REDACTED;
+}
+
+/**
+ * D-25 defence in depth: true when a mutation target's id (getAttribute('id'),
+ * or the serialised `_id` when getAttribute is absent) is a listed sensitive
+ * input key.
+ */
+function _fsbRedactionListsTarget(redactedKeys, target) {
+  if (!redactedKeys || !target) return false;
+  let id = null;
+  if (typeof target.getAttribute === 'function') {
+    try { id = target.getAttribute('id'); } catch (_) { id = null; }
+  } else if (typeof target._id === 'string') {
+    id = target._id;
+  }
+  return typeof id === 'string' && id.length > 0 && redactedKeys.has(id);
 }
 
 /**

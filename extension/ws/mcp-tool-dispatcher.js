@@ -4463,6 +4463,43 @@ let _changeReportSeq = 0;
 // it must be self-contained (no closures over SW scope).
 function _fsbHarvestStartInPage(targetSelector, token, deadline) {
   try {
+    // D-25: sensitive inputs never leave the page with their value. Same rules
+    // as isRedactedField in utils/action-verification.js: input type password
+    // or hidden; an autocomplete token current-password, new-password,
+    // one-time-code or cc-*; or a name, id or autocomplete matching
+    // EXPECT_SENSITIVE_NAME_SOURCE after the camelCase word split (short terms
+    // are letter-boundary aware, so 'footprint' stays non-sensitive). The
+    // marker is EXPECT_REDACTED. Both literals must stay identical to those
+    // constants (tests/change-report-redaction.test.js).
+    const REDACTED = '[redacted]';
+    const SENSITIVE_NAME_RE = new RegExp('(?<![a-z])(?:t?otp|pwd|cvv|cvc|cc[-_ ]?num(?:ber)?)(?![a-z])|pass(?:wd|[-_ ]?(?:word|code))|card[-_ ]?num(?:ber)?|security[-_ ]?code|one[-_ ]?time[-_ ]?(?:code|pass)', 'i');
+    function isSensitiveInput(el) {
+      if (!el || typeof el !== 'object') return false;
+      const read = function (name) {
+        try { return (typeof el.getAttribute === 'function') ? el.getAttribute(name) : null; } catch (_) { return null; }
+      };
+      const tag = (typeof el.tagName === 'string') ? el.tagName.toLowerCase() : '';
+      let type = (typeof el.type === 'string') ? el.type : read('type');
+      type = (typeof type === 'string') ? type.toLowerCase() : '';
+      if ((tag === '' || tag === 'input') && (type === 'password' || type === 'hidden')) return true;
+      let ac = read('autocomplete');
+      if (typeof ac !== 'string') ac = (typeof el.autocomplete === 'string') ? el.autocomplete : '';
+      const tokens = ac.toLowerCase().split(/\s+/);
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t === 'current-password' || t === 'new-password' || t === 'one-time-code' || t.indexOf('cc-') === 0) return true;
+      }
+      let name = read('name');
+      if (typeof name !== 'string') name = (typeof el.name === 'string') ? el.name : '';
+      let id = read('id');
+      if (typeof id !== 'string') id = (typeof el.id === 'string') ? el.id : '';
+      const names = [name, id, ac];
+      for (let i = 0; i < names.length; i++) {
+        const v = names[i];
+        if (v && SENSITIVE_NAME_RE.test(v.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2'))) return true;
+      }
+      return false;
+    }
     function getClassName(el) {
       if (!el) return '';
       const cn = el.className;
@@ -4481,20 +4518,34 @@ function _fsbHarvestStartInPage(targetSelector, token, deadline) {
       }
       return el.tagName.toLowerCase();
     }
-    function captureState() {
+    // side (optional, page-only): collects the raw values (side.raw) and the
+    // elements (side.els) of sensitive inputs; side.wasSensitive lists inputs
+    // that were sensitive at harvest start (a show-password toggle may have
+    // flipped them to type=text since).
+    function captureState(side) {
       const state = {
         url: window.location.href,
         title: document.title,
         elementCount: document.querySelectorAll('*').length,
         inputValues: {},
+        redactedInputKeys: [],
         activeElementSelector: null,
         timestamp: Date.now()
       };
+      const wasSensitive = (side && Array.isArray(side.wasSensitive)) ? side.wasSensitive : null;
       const inputs = document.querySelectorAll('input, textarea, [contenteditable="true"]');
       for (let i = 0; i < inputs.length && i < 20; i++) {
         const inp = inputs[i];
         const key = inp.id || inp.name || ('input_' + i);
-        state.inputValues[key] = inp.value || inp.textContent || '';
+        if (isSensitiveInput(inp) || (wasSensitive && wasSensitive.indexOf(inp) !== -1)) {
+          // Emptiness is not a secret: '' stays ''.
+          const raw = inp.value || inp.textContent || '';
+          state.inputValues[key] = raw ? REDACTED : '';
+          if (state.redactedInputKeys.indexOf(key) === -1) state.redactedInputKeys.push(key);
+          if (side) { side.raw[key] = raw; side.els.push(inp); }
+        } else {
+          state.inputValues[key] = inp.value || inp.textContent || '';
+        }
       }
       const ae = document.activeElement;
       if (ae && ae !== document.body) state.activeElementSelector = buildSel(ae);
@@ -4516,9 +4567,15 @@ function _fsbHarvestStartInPage(targetSelector, token, deadline) {
     // observer installed after that would never be stopped.
     if (Date.now() > deadline) return { ok: false, expired: true };
     const handles = window.__fsbChangeReportHandles || (window.__fsbChangeReportHandles = {});
-    const beforeState = captureState();
+    const sensitiveSide = { raw: {}, els: [] };
+    const beforeState = captureState(sensitiveSide);
     const root = resolveScope(targetSelector);
     const handle = { beforeState, mutations: [], mutationCount: 0, startedAt: Date.now() };
+    // D-25: the raw values of sensitive inputs stay on this page-side handle
+    // for the stop's change detection and are never returned; they are
+    // deleted with the handle at stop or at the two-minute expiry.
+    handle.sensitiveRaw = sensitiveSide.raw;
+    handle.sensitiveEls = sensitiveSide.els;
     // A stop that never arrives must not leave the observer running: retain
     // at most 5000 records and disconnect after two minutes.
     handle.expiry = setTimeout(() => {
@@ -4556,6 +4613,43 @@ function _fsbHarvestStartInPage(targetSelector, token, deadline) {
 // disconnects the observer, returns plain-data shape buildChangeReport accepts.
 function _fsbHarvestStopInPage(token) {
   try {
+    // D-25: sensitive inputs never leave the page with their value. Same rules
+    // as isRedactedField in utils/action-verification.js: input type password
+    // or hidden; an autocomplete token current-password, new-password,
+    // one-time-code or cc-*; or a name, id or autocomplete matching
+    // EXPECT_SENSITIVE_NAME_SOURCE after the camelCase word split (short terms
+    // are letter-boundary aware, so 'footprint' stays non-sensitive). The
+    // marker is EXPECT_REDACTED. Both literals must stay identical to those
+    // constants (tests/change-report-redaction.test.js).
+    const REDACTED = '[redacted]';
+    const SENSITIVE_NAME_RE = new RegExp('(?<![a-z])(?:t?otp|pwd|cvv|cvc|cc[-_ ]?num(?:ber)?)(?![a-z])|pass(?:wd|[-_ ]?(?:word|code))|card[-_ ]?num(?:ber)?|security[-_ ]?code|one[-_ ]?time[-_ ]?(?:code|pass)', 'i');
+    function isSensitiveInput(el) {
+      if (!el || typeof el !== 'object') return false;
+      const read = function (name) {
+        try { return (typeof el.getAttribute === 'function') ? el.getAttribute(name) : null; } catch (_) { return null; }
+      };
+      const tag = (typeof el.tagName === 'string') ? el.tagName.toLowerCase() : '';
+      let type = (typeof el.type === 'string') ? el.type : read('type');
+      type = (typeof type === 'string') ? type.toLowerCase() : '';
+      if ((tag === '' || tag === 'input') && (type === 'password' || type === 'hidden')) return true;
+      let ac = read('autocomplete');
+      if (typeof ac !== 'string') ac = (typeof el.autocomplete === 'string') ? el.autocomplete : '';
+      const tokens = ac.toLowerCase().split(/\s+/);
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t === 'current-password' || t === 'new-password' || t === 'one-time-code' || t.indexOf('cc-') === 0) return true;
+      }
+      let name = read('name');
+      if (typeof name !== 'string') name = (typeof el.name === 'string') ? el.name : '';
+      let id = read('id');
+      if (typeof id !== 'string') id = (typeof el.id === 'string') ? el.id : '';
+      const names = [name, id, ac];
+      for (let i = 0; i < names.length; i++) {
+        const v = names[i];
+        if (v && SENSITIVE_NAME_RE.test(v.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2'))) return true;
+      }
+      return false;
+    }
     function getClassName(el) {
       if (!el) return '';
       const cn = el.className;
@@ -4574,20 +4668,34 @@ function _fsbHarvestStopInPage(token) {
       }
       return el.tagName.toLowerCase();
     }
-    function captureState() {
+    // side (optional, page-only): collects the raw values (side.raw) and the
+    // elements (side.els) of sensitive inputs; side.wasSensitive lists inputs
+    // that were sensitive at harvest start (a show-password toggle may have
+    // flipped them to type=text since).
+    function captureState(side) {
       const state = {
         url: window.location.href,
         title: document.title,
         elementCount: document.querySelectorAll('*').length,
         inputValues: {},
+        redactedInputKeys: [],
         activeElementSelector: null,
         timestamp: Date.now()
       };
+      const wasSensitive = (side && Array.isArray(side.wasSensitive)) ? side.wasSensitive : null;
       const inputs = document.querySelectorAll('input, textarea, [contenteditable="true"]');
       for (let i = 0; i < inputs.length && i < 20; i++) {
         const inp = inputs[i];
         const key = inp.id || inp.name || ('input_' + i);
-        state.inputValues[key] = inp.value || inp.textContent || '';
+        if (isSensitiveInput(inp) || (wasSensitive && wasSensitive.indexOf(inp) !== -1)) {
+          // Emptiness is not a secret: '' stays ''.
+          const raw = inp.value || inp.textContent || '';
+          state.inputValues[key] = raw ? REDACTED : '';
+          if (state.redactedInputKeys.indexOf(key) === -1) state.redactedInputKeys.push(key);
+          if (side) { side.raw[key] = raw; side.els.push(inp); }
+        } else {
+          state.inputValues[key] = inp.value || inp.textContent || '';
+        }
       }
       const ae = document.activeElement;
       if (ae && ae !== document.body) state.activeElementSelector = buildSel(ae);
@@ -4637,13 +4745,18 @@ function _fsbHarvestStopInPage(token) {
     }
     const handles = window.__fsbChangeReportHandles || {};
     const handle = handles[token];
-    if (!handle) return { ok: true, mutations: [], afterState: captureState(), settle_ms: 0 };
+    if (!handle) {
+      const loneState = captureState(null);
+      loneState.redactedInputsChanged = [];
+      return { ok: true, mutations: [], afterState: loneState, settle_ms: 0 };
+    }
     delete handles[token];
     clearTimeout(handle.expiry);
     if (handle.observer && typeof handle.observer.disconnect === 'function') {
       try { handle.observer.disconnect(); } catch (_) { /* idempotent */ }
     }
     const settle_ms = Date.now() - (handle.startedAt || Date.now());
+    const sensitiveEls = Array.isArray(handle.sensitiveEls) ? handle.sensitiveEls : [];
     const serialized = [];
     for (let i = 0; i < handle.mutations.length; i++) {
       const rec = handle.mutations[i];
@@ -4651,16 +4764,40 @@ function _fsbHarvestStopInPage(token) {
       if (rec.addedNodes) for (let j = 0; j < rec.addedNodes.length; j++) added.push(serializeNode(rec.addedNodes[j]));
       const removed = [];
       if (rec.removedNodes) for (let j = 0; j < rec.removedNodes.length; j++) removed.push(serializeNode(rec.removedNodes[j]));
-      serialized.push({
+      const entry = {
         type: rec.type,
         attributeName: rec.attributeName || null,
         oldValue: rec.oldValue == null ? null : String(rec.oldValue),
         target: serializeNode(rec.target),
         addedNodes: added,
         removedNodes: removed
-      });
+      };
+      // D-25: a 'value' attribute record on a sensitive input (a React-synced
+      // password value attribute, a rotated hidden-input token) carries the
+      // secret in oldValue. Mask it here and flag the record for the builder;
+      // the flag never reaches change_report. Every other record keeps
+      // exactly today's six keys.
+      if (rec.type === 'attributes' && rec.attributeName === 'value'
+          && (isSensitiveInput(rec.target) || sensitiveEls.indexOf(rec.target) !== -1)) {
+        entry.oldValue = entry.oldValue === null ? null : (entry.oldValue === '' ? '' : REDACTED);
+        entry.valueRedacted = true;
+      }
+      serialized.push(entry);
     }
-    const afterState = captureState();
+    const afterSide = { raw: {}, els: [], wasSensitive: sensitiveEls };
+    const afterState = captureState(afterSide);
+    // D-25 change detection without values: compare the raw values on the
+    // page and report only the keys of sensitive inputs that changed,
+    // appeared or disappeared.
+    const beforeRaw = (handle.sensitiveRaw && typeof handle.sensitiveRaw === 'object') ? handle.sensitiveRaw : {};
+    const changedKeys = [];
+    for (const key in afterSide.raw) {
+      if (!Object.prototype.hasOwnProperty.call(beforeRaw, key) || beforeRaw[key] !== afterSide.raw[key]) changedKeys.push(key);
+    }
+    for (const key in beforeRaw) {
+      if (!Object.prototype.hasOwnProperty.call(afterSide.raw, key) && changedKeys.indexOf(key) === -1) changedKeys.push(key);
+    }
+    afterState.redactedInputsChanged = changedKeys;
     return { ok: true, mutations: serialized, afterState, settle_ms, mutation_count: handle.mutationCount };
   } catch (e) {
     return { ok: false, error: String(e && e.message || e) };
