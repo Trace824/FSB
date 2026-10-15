@@ -171,6 +171,7 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node tests/mcp-expect-wire.test.js',
   'node tests/expect-parity.test.js',
   'node --test tests/mcp-expect-caller.test.mjs',
+  'node --test tests/expect-outcome-browser.test.mjs',
 ]);
 
 const PHASE64_RETAINED_ROOT_COMMANDS = Object.freeze([
