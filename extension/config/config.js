@@ -320,3 +320,365 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { Config, config };
 }
+
+/**
+ * Phase 66.1 settings schema: the single source of truth for MCP settings
+ * reads and writes (D-08). Each entry names one chrome.storage.local key the
+ * control panel writes, with its type, class (writable, secret or endpoint),
+ * effective default and bounds or allowed values. Reads mask secrets and show
+ * endpoints as origin only; parsing is strict and its errors never echo the
+ * submitted value. Phase 68 adds its key as one entry.
+ *
+ * One IIFE: config.js shares the service worker's global lexical scope with
+ * every importScripts file (and the panel scope with options.js), so this
+ * block adds no top-level name. It reads no storage, calls no chrome.* API
+ * and does not touch SW-only globals at load (config.js loads first).
+ */
+(function (global) {
+  'use strict';
+
+  var CODES = Object.freeze({
+    REQUEST_INVALID: 'SETTING_REQUEST_INVALID',
+    UNKNOWN_KEY: 'SETTING_UNKNOWN_KEY',
+    PROTECTED_KEY: 'SETTING_PROTECTED_KEY',
+    VALUE_INVALID: 'SETTING_VALUE_INVALID',
+    PROVIDER_NOT_READY: 'SETTING_PROVIDER_NOT_READY',
+    DELEGATED_WRITE_REFUSED: 'SETTING_DELEGATED_WRITE_REFUSED',
+    UNSUPPORTED: 'SETTING_UNSUPPORTED',
+    STORAGE_FAILED: 'SETTING_STORAGE_FAILED'
+  });
+
+  var KEY_SOURCE = '^[A-Za-z][A-Za-z0-9_]{0,63}$';
+  // Every check uses the private copy, so the exported pattern cannot be
+  // tampered with to change what the schema accepts.
+  var KEY_RE = new RegExp(KEY_SOURCE);
+  var KEY_PATTERN = Object.freeze(new RegExp(KEY_SOURCE));
+  var INTEGER_RE = /^[0-9]{1,6}$/;
+  var VALUE_MAX_LENGTH = 2048;
+  var MODEL_LIST_CAP = 25;
+  var AGENT_CAP_FALLBACK = 8;
+  var PROVIDERS = Object.freeze(['xai', 'gemini', 'openai', 'anthropic', 'openrouter', 'lmstudio', 'custom']);
+
+  var TYPES = ['boolean', 'integer', 'enum', 'string'];
+  var CLASSES = ['writable', 'secret', 'endpoint'];
+  var GROUPS = ['provider'];
+  var DEFAULT_SOURCES = ['agentCapRecommendation'];
+  var ENTRY_FIELDS = ['key', 'type', 'cls', 'default', 'min', 'max', 'values', 'maxLength', 'group'];
+  var TYPE_ONLY_FIELDS = { min: 'integer', max: 'integer', values: 'enum', maxLength: 'string' };
+
+  // D-09 inventory: saveSettings' object order (options.js), then the four
+  // other control-panel writers (autoAnalyzeMemories, fsbTelemetryOptOut and
+  // the Sync keys). Defaults are the effective ones the consuming code uses
+  // (D-12); Config.defaults above stays unchanged.
+  var PRODUCTION_ENTRIES = [
+    { key: 'providerKind', type: 'enum', cls: 'writable', default: 'api', values: ['api', 'agent'], group: 'provider' },
+    { key: 'agentProviderId', type: 'string', cls: 'writable', default: '', maxLength: 64, group: 'provider' },
+    { key: 'modelProvider', type: 'enum', cls: 'writable', default: 'xai', values: PROVIDERS, group: 'provider' },
+    { key: 'modelName', type: 'string', cls: 'writable', default: 'grok-4-1-fast', maxLength: 200, group: 'provider' },
+    { key: 'apiKey', type: 'string', cls: 'secret', default: '' },
+    { key: 'geminiApiKey', type: 'string', cls: 'secret', default: '' },
+    { key: 'openaiApiKey', type: 'string', cls: 'secret', default: '' },
+    { key: 'anthropicApiKey', type: 'string', cls: 'secret', default: '' },
+    { key: 'customApiKey', type: 'string', cls: 'secret', default: '' },
+    { key: 'customEndpoint', type: 'string', cls: 'endpoint', default: '' },
+    { key: 'openrouterApiKey', type: 'string', cls: 'secret', default: '' },
+    { key: 'lmstudioBaseUrl', type: 'string', cls: 'endpoint', default: 'http://localhost:1234' },
+    { key: 'maxIterations', type: 'integer', cls: 'writable', default: 100, min: 50, max: 500 },
+    { key: 'debugMode', type: 'boolean', cls: 'writable', default: false },
+    { key: 'domOptimization', type: 'boolean', cls: 'writable', default: true },
+    { key: 'maxDOMElements', type: 'integer', cls: 'writable', default: 2000, min: 500, max: 5000 },
+    { key: 'elementCacheSize', type: 'integer', cls: 'writable', default: 200, min: 10, max: 1000 },
+    { key: 'prioritizeViewport', type: 'boolean', cls: 'writable', default: true },
+    { key: 'animatedActionHighlights', type: 'boolean', cls: 'writable', default: true },
+    // Effective default: the side panel reads `?? true` (Config.defaults says false).
+    { key: 'showSidepanelProgress', type: 'boolean', cls: 'writable', default: true },
+    { key: 'enableLogin', type: 'boolean', cls: 'writable', default: false },
+    { key: 'captchaSolverEnabled', type: 'boolean', cls: 'writable', default: false },
+    { key: 'captchaApiKey', type: 'string', cls: 'secret', default: '' },
+    { key: 'sttProvider', type: 'enum', cls: 'writable', default: 'browser', values: ['browser', 'whisper'] },
+    { key: 'voiceInputEnabled', type: 'boolean', cls: 'writable', default: true },
+    { key: 'autoRefineSiteMaps', type: 'boolean', cls: 'writable', default: true },
+    // Computed default: FsbAgentCapRecommendation, passed in through ctx at call time.
+    { key: 'fsbAgentCap', type: 'integer', cls: 'writable', default: { from: 'agentCapRecommendation' }, min: 1, max: 64 },
+    { key: 'fsbTriggerCap', type: 'integer', cls: 'writable', default: 8, min: 1, max: 64 },
+    { key: 'fsbChangeReportsEnabled', type: 'boolean', cls: 'writable', default: true },
+    { key: 'fsbMcpSessionRecordingEnabled', type: 'boolean', cls: 'writable', default: true },
+    { key: 'fsbMcpSessionRetentionDays', type: 'integer', cls: 'writable', default: 30, min: 1, max: 365 },
+    { key: 'autoAnalyzeMemories', type: 'boolean', cls: 'writable', default: true },
+    { key: 'fsbTelemetryOptOut', type: 'boolean', cls: 'writable', default: false },
+    // Effective default: ws-client.js and the panel Sync use this host (Config.defaults says fly.dev).
+    { key: 'serverUrl', type: 'string', cls: 'endpoint', default: 'https://full-selfbrowsing.com' },
+    { key: 'serverHashKey', type: 'string', cls: 'secret', default: '' }
+  ];
+
+  function hasOwn(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj, key);
+  }
+
+  function isStored(stored, key) {
+    return stored !== null && typeof stored === 'object' && hasOwn(stored, key) && stored[key] !== undefined;
+  }
+
+  function safeKeyLabel(key) {
+    return (typeof key === 'string' && KEY_RE.test(key)) ? key : '[invalid]';
+  }
+
+  // D-11 read projection: scheme://host[:port], '/...' when more existed,
+  // '[set]' when unparseable or opaque, '' when empty. Userinfo, path, query
+  // and fragment never appear.
+  function originOnly(raw) {
+    if (typeof raw !== 'string' || raw === '') return '';
+    var parsed;
+    try {
+      parsed = new URL(raw);
+    } catch (_e) {
+      return '[set]';
+    }
+    var origin = parsed.origin;
+    if (typeof origin !== 'string' || origin === '' || origin === 'null') return '[set]';
+    var more = (parsed.pathname !== '' && parsed.pathname !== '/') || parsed.search !== '' || parsed.hash !== '';
+    return more ? origin + '/...' : origin;
+  }
+
+  // Failure object shared by parse and plan. `error` is value-free: it names
+  // the key only through safeKeyLabel, plus bounds or allowed values.
+  function failure(code, key, error, extra) {
+    var out = { ok: false, code: code, error: error, key: safeKeyLabel(key) };
+    if (extra && extra.range) out.range = { min: extra.range.min, max: extra.range.max };
+    if (extra && extra.values) out.values = extra.values.slice();
+    return out;
+  }
+
+  function invalidEntry(index, reason) {
+    return new TypeError('FsbSettingsSchema entry ' + index + ': ' + reason);
+  }
+
+  // Validates one entry and returns a deep-frozen copy (the caller's object
+  // is never frozen or kept).
+  function buildEntry(raw, index, seen) {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw invalidEntry(index, 'not an object');
+    var fields = Object.keys(raw);
+    for (var f = 0; f < fields.length; f += 1) {
+      if (ENTRY_FIELDS.indexOf(fields[f]) === -1) throw invalidEntry(index, 'unknown field ' + fields[f]);
+    }
+    if (typeof raw.key !== 'string' || !KEY_RE.test(raw.key)) throw invalidEntry(index, 'invalid key');
+    if (seen[raw.key]) throw invalidEntry(index, 'duplicate key ' + raw.key);
+    if (TYPES.indexOf(raw.type) === -1) throw invalidEntry(index, 'unknown type');
+    if (CLASSES.indexOf(raw.cls) === -1) throw invalidEntry(index, 'unknown class');
+    if (raw.cls !== 'writable' && raw.type !== 'string') throw invalidEntry(index, 'secrets and endpoints are strings');
+    if (raw.group !== undefined && GROUPS.indexOf(raw.group) === -1) throw invalidEntry(index, 'unknown group');
+    var onlyFields = Object.keys(TYPE_ONLY_FIELDS);
+    for (var o = 0; o < onlyFields.length; o += 1) {
+      if (raw[onlyFields[o]] !== undefined && raw.type !== TYPE_ONLY_FIELDS[onlyFields[o]]) {
+        throw invalidEntry(index, onlyFields[o] + ' is only for ' + TYPE_ONLY_FIELDS[onlyFields[o]] + ' entries');
+      }
+    }
+
+    var entry = { key: raw.key, type: raw.type, cls: raw.cls, default: raw.default };
+    if (raw.type === 'boolean') {
+      if (typeof raw.default !== 'boolean') throw invalidEntry(index, 'boolean default must be a boolean');
+    } else if (raw.type === 'integer') {
+      if (!Number.isInteger(raw.min) || !Number.isInteger(raw.max) || raw.min > raw.max) {
+        throw invalidEntry(index, 'integer bounds must be integers with min <= max');
+      }
+      if (raw.default !== null && typeof raw.default === 'object') {
+        if (Object.keys(raw.default).length !== 1 || DEFAULT_SOURCES.indexOf(raw.default.from) === -1) {
+          throw invalidEntry(index, 'unknown computed default');
+        }
+        if (AGENT_CAP_FALLBACK < raw.min || AGENT_CAP_FALLBACK > raw.max) {
+          throw invalidEntry(index, 'computed default fallback is outside the bounds');
+        }
+        entry.default = Object.freeze({ from: raw.default.from });
+      } else if (!Number.isInteger(raw.default) || raw.default < raw.min || raw.default > raw.max) {
+        throw invalidEntry(index, 'integer default must be inside its bounds');
+      }
+      entry.min = raw.min;
+      entry.max = raw.max;
+    } else if (raw.type === 'enum') {
+      if (!Array.isArray(raw.values) || raw.values.length === 0) throw invalidEntry(index, 'enum needs values');
+      var values = [];
+      for (var v = 0; v < raw.values.length; v += 1) {
+        var value = raw.values[v];
+        if (typeof value !== 'string' || value === '' || values.indexOf(value) !== -1) {
+          throw invalidEntry(index, 'enum values must be unique non-empty strings');
+        }
+        values.push(value);
+      }
+      if (values.indexOf(raw.default) === -1) throw invalidEntry(index, 'enum default must be one of its values');
+      entry.values = Object.freeze(values);
+    } else {
+      if (typeof raw.default !== 'string') throw invalidEntry(index, 'string default must be a string');
+      if (raw.maxLength !== undefined) {
+        if (!Number.isInteger(raw.maxLength) || raw.maxLength < 1 || raw.maxLength > VALUE_MAX_LENGTH) {
+          throw invalidEntry(index, 'maxLength must be an integer from 1 to ' + VALUE_MAX_LENGTH);
+        }
+        entry.maxLength = raw.maxLength;
+      }
+    }
+    if (raw.group !== undefined) entry.group = raw.group;
+    return Object.freeze(entry);
+  }
+
+  // Shared by every instance, fixture instances included, so a test can put
+  // a fixture instance on globalThis.FsbSettingsSchema and every consumer
+  // keeps working.
+  var STATICS = {
+    CODES: CODES,
+    KEY_PATTERN: KEY_PATTERN,
+    VALUE_MAX_LENGTH: VALUE_MAX_LENGTH,
+    PROVIDERS: PROVIDERS,
+    MODEL_LIST_CAP: MODEL_LIST_CAP,
+    safeKeyLabel: safeKeyLabel,
+    originOnly: originOnly
+  };
+
+  function create(entries) {
+    if (!Array.isArray(entries)) throw new TypeError('FsbSettingsSchema.create needs an array of entries');
+    var byKey = Object.create(null);
+    var list = [];
+    for (var i = 0; i < entries.length; i += 1) {
+      var built = buildEntry(entries[i], i, byKey);
+      byKey[built.key] = built;
+      list.push(built);
+    }
+    var frozenEntries = Object.freeze(list);
+
+    function get(key) {
+      if (typeof key !== 'string' || !KEY_RE.test(key)) return null;
+      return byKey[key] || null;
+    }
+
+    function keys() {
+      return frozenEntries.map(function (entry) { return entry.key; });
+    }
+
+    function isWritable(key) {
+      var entry = get(key);
+      return entry !== null && entry.cls === 'writable';
+    }
+
+    function readOnlyKeys() {
+      return frozenEntries
+        .filter(function (entry) { return entry.cls !== 'writable'; })
+        .map(function (entry) { return entry.key; });
+    }
+
+    function effectiveDefault(key, ctx) {
+      var entry = get(key);
+      if (!entry) return undefined;
+      var fallback = entry.default;
+      if (fallback !== null && typeof fallback === 'object') {
+        var recommended = (ctx !== null && typeof ctx === 'object') ? ctx.agentCapRecommendation : undefined;
+        if (Number.isInteger(recommended) && recommended >= entry.min && recommended <= entry.max) return recommended;
+        return AGENT_CAP_FALLBACK;
+      }
+      return fallback;
+    }
+
+    // Reads never write: `stored` is only inspected.
+    function projectValue(key, stored, ctx) {
+      var entry = get(key);
+      if (!entry) return undefined;
+      var has = isStored(stored, entry.key);
+      if (entry.cls === 'secret') {
+        var secret = has ? stored[entry.key] : '';
+        return (typeof secret === 'string' && secret.trim() !== '') ? '[set]' : '';
+      }
+      if (entry.cls === 'endpoint') {
+        return originOnly(has ? stored[entry.key] : effectiveDefault(entry.key, ctx));
+      }
+      return has ? stored[entry.key] : effectiveDefault(entry.key, ctx);
+    }
+
+    function projectAll(stored, ctx) {
+      var settings = {};
+      for (var p = 0; p < frozenEntries.length; p += 1) {
+        settings[frozenEntries[p].key] = projectValue(frozenEntries[p].key, stored, ctx);
+      }
+      return { settings: settings, readOnly: readOnlyKeys() };
+    }
+
+    function describe(key, stored, ctx) {
+      var entry = get(key);
+      if (!entry) return null;
+      var out = {
+        key: entry.key,
+        value: projectValue(entry.key, stored, ctx),
+        type: entry.type,
+        writable: entry.cls === 'writable'
+      };
+      if (entry.type === 'integer') out.range = { min: entry.min, max: entry.max };
+      if (entry.type === 'enum') out.values = entry.values.slice();
+      return out;
+    }
+
+    // Strict parsing (D-04, D-14): exact true/false, digits-only integers
+    // inside the bounds (never clamped), exact enum members, trimmed
+    // length-bounded strings. Secrets and endpoints are refused before the
+    // value is looked at (D-10, D-11).
+    function parseValue(key, raw) {
+      var entry = get(key);
+      if (!entry) {
+        return failure(CODES.UNKNOWN_KEY, key, 'Unknown setting key. Call settings with no arguments to list keys.');
+      }
+      var label = entry.key;
+      if (entry.cls !== 'writable') {
+        return failure(CODES.PROTECTED_KEY, key, label + ' is read-only over MCP; change it in the FSB Control Panel.');
+      }
+      if (typeof raw !== 'string') {
+        return failure(CODES.REQUEST_INVALID, key, 'The value for ' + label + ' must be a string.');
+      }
+      if (raw.length > VALUE_MAX_LENGTH) {
+        return failure(CODES.VALUE_INVALID, key, 'The value for ' + label + ' is longer than ' + VALUE_MAX_LENGTH + ' characters.');
+      }
+      if (entry.type === 'boolean') {
+        if (raw === 'true') return { ok: true, value: true };
+        if (raw === 'false') return { ok: true, value: false };
+        return failure(CODES.VALUE_INVALID, key, label + ' must be true or false.');
+      }
+      if (entry.type === 'integer') {
+        if (INTEGER_RE.test(raw)) {
+          var number = Number(raw);
+          if (number >= entry.min && number <= entry.max) return { ok: true, value: number };
+        }
+        return failure(CODES.VALUE_INVALID, key,
+          label + ' must be a whole number from ' + entry.min + ' to ' + entry.max + '.',
+          { range: { min: entry.min, max: entry.max } });
+      }
+      if (entry.type === 'enum') {
+        if (entry.values.indexOf(raw) !== -1) return { ok: true, value: raw };
+        return failure(CODES.VALUE_INVALID, key,
+          label + ' must be one of: ' + entry.values.join(', ') + '.',
+          { values: entry.values });
+      }
+      var trimmed = raw.trim();
+      var maxLength = entry.maxLength || VALUE_MAX_LENGTH;
+      if (trimmed.length > maxLength) {
+        return failure(CODES.VALUE_INVALID, key, label + ' must be at most ' + maxLength + ' characters.');
+      }
+      return { ok: true, value: trimmed };
+    }
+
+    var instance = {
+      entries: frozenEntries,
+      keys: keys,
+      get: get,
+      isWritable: isWritable,
+      readOnlyKeys: readOnlyKeys,
+      effectiveDefault: effectiveDefault,
+      projectValue: projectValue,
+      projectAll: projectAll,
+      describe: describe,
+      parseValue: parseValue
+    };
+    var staticNames = Object.keys(STATICS);
+    for (var s = 0; s < staticNames.length; s += 1) instance[staticNames[s]] = STATICS[staticNames[s]];
+    instance.create = create;
+    return Object.freeze(instance);
+  }
+
+  var api = create(PRODUCTION_ENTRIES);
+
+  global.FsbSettingsSchema = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports.FsbSettingsSchema = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
