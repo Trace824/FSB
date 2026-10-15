@@ -621,6 +621,40 @@ vm.runInContext(CONFIG_SOURCE, noUrlContext, { filename: 'config.js' });
 check(vm.runInContext('FsbSettingsSchema.originOnly("https://user:pw@h.example/x")', noUrlContext) === '[set]',
   'originOnly fails closed to [set] when URL is unavailable');
 
+// WR-01: a malformed production entry disables the schema instead of throwing,
+// because a throw in config.js (an unguarded importScripts) stops the whole SW.
+const GOOD_DEBUG_ENTRY = "{ key: 'debugMode', type: 'boolean', cls: 'writable', default: false },";
+check(CONFIG_SOURCE.split(GOOD_DEBUG_ENTRY).length - 1 === 1, 'the debugMode production entry is found once (degrade fixture anchor)');
+const BROKEN_CONFIG_SOURCE = CONFIG_SOURCE.replace(GOOD_DEBUG_ENTRY,
+  "{ key: 'debugMode', type: 'boolean', cls: 'writable', default: 'not-a-boolean' },");
+const degradeErrors = [];
+const degradeConsole = {
+  log() {},
+  warn() {},
+  error(...args) { degradeErrors.push(args.map(String).join(' ')); }
+};
+const degradeModule = { exports: {} };
+const degradeChrome = { storage: { onChanged: { addListener() {} } } };
+const degradeContext = vm.createContext({ console: degradeConsole, URL, chrome: degradeChrome, module: degradeModule });
+vm.runInContext('var self = globalThis;', degradeContext);
+let degradeError = null;
+try {
+  vm.runInContext(BROKEN_CONFIG_SOURCE, degradeContext, { filename: 'config.js' });
+} catch (err) {
+  degradeError = err;
+}
+check(degradeError === null, `config.js with a malformed entry still loads${degradeError ? ` (${degradeError.message})` : ''}`);
+check(vm.runInContext('typeof self.FsbSettingsSchema === "undefined"', degradeContext),
+  'a malformed entry leaves no FsbSettingsSchema global (the routes answer SETTING_UNSUPPORTED)');
+check(vm.runInContext('typeof Config === "function" && self.config instanceof Config', degradeContext),
+  'a malformed entry keeps the Config class and the config singleton');
+check(typeof degradeModule.exports.Config === 'function' && !('FsbSettingsSchema' in degradeModule.exports),
+  'module.exports keeps Config and gains no FsbSettingsSchema');
+check(degradeErrors.length === 1 && degradeErrors[0].startsWith('[FSB] Settings schema disabled:')
+  && degradeErrors[0].includes('FsbSettingsSchema entry'), 'the disabled schema is reported once on console.error');
+check(throwsTypeError(() => schema.create([{ key: 'debugMode', type: 'boolean', cls: 'writable', default: 'not-a-boolean' }])),
+  'create() itself still throws on the same malformed entry');
+
 // ===========================================================================
 // 66.1-02 Task 1: the write planner (D-13, D-14, D-15) and its helpers.
 // A section that throws records one failure and the suite carries on.

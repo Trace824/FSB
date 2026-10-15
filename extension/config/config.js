@@ -926,8 +926,22 @@ if (typeof module !== 'undefined' && module.exports) {
     return Object.freeze(instance);
   }
 
-  var api = create(PRODUCTION_ENTRIES);
+  // A malformed production entry disables the schema instead of throwing:
+  // config.js is an unguarded importScripts in background.js, so a throw here
+  // would stop the whole service worker. The settings routes already answer
+  // SETTING_UNSUPPORTED when the schema is missing. create() itself stays
+  // strict, so tests and fixtures still fail loudly.
+  var api = null;
+  try {
+    api = create(PRODUCTION_ENTRIES);
+  } catch (error) {
+    if (typeof console !== 'undefined' && console && typeof console.error === 'function') {
+      console.error('[FSB] Settings schema disabled:', error && error.message);
+    }
+  }
 
-  global.FsbSettingsSchema = api;
-  if (typeof module !== 'undefined' && module.exports) module.exports.FsbSettingsSchema = api;
+  if (api) {
+    global.FsbSettingsSchema = api;
+    if (typeof module !== 'undefined' && module.exports) module.exports.FsbSettingsSchema = api;
+  }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
