@@ -367,6 +367,8 @@ async function run() {
     'mcp:get-session-replay',
     'mcp:replay-session',
     'system:client-inventory',
+    'mcp:get-settings',
+    'mcp:set-setting',
   ];
   const historicalMessageTypes = messageTypes.filter(
     (type) => !mergedAdditiveMessageTypes.includes(type),
@@ -378,7 +380,7 @@ async function run() {
   assert(
     JSON.stringify(messageTypes.filter((type) => mergedAdditiveMessageTypes.includes(type)))
       === JSON.stringify(mergedAdditiveMessageTypes),
-    'the merged branch retains the reviewed task-status, replay, and client-inventory additive MCPMessageType values',
+    'the merged branch retains the reviewed task-status, replay, client-inventory and Phase 66.1 settings additive MCPMessageType values, in order',
   );
   assert(
     /type: 'mcp:result' \| 'mcp:progress' \| 'mcp:error';/.test(typesSource),
