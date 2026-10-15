@@ -3486,5 +3486,39 @@
   },
   "entry_loaded_model": {
     "message": "Geladenes Chatmodell"
+  },
+  "entry_watching": {
+    "message": "$COUNT$ überwacht",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_fired": {
+    "message": "$COUNT$ ausgelöst",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_check_visible": {
+    "message": "Sichtbar"
+  },
+  "entry_check_enabled": {
+    "message": "Aktiviert"
+  },
+  "entry_check_viewport": {
+    "message": "Im Sichtfeld"
+  },
+  "entry_check_pointer": {
+    "message": "Zeigerereignisse"
+  },
+  "entry_text_content": {
+    "message": "Textinhalt"
+  },
+  "entry_crawl_title": {
+    "message": "FSB untersucht"
   }
 }

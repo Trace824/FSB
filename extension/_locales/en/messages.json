@@ -3486,5 +3486,39 @@
   },
   "entry_loaded_model": {
     "message": "Loaded chat model"
+  },
+  "entry_watching": {
+    "message": "$COUNT$ watching",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_fired": {
+    "message": "$COUNT$ fired",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_check_visible": {
+    "message": "Visible"
+  },
+  "entry_check_enabled": {
+    "message": "Enabled"
+  },
+  "entry_check_viewport": {
+    "message": "In Viewport"
+  },
+  "entry_check_pointer": {
+    "message": "Pointer Events"
+  },
+  "entry_text_content": {
+    "message": "Text Content"
+  },
+  "entry_crawl_title": {
+    "message": "FSB Crawling"
   }
 }

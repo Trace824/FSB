@@ -3486,5 +3486,39 @@
   },
   "entry_loaded_model": {
     "message": "Modelo de chat cargado"
+  },
+  "entry_watching": {
+    "message": "$COUNT$ en vigilancia",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_fired": {
+    "message": "$COUNT$ disparados",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_check_visible": {
+    "message": "Visible"
+  },
+  "entry_check_enabled": {
+    "message": "Habilitado"
+  },
+  "entry_check_viewport": {
+    "message": "En la ventana visible"
+  },
+  "entry_check_pointer": {
+    "message": "Eventos del puntero"
+  },
+  "entry_text_content": {
+    "message": "Contenido de texto"
+  },
+  "entry_crawl_title": {
+    "message": "FSB recorriendo"
   }
 }

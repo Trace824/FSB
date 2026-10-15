@@ -14,7 +14,11 @@
   function ov(key, english, subs) {
     var locale = globalThis.fsbUiLocale;
     if (locale && typeof locale.text === 'function') return locale.text(key, english, subs);
-    return english;
+    if (!subs || typeof english !== 'string') return english;
+    return english.replace(/\$([A-Za-z0-9_]+)\$/g, function (all, name) {
+      var value = subs[name] != null ? subs[name] : subs[name.toLowerCase()];
+      return value == null ? all : String(value);
+    });
   }
 
   var chromeRoots = [];
@@ -810,9 +814,9 @@
       this.container.innerHTML = `
       <div class="fsb-header">
         <img class="fsb-logo" src="" alt="FSB">
-        <span class="fsb-title">FSB Automating</span>
+        <span class="fsb-title">${ov('entry_automating', 'FSB Automating')}</span>
         <span class="fsb-client-badge"></span>
-        <button type="button" class="fsb-stop hidden" aria-label="Stop">&#9632;</button>
+        <button type="button" class="fsb-stop hidden" aria-label="${ov('entry_stop', 'Stop')}">&#9632;</button>
       </div>
       <div class="fsb-task">-</div>
       <div class="fsb-summary"></div>
@@ -826,8 +830,8 @@
         <span class="fsb-note-text"></span>
       </div>
       <div class="fsb-step">
-        <span class="fsb-step-number">Planning</span>
-        <span class="fsb-step-text">Initializing...</span>
+        <span class="fsb-step-number">${ov('entry_planning', 'Planning')}</span>
+        <span class="fsb-step-text">${ov('entry_initializing', 'Initializing...')}</span>
       </div>
       <div class="fsb-log">
         <div class="fsb-log-line"></div>
@@ -1709,7 +1713,7 @@
           </div>
           <input class="fsb-replay-scrubber" type="range" min="0" max="1" value="0" step="100" aria-label="${ov('entry_replay_position', 'Replay position, forward seek only')}" title="${ov('entry_seek_forward', 'Seek forward through the replay')}">
         </div>
-        <button type="button" class="fsb-replay-speed" aria-label="Replay speed 2\u00D7. Activate to change to 4\u00D7" title="Replay speed: 2\u00D7 (click to change)">2\u00D7</button>
+        <button type="button" class="fsb-replay-speed" aria-label="${ov('entry_replay_speed', 'Replay speed $SPEED$. Activate to change to $NEXT$', { speed: '2\u00D7', next: '4\u00D7' })}" title="${ov('entry_replay_speed_title', 'Replay speed: $SPEED$ (click to change)', { speed: '2\u00D7' })}">2\u00D7</button>
       </div>
       <div class="fsb-replay-minimal-track" aria-hidden="true">
         <div class="fsb-replay-minimal-fill"></div>
@@ -2366,7 +2370,7 @@
       this.root.className = 'badge-root';
       this.root.innerHTML = `
         <span class="badge-dot"></span>
-        <span class="badge-text"><span class="badge-watching">0 watching</span><span class="badge-sep badge-fired-sep"> · </span><span class="badge-fired zero">0 fired</span></span>
+        <span class="badge-text"><span class="badge-watching">${ov('entry_watching', '$COUNT$ watching', { count: 0 })}</span><span class="badge-sep badge-fired-sep"> · </span><span class="badge-fired zero">${ov('entry_fired', '$COUNT$ fired', { count: 0 })}</span></span>
       `;
       this.shadow.appendChild(this.root);
 
@@ -2401,10 +2405,10 @@
       }
 
       if (this.watchingEl) {
-        this.watchingEl.textContent = watching + (watching === 1 ? ' watching' : ' watching');
+        this.watchingEl.textContent = ov('entry_watching', '$COUNT$ watching', { count: watching });
       }
       if (this.firedEl) {
-        this.firedEl.textContent = fired + ' fired';
+        this.firedEl.textContent = ov('entry_fired', '$COUNT$ fired', { count: fired });
         this.firedEl.classList.toggle('zero', fired === 0);
       }
       if (this.firedSepEl) {
@@ -3307,11 +3311,17 @@
       attrsHtml += '</div>';
       const checks = inspection.interactability;
       const checkIcon = (pass) => pass ? '<span class="check-pass">OK</span>' : '<span class="check-fail">FAIL</span>';
-      const interactHtml = '<div class="check-list"><div class="check-item">' + checkIcon(checks.isVisible) + ' Visible</div><div class="check-item">' + checkIcon(checks.isEnabled) + ' Enabled</div><div class="check-item">' + checkIcon(checks.isInViewport) + ' In Viewport</div><div class="check-item">' + checkIcon(checks.receivesPointerEvents) + ' Pointer Events</div></div>';
+      const checkRow = (pass, label) => '<div class="check-item">' + checkIcon(pass) + ' ' + label + '</div>';
+      const interactHtml = '<div class="check-list">'
+        + checkRow(checks.isVisible, ov('entry_check_visible', 'Visible'))
+        + checkRow(checks.isEnabled, ov('entry_check_enabled', 'Enabled'))
+        + checkRow(checks.isInViewport, ov('entry_check_viewport', 'In Viewport'))
+        + checkRow(checks.receivesPointerEvents, ov('entry_check_pointer', 'Pointer Events'))
+        + '</div>';
       const pos = inspection.boundingRect;
       const positionHtml = '<span class="position-info">x: ' + pos.x + ', y: ' + pos.y + ', w: ' + pos.width + ', h: ' + pos.height + '</span>';
       let textHtml = '';
-      if (inspection.text) textHtml = '<div class="section"><div class="section-title">Text Content</div><div class="text-preview">' + this.escapeHtml(inspection.text) + '</div></div>';
+      if (inspection.text) textHtml = '<div class="section"><div class="section-title">' + ov('entry_text_content', 'Text Content') + '</div><div class="text-preview">' + this.escapeHtml(inspection.text) + '</div></div>';
       container.innerHTML = '<div class="header"><div>' + headerContent + '</div><button class="close-btn" id="fsb-close-panel">x</button></div><div class="section"><div class="section-title">' + ov('entry_selectors', 'Selectors FSB Would Try') + '</div>' + selectorsHtml + '</div>' + (hasAttrs ? '<div class="section"><div class="section-title">' + ov('entry_attributes', 'Attributes') + '</div>' + attrsHtml + '</div>' : '') + '<div class="section"><div class="section-title">' + ov('entry_interact', 'Interactability') + '</div>' + interactHtml + '</div><div class="section"><div class="section-title">' + ov('entry_position', 'Position') + '</div>' + positionHtml + '</div>' + textHtml;
       const closeBtn = shadow.querySelector('#fsb-close-panel');
       if (closeBtn) closeBtn.addEventListener('click', () => { this.inspectionPanel.style.setProperty('visibility', 'hidden', 'important'); });
@@ -3480,11 +3490,11 @@
       this.container.innerHTML = `
       <div class="fsb-crawl-header">
         <img class="fsb-crawl-logo" src="" alt="FSB">
-        <span class="fsb-crawl-title">FSB Crawling</span>
+        <span class="fsb-crawl-title">${ov('entry_crawl_title', 'FSB Crawling')}</span>
       </div>
       <div class="fsb-crawl-domain">--</div>
       <div class="fsb-crawl-count">
-        <span class="fsb-crawl-pages">0 / 0 pages</span>
+        <span class="fsb-crawl-pages">${ov('entry_pages', '$COLLECTED$ / $MAX$ pages', { collected: 0, max: 0 })}</span>
         <span class="fsb-crawl-percent">0%</span>
       </div>
       <div class="fsb-crawl-progress-bar">

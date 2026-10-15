@@ -3486,5 +3486,39 @@
   },
   "entry_loaded_model": {
     "message": "불러온 채팅 모델"
+  },
+  "entry_watching": {
+    "message": "$COUNT$개 감시 중",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_fired": {
+    "message": "$COUNT$개 발동",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_check_visible": {
+    "message": "표시됨"
+  },
+  "entry_check_enabled": {
+    "message": "사용 가능"
+  },
+  "entry_check_viewport": {
+    "message": "표시 영역 안"
+  },
+  "entry_check_pointer": {
+    "message": "포인터 이벤트"
+  },
+  "entry_text_content": {
+    "message": "텍스트 내용"
+  },
+  "entry_crawl_title": {
+    "message": "FSB 순회 중"
   }
 }

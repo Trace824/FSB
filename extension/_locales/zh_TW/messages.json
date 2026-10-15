@@ -3486,5 +3486,39 @@
   },
   "entry_loaded_model": {
     "message": "已載入的聊天模型"
+  },
+  "entry_watching": {
+    "message": "$COUNT$ 個監看中",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_fired": {
+    "message": "$COUNT$ 個已觸發",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_check_visible": {
+    "message": "可見"
+  },
+  "entry_check_enabled": {
+    "message": "已啟用"
+  },
+  "entry_check_viewport": {
+    "message": "在視窗內"
+  },
+  "entry_check_pointer": {
+    "message": "指標事件"
+  },
+  "entry_text_content": {
+    "message": "文字內容"
+  },
+  "entry_crawl_title": {
+    "message": "FSB 正在爬取"
   }
 }
