@@ -11,8 +11,12 @@
  * Part 1, the built-runtime contract:
  * - tool shape: exactly one `settings` tool, its short description, its
  *   host-safe inputSchema and no annotations (SC1, D-03, D-04)
- * - the 72 tools that existed at 8a058bdf are byte-identical, measured with
- *   toolsListDigest against BASELINE_8A058BDF_TOOLS_DIGEST (SC5, D-21, MCP-04)
+ * - the 72 tools that existed at 8a058bdf keep their names and their
+ *   description-free shape, compared with the frozen Phase 69 fixture
+ *   (tests/fixtures/mcp-tools-list-8a058bdf.json, which still carries
+ *   BASELINE_8A058BDF_TOOLS_DIGEST). Phase 69 shortens their descriptions on
+ *   purpose (69-CONTEXT D-22), so description equality moved to
+ *   tests/mcp-description-budget.test.js (SC5, D-21, MCP-04)
  * - the MCP prompts (with the tool-reference table) and resources (with
  *   fsb://config) are byte-identical, and reading fsb://config still sends
  *   exactly one mcp:get-config request (D-21, MCP-04)
@@ -63,9 +67,10 @@ const ROOT = path.resolve(__dirname, '..');
 
 // tools/list minus `settings`, measured from a build whose mcp/src equals
 // 8a058bdf (66.1-TOOLS-DIGEST-BASELINE.json; Node 24 and Node 20 agree).
-// Phase 69 intentionally shortens the existing descriptions: it replaces this
-// assertion with its own baseline and keeps this value for its token
-// comparison (RESEARCH Pitfall 13).
+// Phase 69 intentionally shortens the existing descriptions (69-CONTEXT
+// D-22), so this value is now asserted against the frozen 8a058bdf fixture,
+// not the current build; the current build is held to the fixture's names and
+// description-free shape below.
 const BASELINE_8A058BDF_TOOLS_DIGEST = { count: 72, sha256: '8321cc7234a7e1d817b5a3e818e75e243d76e60d1911d88b410d38147c8c4a05' };
 
 // Prompts and resources, measured on 2026-10-15 from a build of 469907cb,
@@ -206,7 +211,7 @@ let mcp = null;
 async function loadMcp() {
   const sdk = (p) => pathToFileURL(path.join(ROOT, 'mcp', 'node_modules', '@modelcontextprotocol', 'sdk', 'dist', 'esm', p)).href;
   const build = (p) => pathToFileURL(path.join(ROOT, 'mcp', 'build', p)).href;
-  const [clientModule, transportModule, runtimeModule, errorsModule, queueModule, inventoryModule, identityModule] =
+  const [clientModule, transportModule, runtimeModule, errorsModule, queueModule, inventoryModule, identityModule, phase69Module] =
     await Promise.all([
       import(sdk('client/index.js')),
       import(sdk('inMemory.js')),
@@ -214,7 +219,8 @@ async function loadMcp() {
       import(build('errors.js')),
       import(build('queue.js')),
       import(build('client-inventory.js')),
-      import(pathToFileURL(path.join(ROOT, 'scripts', 'bench', 'lib', 'identity.mjs')).href)
+      import(pathToFileURL(path.join(ROOT, 'scripts', 'bench', 'lib', 'identity.mjs')).href),
+      import(pathToFileURL(path.join(ROOT, 'tests', 'helpers', 'mcp-in-process.mjs')).href)
     ]);
   // AgentScope's lazy agent:register reads the client inventory. Answer it
   // from fixed dependencies so no version probe runs on this machine.
@@ -235,7 +241,10 @@ async function loadMcp() {
     resetInventory: () => inventoryModule.__configureClientInventoryForTests(null),
     toolsListDigest: identityModule.toolsListDigest,
     canonicalJson: identityModule.canonicalJson,
-    sha256Hex: identityModule.sha256Hex
+    sha256Hex: identityModule.sha256Hex,
+    readBaselineFixture: phase69Module.readBaselineFixture,
+    projectShape: phase69Module.projectShape,
+    EXPECT_TOOL_NAMES_VERBATIM: phase69Module.EXPECT_TOOL_NAMES_VERBATIM
   };
 }
 
@@ -386,12 +395,34 @@ async function partContract() {
       const offenders = tools.filter((candidate) => usesUnionOrTypeArray(candidate.inputSchema)).map((candidate) => candidate.name);
       checkDeep(offenders, [], 'no tool in tools/list uses anyOf or a type array (unchanged from the baseline)');
 
-      const digest = mcp.toolsListDigest(tools.filter((candidate) => candidate.name !== 'settings'));
-      checkDeep(digest, BASELINE_8A058BDF_TOOLS_DIGEST,
-        'the 72 tools that existed at 8a058bdf are byte-identical (BASELINE_8A058BDF_TOOLS_DIGEST)');
-      if (!util.isDeepStrictEqual(digest, BASELINE_8A058BDF_TOOLS_DIGEST)) {
-        out('  DIAG: a moved digest means a pre-existing tool changed name, description or inputSchema;');
-        out('  DIAG: diff tools/list against a build of 8a058bdf and fix the owning file, never this constant.');
+      // Phase 69 (69-CONTEXT D-22): descriptions of the 72 baseline tools are
+      // shortened on purpose, so description equality is replaced by the
+      // budget gate and the must-keep table in tests/mcp-description-budget.test.js
+      // (plus its manual-site coverage checks). Names and shape stay frozen
+      // here against the committed 8a058bdf fixture, and the "minus settings"
+      // rule stays.
+      const fixture = mcp.readBaselineFixture();
+      checkDeep(mcp.toolsListDigest(fixture.tools), BASELINE_8A058BDF_TOOLS_DIGEST,
+        'the frozen 8a058bdf fixture carries BASELINE_8A058BDF_TOOLS_DIGEST');
+      const baselineTools = tools.filter((candidate) => candidate.name !== 'settings');
+      checkDeep(baselineTools.map((tool) => tool.name).sort(), fixture.tools.map((tool) => tool.name).sort(),
+        'the current tool names minus settings equal the 8a058bdf names');
+      const expectNames = new Set(mcp.EXPECT_TOOL_NAMES_VERBATIM);
+      const fixtureByName = new Map(fixture.tools.map((tool) => [tool.name, tool]));
+      const drifted = [];
+      for (const tool of baselineTools) {
+        const fixtureTool = fixtureByName.get(tool.name);
+        if (!fixtureTool) continue; // reported by the name check above
+        const projection = mcp.projectShape(tool);
+        const properties = projection.inputSchema && projection.inputSchema.properties;
+        if (expectNames.has(tool.name) && properties && hasOwn(properties, 'expect')) delete properties.expect;
+        if (mcp.canonicalJson(projection) !== mcp.canonicalJson(mcp.projectShape(fixtureTool))) drifted.push(tool.name);
+      }
+      checkDeep(drifted, [],
+        'the 72 tools that existed at 8a058bdf keep their description-free shape (expect allowed on the 29 D-12 tools)');
+      if (drifted.length > 0) {
+        out('  DIAG: a drifted shape means a pre-existing tool changed a type, required list, default, enum or other');
+        out('  DIAG: non-description key; diff against tests/fixtures/mcp-tools-list-8a058bdf.json and fix the owning file.');
       }
     });
   });
