@@ -624,6 +624,271 @@ function applyChangeReportSizeCap(report) {
   return { report, truncated: true };
 }
 
+// =============================================================================
+// Phase 69 -- same-call `expect` evaluator (MCP-02, SC2)
+// =============================================================================
+//
+// This section owns the `expect` contract (D-01, D-18): the 29-tool list, the
+// timing constants, spec normalization, the read-only page probe and the
+// bounded evaluation loop. Browser access is injected (evaluateExpectation's
+// deps), so the same logic runs in the service worker, in Node unit tests and
+// in the MCP caller tests, and Phase 68 done-checks / Phase 70 run_task verify
+// can reuse it.
+//
+// This file is importScripts-loaded into the service worker, so every name
+// below is a global there: keep them unique, and never touch chrome, window
+// or document at load time.
+
+// D-12: the fixed set of tools that accept `expect`, in this exact order.
+const EXPECT_TOOL_NAMES = Object.freeze([
+  'execute_js', 'click', 'right_click', 'double_click', 'click_at', 'double_click_at', 'click_and_hold',
+  'type_text', 'insert_text', 'press_enter', 'press_key', 'clear_input',
+  'select_option', 'check_box', 'set_attribute',
+  'drag_drop', 'drag', 'drag_variable_speed', 'drop_file', 'upload_file',
+  'select_text_range', 'scroll_to_top', 'scroll_to_bottom', 'scroll_to_element',
+  'navigate', 'go_back', 'go_forward', 'refresh', 'back'
+]);
+const EXPECT_NAV_TOOL_NAMES = Object.freeze(['navigate', 'go_back', 'go_forward', 'refresh', 'back']);
+
+// D-13: the flat, closed spec.
+const EXPECT_SPEC_KEYS = Object.freeze([
+  'url_includes', 'title_includes', 'text_visible', 'text_gone', 'selector', 'state', 'value', 'dialog_open', 'timeout_ms'
+]);
+const EXPECT_PREDICATE_KEYS = Object.freeze([
+  'url_includes', 'title_includes', 'text_visible', 'text_gone', 'selector', 'dialog_open'
+]);
+const EXPECT_STATES = Object.freeze(['visible', 'gone', 'checked', 'unchecked']);
+
+// D-20 bounds. Every timing and size choice here is uncalibrated, pending V4.
+const EXPECT_DEFAULT_TIMEOUT_MS = 2000;     // uncalibrated, pending V4
+const EXPECT_MAX_TIMEOUT_MS = 5000;         // uncalibrated, pending V4
+const EXPECT_POLL_INTERVAL_MS = 200;        // uncalibrated, pending V4
+const EXPECT_OBSERVED_MAX = 120;            // uncalibrated, pending V4
+const EXPECT_STRING_MAX = 2000;             // uncalibrated, pending V4
+const EXPECT_TEXT_SCAN_MAX_CHARS = 200000;  // uncalibrated, pending V4
+const EXPECT_SHADOW_HOST_BUDGET = 2000;     // uncalibrated, pending V4
+
+// D-19 / D-25: one redaction marker for expect_result and change_report.
+const EXPECT_REDACTED = '[redacted]';
+
+// Sensitive-name pattern (D-19, D-25), compiled with the 'i' flag after the
+// camelCase word split in _fsbExpectSplitWords. It matches password, passcode,
+// passwd, pwd, otp / totp, cvv, cvc, card number, cc number, security code and
+// one-time code / pass. The short terms (t?otp, pwd, cvv, cvc, cc number) are
+// boundary-aware: no letter may stand on either side, so ordinary ids that
+// merely contain the letters ('footprint', 'hotpot', 'notpad') do not match
+// and keep today's change_report bytes. Trade-off: run-together lowercase ids
+// such as 'otpcode' or 'userpwd' are not caught by this name rule; the type
+// and autocomplete rules still apply to them.
+const EXPECT_SENSITIVE_NAME_SOURCE = '(?<![a-z])(?:t?otp|pwd|cvv|cvc|cc[-_ ]?num(?:ber)?)(?![a-z])|pass(?:wd|[-_ ]?(?:word|code))|card[-_ ]?num(?:ber)?|security[-_ ]?code|one[-_ ]?time[-_ ]?(?:code|pass)';
+
+// D-19 result contract (plus the optional top-level reason, RESEARCH Open
+// Question 1: present only when status is 'uncertain').
+const EXPECT_RESULT_KEYS = Object.freeze(['status', 'checks', 'waited_ms', 'timeout_ms', 'reason']);
+const EXPECT_CHECK_KEYS = Object.freeze(['kind', 'expected', 'observed', 'status']);
+const EXPECT_CHECK_KINDS = Object.freeze([
+  'url_includes', 'title_includes', 'text_visible', 'text_gone', 'state', 'value', 'dialog_open'
+]);
+const EXPECT_STATUSES = Object.freeze(['verified', 'unmet', 'uncertain']);
+const EXPECT_CHECK_STATUSES = Object.freeze(['met', 'unmet', 'uncertain']);
+const EXPECT_UNCERTAIN_REASONS = Object.freeze([
+  'extension_unsupported', 'invalid_expect', 'evaluator_unavailable', 'evaluator_failed', 'no_tab',
+  'tab_closed', 'restricted_page', 'no_commit', 'still_loading', 'page_unresponsive', 'probe_failed',
+  'probe_timeout', 'stale_document', 'ref_unavailable', 'invalid_selector', 'text_budget_exhausted',
+  'no_toggle_signal', 'value_unreadable'
+]);
+
+// The string-typed spec fields; only `value` may be '' (D-13: '' is the
+// natural check after clear_input).
+const _fsbExpectStringKeys = Object.freeze(['url_includes', 'title_includes', 'text_visible', 'text_gone', 'selector', 'value']);
+
+// No 'g' flag, so test() keeps no lastIndex state between calls.
+const _fsbExpectSensitiveNameRe = new RegExp(EXPECT_SENSITIVE_NAME_SOURCE, 'i');
+
+/**
+ * camelCase word split applied before the sensitive-name test: a space goes
+ * between a lowercase letter or digit and a following uppercase letter, and
+ * between an uppercase run and an uppercase letter that starts a capitalised
+ * word. 'otpCode' -> 'otp Code', 'userPwd' -> 'user Pwd', 'OTPCode' -> 'OTP Code'.
+ */
+function _fsbExpectSplitWords(value) {
+  return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+}
+
+function _fsbExpectIsPlainObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * A value check's selector that itself names a sensitive field. Used only to
+ * redact `expected` when the probe cannot report on the field.
+ */
+function _fsbExpectSelectorLooksSensitive(selector) {
+  if (typeof selector !== 'string' || selector.length === 0) return false;
+  if (/type\s*[~|^$*]?=\s*["']?\s*(?:password|hidden)(?![a-z])/i.test(selector)) return true;
+  if (/autocomplete[^\]]*(?:current-password|new-password|one-time-code|cc-)/i.test(selector)) return true;
+  return _fsbExpectSensitiveNameRe.test(_fsbExpectSplitWords(selector));
+}
+
+/**
+ * D-20: clamp a caller timeout to [0, EXPECT_MAX_TIMEOUT_MS]. Absent or
+ * non-finite values give the default; numeric strings are accepted; values
+ * are truncated toward zero.
+ */
+function clampExpectTimeoutMs(raw) {
+  let n;
+  if (typeof raw === 'number') {
+    n = raw;
+  } else if (typeof raw === 'string' && raw.trim() !== '') {
+    n = Number(raw);
+  } else {
+    return EXPECT_DEFAULT_TIMEOUT_MS;
+  }
+  if (!Number.isFinite(n)) return EXPECT_DEFAULT_TIMEOUT_MS;
+  n = Math.trunc(n) || 0;
+  if (n < 0) return 0;
+  if (n > EXPECT_MAX_TIMEOUT_MS) return EXPECT_MAX_TIMEOUT_MS;
+  return n;
+}
+
+/**
+ * Validate a raw `expect` spec (a mirror of the MCP zod validation, so a newer
+ * or older MCP server cannot drive the evaluator with a malformed spec) and
+ * build its check list in the fixed order url_includes, title_includes,
+ * text_visible, text_gone, state, value, dialog_open.
+ *
+ * Returns { ok: true, spec: { timeoutMs, checks: [{ kind, expected, selector?, sensitiveHint? }] } }
+ * or { ok: false, reason: 'invalid_expect', detail }.
+ */
+function normalizeExpectSpec(raw) {
+  const fail = (detail) => ({ ok: false, reason: 'invalid_expect', detail });
+  if (!_fsbExpectIsPlainObject(raw)) return fail('expect must be a plain object');
+  const keys = Object.keys(raw);
+  for (let i = 0; i < keys.length; i++) {
+    if (!EXPECT_SPEC_KEYS.includes(keys[i])) return fail('unknown key: ' + keys[i]);
+  }
+  const has = (key) => Object.prototype.hasOwnProperty.call(raw, key) && raw[key] !== undefined;
+
+  for (let i = 0; i < _fsbExpectStringKeys.length; i++) {
+    const key = _fsbExpectStringKeys[i];
+    if (!has(key)) continue;
+    const v = raw[key];
+    if (typeof v !== 'string') return fail(key + ' must be a string');
+    if (v.length === 0 && key !== 'value') return fail(key + ' must not be empty');
+    if (v.length > EXPECT_STRING_MAX) return fail(key + ' is longer than ' + EXPECT_STRING_MAX + ' characters');
+  }
+  if (has('state') && !(typeof raw.state === 'string' && EXPECT_STATES.includes(raw.state))) {
+    return fail('state must be one of ' + EXPECT_STATES.join(', '));
+  }
+  if (has('dialog_open') && typeof raw.dialog_open !== 'boolean') return fail('dialog_open must be a boolean');
+  if (has('timeout_ms')) {
+    // Mirrors MCP's coerced integer form: a finite integer, as a number or a
+    // non-empty numeric string. Out-of-range values are clamped, not rejected.
+    const t = raw.timeout_ms;
+    let n = NaN;
+    if (typeof t === 'number') n = t;
+    else if (typeof t === 'string' && t.trim() !== '') n = Number(t);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) return fail('timeout_ms must be an integer');
+  }
+  if (!EXPECT_PREDICATE_KEYS.some(has)) return fail('expect needs at least one predicate');
+  if ((has('state') || has('value')) && !has('selector')) return fail('state and value require selector');
+
+  const checks = [];
+  if (has('url_includes')) checks.push({ kind: 'url_includes', expected: raw.url_includes });
+  if (has('title_includes')) checks.push({ kind: 'title_includes', expected: raw.title_includes });
+  if (has('text_visible')) checks.push({ kind: 'text_visible', expected: raw.text_visible });
+  if (has('text_gone')) checks.push({ kind: 'text_gone', expected: raw.text_gone });
+  if (has('selector')) {
+    if (has('state') || !has('value')) {
+      checks.push({ kind: 'state', expected: has('state') ? raw.state : 'visible', selector: raw.selector });
+    }
+    if (has('value')) {
+      const valueCheck = { kind: 'value', expected: raw.value, selector: raw.selector };
+      if (_fsbExpectSelectorLooksSensitive(raw.selector)) valueCheck.sensitiveHint = true;
+      checks.push(valueCheck);
+    }
+  }
+  if (has('dialog_open')) checks.push({ kind: 'dialog_open', expected: raw.dialog_open });
+
+  return { ok: true, spec: { timeoutMs: clampExpectTimeoutMs(raw.timeout_ms), checks } };
+}
+
+/**
+ * D-19 overall status: verified when every check is met, unmet when any check
+ * is unmet, otherwise uncertain (including an empty list).
+ */
+function aggregateExpectStatus(checks) {
+  if (!Array.isArray(checks) || checks.length === 0) return 'uncertain';
+  if (checks.every((c) => c && c.status === 'met')) return 'verified';
+  if (checks.some((c) => c && c.status === 'unmet')) return 'unmet';
+  return 'uncertain';
+}
+
+/**
+ * D-19 bound: strings longer than EXPECT_OBSERVED_MAX become the first
+ * EXPECT_OBSERVED_MAX - 3 characters plus '...'. Non-strings are unchanged.
+ */
+function capObserved(value) {
+  if (typeof value !== 'string' || value.length <= EXPECT_OBSERVED_MAX) return value;
+  return value.slice(0, EXPECT_OBSERVED_MAX - 3) + '...';
+}
+
+/**
+ * D-19 / D-25 sensitive-field predicate over { tag, type, autocomplete, name, id }:
+ *   - input type password or hidden;
+ *   - an autocomplete token current-password, new-password, one-time-code or cc-*;
+ *   - name, id or autocomplete matching EXPECT_SENSITIVE_NAME_SOURCE after the
+ *     camelCase word split.
+ * The change-report harvest functions in ws/mcp-tool-dispatcher.js and the
+ * page probe below carry inline copies of these exact rules (they run in the
+ * page and cannot reach this scope).
+ */
+function isRedactedField(desc) {
+  if (!desc || typeof desc !== 'object') return false;
+  const tag = typeof desc.tag === 'string' ? desc.tag.toLowerCase() : '';
+  const type = typeof desc.type === 'string' ? desc.type.toLowerCase() : '';
+  if ((tag === '' || tag === 'input') && (type === 'password' || type === 'hidden')) return true;
+  const autocomplete = typeof desc.autocomplete === 'string' ? desc.autocomplete.toLowerCase() : '';
+  const tokens = autocomplete.split(/\s+/);
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === 'current-password' || t === 'new-password' || t === 'one-time-code' || t.indexOf('cc-') === 0) return true;
+  }
+  const names = [desc.name, desc.id, desc.autocomplete];
+  for (let i = 0; i < names.length; i++) {
+    const v = names[i];
+    if (typeof v === 'string' && v.length > 0 && _fsbExpectSensitiveNameRe.test(_fsbExpectSplitWords(v))) return true;
+  }
+  return false;
+}
+
+/**
+ * Build an all-uncertain expect_result for a (normalized) spec. Used when the
+ * evaluator cannot run at all (invalid spec, evaluator missing or failed, MCP
+ * version-skew fill). A value check's `expected` is always the redaction
+ * marker here: nothing observed the field, so nothing proves it is not a
+ * secret (the MCP-side fill does the same).
+ */
+function buildUncertainExpectResult(spec, reason) {
+  const checks = (spec && Array.isArray(spec.checks)) ? spec.checks : [];
+  return {
+    status: 'uncertain',
+    checks: checks.map((c) => ({
+      kind: c.kind,
+      expected: c.kind === 'value' ? EXPECT_REDACTED : capObserved(c.expected),
+      observed: null,
+      status: 'uncertain'
+    })),
+    waited_ms: 0,
+    timeout_ms: clampExpectTimeoutMs(spec ? spec.timeoutMs : undefined),
+    reason: EXPECT_UNCERTAIN_REASONS.includes(reason) ? reason : 'evaluator_failed'
+  };
+}
+
 // Export for use in content script
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -637,6 +902,33 @@ if (typeof module !== 'undefined' && module.exports) {
     startMutationHarvest,
     stopMutationHarvest,
     buildChangeReport,
-    applyChangeReportSizeCap
+    applyChangeReportSizeCap,
+    // Phase 69 additions (expect contract)
+    EXPECT_TOOL_NAMES,
+    EXPECT_NAV_TOOL_NAMES,
+    EXPECT_SPEC_KEYS,
+    EXPECT_PREDICATE_KEYS,
+    EXPECT_STATES,
+    EXPECT_DEFAULT_TIMEOUT_MS,
+    EXPECT_MAX_TIMEOUT_MS,
+    EXPECT_POLL_INTERVAL_MS,
+    EXPECT_OBSERVED_MAX,
+    EXPECT_STRING_MAX,
+    EXPECT_TEXT_SCAN_MAX_CHARS,
+    EXPECT_SHADOW_HOST_BUDGET,
+    EXPECT_REDACTED,
+    EXPECT_SENSITIVE_NAME_SOURCE,
+    EXPECT_RESULT_KEYS,
+    EXPECT_CHECK_KEYS,
+    EXPECT_CHECK_KINDS,
+    EXPECT_STATUSES,
+    EXPECT_CHECK_STATUSES,
+    EXPECT_UNCERTAIN_REASONS,
+    clampExpectTimeoutMs,
+    normalizeExpectSpec,
+    aggregateExpectStatus,
+    capObserved,
+    isRedactedField,
+    buildUncertainExpectResult
   };
 }
