@@ -14,6 +14,14 @@
  * propagation to existing consumers, the operator log lines (D-18), typed
  * failures with recovery hints, and the test-only fixture entry (D-17, SC4).
  *
+ * Part B vm-loads the real extension/ws/mcp-bridge-client.js (the
+ * tests/mcp-bridge-background-dispatch.test.js harness pattern, no global
+ * WebSocket) and proves both types reach the dispatcher through _routeMessage
+ * (Pitfall 1), the toolbar icon classes them, the client's real fail-closed
+ * _isDelegationScopedInbound gates writes (D-20), and the source contracts:
+ * no chrome.runtime.onMessage path names the types and _handleGetConfig is
+ * byte-identical to 469907cb (D-06, D-21).
+ *
  * Every response, set call, logger call and console line is kept and scanned
  * at the end: no submitted SENTINEL value may appear in any of them.
  *
@@ -24,6 +32,8 @@
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
+const vm = require('vm');
+const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -800,6 +810,307 @@ async function partA() {
 }
 
 // ---------------------------------------------------------------------------
+// Part B: the real MCPBridgeClient (vm-loaded) routes both types and its real
+// fail-closed delegation detector gates writes (D-06, D-20, Pitfall 1)
+// ---------------------------------------------------------------------------
+
+const BRIDGE_CLIENT_PATH = path.join(ROOT, 'extension', 'ws', 'mcp-bridge-client.js');
+// sha256 of the `async _handleGetConfig() {` method text (up to the next
+// `async _handleGetSiteGuides(`) at 469907cb, source equal to 8a058bdf.
+// fsb://config is the bench run identity and stays byte-identical (D-21).
+const HANDLE_GET_CONFIG_SHA256_469907CB = '4de2a8ab83d3fd2a2af84c9be0a4cf452ccb2dea2bc4d0b48422911d6f5c8ab2';
+// Files under extension/ that may name the two settings message types. A new
+// holder must be a reviewed addition here; a chrome.runtime.onMessage handler
+// never may (D-06, T-66.1-11).
+const ALLOWED_SETTINGS_TYPE_FILES = ['ws/mcp-bridge-client.js', 'ws/mcp-tool-dispatcher.js'];
+
+function createVmFakeTimers() {
+  const noop = { cleared: false };
+  return {
+    setTimeout() { return noop; },
+    clearTimeout() {},
+    setInterval() { return noop; },
+    clearInterval() {}
+  };
+}
+
+function createVmStorageArea() {
+  const store = {};
+  return {
+    async get(keys) {
+      if (keys === null || keys === undefined) return { ...store };
+      const list = typeof keys === 'string' ? [keys] : (Array.isArray(keys) ? keys : Object.keys(keys));
+      const result = {};
+      for (const key of list) {
+        if (hasOwn(store, key)) result[key] = store[key];
+      }
+      return result;
+    },
+    async set(values) { Object.assign(store, values); },
+    async remove(keys) {
+      for (const key of (Array.isArray(keys) ? keys : [keys])) delete store[key];
+    }
+  };
+}
+
+function createVmChrome() {
+  return {
+    runtime: {
+      id: 'settings-route-test-extension',
+      lastError: undefined,
+      onMessage: { addListener() {}, removeListener() {} },
+      sendMessage(_request, callback) { if (typeof callback === 'function') callback({}); }
+    },
+    storage: { session: createVmStorageArea(), local: createVmStorageArea() },
+    alarms: {
+      async create() {},
+      async clear() { return true; },
+      async getAll() { return []; }
+    }
+  };
+}
+
+function createVmFakeWebSocketClass() {
+  class FakeWebSocket {
+    constructor(url) {
+      this.url = url;
+      this.readyState = FakeWebSocket.CONNECTING;
+      this.sent = [];
+    }
+    send(payload) { this.sent.push(payload); }
+    close() { this.readyState = FakeWebSocket.CLOSED; }
+  }
+  FakeWebSocket.CONNECTING = 0;
+  FakeWebSocket.OPEN = 1;
+  FakeWebSocket.CLOSED = 3;
+  return FakeWebSocket;
+}
+
+function buildBridgeHarness(options) {
+  const settings = options || {};
+  const routeCalls = [];
+  const iconCalls = [];
+  const deterministicMath = Object.create(Math);
+  deterministicMath.random = () => 0;
+  const timers = createVmFakeTimers();
+  const context = {
+    chrome: createVmChrome(),
+    WebSocket: createVmFakeWebSocketClass(),
+    console,
+    Math: deterministicMath,
+    Date,
+    EventTarget,
+    CustomEvent,
+    setTimeout: timers.setTimeout,
+    clearTimeout: timers.clearTimeout,
+    setInterval: timers.setInterval,
+    clearInterval: timers.clearInterval,
+    // Spy first, then (optionally) the real dispatcher, so a test can prove
+    // both the pass-through arguments and the end-to-end result.
+    dispatchMcpMessageRoute: async (args) => {
+      routeCalls.push(args);
+      if (settings.forward) return dispatcher.dispatchMcpMessageRoute(args);
+      return { success: true, routedType: args.type };
+    },
+    dispatchMcpToolRoute: async () => ({ success: true }),
+    fsbActionIcon: {
+      noteActivity(tabId, activity) { iconCalls.push(activity); }
+    },
+    globalThis: {}
+  };
+  context.globalThis = context;
+  const source = fs.readFileSync(BRIDGE_CLIENT_PATH, 'utf8');
+  const footer = '\nthis.__settingsTest = { MCPBridgeClient, mcpBridgeClient, MCP_ICON_READ_MESSAGE_TYPES };\n';
+  vm.runInNewContext(source + footer, context, { filename: 'ws/mcp-bridge-client.js' });
+  const exportsObj = context.__settingsTest;
+  const client = exportsObj.mcpBridgeClient;
+  const unsupported = [];
+  client._recordUnsupportedMcpMessage = async (type) => { unsupported.push(type); };
+  client.setInboundAuthorityReady(true);
+  if (settings.delegationReady !== false) client.setDelegationAuthorityReady(true);
+  return { context, exportsObj, client, routeCalls, iconCalls, unsupported };
+}
+
+const DELEGATED_MAPPING = Object.freeze([{ delegationId: 'deleg_settings_01', agentId: 'agent_delegated' }]);
+
+async function partB() {
+  await runSection('bridge client routes both types to the dispatcher (Pitfall 1)', async () => {
+    const harness = buildBridgeHarness();
+    const getPayload = { key: 'debugMode' };
+    const setPayload = { key: 'debugMode', value: 'true' };
+    let threw = null;
+    let getResult;
+    let setResult;
+    try {
+      getResult = await harness.client._routeMessage('mcp:get-settings', getPayload, 'id1');
+      setResult = await harness.client._routeMessage('mcp:set-setting', setPayload, 'id2');
+    } catch (error) {
+      threw = error;
+    }
+    check(threw === null, 'neither type throws Unknown MCP message type' + (threw ? ' (' + threw.message + ')' : ''));
+    check(harness.unsupported.length === 0, 'neither type is recorded as an unsupported message');
+    check(harness.routeCalls.length === 2, 'both types reach dispatchMcpMessageRoute');
+    const [getCall, setCall] = harness.routeCalls;
+    check(getCall && getCall.type === 'mcp:get-settings' && getCall.payload === getPayload
+      && getCall.client === harness.client && getCall.mcpMsgId === 'id1',
+      'mcp:get-settings passes type, payload, the client instance and the message id');
+    check(setCall && setCall.type === 'mcp:set-setting' && setCall.payload === setPayload
+      && setCall.client === harness.client && setCall.mcpMsgId === 'id2',
+      'mcp:set-setting passes type, payload, the client instance and the message id');
+    check(getResult && getResult.routedType === 'mcp:get-settings' && setResult && setResult.routedType === 'mcp:set-setting',
+      'the dispatcher result is returned unchanged');
+  });
+
+  await runSection('toolbar icon classes reads and writes (D-06)', async () => {
+    const harness = buildBridgeHarness();
+    const iconSet = harness.exportsObj.MCP_ICON_READ_MESSAGE_TYPES;
+    check(iconSet && iconSet.has('mcp:get-settings') === true, 'mcp:get-settings is an icon read type');
+    check(iconSet && iconSet.has('mcp:set-setting') === false, 'mcp:set-setting is not an icon read type');
+    await harness.client._routeMessage('mcp:get-settings', {}, 'icon-read');
+    await harness.client._routeMessage('mcp:set-setting', { key: 'debugMode', value: 'true' }, 'icon-write');
+    checkDeep(harness.iconCalls, ['orbit', 'sweep'], 'a settings read shows Orbit and a write shows Sweep');
+  });
+
+  await runSection('the real delegation detector gates writes (D-20)', async () => {
+    const harness = buildBridgeHarness();
+    const realClient = harness.client;
+    const handler = dispatcher.handleSetSettingMessageRoute;
+    const writeAs = (agentId) => handler({ payload: writePayload('debugMode', 'true', { agentId }), client: realClient })
+      .then((response) => { allResponses.push(response); return response; });
+
+    harness.context.fsbAgentRegistryInstance = { listDelegationMappings: () => DELEGATED_MAPPING.map((row) => ({ ...row })) };
+    resetStorage({});
+    const delegated = await writeAs('agent_delegated');
+    check(isFailure(delegated, 'SETTING_DELEGATED_WRITE_REFUSED'), 'a mapped delegated agent is refused');
+    check(fakeStorage.setCalls.length === 0, 'the delegated refusal makes no set call');
+    const plain = await writeAs('agent_plain');
+    checkDeep(plain, { success: true, key: 'debugMode', value: true, previous: false, changed: ['debugMode'] },
+      'an unmapped agent writes through the same registry');
+    checkDeep(fakeStorage.setCalls, [{ debugMode: true }], 'the allowed write stores only debugMode');
+
+    const failClosed = [
+      ['the registry is missing', () => { delete harness.context.fsbAgentRegistryInstance; }],
+      ['the registry has no listDelegationMappings', () => { harness.context.fsbAgentRegistryInstance = {}; }],
+      ['listDelegationMappings throws', () => {
+        harness.context.fsbAgentRegistryInstance = { listDelegationMappings() { throw new Error('registry broke'); } };
+      }],
+      ['a mapping row is malformed', () => {
+        harness.context.fsbAgentRegistryInstance = {
+          listDelegationMappings: () => [{ delegationId: 'deleg_settings_01', agentId: 'agent_delegated', extra: true }]
+        };
+      }],
+      ['a mapping delegationId is invalid', () => {
+        harness.context.fsbAgentRegistryInstance = { listDelegationMappings: () => [{ delegationId: 'bad id', agentId: 'agent_other' }] };
+      }],
+      ['the mapping list is not an array', () => {
+        harness.context.fsbAgentRegistryInstance = { listDelegationMappings: () => ({ agent_plain: true }) };
+      }]
+    ];
+    for (const [name, arrange] of failClosed) {
+      arrange();
+      resetStorage({});
+      const response = await writeAs('agent_plain');
+      check(isFailure(response, 'SETTING_DELEGATED_WRITE_REFUSED'), 'refused (fail closed) when ' + name);
+      check(fakeStorage.setCalls.length === 0, 'no set call when ' + name);
+    }
+
+    harness.context.fsbAgentRegistryInstance = { listDelegationMappings: () => DELEGATED_MAPPING.map((row) => ({ ...row })) };
+    resetStorage({ maxIterations: 300 });
+    const read = await dispatcher.handleGetSettingsMessageRoute({ payload: { agentId: 'agent_delegated', key: 'maxIterations' }, client: realClient });
+    allResponses.push(read);
+    check(read && read.success === true && read.value === 300, 'a delegated agent can still read');
+  });
+
+  await runSection('end to end through _routeMessage and the real dispatcher', async () => {
+    const harness = buildBridgeHarness({ forward: true });
+    harness.context.fsbAgentRegistryInstance = { listDelegationMappings: () => DELEGATED_MAPPING.map((row) => ({ ...row })) };
+    resetStorage({});
+    const written = await harness.client._routeMessage('mcp:set-setting', writePayload('maxIterations', '120', { agentId: 'agent_plain' }), 'e2e-1');
+    allResponses.push(written);
+    check(written && written.success === true && written.value === 120 && written.previous === 100, 'an MCP write lands through the bridge');
+    checkDeep(fakeStorage.setCalls, [{ maxIterations: 120 }], 'storage holds only the written key');
+    const refused = await harness.client._routeMessage('mcp:set-setting', writePayload('maxIterations', '130', { agentId: 'agent_delegated' }), 'e2e-2');
+    allResponses.push(refused);
+    check(isFailure(refused, 'SETTING_DELEGATED_WRITE_REFUSED'), 'a delegated write is refused through the bridge');
+    const read = await harness.client._routeMessage('mcp:get-settings', { agentId: 'agent_delegated', key: 'maxIterations' }, 'e2e-3');
+    allResponses.push(read);
+    check(read && read.success === true && read.value === 120, 'a delegated read succeeds through the bridge');
+
+    // _handleMessage wraps a handler result as { success: true, ...result },
+    // so a typed failure must still arrive as success:false.
+    const sent = [];
+    harness.client._sendResult = (id, payload) => { sent.push({ id, kind: 'result', payload }); };
+    harness.client._sendError = (id, error) => { sent.push({ id, kind: 'error', error }); };
+    await harness.client._handleMessage(JSON.stringify({
+      id: 'wire-1', type: 'mcp:set-setting', payload: writePayload('apiKey', 'sk-SENTINEL-4', { agentId: 'agent_plain' })
+    }));
+    const frame = sent[0] || {};
+    allResponses.push(frame.payload);
+    check(frame.kind === 'result' && frame.payload && frame.payload.success === false
+      && frame.payload.code === 'SETTING_PROTECTED_KEY', 'a refusal leaves the bridge as an mcp:result with success:false');
+    check(!hasSentinel(frame), 'the refusal frame never carries the submitted value');
+  });
+
+  await runSection('delegation authority not ready stops a delegated write first', async () => {
+    const harness = buildBridgeHarness({ forward: true, delegationReady: false });
+    harness.context.fsbAgentRegistryInstance = { listDelegationMappings: () => DELEGATED_MAPPING.map((row) => ({ ...row })) };
+    resetStorage({});
+    let message = null;
+    try {
+      await harness.client._routeMessage('mcp:set-setting', writePayload('debugMode', 'true', { agentId: 'agent_delegated' }), 'na-1');
+    } catch (error) {
+      message = error && error.message;
+    }
+    check(message === 'delegation_authority_not_ready', 'the bridge throws delegation_authority_not_ready');
+    check(harness.routeCalls.length === 0, 'no handler ran');
+    check(fakeStorage.setCalls.length === 0, 'no storage write happened');
+  });
+
+  await runSection('source contracts (D-06, D-21, T-66.1-11)', async () => {
+    const background = fs.readFileSync(path.join(ROOT, 'extension', 'background.js'), 'utf8');
+    check(!background.includes('mcp:get-settings') && !background.includes('mcp:set-setting'),
+      'background.js (chrome.runtime.onMessage) names neither settings type');
+
+    const holders = [];
+    const extensionRoot = path.join(ROOT, 'extension');
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === 'node_modules') continue;
+          walk(full);
+        } else if (/\.(js|mjs|cjs|html|json)$/.test(entry.name)) {
+          const text = fs.readFileSync(full, 'utf8');
+          if (text.includes('mcp:get-settings') || text.includes('mcp:set-setting')) {
+            holders.push(path.relative(extensionRoot, full).split(path.sep).join('/'));
+          }
+        }
+      }
+    };
+    walk(extensionRoot);
+    checkDeep(holders.sort(), ALLOWED_SETTINGS_TYPE_FILES.slice().sort(),
+      'only the bridge client and the dispatcher name the settings types under extension/');
+
+    const bridgeSource = fs.readFileSync(BRIDGE_CLIENT_PATH, 'utf8');
+    check((bridgeSource.match(/case 'mcp:get-settings':/g) || []).length === 1, 'one mcp:get-settings switch case');
+    check((bridgeSource.match(/case 'mcp:set-setting':/g) || []).length === 1, 'one mcp:set-setting switch case');
+    check(/case 'mcp:get-status':\s*return this\._handleGetStatus\(payload\);/.test(bridgeSource),
+      'the mcp:get-status case pin text is unchanged');
+    const configStart = bridgeSource.indexOf('  async _handleGetConfig() {');
+    const configEnd = bridgeSource.indexOf('\n  async _handleGetSiteGuides(', configStart);
+    const configText = configStart === -1 || configEnd === -1 ? '' : bridgeSource.slice(configStart, configEnd);
+    const configHash = crypto.createHash('sha256').update(configText).digest('hex');
+    check(configHash === HANDLE_GET_CONFIG_SHA256_469907CB, '_handleGetConfig is byte-identical to 469907cb (got ' + configHash + ')');
+
+    const contracts = dispatcher.getMcpRouteContracts().messageRoutes;
+    checkDeep(contracts['mcp:get-settings'], { routeFamily: 'settings', handler: 'handleGetSettingsMessageRoute' },
+      'getMcpRouteContracts reports the get-settings route');
+    checkDeep(contracts['mcp:set-setting'], { routeFamily: 'settings', handler: 'handleSetSettingMessageRoute' },
+      'getMcpRouteContracts reports the set-setting route');
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Value hygiene across every sink
 // ---------------------------------------------------------------------------
 
@@ -815,6 +1126,7 @@ function sentinelScan() {
 
 (async () => {
   await partA();
+  await partB();
   sentinelScan();
   out('\nmcp-settings-route: ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed > 0 ? 1 : 0);
