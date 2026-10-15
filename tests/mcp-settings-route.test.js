@@ -569,6 +569,16 @@ async function partA() {
     const noProviders = await setSetting(writePayload('providerKind', 'agent'));
     check(isFailure(noProviders, 'SETTING_PROVIDER_NOT_READY'), 'without FsbDelegationProviders it fails closed');
     check(fakeStorage.setCalls.length === 0, 'the fail-closed refusal makes no set call');
+
+    // WR-04: leaving a delegated agent for api needs a ready API provider.
+    resetStorage({ providerKind: 'agent', agentProviderId: 'claude-code', modelProvider: 'openai' });
+    const apiNotReady = await setSetting(writePayload('providerKind', 'api'));
+    check(isFailure(apiNotReady, 'SETTING_PROVIDER_NOT_READY'), 'providerKind api with no stored openai key is not ready');
+    check(fakeStorage.setCalls.length === 0 && fakeStorage.store.providerKind === 'agent', 'the api refusal writes nothing');
+    resetStorage({ providerKind: 'agent', agentProviderId: 'claude-code', modelProvider: 'openai', openaiApiKey: 'sk-SENTINEL-5' });
+    const apiReady = await setSetting(writePayload('providerKind', 'api'));
+    checkDeep(apiReady, { success: true, key: 'providerKind', value: 'api', previous: 'agent', changed: ['providerKind'] },
+      'providerKind api succeeds once the openai key is stored');
   });
 
   await runSection('delegated-write gate (D-20)', async () => {

@@ -1076,10 +1076,33 @@ runSection('planWrite: providerKind and agentProviderId (D-15, A3)', () => {
     NOT_READY_CODE, 'agent when the checker returns a truthy non-true value');
   expectPlanOk(plan('providerKind', 'api', {}),
     { key: 'providerKind', value: 'api', previous: 'api', patch: { providerKind: 'api' }, changed: ['providerKind'] },
-    'api is always accepted (absent key written)');
-  expectPlanOk(plan('providerKind', 'api', { providerKind: 'agent', agentProviderId: '' }),
+    'api when api is already in effect needs no readiness check (absent key written)');
+  expectPlanOk(plan('providerKind', 'api', { providerKind: 'api', modelProvider: 'openai' }),
+    { key: 'providerKind', value: 'api', previous: 'api', patch: {}, changed: [] },
+    'restating api is a no-op even when the provider has no key');
+  expectPlanOk(plan('providerKind', 'api', { providerKind: 'agent', agentProviderId: '', apiKey: 'k' }),
     { key: 'providerKind', value: 'api', previous: 'agent', patch: { providerKind: 'api' }, changed: ['providerKind'] },
-    'api is accepted from agent');
+    'api is accepted from agent when the provider in effect (xai) has its key');
+
+  // WR-04: switching to api uses the modelProvider readiness rule.
+  const apiNoKey = expectPlanFail(plan('providerKind', 'api', { providerKind: 'agent', agentProviderId: 'claude-code', modelProvider: 'openai' }),
+    NOT_READY_CODE, 'api from agent when openai has no stored key');
+  check(apiNoKey.error === 'Store the openai API key in the FSB Control Panel first.', 'the api not-ready sentence names the provider');
+  expectPlanFail(plan('providerKind', 'api', { providerKind: 'agent', modelProvider: 'openai', apiKey: 'k' }),
+    NOT_READY_CODE, 'another provider\'s key does not make api ready');
+  expectPlanFail(plan('providerKind', 'api', { providerKind: 'agent' }), NOT_READY_CODE, 'api from agent with the default xai and no key');
+  const apiCustom = expectPlanFail(plan('providerKind', 'api', { providerKind: 'agent', modelProvider: 'custom', customEndpoint: ' ' }),
+    NOT_READY_CODE, 'api from agent when custom has no endpoint');
+  check(apiCustom.error === 'Set a custom endpoint in the FSB Control Panel first.', 'the custom api sentence asks for an endpoint');
+  expectPlanOk(plan('providerKind', 'api', { providerKind: 'agent', modelProvider: 'custom', customEndpoint: 'https://x.example' }),
+    { key: 'providerKind', value: 'api', previous: 'agent', patch: { providerKind: 'api' }, changed: ['providerKind'] },
+    'api from agent with custom and an endpoint is accepted');
+  expectPlanOk(plan('providerKind', 'api', { providerKind: 'agent', modelProvider: 'lmstudio' }),
+    { key: 'providerKind', value: 'api', previous: 'agent', patch: { providerKind: 'api' }, changed: ['providerKind'] },
+    'api from agent with lmstudio needs no key');
+  const apiRetired = expectPlanFail(plan('providerKind', 'api', { providerKind: 'agent', modelProvider: 'retired-provider' }),
+    NOT_READY_CODE, 'api from agent with a stored provider outside the seven');
+  check(!apiRetired.error.includes('retired-provider'), 'the api not-ready sentence never echoes a stored provider');
 
   const retired = expectPlanFail(plan('agentProviderId', 'codex', {}, agentCtx), 'SETTING_VALUE_INVALID', 'a retired agent id');
   checkDeep(retired.values, ['', 'claude-code', 'grok-build'], 'the agent-id failure lists "" and the shipped ids');

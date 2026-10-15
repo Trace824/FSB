@@ -807,22 +807,30 @@ if (typeof module !== 'undefined' && module.exports) {
       }
     }
 
+    // D-15 readiness of an API provider for autopilot: a hosted provider
+    // needs its stored API key, custom needs an endpoint, lmstudio needs
+    // nothing, and anything else is refused. Returns a failure or null. The
+    // sentence names a provider only from the closed hosted list.
+    function apiProviderNotReady(provider, stored, key) {
+      if (isHostedProvider(provider)) {
+        if (storedNonBlank(stored, PROVIDER_API_KEY[provider])) return null;
+        return failure(CODES.PROVIDER_NOT_READY, key, 'Store the ' + provider + ' API key in the FSB Control Panel first.');
+      }
+      if (provider === 'custom') {
+        if (storedNonBlank(stored, 'customEndpoint')) return null;
+        return failure(CODES.PROVIDER_NOT_READY, key, 'Set a custom endpoint in the FSB Control Panel first.');
+      }
+      if (provider === 'lmstudio') return null;
+      return failure(CODES.PROVIDER_NOT_READY, key, 'Choose a model provider in the FSB Control Panel first.');
+    }
+
     // D-15 provider rules. Returns { failure, omitted } to refuse, { patch }
     // to replace the default one-key patch, or {} to keep it.
     function providerRule(key, value, stored, ctx) {
       if (key === 'modelProvider') {
         if (value === currentText('modelProvider', stored)) return { patch: { modelProvider: value } };
-        if (isHostedProvider(value)) {
-          if (!storedNonBlank(stored, PROVIDER_API_KEY[value])) {
-            return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Store the ' + value + ' API key in the FSB Control Panel first.') };
-          }
-        } else if (value === 'custom') {
-          if (!storedNonBlank(stored, 'customEndpoint')) {
-            return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Set a custom endpoint in the FSB Control Panel first.') };
-          }
-        } else if (value !== 'lmstudio') {
-          return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Choose a model provider in the FSB Control Panel first.') };
-        }
+        var providerNotReady = apiProviderNotReady(value, stored, key);
+        if (providerNotReady) return { failure: providerNotReady };
         // custom has no start-time model resolver (only lmstudio does), so its
         // empty default would reach the endpoint as model ''. Keep a stored
         // model name instead, as the control panel's Save does; the caller can
@@ -849,6 +857,14 @@ if (typeof module !== 'undefined' && module.exports) {
         };
       }
       if (key === 'providerKind') {
+        if (value === 'api') {
+          // Switching to api runs autopilot on the stored modelProvider, so it
+          // must be ready, as a modelProvider write requires. Re-stating the
+          // current kind needs no check.
+          if (currentText('providerKind', stored) === 'api') return {};
+          var kindNotReady = apiProviderNotReady(currentText('modelProvider', stored), stored, key);
+          return kindNotReady ? { failure: kindNotReady } : {};
+        }
         if (value !== 'agent') return {};
         var agentId = currentText('agentProviderId', stored);
         if (agentId === '' || !isShippedAgent(ctx, agentId)) {
