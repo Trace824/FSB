@@ -733,7 +733,11 @@ function collapseOldActions() {
   // Update count label
   const countEl = group.querySelector('.action-summary-count');
   if (countEl) {
-    countEl.textContent = `${list.children.length} actions completed`;
+    const count = list.children.length;
+    const label = count === 1 ? '$COUNT$ action completed' : '$COUNT$ actions completed';
+    countEl.textContent = (globalThis.fsbUiLocale && typeof fsbUiLocale.line === 'function')
+      ? fsbUiLocale.line(label, { count })
+      : label.replace('$COUNT$', count);
   }
 }
 

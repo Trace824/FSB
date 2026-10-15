@@ -3374,5 +3374,117 @@
   },
   "lang_extensions_page": {
     "message": "chrome://extensions の名前はブラウザの言語に従います。"
+  },
+  "copy_9a19a25438": {
+    "message": "$COUNT$ 件の操作が完了",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5bb3cc9bbc": {
+    "message": "$COUNT$ 件の操作が完了",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_89858f87f6": {
+    "message": "ログインが必要です"
+  },
+  "copy_969ccbd3cf": {
+    "message": "メールアドレス"
+  },
+  "copy_657144f3f7": {
+    "message": "ユーザー名 / メールアドレス"
+  },
+  "copy_fb625242db": {
+    "message": "このサイト"
+  },
+  "copy_3a4ba4367b": {
+    "message": "このセッションでは保存できません。"
+  },
+  "copy_88712c434b": {
+    "message": "ログインが必要です"
+  },
+  "copy_9a15079bb0": {
+    "message": "サインインするには資格情報を入力してください。暗号化して今後のために保存します。"
+  },
+  "copy_5c4fb64721": {
+    "message": "今後のために保存"
+  },
+  "copy_bcc0bcc914": {
+    "message": "サインイン"
+  },
+  "copy_28d03596d2": {
+    "message": "スキップ"
+  },
+  "copy_71b27d1772": {
+    "message": "この購入手続き"
+  },
+  "copy_3953987f92": {
+    "message": "購入手続きを検出しました"
+  },
+  "copy_0fa359b5b5": {
+    "message": "支払いは無効です"
+  },
+  "copy_22a8f98173": {
+    "message": "保管庫はロックされています"
+  },
+  "copy_869a552f3f": {
+    "message": "支払いを開く"
+  },
+  "copy_48845bff33": {
+    "message": "閉じる"
+  },
+  "copy_b764cdc0ea": {
+    "message": "不明"
+  },
+  "copy_23f19f7bd3": {
+    "message": "$BRAND$（末尾 $LAST$）",
+    "placeholders": {
+      "brand": {
+        "content": "$1"
+      },
+      "last": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_9a09841b76": {
+    "message": "有効期限 $MONTH$/$YEAR$",
+    "placeholders": {
+      "month": {
+        "content": "$1"
+      },
+      "year": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_e73906185a": {
+    "message": "保存済みのカードを入力"
+  },
+  "copy_297f2fc07e": {
+    "message": "まだセッションはありません。自動化を実行すると、ここに履歴が表示されます。"
+  },
+  "copy_1369c6877b": {
+    "message": "無操作で終了"
+  },
+  "copy_a5fbb5c6ed": {
+    "message": "不明なタスク"
+  },
+  "copy_a147891596": {
+    "message": "$COUNT$ 件の操作",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_loaded_model": {
+    "message": "読み込み済みのチャットモデル"
   }
 }

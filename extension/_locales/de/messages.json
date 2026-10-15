@@ -3374,5 +3374,117 @@
   },
   "lang_extensions_page": {
     "message": "Der Name auf chrome://extensions folgt der Browsersprache."
+  },
+  "copy_9a19a25438": {
+    "message": "$COUNT$ Aktion abgeschlossen",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5bb3cc9bbc": {
+    "message": "$COUNT$ Aktionen abgeschlossen",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_89858f87f6": {
+    "message": "Anmeldung erforderlich"
+  },
+  "copy_969ccbd3cf": {
+    "message": "E-Mail"
+  },
+  "copy_657144f3f7": {
+    "message": "Benutzername / E-Mail"
+  },
+  "copy_fb625242db": {
+    "message": "diese Website"
+  },
+  "copy_3a4ba4367b": {
+    "message": "Speichern ist in dieser Sitzung nicht verfügbar."
+  },
+  "copy_88712c434b": {
+    "message": "Anmeldung erforderlich"
+  },
+  "copy_9a15079bb0": {
+    "message": "Gib deine Anmeldedaten ein, um dich anzumelden. Sie werden verschlüsselt und für später gespeichert."
+  },
+  "copy_5c4fb64721": {
+    "message": "Für später speichern"
+  },
+  "copy_bcc0bcc914": {
+    "message": "Anmelden"
+  },
+  "copy_28d03596d2": {
+    "message": "Überspringen"
+  },
+  "copy_71b27d1772": {
+    "message": "diesen Checkout"
+  },
+  "copy_3953987f92": {
+    "message": "Checkout erkannt"
+  },
+  "copy_0fa359b5b5": {
+    "message": "Zahlungen deaktiviert"
+  },
+  "copy_22a8f98173": {
+    "message": "Tresor gesperrt"
+  },
+  "copy_869a552f3f": {
+    "message": "Zahlungen öffnen"
+  },
+  "copy_48845bff33": {
+    "message": "Schließen"
+  },
+  "copy_b764cdc0ea": {
+    "message": "Unbekannt"
+  },
+  "copy_23f19f7bd3": {
+    "message": "$BRAND$ mit Endung $LAST$",
+    "placeholders": {
+      "brand": {
+        "content": "$1"
+      },
+      "last": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_9a09841b76": {
+    "message": "Gültig bis $MONTH$/$YEAR$",
+    "placeholders": {
+      "month": {
+        "content": "$1"
+      },
+      "year": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_e73906185a": {
+    "message": "Gespeicherte Karte ausfüllen"
+  },
+  "copy_297f2fc07e": {
+    "message": "Noch keine Sitzungen. Starte eine Automatisierung, um hier deinen Verlauf zu sehen."
+  },
+  "copy_1369c6877b": {
+    "message": "Wegen Inaktivität geschlossen"
+  },
+  "copy_a5fbb5c6ed": {
+    "message": "Unbekannte Aufgabe"
+  },
+  "copy_a147891596": {
+    "message": "$COUNT$ Aktionen",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_loaded_model": {
+    "message": "Geladenes Chatmodell"
   }
 }

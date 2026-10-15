@@ -3374,5 +3374,117 @@
   },
   "lang_extensions_page": {
     "message": "chrome://extensions의 이름은 브라우저 언어를 따릅니다."
+  },
+  "copy_9a19a25438": {
+    "message": "작업 $COUNT$개 완료",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5bb3cc9bbc": {
+    "message": "작업 $COUNT$개 완료",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_89858f87f6": {
+    "message": "로그인이 필요합니다"
+  },
+  "copy_969ccbd3cf": {
+    "message": "이메일"
+  },
+  "copy_657144f3f7": {
+    "message": "사용자 이름 / 이메일"
+  },
+  "copy_fb625242db": {
+    "message": "이 사이트"
+  },
+  "copy_3a4ba4367b": {
+    "message": "이 세션에서는 저장할 수 없습니다."
+  },
+  "copy_88712c434b": {
+    "message": "로그인 필요"
+  },
+  "copy_9a15079bb0": {
+    "message": "로그인하려면 자격 증명을 입력하세요. 암호화되어 다음에 사용할 수 있도록 저장됩니다."
+  },
+  "copy_5c4fb64721": {
+    "message": "다음에 사용하도록 저장"
+  },
+  "copy_bcc0bcc914": {
+    "message": "로그인"
+  },
+  "copy_28d03596d2": {
+    "message": "건너뛰기"
+  },
+  "copy_71b27d1772": {
+    "message": "이 결제"
+  },
+  "copy_3953987f92": {
+    "message": "결제 페이지 감지됨"
+  },
+  "copy_0fa359b5b5": {
+    "message": "결제가 꺼져 있습니다"
+  },
+  "copy_22a8f98173": {
+    "message": "금고가 잠겨 있습니다"
+  },
+  "copy_869a552f3f": {
+    "message": "결제 열기"
+  },
+  "copy_48845bff33": {
+    "message": "닫기"
+  },
+  "copy_b764cdc0ea": {
+    "message": "알 수 없음"
+  },
+  "copy_23f19f7bd3": {
+    "message": "$BRAND$(끝자리 $LAST$)",
+    "placeholders": {
+      "brand": {
+        "content": "$1"
+      },
+      "last": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_9a09841b76": {
+    "message": "만료 $MONTH$/$YEAR$",
+    "placeholders": {
+      "month": {
+        "content": "$1"
+      },
+      "year": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_e73906185a": {
+    "message": "저장된 카드 입력"
+  },
+  "copy_297f2fc07e": {
+    "message": "아직 세션이 없습니다. 자동화를 실행하면 여기에 기록이 표시됩니다."
+  },
+  "copy_1369c6877b": {
+    "message": "유휴 상태로 종료됨"
+  },
+  "copy_a5fbb5c6ed": {
+    "message": "알 수 없는 작업"
+  },
+  "copy_a147891596": {
+    "message": "작업 $COUNT$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_loaded_model": {
+    "message": "불러온 채팅 모델"
   }
 }

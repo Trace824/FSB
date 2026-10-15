@@ -3374,5 +3374,117 @@
   },
   "lang_extensions_page": {
     "message": "chrome://extensions 上的名称跟随浏览器语言。"
+  },
+  "copy_9a19a25438": {
+    "message": "已完成 $COUNT$ 个操作",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5bb3cc9bbc": {
+    "message": "已完成 $COUNT$ 个操作",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_89858f87f6": {
+    "message": "需要登录"
+  },
+  "copy_969ccbd3cf": {
+    "message": "电子邮件"
+  },
+  "copy_657144f3f7": {
+    "message": "用户名 / 电子邮件"
+  },
+  "copy_fb625242db": {
+    "message": "此网站"
+  },
+  "copy_3a4ba4367b": {
+    "message": "此会话无法保存。"
+  },
+  "copy_88712c434b": {
+    "message": "需要登录"
+  },
+  "copy_9a15079bb0": {
+    "message": "输入凭据以登录。凭据将被加密并保存以供日后使用。"
+  },
+  "copy_5c4fb64721": {
+    "message": "保存以供日后使用"
+  },
+  "copy_bcc0bcc914": {
+    "message": "登录"
+  },
+  "copy_28d03596d2": {
+    "message": "跳过"
+  },
+  "copy_71b27d1772": {
+    "message": "此结账"
+  },
+  "copy_3953987f92": {
+    "message": "检测到结账"
+  },
+  "copy_0fa359b5b5": {
+    "message": "付款已停用"
+  },
+  "copy_22a8f98173": {
+    "message": "保险库已锁定"
+  },
+  "copy_869a552f3f": {
+    "message": "打开付款"
+  },
+  "copy_48845bff33": {
+    "message": "关闭"
+  },
+  "copy_b764cdc0ea": {
+    "message": "未知"
+  },
+  "copy_23f19f7bd3": {
+    "message": "$BRAND$（尾号 $LAST$）",
+    "placeholders": {
+      "brand": {
+        "content": "$1"
+      },
+      "last": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_9a09841b76": {
+    "message": "有效期 $MONTH$/$YEAR$",
+    "placeholders": {
+      "month": {
+        "content": "$1"
+      },
+      "year": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_e73906185a": {
+    "message": "填写已保存的卡"
+  },
+  "copy_297f2fc07e": {
+    "message": "还没有会话。运行一次自动化即可在此查看历史记录。"
+  },
+  "copy_1369c6877b": {
+    "message": "因闲置而关闭"
+  },
+  "copy_a5fbb5c6ed": {
+    "message": "未知任务"
+  },
+  "copy_a147891596": {
+    "message": "$COUNT$ 个操作",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_loaded_model": {
+    "message": "已加载的聊天模型"
   }
 }

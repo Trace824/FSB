@@ -664,7 +664,7 @@
           <div class="ob-input-wrap"><input class="ob-input" id="obLocalUrlInput" value="${escapeAttr(state.lmstudioBaseUrl)}" spellcheck="false"></div>
           <div class="ob-status">${statusIcon}</div>
         </div>
-        <label class="ob-model-label" for="obLocalModelSelect">Loaded chat model</label>
+        <label class="ob-model-label" for="obLocalModelSelect">${escapeHtml(ob('entry_loaded_model', 'Loaded chat model'))}</label>
         <select class="ob-input ob-model-select" id="obLocalModelSelect" ${state.lmstudioModels.length === 0 || discovering ? 'disabled' : ''}>
           ${modelOptions}
         </select>

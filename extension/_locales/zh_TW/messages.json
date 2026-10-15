@@ -3374,5 +3374,117 @@
   },
   "lang_extensions_page": {
     "message": "chrome://extensions 上的名稱跟隨瀏覽器語言。"
+  },
+  "copy_9a19a25438": {
+    "message": "已完成 $COUNT$ 個操作",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5bb3cc9bbc": {
+    "message": "已完成 $COUNT$ 個操作",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_89858f87f6": {
+    "message": "需要登入"
+  },
+  "copy_969ccbd3cf": {
+    "message": "電子郵件"
+  },
+  "copy_657144f3f7": {
+    "message": "使用者名稱 / 電子郵件"
+  },
+  "copy_fb625242db": {
+    "message": "此網站"
+  },
+  "copy_3a4ba4367b": {
+    "message": "此工作階段無法儲存。"
+  },
+  "copy_88712c434b": {
+    "message": "需要登入"
+  },
+  "copy_9a15079bb0": {
+    "message": "輸入憑證以登入。憑證會加密並儲存，供日後使用。"
+  },
+  "copy_5c4fb64721": {
+    "message": "儲存以供日後使用"
+  },
+  "copy_bcc0bcc914": {
+    "message": "登入"
+  },
+  "copy_28d03596d2": {
+    "message": "略過"
+  },
+  "copy_71b27d1772": {
+    "message": "此結帳"
+  },
+  "copy_3953987f92": {
+    "message": "偵測到結帳"
+  },
+  "copy_0fa359b5b5": {
+    "message": "付款已停用"
+  },
+  "copy_22a8f98173": {
+    "message": "保險庫已鎖定"
+  },
+  "copy_869a552f3f": {
+    "message": "開啟付款"
+  },
+  "copy_48845bff33": {
+    "message": "關閉"
+  },
+  "copy_b764cdc0ea": {
+    "message": "未知"
+  },
+  "copy_23f19f7bd3": {
+    "message": "$BRAND$（末四碼 $LAST$）",
+    "placeholders": {
+      "brand": {
+        "content": "$1"
+      },
+      "last": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_9a09841b76": {
+    "message": "有效期限 $MONTH$/$YEAR$",
+    "placeholders": {
+      "month": {
+        "content": "$1"
+      },
+      "year": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_e73906185a": {
+    "message": "填入已儲存的卡片"
+  },
+  "copy_297f2fc07e": {
+    "message": "還沒有工作階段。執行一次自動化即可在此查看紀錄。"
+  },
+  "copy_1369c6877b": {
+    "message": "因閒置而關閉"
+  },
+  "copy_a5fbb5c6ed": {
+    "message": "未知工作"
+  },
+  "copy_a147891596": {
+    "message": "$COUNT$ 個操作",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_loaded_model": {
+    "message": "已載入的聊天模型"
   }
 }

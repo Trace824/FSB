@@ -3374,5 +3374,117 @@
   },
   "lang_extensions_page": {
     "message": "The name on chrome://extensions follows the browser language."
+  },
+  "copy_9a19a25438": {
+    "message": "$COUNT$ action completed",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5bb3cc9bbc": {
+    "message": "$COUNT$ actions completed",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_89858f87f6": {
+    "message": "Login required"
+  },
+  "copy_969ccbd3cf": {
+    "message": "Email"
+  },
+  "copy_657144f3f7": {
+    "message": "Username / Email"
+  },
+  "copy_fb625242db": {
+    "message": "this site"
+  },
+  "copy_3a4ba4367b": {
+    "message": "Saving is unavailable for this session."
+  },
+  "copy_88712c434b": {
+    "message": "Login Required"
+  },
+  "copy_9a15079bb0": {
+    "message": "Enter your credentials to sign in. They will be encrypted and saved for future use."
+  },
+  "copy_5c4fb64721": {
+    "message": "Save for future use"
+  },
+  "copy_bcc0bcc914": {
+    "message": "Sign In"
+  },
+  "copy_28d03596d2": {
+    "message": "Skip"
+  },
+  "copy_71b27d1772": {
+    "message": "this checkout"
+  },
+  "copy_3953987f92": {
+    "message": "Checkout Detected"
+  },
+  "copy_0fa359b5b5": {
+    "message": "Payments disabled"
+  },
+  "copy_22a8f98173": {
+    "message": "Vault locked"
+  },
+  "copy_869a552f3f": {
+    "message": "Open Payments"
+  },
+  "copy_48845bff33": {
+    "message": "Dismiss"
+  },
+  "copy_b764cdc0ea": {
+    "message": "Unknown"
+  },
+  "copy_23f19f7bd3": {
+    "message": "$BRAND$ ending in $LAST$",
+    "placeholders": {
+      "brand": {
+        "content": "$1"
+      },
+      "last": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_9a09841b76": {
+    "message": "Exp $MONTH$/$YEAR$",
+    "placeholders": {
+      "month": {
+        "content": "$1"
+      },
+      "year": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_e73906185a": {
+    "message": "Fill Saved Card"
+  },
+  "copy_297f2fc07e": {
+    "message": "No sessions yet. Run an automation to see your history here."
+  },
+  "copy_1369c6877b": {
+    "message": "Idle-closed"
+  },
+  "copy_a5fbb5c6ed": {
+    "message": "Unknown task"
+  },
+  "copy_a147891596": {
+    "message": "$COUNT$ actions",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_loaded_model": {
+    "message": "Loaded chat model"
   }
 }

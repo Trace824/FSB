@@ -4893,7 +4893,7 @@ function ensureActionGroup() {
   group.className = 'action-summary-group';
   const header = document.createElement('div');
   header.className = 'action-summary-header';
-  header.innerHTML = '<span class="action-chevron">></span><span class="action-summary-count">0 actions completed</span>';
+  header.innerHTML = '<span class="action-chevron">></span><span class="action-summary-count">' + escapeHtml(actionCountLabel(0)) + '</span>';
   header.addEventListener('click', () => {
     const list = group.querySelector('.action-summary-list');
     const chevron = group.querySelector('.action-chevron');
@@ -4938,7 +4938,7 @@ function addActionMessage(text) {
   // Update count label
   const countEl = group.querySelector('.action-summary-count');
   if (countEl) {
-    countEl.textContent = `${list.children.length} action${list.children.length === 1 ? '' : 's'} completed`;
+    countEl.textContent = actionCountLabel(list.children.length);
   }
 
   scrollToBottom();
@@ -6084,34 +6084,30 @@ function showLoginPrompt(domain, fields) {
   container.className = 'message login-prompt new';
   container.id = 'login-prompt';
 
-  const fieldLabel = (fields && fields.usernameType === 'email') ? 'Email' : 'Username / Email';
+  const fieldLabel = escapeAttr(spLine((fields && fields.usernameType === 'email') ? 'Email' : 'Username / Email'));
 
   // Escape domain for safe HTML insertion
-  const safeDomain = (domain || 'this site').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+  const safeDomain = escapeAttr(domain || spLine('this site'));
   const authPrompt = null;
-  const promptDetail = (authPrompt && authPrompt.detail) || 'Submit credentials once to let FSB sign in and resume this same session.';
-  const handoffDetail = (authPrompt && authPrompt.handoff) || 'If you skip or the site still needs manual approval, FSB will preserve the completed work and finish with a manual handoff.';
   const allowSave = authPrompt?.allowSave !== false;
-  const saveDisabledReason = authPrompt?.saveDisabledReason || 'Saving is unavailable for this session.';
-  const safeSubtext = `${promptDetail} ${handoffDetail}`.trim().replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
-  const safeSaveDisabledReason = saveDisabledReason.replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+  const safeSaveDisabledReason = escapeAttr(authPrompt?.saveDisabledReason || spLine('Saving is unavailable for this session.'));
 
   container.innerHTML = `
     <div class="login-prompt-header">
       <i class="fas fa-lock"></i>
-      <span>Login Required</span>
+      <span>${escapeHtml(spLine('Login Required'))}</span>
     </div>
     <div class="login-prompt-domain">${safeDomain}</div>
-    <div class="login-prompt-subtext">Enter your credentials to sign in. They will be encrypted and saved for future use.</div>
+    <div class="login-prompt-subtext">${escapeHtml(spLine('Enter your credentials to sign in. They will be encrypted and saved for future use.'))}</div>
     <div class="login-prompt-form">
       <div class="login-prompt-field">
         <label>${fieldLabel}</label>
         <input type="text" id="loginPromptUsername" placeholder="${fieldLabel}" autocomplete="username">
       </div>
       <div class="login-prompt-field">
-        <label>Password</label>
+        <label>${escapeHtml(spLine('Password'))}</label>
         <div class="login-prompt-password-wrapper">
-          <input type="password" id="loginPromptPassword" placeholder="Password" autocomplete="current-password">
+          <input type="password" id="loginPromptPassword" placeholder="${escapeAttr(spLine('Password'))}" autocomplete="current-password">
           <button type="button" class="login-prompt-eye" id="loginPromptTogglePw">
             <i class="fas fa-eye"></i>
           </button>
@@ -6119,12 +6115,12 @@ function showLoginPrompt(domain, fields) {
       </div>
       <label class="login-prompt-save-label">
         <input type="checkbox" id="loginPromptSave" ${allowSave ? 'checked' : ''} ${allowSave ? '' : 'disabled'}>
-        <span>Save for future use</span>
+        <span>${escapeHtml(spLine('Save for future use'))}</span>
       </label>
       ${allowSave ? '' : `<div class="login-prompt-subtext">${safeSaveDisabledReason}</div>`}
       <div class="login-prompt-actions">
-        <button class="login-prompt-btn primary" id="loginPromptSubmit">Sign In</button>
-        <button class="login-prompt-btn ghost" id="loginPromptSkip">Skip</button>
+        <button class="login-prompt-btn primary" id="loginPromptSubmit">${escapeHtml(spLine('Sign In'))}</button>
+        <button class="login-prompt-btn ghost" id="loginPromptSkip">${escapeHtml(spLine('Skip'))}</button>
       </div>
     </div>
   `;
@@ -6223,9 +6219,9 @@ function showPaymentPrompt(domain, paymentPrompt) {
   container.className = 'message payment-prompt new';
   container.id = 'payment-prompt';
 
-  const safeDomain = escapeHtml(domain || 'this checkout');
-  const headerText = 'Checkout Detected';
-  const detailText = escapeHtml(paymentPrompt?.detail || paymentPrompt?.blockedReason || 'Saved payment methods are not available for this checkout.');
+  const safeDomain = escapeHtml(domain || spLine('this checkout'));
+  const headerText = escapeHtml(spLine('Checkout Detected'));
+  const detailText = escapeHtml(paymentPrompt?.detail || paymentPrompt?.blockedReason || spLine('Saved payment methods are not available for this checkout.'));
   const stateLabelMap = {
     no_saved_methods: 'No saved cards',
     feature_disabled: 'Payments disabled',
@@ -6233,9 +6229,9 @@ function showPaymentPrompt(domain, paymentPrompt) {
     vault_locked: 'Vault locked',
     payment_locked: 'Payment access locked'
   };
-  const stateLabel = escapeHtml(stateLabelMap[state] || 'Saved payments unavailable');
+  const stateLabel = escapeHtml(spLine(stateLabelMap[state] || 'Saved payments unavailable'));
   const primaryAction = paymentPrompt?.primaryAction || '';
-  const primaryActionLabel = escapeHtml(paymentPrompt?.primaryActionLabel || 'Open Payments');
+  const primaryActionLabel = escapeHtml(paymentPrompt?.primaryActionLabel || spLine('Open Payments'));
 
   if (!available) {
     container.innerHTML = `
@@ -6248,7 +6244,7 @@ function showPaymentPrompt(domain, paymentPrompt) {
       <div class="login-prompt-subtext">${detailText}</div>
       <div class="login-prompt-actions">
         ${primaryAction ? `<button class="login-prompt-btn primary" id="paymentPromptPrimaryAction">${primaryActionLabel}</button>` : ''}
-        <button class="login-prompt-btn ghost" id="paymentPromptDismiss">Dismiss</button>
+        <button class="login-prompt-btn ghost" id="paymentPromptDismiss">${escapeHtml(spLine('Dismiss'))}</button>
       </div>
     `;
 
@@ -6285,10 +6281,13 @@ function showPaymentPrompt(domain, paymentPrompt) {
       diners: 'Diners',
       jcb: 'JCB'
     };
-    const brandLabel = brandLabelMap[method.cardBrand] || 'Unknown';
-    const title = escapeHtml(method.nickname || `${brandLabel} ending in ${method.last4 || '****'}`);
-    const subtitle = escapeHtml(`${method.maskedNumber || '****'}${method.expiryMonth && method.expiryYearLast2 ? ` | Exp ${method.expiryMonth}/${method.expiryYearLast2}` : ''}`);
-    const billing = escapeHtml(method.billingSummary || 'Billing profile stored');
+    const brandLabel = brandLabelMap[method.cardBrand] || spLine('Unknown');
+    const title = escapeHtml(method.nickname || spLine('$BRAND$ ending in $LAST$', { brand: brandLabel, last: method.last4 || '****' }));
+    const expiry = method.expiryMonth && method.expiryYearLast2
+      ? ' | ' + spLine('Exp $MONTH$/$YEAR$', { month: method.expiryMonth, year: method.expiryYearLast2 })
+      : '';
+    const subtitle = escapeHtml(`${method.maskedNumber || '****'}${expiry}`);
+    const billing = escapeHtml(method.billingSummary || spLine('Billing profile stored'));
     const brand = (method.cardBrand || 'unknown').replace(/[^a-z]/gi, '').toLowerCase() || 'unknown';
     return `
       <button class="payment-prompt-option ${index === 0 ? 'selected' : ''}" data-payment-id="${method.id}">
@@ -6311,8 +6310,8 @@ function showPaymentPrompt(domain, paymentPrompt) {
     <div class="login-prompt-subtext">${detailText}</div>
     <div class="payment-prompt-options">${methodOptions}</div>
     <div class="login-prompt-actions">
-      <button class="login-prompt-btn primary" id="paymentPromptFill">Fill Saved Card</button>
-      <button class="login-prompt-btn ghost" id="paymentPromptSkip">Skip</button>
+      <button class="login-prompt-btn primary" id="paymentPromptFill">${escapeHtml(spLine('Fill Saved Card'))}</button>
+      <button class="login-prompt-btn ghost" id="paymentPromptSkip">${escapeHtml(spLine('Skip'))}</button>
     </div>
   `;
 
@@ -6495,7 +6494,7 @@ async function loadHistoryList() {
     if (sessions.length === 0) {
       historyList.innerHTML = '<div class="history-empty-state">' +
         '<i class="fa fa-inbox"></i>' +
-        '<p>No sessions yet. Run an automation to see your history here.</p>' +
+        '<p>' + escapeHtml(spLine('No sessions yet. Run an automation to see your history here.')) + '</p>' +
         '</div>';
       return;
     }
@@ -6506,27 +6505,27 @@ async function loadHistoryList() {
         : '';
       var idleClosed = session.status === 'expired' ||
         (session.status === 'stopped' && session.outcomeDetails?.reason === 'idle_timeout');
-      var statusLabel = idleClosed ? 'Idle-closed' : (session.status || 'unknown');
+      var statusLabel = idleClosed ? spLine('Idle-closed') : (session.status || 'unknown');
       var statusClass = idleClosed ? 'idle-closed' : (session.status || '');
       var hasReplayDetails = (session.actionCount > 0) || !!session.replayIntegrity;
       return '<div class="history-item" data-session-id="' + escapeHtml(session.id) + '">' +
         '<div class="history-item-info">' +
-          '<div class="history-item-task">' + escapeHtml(session.task || 'Unknown task') + '</div>' +
+          '<div class="history-item-task">' + escapeHtml(session.task || spLine('Unknown task')) + '</div>' +
           '<div class="history-item-meta">' +
             '<span>' + formatSessionDate(session.startTime) + '</span>' +
-            '<span>' + (session.actionCount || 0) + ' actions</span>' +
+            '<span>' + escapeHtml(spLine('$COUNT$ actions', { count: session.actionCount || 0 })) + '</span>' +
             costDisplay +
             (session.mode === 'mcp-agent'
               ? '<span class="history-source-badge mcp">MCP · ' + escapeHtml(session.mcpClient || 'Agent') + '</span>'
-              : '<span class="history-source-badge">' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_autopilot', 'Autopilot') : 'Autopilot') + '</span>') +
+              : '<span class="history-source-badge">' + escapeHtml(spLine('Autopilot')) + '</span>') +
             '<span class="history-status ' + escapeHtml(statusClass) + '">' + escapeHtml(statusLabel) + '</span>' +
           '</div>' +
         '</div>' +
         (hasReplayDetails ?
-          '<button class="history-replay-btn" data-session-id="' + escapeHtml(session.id) + '" title="' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_replay_session', 'Replay session') : 'Replay session') + '">' +
+          '<button class="history-replay-btn" data-session-id="' + escapeHtml(session.id) + '" title="' + escapeAttr(spLine('Replay session')) + '">' +
             '<i class="fa fa-play"></i>' +
           '</button>' : '') +
-        '<button class="history-delete-btn" data-session-id="' + escapeHtml(session.id) + '" title="' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_delete_session', 'Delete session') : 'Delete session') + '">' +
+        '<button class="history-delete-btn" data-session-id="' + escapeHtml(session.id) + '" title="' + escapeAttr(spLine('Delete session')) + '">' +
           '<i class="fa fa-trash"></i>' +
         '</button>' +
       '</div>';
@@ -6535,7 +6534,7 @@ async function loadHistoryList() {
     console.error('Failed to load history list:', error);
     historyList.innerHTML = '<div class="history-empty-state">' +
       '<i class="fa fa-exclamation-triangle"></i>' +
-      '<p>' + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.text) ? fsbUiLocale.text('shell_history_failed', 'Failed to load sessions.') : 'Failed to load sessions.') + '</p>' +
+      '<p>' + escapeHtml(spLine('Failed to load sessions.')) + '</p>' +
       '</div>';
   }
 }
@@ -7026,6 +7025,25 @@ function escapeHtml(str) {
   var div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// escapeHtml() leaves quotes alone, which breaks attribute values.
+function escapeAttr(str) {
+  return String(str == null ? '' : str).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Side panel copy from the exact maps (ui-locale.js and copy-exact.js).
+function spLine(english, subs) {
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.line === 'function') return fsbUiLocale.line(english, subs);
+  if (!subs) return english;
+  return english.replace(/\$([A-Za-z0-9_]+)\$/g, (all, name) => {
+    const value = subs[name] != null ? subs[name] : subs[name.toLowerCase()];
+    return value == null ? all : String(value);
+  });
+}
+
+function actionCountLabel(count) {
+  return spLine(count === 1 ? '$COUNT$ action completed' : '$COUNT$ actions completed', { count });
 }
 
 

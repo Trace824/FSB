@@ -3374,5 +3374,117 @@
   },
   "lang_extensions_page": {
     "message": "El nombre en chrome://extensions sigue el idioma del navegador."
+  },
+  "copy_9a19a25438": {
+    "message": "$COUNT$ acción completada",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5bb3cc9bbc": {
+    "message": "$COUNT$ acciones completadas",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_89858f87f6": {
+    "message": "Se requiere iniciar sesión"
+  },
+  "copy_969ccbd3cf": {
+    "message": "Correo electrónico"
+  },
+  "copy_657144f3f7": {
+    "message": "Usuario / correo electrónico"
+  },
+  "copy_fb625242db": {
+    "message": "este sitio"
+  },
+  "copy_3a4ba4367b": {
+    "message": "No se puede guardar en esta sesión."
+  },
+  "copy_88712c434b": {
+    "message": "Se requiere iniciar sesión"
+  },
+  "copy_9a15079bb0": {
+    "message": "Introduce tus credenciales para iniciar sesión. Se cifrarán y se guardarán para usarlas más adelante."
+  },
+  "copy_5c4fb64721": {
+    "message": "Guardar para más adelante"
+  },
+  "copy_bcc0bcc914": {
+    "message": "Iniciar sesión"
+  },
+  "copy_28d03596d2": {
+    "message": "Omitir"
+  },
+  "copy_71b27d1772": {
+    "message": "este pago"
+  },
+  "copy_3953987f92": {
+    "message": "Pago detectado"
+  },
+  "copy_0fa359b5b5": {
+    "message": "Pagos desactivados"
+  },
+  "copy_22a8f98173": {
+    "message": "Bóveda bloqueada"
+  },
+  "copy_869a552f3f": {
+    "message": "Abrir pagos"
+  },
+  "copy_48845bff33": {
+    "message": "Descartar"
+  },
+  "copy_b764cdc0ea": {
+    "message": "Desconocido"
+  },
+  "copy_23f19f7bd3": {
+    "message": "$BRAND$ terminada en $LAST$",
+    "placeholders": {
+      "brand": {
+        "content": "$1"
+      },
+      "last": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_9a09841b76": {
+    "message": "Vence $MONTH$/$YEAR$",
+    "placeholders": {
+      "month": {
+        "content": "$1"
+      },
+      "year": {
+        "content": "$2"
+      }
+    }
+  },
+  "copy_e73906185a": {
+    "message": "Rellenar tarjeta guardada"
+  },
+  "copy_297f2fc07e": {
+    "message": "Aún no hay sesiones. Ejecuta una automatización para ver tu historial aquí."
+  },
+  "copy_1369c6877b": {
+    "message": "Cerrada por inactividad"
+  },
+  "copy_a5fbb5c6ed": {
+    "message": "Tarea desconocida"
+  },
+  "copy_a147891596": {
+    "message": "$COUNT$ acciones",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "entry_loaded_model": {
+    "message": "Modelo de chat cargado"
   }
 }
