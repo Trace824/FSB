@@ -2085,6 +2085,7 @@ class MCPBridgeClient {
           toolName,
           tabId: tabIdForReport,
           params,
+          expect: payload.expect,
           execute: executeFn
         });
       }
@@ -2229,6 +2230,7 @@ class MCPBridgeClient {
         toolName: payload.tool,
         tabId,
         params,
+        expect: payload.expect,
         execute: executeFn
       });
     } else {

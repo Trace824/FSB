@@ -44,7 +44,7 @@
   var INTERNAL_PAYLOAD_KEYS = Object.freeze([
     'agentId', 'agent_id', 'ownershipToken', 'ownership_token',
     'connectionId', 'connection_id', 'recordingRunId', 'recordingCallId',
-    'recordingLeaseMs'
+    'recordingLeaseMs', 'expect'
   ]);
 
   var _dbPromise = null;

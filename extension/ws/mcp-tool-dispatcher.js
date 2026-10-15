@@ -1853,6 +1853,8 @@ async function handleBackRoute({ payload = {}, client = null }) {
     });
     if (recheck) return recheck;
   }
+  // Phase 69 D-17: same-call expect, resolved only after the ownership gates.
+  const expectCtx = _resolveExpectSpec(payload && payload.expect, 'back');
 
   // 3. Capture pre-back state.
   let preTab = null;
@@ -1894,7 +1896,7 @@ async function handleBackRoute({ payload = {}, client = null }) {
     prechecked = false;
   }
   if (!prechecked || historyDepth <= 1) {
-    return {
+    const noHistory = {
       success: true,
       status: 'no_history',
       resultingUrl: preUrl,
@@ -1902,7 +1904,14 @@ async function handleBackRoute({ payload = {}, client = null }) {
       tabId: targetTabId,
       tool: 'back'
     };
+    // Nothing navigated, so no commit is required.
+    return expectCtx ? _attachExpectResult(noHistory, expectCtx, targetTabId, null) : noHistory;
   }
+
+  // RESEARCH Pitfall 1: the settle below can end (2 s timeout, pageshow or
+  // onUpdated leg) before the history navigation commits, so with expect the
+  // commit watcher is subscribed before goBack and the checks wait for it.
+  const backCommit = expectCtx ? _watchMainFrameCommit(targetTabId) : null;
 
   // 5. Fire goBack. NEVER call the focus-stealing tabs update API here
   //    (D-08 background-tab posture; verification gate excludes the literal
@@ -1922,6 +1931,7 @@ async function handleBackRoute({ payload = {}, client = null }) {
   try {
     await chrome.tabs.goBack(targetTabId);
   } catch (error) {
+    if (backCommit) backCommit.dispose();
     return {
       success: false,
       errorCode: 'navigation_unavailable',
@@ -1939,6 +1949,7 @@ async function handleBackRoute({ payload = {}, client = null }) {
   try {
     postTab = await chrome.tabs.get(targetTabId);
   } catch (error) {
+    if (backCommit) backCommit.dispose();
     return {
       success: false,
       errorCode: 'tab_closed_during_back',
@@ -1979,6 +1990,11 @@ async function handleBackRoute({ payload = {}, client = null }) {
   };
   if (bindResult && bindResult.ownershipToken) {
     response.ownershipToken = bindResult.ownershipToken;
+  }
+  // Phase 69 D-17: evaluated after back's own settle and bindTab.
+  if (backCommit) {
+    try { await _attachExpectResult(response, expectCtx, targetTabId, backCommit); }
+    finally { backCommit.dispose(); }
   }
   return response;
 }

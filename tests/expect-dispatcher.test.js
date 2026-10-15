@@ -529,9 +529,303 @@ async function runTask1() {
   });
 }
 
+// ---- Task 2: back route, bridge forwarding, journal and replay strip lists ----
+
+function makeRegistry({ owner, token }) {
+  return {
+    hasAgent(id) { return id === 'agent_legit' || id === 'agent_attacker'; },
+    isOwnedBy(_tabId, agentId) { return agentId === owner; },
+    getOwner() { return owner; },
+    getTabMetadata() { return { incognito: false, windowId: 1, ownershipToken: token, boundAt: Date.now() }; },
+    getAgentWindowId() { return 1; },
+    async bindTab(agentId, tabId) { return { agentId, tabId, ownershipToken: 'tok_renewed' }; }
+  };
+}
+
+// The back route's own settle: tabs.onUpdated reports 'complete' right after
+// it subscribes (the stub never fires a commit unless a case asks for one).
+function backFixture({ depth = 5, commitOnBack = true, goBackThrows = false, closeAfterBack = false } = {}) {
+  globalThis.fsbAgentRegistryInstance = makeRegistry({ owner: 'agent_legit', token: 'tok_legit' });
+  state.mainQueue.push(depth); // history.length precheck (default world)
+  state.tabs = (id) => {
+    if (closeAfterBack && state.goBackCalls > 0) return null;
+    return {
+      id, windowId: 1, status: 'complete', title: 'Example',
+      url: state.goBackCalls > 0 ? 'https://example.com/prev' : 'https://example.com/page'
+    };
+  };
+  const addUpdated = tabEvents.onUpdated.addListener;
+  tabEvents.onUpdated.addListener = function (fn) {
+    addUpdated.call(this, fn);
+    setTimeout(() => fn(42, { status: 'complete' }), 0);
+  };
+  state.onBackComplete = (id) => {
+    if (goBackThrows) throw new Error('Cannot find a next page in history.');
+    if (commitOnBack) nav.onCommitted.fire({ tabId: id, frameId: 0, documentId: 'doc-prev' });
+  };
+  return () => { tabEvents.onUpdated.addListener = addUpdated; };
+}
+
+function goBack(payload) {
+  return dispatcher.dispatchMcpMessageRoute({
+    type: 'mcp:go-back',
+    payload: { agentId: 'agent_legit', ownershipToken: 'tok_legit', tabId: 42, ...payload }
+  });
+}
+
+async function runTask2() {
+  await section('back with expect: evaluated after the settle on the committed page', async () => {
+    const restore = backFixture();
+    try {
+      const resp = await goBack({ expect: { url_includes: '/prev' } });
+      ok(resp && resp.success === true && resp.status === 'ok' && resp.resultingUrl === 'https://example.com/prev',
+        'back itself is unchanged (success, status ok, resultingUrl)');
+      ok(resp.expect_result && resp.expect_result.status === 'verified', 'expect_result verified after the settle');
+      ok(state.goBackCalls === 1 && state.updateCalls === 0, 'goBack once; the tabs update API is never called');
+      ok(liveNavListeners() === 0 && nav.onCommitted.adds === 1 && nav.onCommitted.removes === 1,
+        'every commit listener removed on the success path');
+    } finally { restore(); }
+  });
+
+  await section('back commit gating: subscribed before goBack, never verified without a commit', async () => {
+    const restore = backFixture({ commitOnBack: false });
+    try {
+      const resp = await goBack({ expect: { text_visible: 'Old page', timeout_ms: 300 } });
+      const backAt = state.seq.findIndex((e) => e[0] === 'goBack');
+      const adds = state.seq.filter((e, i) => e[0] === 'addListener' && i < backAt
+        && ['onCommitted', 'onReferenceFragmentUpdated', 'onHistoryStateUpdated'].includes(e[1])).map((e) => e[1]).sort();
+      ok(JSON.stringify(adds) === JSON.stringify(['onCommitted', 'onHistoryStateUpdated', 'onReferenceFragmentUpdated']),
+        'the three webNavigation addListener calls come BEFORE tabs.goBack');
+      ok(resp && resp.success === true && resp.expect_result && resp.expect_result.status === 'uncertain'
+        && resp.expect_result.reason === 'no_commit',
+      'settle ended without a commit: uncertain no_commit, never verified (got '
+        + JSON.stringify(resp && resp.expect_result) + ')');
+      ok(probeCalls().length === 0, 'the old page is never probed');
+      ok(liveNavListeners() === 0, 'every listener removed');
+      ok(state.updateCalls === 0, 'tabs update API never called');
+    } finally { restore(); }
+  });
+
+  await section('back no_history with expect: evaluated at once, no commit, no listener', async () => {
+    const restore = backFixture({ depth: 1 });
+    try {
+      const resp = await goBack({ expect: { url_includes: '/page' } });
+      ok(resp && resp.success === true && resp.status === 'no_history', 'no_history outcome');
+      ok(resp.expect_result && resp.expect_result.status === 'verified', 'expect_result present and verified');
+      ok(nav.onCommitted.adds === 0 && nav.onReferenceFragmentUpdated.adds === 0 && nav.onHistoryStateUpdated.adds === 0,
+        'no webNavigation listener added');
+      ok(state.goBackCalls === 0 && state.updateCalls === 0, 'no goBack, no tabs update');
+    } finally { restore(); }
+  });
+
+  await section('back failures with expect keep their shape', async () => {
+    globalThis.fsbAgentRegistryInstance = makeRegistry({ owner: 'agent_owner', token: 'tok_owner' });
+    const reject = await dispatcher.dispatchMcpMessageRoute({
+      type: 'mcp:go-back',
+      payload: { agentId: 'agent_attacker', ownershipToken: 'tok_attacker', tabId: 42, expect: { url_includes: '/x' } }
+    });
+    ok(reject && reject.success === false && reject.code === 'TAB_NOT_OWNED'
+      && !Object.prototype.hasOwnProperty.call(reject, 'expect_result'), 'ownership reject: no expect_result');
+    ok(nav.onCommitted.adds === 0 && state.goBackCalls === 0 && state.scripting.length === 0,
+      'ownership reject: no listener, no goBack, no injection');
+
+    resetState();
+    let restore = backFixture({ goBackThrows: true });
+    try {
+      const resp = await goBack({ expect: { url_includes: '/prev' } });
+      ok(resp && resp.success === false && resp.errorCode === 'navigation_unavailable'
+        && !Object.prototype.hasOwnProperty.call(resp, 'expect_result'), 'navigation_unavailable: no expect_result');
+      ok(nav.onCommitted.adds === 1 && liveNavListeners() === 0, 'navigation_unavailable: listeners removed');
+    } finally { restore(); }
+
+    resetState();
+    restore = backFixture({ closeAfterBack: true });
+    try {
+      const resp = await goBack({ expect: { url_includes: '/prev' } });
+      ok(resp && resp.success === false && resp.errorCode === 'tab_closed_during_back'
+        && !Object.prototype.hasOwnProperty.call(resp, 'expect_result'), 'tab_closed_during_back: no expect_result');
+      ok(nav.onCommitted.adds === 1 && liveNavListeners() === 0, 'tab_closed_during_back: listeners removed');
+      ok(state.updateCalls === 0, 'tabs update API never called');
+    } finally { restore(); }
+  });
+
+  await section('back without expect is today\'s shape', async () => {
+    const restore = backFixture();
+    try {
+      const resp = await goBack({});
+      ok(JSON.stringify(resp) === JSON.stringify({
+        success: true, status: 'ok', resultingUrl: 'https://example.com/prev', historyDepth: 5,
+        tabId: 42, tool: 'back', ownershipToken: 'tok_renewed'
+      }), 'response deep-equals today\'s shape (got ' + JSON.stringify(resp) + ')');
+      ok(nav.onCommitted.adds + nav.onReferenceFragmentUpdated.adds + nav.onHistoryStateUpdated.adds === 0,
+        'zero webNavigation addListener calls');
+      ok(probeCalls().length === 0 && state.updateCalls === 0, 'no probe, no tabs update');
+    } finally { restore(); }
+    resetState();
+    const restore2 = backFixture({ depth: 1 });
+    try {
+      const resp = await goBack({ expect: null });
+      ok(JSON.stringify(resp) === JSON.stringify({
+        success: true, status: 'no_history', resultingUrl: 'https://example.com/page', historyDepth: 1, tabId: 42, tool: 'back'
+      }), 'no_history with expect null deep-equals today\'s shape');
+    } finally { restore2(); }
+    delete globalThis.fsbAgentRegistryInstance;
+  });
+
+  await section('bridge client forwards expect into both wrapWithChangeReport calls', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'extension', 'ws', 'mcp-bridge-client.js'), 'utf8');
+    const start = src.indexOf('  async _handleExecuteAction(payload) {');
+    const end = src.indexOf('\n  /**\n   * Handle background-routed tools directly', start);
+    ok(start >= 0 && end > start, '_handleExecuteAction located');
+    const method = src.slice(start, end);
+    ok(method.split('expect: payload.expect,').length - 1 === 2, 'two expect: payload.expect, lines, both in _handleExecuteAction');
+    const anchor = src.indexOf('async _handleExecuteAction');
+    const offset = src.indexOf('resolveAgentTabOrError', anchor) - anchor;
+    ok(offset > 0 && offset < 4500, 'resolveAgentTabOrError stays inside the 4,500-char guard window (offset ' + offset + ')');
+
+    const defs = require(DEFS_PATH);
+    const seen = [];
+    let resolverAnswer = { success: true, tabId: 42 };
+    const context = {
+      getToolByNameOrVerb: defs.getToolByNameOrVerb,
+      MCP_DISPATCHER_SYNTHETIC_CHANGE_REPORT_TOOLS: new Set(['open_tab', 'close_tab']),
+      wrapWithChangeReport: async (ctx) => { seen.push(ctx); return { success: true }; },
+      resolveAgentTabOrError: async () => resolverAnswer
+    };
+    context.globalThis = context;
+    const handler = vm.runInNewContext(`({${method}})._handleExecuteAction`, context);
+    const client = {
+      _recordVisualSessionTickIfPresent: async () => {},
+      _resolveMcpSessionRecordTarget: async () => null,
+      _recordMcpSessionAction() {},
+      _clearVisualSessionIfFinal: async () => {}
+    };
+    const expect = { text_visible: 'Saved' };
+    await handler.call(client, { tool: 'type', params: { selector: '#q', text: 'x' }, agentId: 'agent_a', expect });
+    ok(seen.length === 1 && seen[0].expect === expect && seen[0].toolName === 'type' && seen[0].tabId === 42,
+      'resolved-tab wrap call receives payload.expect');
+    ok(!Object.prototype.hasOwnProperty.call(seen[0].params, 'expect'), 'expect never enters params');
+    resolverAnswer = { success: false, code: 'NO_OWNED_TAB' };
+    const navExpect = { url_includes: '/landing' };
+    await handler.call(client, { tool: 'navigate', params: { url: 'https://example.com/landing' }, agentId: 'agent_a', expect: navExpect });
+    ok(seen.length === 2 && seen[1].expect === navExpect && seen[1].toolName === 'navigate' && seen[1].tabId === null,
+      'bootstrap wrap call (before resolveAgentTabOrError) receives payload.expect');
+    resolverAnswer = { success: true, tabId: 42 };
+    await handler.call(client, { tool: 'click', params: { selector: '#go' }, agentId: 'agent_a' });
+    ok(seen.length === 3 && seen[2].expect === undefined, 'no expect on the payload -> ctx.expect undefined (today\'s path)');
+  });
+
+  await section('journal strips expect from recorded request payloads', async () => {
+    const journal = require(path.join(ROOT, 'extension', 'utils', 'mcp-lattice-journal.js'));
+    journal._resetForTests();
+    journal._setLocalStorageShim({ async get() { return {}; }, async set() {} });
+    journal._setTimeShim({ now: () => 1_800_000_000_000 });
+    journal._setAlarmShim({ async create() {}, async clear() { return true; } });
+    const savedReplay = globalThis.FsbLatticeReplay;
+    globalThis.FsbLatticeReplay = null;
+    try {
+      const record = (callId, requestPayload) => journal.recordDispatch({
+        agentId: 'agent-a', recordingRunId: 'run-a', recordingCallId: callId, client: 'Codex', task: 't',
+        tool: 'mcp:go-back', requestPayload,
+        response: { success: true, status: 'ok', expect_result: { status: 'verified', checks: [], waited_ms: 3, timeout_ms: 2000 } },
+        success: true, dispatcher_route: 'message', tabId: 11,
+        replayContext: { targetUrl: 'https://example.test/page', targetOrigin: 'https://example.test', sideEffectClass: 'write' }
+      });
+      const first = await record('call-1', {
+        agentId: 'agent-a', recordingRunId: 'run-a', recordingCallId: 'call-1', tabId: 11, expect: { url_includes: '/prev' }
+      });
+      await record('call-2', { agentId: 'agent-a', recordingRunId: 'run-a', recordingCallId: 'call-2', tabId: 11 });
+      const page = await journal.getSessionDetail({ sessionId: first.sessionId, afterSequence: -1, limit: 10 });
+      const calls = page.events.filter((e) => e.kind === 'tool.call');
+      const req1 = calls[0] && calls[0].metadata.request.inline;
+      const req2 = calls[1] && calls[1].metadata.request.inline;
+      ok(req1 && !Object.prototype.hasOwnProperty.call(req1, 'expect') && req1.tabId === 11,
+        'stripInternalPayload removes expect and keeps the replayable fields');
+      ok(req1 && req2 && JSON.stringify(req1) === JSON.stringify(req2), 'the stripped payload equals the one recorded without expect');
+      const res1 = calls[0] && calls[0].metadata.result.inline;
+      ok(res1 && res1.expect_result && res1.expect_result.status === 'verified', 'expect_result stays in the recorded response');
+    } finally {
+      globalThis.FsbLatticeReplay = savedReplay;
+      delete globalThis.FsbMcpLatticeJournal;
+    }
+  });
+
+  await section('recorder keeps expect out of replay payloads and params', async () => {
+    const recorder = require(path.join(ROOT, 'extension', 'utils', 'mcp-session-recorder.js'));
+    const shim = () => {
+      const store = {};
+      return {
+        store,
+        async get(k) { const out = {}; (Array.isArray(k) ? k : [k]).forEach((x) => { if (x in store) out[x] = store[x]; }); return out; },
+        async set(v) { Object.assign(store, JSON.parse(JSON.stringify(v))); },
+        async remove(k) { (Array.isArray(k) ? k : [k]).forEach((x) => { delete store[x]; }); }
+      };
+    };
+    await recorder._drainForTests();
+    recorder._resetForTests();
+    recorder._setStorageShim(shim());
+    recorder._setLocalStorageShim(shim());
+    recorder._setTimeShim({ now: () => 1_750_000_000_000 });
+    recorder._setAlarmShim({ async create() {}, async clear() { return true; } });
+    const savedLogger = globalThis.automationLogger;
+    globalThis.automationLogger = {
+      withSessionMutationLock(fn) { return Promise.resolve().then(fn); },
+      logSessionStart() {}, logAction() {}, async saveSession() {}, async pruneMcpSessions() {}, async updateSessionOutcome() {}
+    };
+    try {
+      const actionPayload = (expect) => ({
+        tool: 'type', params: { selector: '#pw', text: 'abc' }, agentId: 'agent-1',
+        visualSession: { visualReason: 'Sign in', client: 'Claude' },
+        ...(expect ? { expect } : {})
+      });
+      const withExpect = actionPayload({ value: 'hunter2', selector: '#pw' });
+      recorder.recordAction({
+        client: 'Claude', tool: 'type', params: withExpect.params, payload: withExpect,
+        response: { success: true, expect_result: { status: 'verified' } }, success: true, tabId: 42
+      });
+      recorder.recordAction({
+        client: 'Claude', tool: 'type', params: actionPayload(null).params, payload: actionPayload(null),
+        response: { success: true }, success: true, tabId: 42
+      });
+      recorder.recordDispatch({
+        client: 'Claude', tool: 'mcp:go-back',
+        requestPayload: { agentId: 'agent-1', tabId: 42, expect: { url_includes: '/prev' } },
+        response: { success: true, status: 'ok', expect_result: { status: 'verified' } },
+        success: true, dispatcher_route: 'message', tabId: 42
+      });
+      recorder.recordDispatch({
+        client: 'Claude', tool: 'mcp:go-back', requestPayload: { agentId: 'agent-1', tabId: 42 },
+        response: { success: true, status: 'ok' }, success: true, dispatcher_route: 'message', tabId: 42
+      });
+      await recorder._drainForTests();
+      const rec = recorder._peekOpenSessions()['agent-1::42'];
+      ok(rec && Array.isArray(rec.replayEntries) && rec.replayEntries.length === 4, 'four replay entries recorded');
+      const [typeWith, typeWithout, backWith, backWithout] = rec.replayEntries;
+      ok(!Object.prototype.hasOwnProperty.call(typeWith.requestPayload, 'expect')
+        && !JSON.stringify(typeWith.requestPayload).includes('hunter2'),
+      'action tool: the recorded request payload carries no expect (and no expected value)');
+      ok(JSON.stringify(typeWith.requestPayload) === JSON.stringify(typeWithout.requestPayload),
+        'action tool: the payload equals the one recorded without expect');
+      ok(!Object.prototype.hasOwnProperty.call(backWith.requestPayload, 'expect'), 'mcp:go-back: the replay payload has no expect');
+      ok(JSON.stringify(backWith.requestPayload) === JSON.stringify(backWithout.requestPayload),
+        'mcp:go-back: the payload equals the one recorded without expect');
+      ok(backWith.redactedInputs === false && typeWith.redactedInputs === false,
+        'stripping expect is not reported as an input redaction');
+      ok(rec.actionHistory.every((a) => !Object.prototype.hasOwnProperty.call(a.params || {}, 'expect')),
+        'no actionHistory params contain expect');
+      ok(typeWith.response.expect_result && backWith.response.expect_result, 'expect_result stays in recorded responses');
+    } finally {
+      globalThis.automationLogger = savedLogger;
+      await recorder._drainForTests();
+      recorder._resetForTests();
+    }
+  });
+}
+
 (async () => {
   console.log('=== Phase 69-05: expect in the extension dispatcher ===');
   await runTask1();
+  await runTask2();
   console.log(`\nPASS=${passed} FAIL=${failed}`);
   process.exit(failed > 0 ? 1 : 0);
 })().catch((err) => {

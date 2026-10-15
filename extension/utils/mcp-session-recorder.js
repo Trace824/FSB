@@ -658,6 +658,9 @@
   function _sanitizeRequestPayload(payload, result) {
     var clone = _sanitizeReplayValue(payload, {}, false);
     if (!clone || typeof clone !== 'object' || Array.isArray(clone)) clone = {};
+    // Phase 69 D-15: a same-call expect is never replayed or stored; its
+    // value check may hold a secret the caller typed.
+    delete clone.expect;
     var sourceParams = payload && typeof payload.params === 'object' ? payload.params : {};
     clone.params = cloneParamsForReplay(sourceParams, result);
     return clone;
@@ -686,7 +689,7 @@
     if (typeof tool === 'string' && tool.indexOf('mcp:') === 0) {
       [
         'agentId', 'agent_id', 'ownershipToken', 'ownership_token',
-        'connectionId', 'connection_id', 'visualSession', 'client'
+        'connectionId', 'connection_id', 'visualSession', 'client', 'expect'
       ].forEach(function (key) { delete source[key]; });
       return source;
     }
