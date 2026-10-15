@@ -7,6 +7,7 @@ import { AgentScope } from '../agent-scope.js';
 import { sendAgentScopedBridgeMessage } from '../agent-bridge.js';
 import { mapFSBError } from '../errors.js';
 import { mcpToolDescription, mcpParamDescription } from './descriptions.js';
+import { EXPECT_SHAPE, clampExpectTimeoutMs, EXPECT_BRIDGE_HEADROOM_MS, withUnsupportedExpectFill } from './manual.js';
 
 /**
  * Register agent management tools: create, list, run, stop, delete, toggle,
@@ -33,8 +34,8 @@ export function registerAgentTools(
   server.tool(
     'back',
     mcpToolDescription('back'),
-    { tab_id: z.coerce.number().int().positive().finite().optional().describe(mcpParamDescription('back', 'tab_id')) },
-    async ({ tab_id }) => {
+    { tab_id: z.coerce.number().int().positive().finite().optional().describe(mcpParamDescription('back', 'tab_id')), ...EXPECT_SHAPE },
+    async ({ tab_id, expect }) => {
       if (!bridge.isConnected) {
         return mapFSBError({ success: false, error: 'extension_not_connected' });
       }
@@ -42,14 +43,22 @@ export function registerAgentTools(
         const targetTabId = typeof tab_id === 'number' ? tab_id : null;
         const payload: Record<string, unknown> = {};
         if (typeof tab_id === 'number') payload.tabId = tab_id;
+        // Phase 69 D-15: top-level sidecar, only when sent (no-expect payload unchanged).
+        if (expect !== undefined) payload.expect = expect;
+        // Phase 69 (RESEARCH Finding 1): the check runs after back's own settle,
+        // so with expect the bridge waits for it too; without expect the timeout
+        // stays exactly 5_000.
+        const timeout = expect === undefined
+          ? 5_000  // 2s settle + 3s headroom (RESEARCH Pattern 1)
+          : 5_000 + clampExpectTimeoutMs(expect.timeout_ms) + EXPECT_BRIDGE_HEADROOM_MS;
         const result = await sendAgentScopedBridgeMessage(
           bridge,
           agentScope,
           'mcp:go-back',
           payload,
-          { timeout: 5_000, targetTabId },  // 2s settle + 3s headroom (RESEARCH Pattern 1)
+          { timeout, targetTabId },
         );
-        return mapFSBError(result);
+        return mapFSBError(withUnsupportedExpectFill(result, expect));
       });
     },
   );

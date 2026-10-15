@@ -18,8 +18,8 @@
  *   - the Phase 66.1 `settings` tool, identified by name (never by a total
  *     tool count, D-02).
  *
- * EXPECT_REQUIRED stays false until plan 69-06 publishes `expect`; then it
- * flips to true and every one of the 29 tools must carry it.
+ * EXPECT_REQUIRED is true since plan 69-06 published `expect`: every one of
+ * the 29 tools must carry it.
  *
  * Run: npm --prefix mcp run build && node tests/mcp-tools-list-shape-freeze.test.js
  */
@@ -27,7 +27,7 @@
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-const EXPECT_REQUIRED = false;
+const EXPECT_REQUIRED = true;
 const EXPECT_SCHEMA_BYTE_CAP = 600;
 
 const HELPER_PATH = path.join(__dirname, 'helpers', 'mcp-in-process.mjs');

@@ -90,6 +90,10 @@ const LONGEST_DESCRIPTIONS_SHOWN = 5;
 // characters (descriptions, including every copy of the change-report
 // sentence, plus all their parameter descriptions). Shorten text in
 // mcp/src/tools/descriptions.ts when over; never raise this number.
+// The `expect` parameter (plan 69-06) is left out, as in every other per-tool
+// check here: its text is the one MCP_EXPECT_DESCRIPTION constant, governed by
+// the D-13 description and schema caps and charged to the D-06 whole-list
+// floors, which measure the real published expect bytes.
 const MANUAL_SITE_CHAR_BUDGET = 26000;
 
 // No published description (tool or parameter) may carry these: the
@@ -338,11 +342,18 @@ async function importBuildTool(file) {
     + `${allCurrentTools.length - currentBaselineTools.length} other live tool(s) reported separately`);
   printReport(baseline, current, settingsTool, allCurrentTools);
   const manualDescChars = h.descChars(manualPublished);
-  const manualParamChars = h.paramChars(manualPublished);
+  const manualExpectTools = manualPublished.filter((tool) => hasOwn(propertiesOf(tool), 'expect'));
+  const manualExpectChars = manualExpectTools.reduce((sum, tool) => {
+    const property = propertiesOf(tool).expect;
+    return sum + (property && typeof property.description === 'string' ? property.description.length : 0);
+  }, 0);
+  const manualParamChars = h.paramChars(manualPublished) - manualExpectChars;
   const manualTotal = manualDescChars + manualParamChars;
   console.log(`  manual site (registerManualTools, ${manualPublished.length} of ${manualSite.length} tools published): `
-    + `description ${manualDescChars} + parameter-description ${manualParamChars} = ${manualTotal} chars `
+    + `description ${manualDescChars} + parameter-description ${manualParamChars} (expect excluded) = ${manualTotal} chars `
     + `(budget ${MANUAL_SITE_CHAR_BUDGET}); estimate ${h.estimateTokens(manualTotal)} tokens (chars/4)`);
+  console.log(`  manual site expect: ${manualExpectTools.length} tools x MCP_EXPECT_DESCRIPTION = +${manualExpectChars} chars `
+    + '(outside MANUAL_SITE_CHAR_BUDGET; counted in the D-06 floors below)');
   const manualNames = new Set(manualSite.map((tool) => tool.name));
   console.log('  per-group subtotals over the 72 baseline names:');
   console.log(`    ${subtotalLine('manual site', currentBaselineTools.filter((tool) => manualNames.has(tool.name)))}`);
