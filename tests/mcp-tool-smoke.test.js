@@ -57,6 +57,10 @@ const requiredSmokeTools = [
 // the sidecar contract here, once per call, then strip it so the routing
 // assertions below stay about routing.
 const RECORDING_SIDECAR_FIELDS = ['recordingCallId', 'recordingRunId', 'recordingLeaseMs'];
+// Phase 69 D-15: the same-call `expect` check also travels as a top-level
+// sidecar, but only when the caller sent one. This suite never sends it, so no
+// captured payload may carry it (tests/expect-parity.test.js pins this line).
+const EXPECT_SIDECAR_FIELDS = ['expect'];
 const RECORDING_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -71,6 +75,12 @@ function describeSidecar(payload) {
 function normalizeRecordingSidecar(toolName, call) {
   const payload = call && call.message && call.message.payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return call;
+
+  const expectLeaked = EXPECT_SIDECAR_FIELDS
+    .filter((field) => Object.prototype.hasOwnProperty.call(payload, field));
+  assert(expectLeaked.length === 0,
+    `${toolName} sends no expect sidecar when the caller sent none`
+      + (expectLeaked.length === 0 ? '' : ` (unexpected: ${expectLeaked.join(', ')})`));
 
   // buildAgentPayload() sets agentId and the correlation fields together, so
   // agentId is the discriminator for whether the sidecar must be present.
