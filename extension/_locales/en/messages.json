@@ -2170,6 +2170,9 @@
   "entry_toast_copied": {
     "message": "Install command copied"
   },
+  "entry_onboarding_tag": {
+    "message": "Onboarding"
+  },
   "copy_26b2f925d8": {
     "message": "FSB - Side Panel"
   },

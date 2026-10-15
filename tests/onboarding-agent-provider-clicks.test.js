@@ -159,8 +159,8 @@ function createHarness(initialStore, options) {
 
   assert.strictEqual(
     sha256(ONBOARDING_HTML_PATH),
-    '5344e6e431d7c29887fd3628ba62e74353d8d9eb049798d7bbf65f495653c027',
-    'onboarding.html hash rolled for the locale script'
+    '27e535ef3e829e205223b8a7dfeda5aeb6bd29b7e99b895079cc71cd9b10c9d0',
+    'onboarding.html hash rolled for the locale script and onboarding tag key'
   );
   assert.strictEqual(
     sha256(ONBOARDING_CSS_PATH),

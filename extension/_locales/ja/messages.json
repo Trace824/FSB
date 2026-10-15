@@ -2170,6 +2170,9 @@
   "entry_toast_copied": {
     "message": "インストールコマンドをコピーしました"
   },
+  "entry_onboarding_tag": {
+    "message": "初期設定"
+  },
   "copy_26b2f925d8": {
     "message": "FSB - サイドパネル"
   },

@@ -155,6 +155,10 @@ const badSentence = spawnSync(process.execPath, ['scripts/verify-extension-copy.
 check(badSentence.status === 1, 'uncataloged chrome fixture fails');
 check(String(badSentence.stderr).includes('This sentence is not cataloged.'), 'fixture reports the package-owned sentence');
 check(!String(badSentence.stderr).includes('User typed a secret sentence here.'), 'log sentences stay off the coverage gate');
+const badUnwired = spawnSync(process.execPath, ['scripts/verify-extension-copy.mjs', '--file', 'tests/fixtures/extension-i18n/bad-unwired/page.html'], { cwd: root, encoding: 'utf8' });
+check(badUnwired.status === 1, 'cataloged but unwired HTML text fails');
+check(String(badUnwired.stderr).includes('page.html:1: unwired chrome'), 'fixture reports the unwired button label');
+check(!/page\.html:[23]:/.test(String(badUnwired.stderr)), 'keyed and translate="no" text stay off the coverage gate');
 
 // MV3's default CSP blocks inline scripts on extension pages, so a boot call
 // placed inline never runs.
@@ -371,6 +375,40 @@ async function asyncChecks() {
   check(globalThis.fsbUiLocale === locale, 're-injection keeps the booted instance');
   check(locale.t('shell_working') === 'Arbeitet', 're-injection keeps the active override');
   locale.setOverride(null);
+
+  // Content scripts draw overlay text before boot() finishes, through
+  // chrome.i18n in the browser language. boot() must load that catalog too, or
+  // the text is never recognised and replaced once the stored override applies.
+  const jaOverlay = { probe_overlay: { message: 'FSB が自動化中' } };
+  const enOverlay = { probe_overlay: { message: 'FSB Automating' } };
+  locale.setCatalog('en', {});
+  locale.setCatalog('ja', {});
+  locale.setBrowserTag(null);
+  const bootRequests = [];
+  const fetchBeforeBoot = globalThis.fetch;
+  globalThis.chrome = {
+    i18n: { getUILanguage: () => 'ja', getMessage: (key) => (jaOverlay[key] ? jaOverlay[key].message : '') },
+    storage: { local: { get: (_key, cb) => cb({ fsbUiLocale: 'en' }) }, onChanged: { addListener() {} } },
+    runtime: { getURL: (file) => file }
+  };
+  globalThis.fetch = (url) => {
+    bootRequests.push(url);
+    return Promise.resolve({ json: () => (url.indexOf('/ja/') !== -1 ? jaOverlay : enOverlay) });
+  };
+  const drawnBeforeBoot = locale.text('probe_overlay', 'FSB Automating');
+  try {
+    await locale.boot();
+  } finally {
+    globalThis.fetch = fetchBeforeBoot;
+    delete globalThis.chrome;
+  }
+  check(drawnBeforeBoot === 'FSB が自動化中', 'text drawn before boot follows the browser language');
+  check(bootRequests.indexOf('_locales/ja/messages.json') !== -1 && bootRequests.indexOf('_locales/en/messages.json') !== -1,
+    'content-script boot loads the browser catalog next to the override');
+  check(locale.isMessage('probe_overlay', drawnBeforeBoot), 'boot recognises browser-language text drawn before it finished');
+  check(locale.t('probe_overlay') === 'FSB Automating', 'the stored override applies after boot');
+  locale.setOverride(null);
+  locale.setBrowserTag(null);
 }
 
 asyncChecks().then(() => {

@@ -4,7 +4,9 @@
  *
  * Fails when an in-scope UI file contains an English sentence that is not an
  * English catalog message and is not producer-owned (user text, model output,
- * page DOM, secrets, or logs) or a provider name.
+ * page DOM, secrets, or logs) or a provider name. Static HTML text must also
+ * sit inside a data-i18n (or translate="no") element, because apply() only
+ * translates keyed nodes.
  *
  * Usage:
  *   node scripts/verify-extension-copy.mjs
@@ -48,6 +50,11 @@ const PROVIDERS = new Set([
   'Google AI Studio',
   'Claude Routines',
   'Google AI Studio'
+]);
+
+const BRANDS = new Set([
+  'FSB',
+  'Discord'
 ]);
 
 function arg(name) {
@@ -129,8 +136,10 @@ function extractHtmlStrings(source) {
   const attr = /(?:aria-label|placeholder|title|alt)="([^"]+)"/g;
   let match;
   while ((match = attr.exec(withoutScripts))) {
-    found.push({ text: decodeEntities(match[1]).replace(/\s+/g, ' ').trim(), index: match.index });
+    found.push({ kind: 'attr', text: decodeEntities(match[1]).replace(/\s+/g, ' ').trim(), index: match.index });
   }
+  // Open elements whose text is keyed (data-i18n) or deliberately left
+  // untranslated (translate="no").
   const i18nDepth = [];
   const token = /<!--[\s\S]*?-->|<\/([A-Za-z0-9]+)>|<([A-Za-z0-9]+)([^>]*)>|([^<]+)/g;
   while ((match = token.exec(withoutScripts))) {
@@ -148,12 +157,12 @@ function extractHtmlStrings(source) {
     if (match[2]) {
       const name = match[2].toLowerCase();
       const selfClosing = /\/$/.test(match[3] || '') || /^(img|input|br|hr|meta|link)$/.test(name);
-      if (!selfClosing && /\bdata-i18n=/.test(match[3] || '')) i18nDepth.push(name);
+      if (!selfClosing && /\b(?:data-i18n=|translate="no")/.test(match[3] || '')) i18nDepth.push(name);
       continue;
     }
     if (i18nDepth.length > 0) continue;
     const value = decodeEntities(match[4] || '').replace(/\s+/g, ' ').trim();
-    if (value) found.push({ text: value, index: match.index });
+    if (value) found.push({ kind: 'text', text: value, index: match.index });
   }
   return found;
 }
@@ -177,6 +186,20 @@ function isProse(text) {
   if (words.length < 3) return false;
   if (/^https?:\/\//.test(text)) return false;
   if (/^[A-Z0-9_]{6,}$/.test(text)) return false;
+  return true;
+}
+
+// Static HTML text that reads as UI copy, including short labels such as
+// "Clear Logs". Brand names, domains, paths, counters, and all-caps tokens
+// are not copy.
+function isHtmlCopy(text) {
+  if (!text || /[<>]/.test(text) || text.startsWith('!')) return false;
+  if (PROVIDERS.has(text) || UNTRANSLATED.has(text) || BRANDS.has(text)) return false;
+  if ((text.match(/[A-Za-z]/g) || []).length < 2) return false;
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(text)) return false;
+  if (/^\/\S*$/.test(text)) return false;
+  if (/^[\d.,:]+\s*[A-Za-z%]{0,3}$/.test(text)) return false;
+  if (/^[A-Z0-9_]{2,}$/.test(text)) return false;
   return true;
 }
 
@@ -208,11 +231,17 @@ export function findUncataloged(files, catalog) {
     const source = stripComments(raw);
     const items = file.endsWith('.html') ? extractHtmlStrings(source) : extractJsStrings(source);
     for (const item of items) {
+      const line = () => source.slice(0, item.index).split('\n').length;
+      if (item.kind === 'text') {
+        // apply() only translates static text through a data-i18n hook, so a
+        // catalog match alone leaves the text in English.
+        if (isHtmlCopy(item.text)) misses.push({ file, line: line(), text: item.text, reason: 'unwired chrome (needs data-i18n)' });
+        continue;
+      }
       if (!isProse(item.text)) continue;
       if (isLog(source, item.index)) continue;
       if (catalog.has(item.text)) continue;
-      const line = source.slice(0, item.index).split('\n').length;
-      misses.push({ file, line, text: item.text });
+      misses.push({ file, line: line(), text: item.text, reason: 'uncataloged chrome' });
     }
   }
   return misses;
@@ -228,9 +257,9 @@ function main() {
     return;
   }
   for (const miss of misses) {
-    console.error(`${relative(ROOT, miss.file)}:${miss.line}: uncataloged chrome: ${miss.text}`);
+    console.error(`${relative(ROOT, miss.file)}:${miss.line}: ${miss.reason}: ${miss.text}`);
   }
-  console.error(`${misses.length} uncataloged package-owned sentence${misses.length === 1 ? '' : 's'}`);
+  console.error(`${misses.length} package-owned string${misses.length === 1 ? '' : 's'} not cataloged or not wired`);
   process.exit(1);
 }
 

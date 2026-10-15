@@ -2170,6 +2170,9 @@
   "entry_toast_copied": {
     "message": "설치 명령을 복사했습니다"
   },
+  "entry_onboarding_tag": {
+    "message": "시작 설정"
+  },
   "copy_26b2f925d8": {
     "message": "FSB - 사이드 패널"
   },

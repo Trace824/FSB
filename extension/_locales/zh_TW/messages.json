@@ -2170,6 +2170,9 @@
   "entry_toast_copied": {
     "message": "已複製安裝命令"
   },
+  "entry_onboarding_tag": {
+    "message": "初始設定"
+  },
   "copy_26b2f925d8": {
     "message": "FSB - 側邊欄"
   },

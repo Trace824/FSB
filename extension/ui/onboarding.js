@@ -160,7 +160,10 @@
     render();
     if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
       if (typeof fsbUiLocale.onChange === 'function') fsbUiLocale.onChange(() => render());
-      fsbUiLocale.boot().then(() => render());
+      fsbUiLocale.boot().then(() => {
+        if (typeof fsbUiLocale.apply === 'function') fsbUiLocale.apply(document);
+        render();
+      });
     }
     rollTimer = setInterval(advanceInstallClient, ROTATE_MS);
   }

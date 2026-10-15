@@ -447,11 +447,15 @@
     watchStorage();
     return readStorageOverride().then(function () {
       // Extension pages keep every catalog so isMessage() can recognise text
-      // shown in any earlier language. Content scripts only need the active
-      // locale and the English fallback; ensureCatalog() adds others on change.
+      // shown in any earlier language. Content scripts load the active locale,
+      // the browser locale, and the English fallback: text drawn before boot
+      // comes from chrome.i18n in the browser language, and isMessage() must
+      // recognise it to replace it. ensureCatalog() adds others on change.
       if (isExtensionPage()) return loadCatalogs();
       var codes = [current()];
-      if (codes[0] !== SOURCE_LOCALE) codes.push(SOURCE_LOCALE);
+      var browserLocale = resolveLocale(browserTag);
+      if (codes.indexOf(browserLocale) === -1) codes.push(browserLocale);
+      if (codes.indexOf(SOURCE_LOCALE) === -1) codes.push(SOURCE_LOCALE);
       return loadCatalogs(null, codes);
     });
   }

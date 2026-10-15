@@ -2632,7 +2632,8 @@ async function runFullApiTest() {
       || providerPanelState.requiresProviderReselection === true) return;
 
   elements.fullApiTest.disabled = true;
-  elements.fullApiTest.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+  elements.fullApiTest.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span data-i18n="panel_6c02a28421">'
+    + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line('Testing...') : 'Testing...') + '</span>';
   elements.testResults.classList.remove('show');
 
   try {
@@ -2712,7 +2713,8 @@ async function runFullApiTest() {
     updateApiStatusCard('disconnected', 'Connection Error', error.message);
   } finally {
     elements.fullApiTest.disabled = false;
-    elements.fullApiTest.innerHTML = '<i class="fas fa-plug"></i> Test Connection';
+    elements.fullApiTest.innerHTML = '<i class="fas fa-plug"></i> <span data-i18n="panel_c02977b07e">'
+      + escapeHtml((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line('Test Connection') : 'Test Connection') + '</span>';
   }
 }
 
@@ -2954,6 +2956,8 @@ function renderConsentOriginList(envelope, auditOrigins) {
     const mutating = !!policy.mutating;
 
     const frag = tmpl.content.cloneNode(true);
+    // apply(document) does not reach <template> content, so translate the clone.
+    if (globalThis.fsbUiLocale && typeof fsbUiLocale.apply === 'function') fsbUiLocale.apply(frag);
     const row = frag.querySelector('.consent-origin-row');
     if (!row) return;
     row.dataset.origin = origin;
@@ -3179,6 +3183,7 @@ function renderPendingRequests(envelope, entries) {
   Object.keys(pendingByOrigin).sort().forEach((origin) => {
     const pending = pendingByOrigin[origin];
     const frag = tmpl.content.cloneNode(true);
+    if (globalThis.fsbUiLocale && typeof fsbUiLocale.apply === 'function') fsbUiLocale.apply(frag);
     const row = frag.querySelector('.pending-request-row');
     if (!row) return;
     row.dataset.origin = origin;
