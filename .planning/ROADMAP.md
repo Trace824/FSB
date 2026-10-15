@@ -194,7 +194,7 @@ Plans:
 **Requirements:** MCP-01, MCP-02, MCP-04.
 **Success Criteria:**
 
-1. All 73 existing tool descriptions are shortened and a repeatable token-count check shows the aggregate tool-list reduction against the Phase 66 baseline while preserving action and safety guidance.
+1. All existing tool descriptions (the 72 tools at `8a058bdf`, 73 with the Phase 66.1 settings tool) are shortened and a repeatable token-count check shows the aggregate tool-list reduction against the Phase 66 baseline while preserving action and safety guidance.
 2. Supported action tools accept an optional `expect` and report verified, unmet, or uncertain effects within the same call using a bounded post-action observation.
 3. Contract tests prove existing tool names, required arguments, default behavior, and serialized wire shapes remain unchanged when `expect` is omitted.
 4. A representative MCP caller can complete an action and read its effect without an extra verification call when the outcome is observable.

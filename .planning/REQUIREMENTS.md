@@ -33,7 +33,7 @@
 
 ### MCP — Faster Existing Tool Surface
 
-- [ ] **MCP-01:** MCP clients receive shorter descriptions for all 73 existing tools while retaining enough argument and safety guidance to use them correctly.
+- [ ] **MCP-01:** MCP clients receive shorter descriptions for all existing tools (the 72 tools at `8a058bdf`, 73 with the Phase 66.1 settings tool) while retaining enough argument and safety guidance to use them correctly.
 - [ ] **MCP-02:** Action tools accept an optional `expect` value and return a bounded outcome check in the same call, so the caller can distinguish verified effect from uncertainty.
 - [ ] **MCP-03:** Existing `run_task` honors the extension's Advanced Settings fast-mode toggle, applies bounded Jev decisions when enabled, and reports done, ambiguous, blocked, or needs-confirmation outcomes without claiming success from Jev's answer alone.
 - [ ] **MCP-04:** Existing MCP tool names, required arguments, and wire contracts remain byte-stable; this milestone adds only the optional `expect` parameter on action tools and the settings tool approved on 2026-09-29 (SET-01, SET-02).
