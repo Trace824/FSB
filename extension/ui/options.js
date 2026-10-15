@@ -2333,16 +2333,6 @@ function saveSettings() {
   const previousVoiceInputEnabled = persistedVoiceInputEnabled;
   const selectedModelName = String(elements.modelName?.value || '').trim();
   if (!validateProviderReselection(normalizedProviderSettings)) return false;
-  // Phase 66.1 D-16: the provider guards judge only a selection this Save
-  // writes. When the provider group changed outside the panel and the user
-  // has not touched it, filterForSave below leaves it out, so an unrelated
-  // edit must still save (an MCP switch to lmstudio stores an empty model).
-  const providerGroupWritten = !globalThis.FSBSettingsSync
-    || globalThis.FSBSettingsSync.willWriteProviderGroup();
-  if (providerGroupWritten) {
-    if (!validateLmStudioSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
-    if (!validateHostedApiSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
-  }
   const rawLmStudioBaseUrl = (document.getElementById('lmstudioBaseUrl')?.value || 'http://localhost:1234').trim();
   const normalizedLmStudioBaseUrl = normalizeLmStudioSettingsBaseUrl(rawLmStudioBaseUrl);
   const settings = {
@@ -2395,6 +2385,18 @@ function saveSettings() {
     fsbMcpSessionRecordingEnabled: elements.fsbMcpSessionRecordingEnabled?.checked ?? true,
     fsbMcpSessionRetentionDays: clampMcpSessionRetentionDays(elements.fsbMcpSessionRetentionDays?.value)
   };
+
+  // Phase 66.1 D-16: the provider guards judge only a selection this Save
+  // writes. When the provider group changed outside the panel and the user
+  // has not touched it, filterForSave below leaves it out, so an unrelated
+  // edit must still save (an MCP switch to lmstudio stores an empty model).
+  // Reading the form above has no side effect, so a refusal here loses nothing.
+  const providerGroupWritten = !globalThis.FSBSettingsSync
+    || globalThis.FSBSettingsSync.willWriteProviderGroup();
+  if (providerGroupWritten) {
+    if (!validateLmStudioSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
+    if (!validateHostedApiSettingsSelection(normalizedProviderSettings, selectedModelName)) return false;
+  }
 
   // Phase 66.1 D-16: leave out keys another writer changed that the user has
   // not touched, then record what this Save actually writes and which fields
