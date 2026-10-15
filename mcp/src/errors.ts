@@ -478,16 +478,27 @@ export function mapFSBError(
     // A page that stopped answering holds reads to the same deadline, so
     // inspecting it first only waits out that deadline again.
     const pageUnresponsive = fsbResult.errorCode === 'PAGE_UNRESPONSIVE' || fsbResult.code === 'PAGE_UNRESPONSIVE';
-    const nextAction = pageUnresponsive
-      ? 'The page stopped responding, so reads will wait on it too. Use navigate or close_tab to recover the tab, then check whether the action took effect before repeating it.'
-      : fsbResult.errorCode === 'ACTION_RESPONSE_TIMEOUT' || fsbResult.code === 'ACTION_RESPONSE_TIMEOUT'
-        ? 'The operation may still be running. Wait for it to settle, then inspect the current page before deciding whether to retry.'
-        : 'Inspect the current page with read_page or get_dom_snapshot before deciding whether to retry.';
+    // Phase 69 D-21: a same-call expect_result rides in the trailer; a
+    // verified one says not to repeat the action. isError stays true, and
+    // without an expect_result object the text is byte-identical to before.
+    const expectResult = fsbResult.expect_result;
+    const hasExpectResult = expectResult !== null && typeof expectResult === 'object';
+    const expectVerified = hasExpectResult && (expectResult as { status?: unknown }).status === 'verified';
+    const nextAction = expectVerified
+      ? 'The expected effect was observed (expect_result verified). Do not repeat the action.'
+      : pageUnresponsive
+        ? 'The page stopped responding, so reads will wait on it too. Use navigate or close_tab to recover the tab, then check whether the action took effect before repeating it.'
+        : fsbResult.errorCode === 'ACTION_RESPONSE_TIMEOUT' || fsbResult.code === 'ACTION_RESPONSE_TIMEOUT'
+          ? 'The operation may still be running. Wait for it to settle, then inspect the current page before deciding whether to retry.'
+          : 'Inspect the current page with read_page or get_dom_snapshot before deciding whether to retry.';
+    const trailer = hasExpectResult
+      ? { outcome: 'unknown', mayHaveExecuted: true, expect_result: expectResult }
+      : { outcome: 'unknown', mayHaveExecuted: true };
     return {
       isError: true,
       content: [{
         type: 'text',
-        text: `Detected: Action outcome unknown\nWhy: ${String(fsbResult.error || 'The action was dispatched but its result was not confirmed.')}\nNext action: ${nextAction}\n\n${JSON.stringify({ outcome: 'unknown', mayHaveExecuted: true })}`,
+        text: `Detected: Action outcome unknown\nWhy: ${String(fsbResult.error || 'The action was dispatched but its result was not confirmed.')}\nNext action: ${nextAction}\n\n${JSON.stringify(trailer)}`,
       }],
     };
   }

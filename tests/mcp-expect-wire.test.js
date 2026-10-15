@@ -206,6 +206,53 @@ function parseResponseJson(text) {
   try { return JSON.parse(text); } catch (_error) { return null; }
 }
 
+// ---------------------------------------------------------------------------
+// mapFSBError byte fixtures (D-21, D-22 item 2): full output strings captured
+// from mcp/build/errors.js before 69-06 Task 2 edited errors.ts, pasted
+// verbatim and compared with ===.
+// ---------------------------------------------------------------------------
+
+const ERRORS_BUILD_PATH = path.join(__dirname, '..', 'mcp', 'build', 'errors.js');
+
+const MAP_FIXTURES = Object.freeze([
+  {
+    label: 'success',
+    input: { success: true, tool: 'click' },
+    isError: undefined,
+    text: '{\n  "success": true,\n  "tool": "click"\n}',
+  },
+  {
+    label: 'unknown outcome',
+    input: { success: false, outcome: 'unknown', mayHaveExecuted: true, error: 'Port closed after dispatch' },
+    isError: true,
+    text: 'Detected: Action outcome unknown\nWhy: Port closed after dispatch\nNext action: Inspect the current page with read_page or get_dom_snapshot before deciding whether to retry.\n\n{"outcome":"unknown","mayHaveExecuted":true}',
+  },
+  {
+    label: 'unknown outcome PAGE_UNRESPONSIVE',
+    input: { success: false, outcome: 'unknown', mayHaveExecuted: true, errorCode: 'PAGE_UNRESPONSIVE', error: 'Page did not respond' },
+    isError: true,
+    text: 'Detected: Action outcome unknown\nWhy: Page did not respond\nNext action: The page stopped responding, so reads will wait on it too. Use navigate or close_tab to recover the tab, then check whether the action took effect before repeating it.\n\n{"outcome":"unknown","mayHaveExecuted":true}',
+  },
+  {
+    label: 'unknown outcome ACTION_RESPONSE_TIMEOUT',
+    input: { success: false, outcome: 'unknown', mayHaveExecuted: true, errorCode: 'ACTION_RESPONSE_TIMEOUT', error: 'No response within 30000ms' },
+    isError: true,
+    text: 'Detected: Action outcome unknown\nWhy: No response within 30000ms\nNext action: The operation may still be running. Wait for it to settle, then inspect the current page before deciding whether to retry.\n\n{"outcome":"unknown","mayHaveExecuted":true}',
+  },
+  {
+    label: 'generic error',
+    input: { success: false, error: 'element not found' },
+    isError: true,
+    text: 'Detected: Page navigation\nWhy: element not found\nNext action: Refresh page state with read_page or get_dom_snapshot, then retry.',
+  },
+  {
+    label: 'success with expect_result',
+    input: { success: true, tool: 'click', expect_result: { status: 'verified', checks: [{ kind: 'text_visible', expected: 'Saved', observed: 'Saved', status: 'met' }], waited_ms: 40, timeout_ms: 2000 } },
+    isError: undefined,
+    text: '{\n  "success": true,\n  "tool": "click",\n  "expect_result": {\n    "status": "verified",\n    "checks": [\n      {\n        "kind": "text_visible",\n        "expected": "Saved",\n        "observed": "Saved",\n        "status": "met"\n      }\n    ],\n    "waited_ms": 40,\n    "timeout_ms": 2000\n  }\n}',
+  },
+]);
+
 // Hand-written expectation for the MCP version-skew fill (RESEARCH Finding
 // 10, 69-03 buildUncertainExpectResult shape).
 function unsupportedResult(checks, timeoutMs) {
@@ -223,6 +270,17 @@ function unsupportedResult(checks, timeoutMs) {
   h.assertBuildFresh();
   const manual = await import(pathToFileURL(MANUAL_BUILD_PATH).href);
   const descriptions = await import(pathToFileURL(DESCRIPTIONS_BUILD_PATH).href);
+  const { mapFSBError } = await import(pathToFileURL(ERRORS_BUILD_PATH).href);
+
+  // -------------------------------------------------------------------------
+  console.log('\n--- mapFSBError: pre-change byte fixtures ---');
+  for (const fixture of MAP_FIXTURES) {
+    const mapped = mapFSBError(JSON.parse(JSON.stringify(fixture.input)));
+    const text = mapped && mapped.content && mapped.content[0] && mapped.content[0].text;
+    check(text === fixture.text && mapped.isError === fixture.isError,
+      `mapFSBError ${fixture.label}: output is byte-identical to the pre-change build`
+        + (text === fixture.text ? '' : `\n      want: ${JSON.stringify(fixture.text)}\n      got:  ${JSON.stringify(text)}`));
+  }
 
   let cannedFor = defaultCanned;
   const lastCanned = [];
@@ -586,6 +644,74 @@ function unsupportedResult(checks, timeoutMs) {
       check(sameValue(manual.buildUnsupportedExpectResult({ selector: '#a', state: 'checked', value: 'on' }),
         unsupportedResult([['state', 'checked'], ['value', '[redacted]']], 2000)),
         'buildUnsupportedExpectResult: state and value checks in the extension order');
+    }
+
+    // -----------------------------------------------------------------------
+    console.log('\n--- mapFSBError: unknown outcomes carry expect_result (D-21, T-69-05) ---');
+    const BASE_TRAILER = JSON.stringify({ outcome: 'unknown', mayHaveExecuted: true });
+    const VERIFIED_NEXT_ACTION = 'Next action: The expected effect was observed (expect_result verified). Do not repeat the action.';
+    const unknownFixtures = MAP_FIXTURES.filter((fixture) => fixture.input.mayHaveExecuted === true);
+    const verifiedResult = { status: 'verified', checks: [{ kind: 'text_visible', expected: 'Saved', observed: 'Saved', status: 'met' }], waited_ms: 120, timeout_ms: 2000 };
+    const unmetResult = { status: 'unmet', checks: [{ kind: 'text_visible', expected: 'Saved', observed: null, status: 'unmet' }], waited_ms: 2000, timeout_ms: 2000 };
+    const uncertainResult = unsupportedResult([['url_includes', '/a']], 2000);
+    for (const fixture of unknownFixtures) {
+      for (const [label, er] of [['unmet', unmetResult], ['uncertain', uncertainResult]]) {
+        const mapped = mapFSBError({ ...fixture.input, expect_result: er });
+        const text = mapped.content[0].text;
+        const want = fixture.text.replace(BASE_TRAILER, JSON.stringify({ outcome: 'unknown', mayHaveExecuted: true, expect_result: er }));
+        check(mapped.isError === true && text === want,
+          `${fixture.label} + ${label} expect_result: same text and Next action, trailer adds expect_result, isError true`
+            + (text === want ? '' : `\n      want: ${JSON.stringify(want)}\n      got:  ${JSON.stringify(text)}`));
+      }
+      const mapped = mapFSBError({ ...fixture.input, expect_result: verifiedResult });
+      const text = mapped.content[0].text;
+      const lines = text.split('\n');
+      const nextAction = lines.find((line) => line.startsWith('Next action:'));
+      const trailer = lines[lines.length - 1];
+      check(mapped.isError === true && text.includes('Action outcome unknown'),
+        `${fixture.label} + verified: isError stays true and the text still says "Action outcome unknown"`);
+      check(nextAction === VERIFIED_NEXT_ACTION && !/retry/i.test(nextAction) && !text.includes('then retry.'),
+        `${fixture.label} + verified: Next action says the effect was observed and not to repeat it (no "retry")`);
+      check(trailer === JSON.stringify({ outcome: 'unknown', mayHaveExecuted: true, expect_result: verifiedResult }),
+        `${fixture.label} + verified: trailer is { outcome, mayHaveExecuted, expect_result } in that order`);
+      check(text === fixture.text.replace(/Next action: .*\n/, `${VERIFIED_NEXT_ACTION}\n`).replace(BASE_TRAILER, trailer),
+        `${fixture.label} + verified: only the Next action line and the trailer differ from today's text`);
+    }
+    for (const [label, er] of [['null', null], ['a string', 'verified']]) {
+      const fixture = unknownFixtures[0];
+      const mapped = mapFSBError({ ...fixture.input, expect_result: er });
+      check(mapped.content[0].text === fixture.text && mapped.isError === true,
+        `unknown outcome with expect_result ${label} (not an object) is byte-identical to today's`);
+    }
+
+    console.log('\n--- unknown outcomes end to end ---');
+    {
+      const golden = goldenByName.get('click');
+      cannedFor = () => ({ success: false, outcome: 'unknown', mayHaveExecuted: true, error: 'Port closed after dispatch' });
+      const outcome = await call('click', { ...golden.args, expect: { url_includes: '/a' } });
+      cannedFor = defaultCanned;
+      const text = responseText(outcome) || '';
+      const want = unknownFixtures[0].text.replace(BASE_TRAILER,
+        JSON.stringify({ outcome: 'unknown', mayHaveExecuted: true, expect_result: unsupportedResult([['url_includes', '/a']], 2000) }));
+      check(outcome.result && outcome.result.isError === true && text === want,
+        'click unknown outcome from an older extension: the trailer carries the extension_unsupported fill, Next action unchanged');
+    }
+    {
+      const golden = goldenByName.get('click');
+      cannedFor = () => ({ success: false, outcome: 'unknown', mayHaveExecuted: true, error: 'Port closed after dispatch', expect_result: verifiedResult });
+      const outcome = await call('click', { ...golden.args, expect: { text_visible: 'Saved' } });
+      cannedFor = defaultCanned;
+      const text = responseText(outcome) || '';
+      check(outcome.result && outcome.result.isError === true && text.includes(VERIFIED_NEXT_ACTION)
+        && text.endsWith(JSON.stringify({ outcome: 'unknown', mayHaveExecuted: true, expect_result: verifiedResult })),
+        'click unknown outcome with a verified expect_result: isError true, do-not-repeat line, trailer carries it');
+    }
+    {
+      cannedFor = () => ({ success: false, outcome: 'unknown', mayHaveExecuted: true, error: 'Port closed after dispatch' });
+      const outcome = await call('click', { ...goldenByName.get('click').args });
+      cannedFor = defaultCanned;
+      check(responseText(outcome) === unknownFixtures[0].text && outcome.result.isError === true,
+        'click unknown outcome without expect: byte-identical to today');
     }
   } finally {
     await session.close();
