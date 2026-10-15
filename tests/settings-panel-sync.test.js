@@ -241,7 +241,7 @@ check(typeof first.sync === 'object' && first.sync !== null, 'requiring options.
 check(first.exported && first.exported.FSBSettingsSync === first.sync, 'module.exports.FSBSettingsSync is the same object');
 check(Object.isFrozen(first.sync), 'FSBSettingsSync is frozen');
 for (const name of ['keyForElementId', 'noteTouched', 'noteSelfWrite', 'noteStorageChanges',
-  'filterForSave', 'willWriteProviderGroup', 'noteSaved', 'reset', 'applyToForm', 'attach']) {
+  'filterForSave', 'willWriteProviderGroup', 'noteSaved', 'reset', 'applyToForm', 'reconcile', 'attach']) {
   check(typeof (first.sync && first.sync[name]) === 'function', 'FSBSettingsSync.' + name + ' is a function');
 }
 check(first.sync && sameJson(first.sync.PROVIDER_GROUP_KEYS, ['providerKind', 'agentProviderId', 'modelProvider', 'modelName']),
@@ -731,6 +731,77 @@ sync.applyToForm({ modelProvider: 'not-a-provider' }, p.deps);
 check(p.state.modelProvider === 'xai', 'an unknown provider normalises to xai like the load path');
 
 // ---------------------------------------------------------------------------
+section('reconcile: writes that land while the load is awaiting (WR-05)');
+// ---------------------------------------------------------------------------
+
+// The load seeds the sync, an external write arrives during its awaits and is
+// shown, then the load resumes and paints its older snapshot over it.
+buildRegistry();
+c = simpleDeps();
+sync.reset({ debugMode: false, maxIterations: 100, enableLogin: false });
+result = sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'local');
+sync.applyToForm(result.apply, c.deps);
+check(registry.get('debugMode').checked === true, 'the external debugMode write is shown during the load');
+registry.get('debugMode').checked = false; // the resumed load paints its stale snapshot
+applied = sync.reconcile(c.deps);
+check(registry.get('debugMode').checked === true, 'reconcile shows the stored debugMode again');
+check(sameJson(applied, ['debugMode']), 'reconcile returns the keys it refreshed');
+check(sameJson(sync.inspect().pending, ['debugMode']), 'reconcile leaves the key pending, so Save still leaves it out');
+
+// A touched key keeps the user edit; a self-write echo is not pending.
+sync.reset({ debugMode: false, maxIterations: 100 });
+sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'local');
+sync.noteTouched('debugMode');
+sync.noteSelfWrite({ maxIterations: 120 });
+sync.noteStorageChanges({ maxIterations: { oldValue: 100, newValue: 120 } }, 'local');
+buildRegistry();
+c = simpleDeps();
+registry.get('debugMode').checked = false;
+check(sameJson(sync.reconcile(c.deps), []) && registry.get('debugMode').checked === false,
+  'reconcile leaves a touched key and the panel\'s own write alone');
+
+// A key removed outside the panel refreshes to its default.
+sync.reset({ enableLogin: true });
+sync.noteStorageChanges({ enableLogin: { oldValue: true } }, 'local');
+buildRegistry();
+c = simpleDeps();
+registry.get('enableLogin').checked = true;
+check(sameJson(sync.reconcile(c.deps), ['enableLogin']) && registry.get('enableLogin').checked === false,
+  'a removed key reconciles to its default');
+
+// Secrets and endpoints are never written to the form, even when pending.
+sync.reset({});
+sync.noteStorageChanges({ apiKey: { newValue: 'SENTINEL-secret' }, customEndpoint: { newValue: 'https://e.test' } }, 'local');
+buildRegistry();
+c = simpleDeps();
+check(sameJson(sync.reconcile(c.deps), []) && registry.get('apiKey').value === '' && registry.get('customEndpoint').value === '',
+  'reconcile never writes a secret or endpoint input');
+check(c.calls.getElement.length === 0, 'with nothing to refresh reconcile touches no control');
+
+// The provider group: the load put back the old provider and its baseline.
+buildRegistry();
+p = providerDeps(
+  { providerKind: 'api', modelProvider: 'xai', agentProviderId: '' },
+  { providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' }
+);
+sync.reset({ providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' });
+sync.noteStorageChanges({
+  modelProvider: { oldValue: 'xai', newValue: 'gemini' },
+  modelName: { oldValue: 'grok-4-1-fast', newValue: 'gemini-2.5-flash' }
+}, 'local');
+fetchCalls = 0;
+applied = sync.reconcile(p.deps);
+check(p.state.modelProvider === 'gemini' && registry.get('modelProvider').value === 'gemini',
+  'reconcile moves the provider state and select back to the stored provider');
+check(registry.get('modelName').value === 'gemini-2.5-flash', 'reconcile selects the stored model');
+check(sameJson(p.persisted(), { providerKind: 'api', modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }),
+  'reconcile moves the persisted provider baseline to the stored selection');
+check(p.calls.invalidateDiscovery.length === 1, 'reconcile cancels discovery for the stale provider');
+check(sameJson(applied.slice().sort(), ['modelName', 'modelProvider']), 'reconcile reports both provider keys');
+check(fetchCalls === 0, 'reconcile makes no network call');
+sync.reset({});
+
+// ---------------------------------------------------------------------------
 section('No-schema safety');
 // ---------------------------------------------------------------------------
 
@@ -810,6 +881,14 @@ check(/data = data \|\| \{\};\n\s*if \(globalThis\.FSBSettingsSync\) globalThis\
   'loadSettings seeds the sync from its storage snapshot right after data = data || {}, before the first await');
 check(/globalThis\.FSBSettingsSync\.noteSelfWrite\(\{ modelName: migratedModel \}\);\s*chrome\.storage\.local\.set\(\{ modelName: migratedModel \}, resolve\);/.test(loadSlice),
   'the LM Studio migration records its own write immediately before it');
+// WR-05: the load reconciles once, after its last field fill and after every
+// await, so an external write that landed during the load is shown again.
+const reconcileAt = loadSlice.indexOf('if (globalThis.FSBSettingsSync) globalThis.FSBSettingsSync.reconcile();');
+check(reconcileAt !== -1 && loadSlice.split('FSBSettingsSync.reconcile(').length - 1 === 1, 'loadSettings calls FSBSettingsSync.reconcile() once');
+check(reconcileAt > loadSlice.lastIndexOf('await ')
+  && reconcileAt > loadSlice.indexOf('elements.voiceInputEnabled.checked = voiceInputEnabled;')
+  && reconcileAt < loadSlice.indexOf("addLog('info', 'Settings loaded successfully');"),
+'loadSettings reconciles after its last await and field fill, before it reports the load');
 const lmUrlAt = loadSlice.indexOf("lmstudioBaseUrl.value = settings.lmstudioBaseUrl || 'http://localhost:1234'");
 check(lmUrlAt !== -1 && lmUrlAt < loadSlice.indexOf('discoveryResult = await setProviderSelection('),
   'the LM Studio URL is still restored before discovery starts');

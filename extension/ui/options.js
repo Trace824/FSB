@@ -2084,6 +2084,11 @@ function loadSettings() {
       elements.voiceInputEnabled.checked = voiceInputEnabled;
     }
 
+    // Phase 66.1 D-16: a setting written outside the panel while this load was
+    // awaiting (the agent cap, provider discovery) is shown again now, so the
+    // older snapshot used above does not hide it.
+    if (globalThis.FSBSettingsSync) globalThis.FSBSettingsSync.reconcile();
+
     // Bring the custom-select widgets' visible labels back into sync with the
     // now-populated native <select> values. initFsbSelects() runs synchronously
     // at page init (before this async callback fires), so at wrap time the
@@ -9859,6 +9864,37 @@ function initializeSyncSection() {
     return applied;
   }
 
+  // The value lastKnown holds for a key, or NO_VALUE when its token cannot be
+  // read back. A pending key missing from lastKnown was removed, and reads as
+  // undefined, which refreshes to its default.
+  const NO_VALUE = Object.freeze({});
+  function lastKnownValue(key) {
+    if (!lastKnown.has(key)) return undefined;
+    const token = lastKnown.get(key);
+    if (token === '#undefined') return undefined;
+    if (token === '#unserializable') return NO_VALUE;
+    try {
+      return JSON.parse(token);
+    } catch (_error) {
+      return NO_VALUE;
+    }
+  }
+
+  // Shows again every untouched key that changed outside the panel since the
+  // last reset. The load path calls this once it has filled the form from its
+  // own storage snapshot, so a write that landed while the load was awaiting
+  // wins over that older snapshot instead of being hidden by it.
+  function reconcile(deps) {
+    const apply = {};
+    if (!getSchema()) return [];
+    pending.forEach((key) => {
+      if (touched.has(key) || !isWritableKey(key) || !hasFieldRefresher(key)) return;
+      const value = lastKnownValue(key);
+      if (value !== NO_VALUE) apply[key] = value;
+    });
+    return Object.keys(apply).length > 0 ? applyToForm(apply, deps) : [];
+  }
+
   function onStorageChanged(changes, area) {
     try {
       const result = noteStorageChanges(changes, area);
@@ -9906,6 +9942,7 @@ function initializeSyncSection() {
     noteSaved,
     reset,
     applyToForm,
+    reconcile,
     attach,
     inspect
   };
