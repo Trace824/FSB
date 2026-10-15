@@ -81,6 +81,38 @@ export const MCP_TOOL_DESCRIPTIONS: TextTable = Object.freeze({
   double_click_at: 'Double-click at viewport coordinates with trusted CDP events, for example to edit a canvas text box or a Sheets cell.',
   set_attribute: 'Set an HTML attribute on an element, for example a hidden field value, an ARIA state or a data attribute.',
   upload_file: 'Upload a real file from an absolute local path to an <input type=file>, or a dropzone wrapping one, through CDP. Secret paths such as ~/.ssh, ~/.aws, .env, private keys and the FSB vault are blocked, and uploads are audit-logged. For dropzones with no file input, use drop_file.',
+
+  // --- registry read-only tools (read-only.ts, Phase 69 plan 04) ---
+  read_page: 'Read the page text content: the visible viewport by default, or the whole page with full true. Use it first after navigating; it waits for the DOM to settle and puts main content before navigation, capped at about 8K characters. For selectors or element refs, use get_dom_snapshot.',
+  get_text: 'Get the text content of one element by selector or ref, without reading the whole page. For attributes such as href or src, use get_attribute.',
+  get_attribute: 'Get an HTML attribute value from an element, such as href, src, value, a data attribute or an ARIA state. For element text, use get_text.',
+  get_dom_snapshot: 'Get a structured DOM snapshot of the page elements with refs (e1, e2, ...), tag, text, attributes and position. Take one before click, type_text, hover and other actions, which accept a ref (e5) in place of a selector. For plain page text, use read_page.',
+  list_tabs: 'List open browser tabs with their ID, title, URL and active state. Pass an ID to switch_tab to switch tabs.',
+  read_sheet: 'Read cell values from a spreadsheet range, such as A1:C5; returns them as an array. Navigate to the sheet first; to write cells, use fill_sheet.',
+  get_page_snapshot: 'Get a markdown snapshot of the current page with ref IDs for its interactive elements. Take one at the start of each page and before clicking or typing. For plain text, use read_page.',
+  get_site_guide: 'Get the site guide for a domain: known selectors, navigation patterns and automation tips. Use it when starting on a new site or when standard selectors fail.',
+  complete_task: 'Signal that the task is complete. Call it only when everything the user asked for is done, with a summary of what was accomplished; never include passwords, tokens, API keys or sensitive form values.',
+  partial_task: 'Signal that the task is partially complete: useful work is done, but an external blocker such as login, missing or failed credentials, MFA or manual approval stops the final step. Use it instead of fail_task when the finished work still helps the user. Report what you completed, the exact blocker and the manual next step; never include passwords, tokens, API keys or sensitive form values. If the runtime offers one saved-credential or operator-prompt attempt, let it run first.',
+  fail_task: 'Signal that the task failed and cannot be completed, with the reason. Call it instead of just stopping on an unrecoverable problem; never include passwords, tokens, API keys or sensitive form values.',
+
+  // --- registry trigger tools (triggers.ts) ---
+  trigger: 'Arm a trigger that watches one element until it changes, crosses a threshold, equals or matches a value, or contains text. The background runtime owns the watch, so it survives service-worker restarts. The call blocks until the trigger fires or times out unless detached is true. Manage it with stop_trigger, get_trigger_status and list_triggers.',
+  stop_trigger: 'Stop (cancel) a trigger by trigger_id. It runs promptly even while a trigger or another call is pending, and is safe to repeat on missing or finished triggers.',
+  get_trigger_status: 'Get the stored status of one trigger by id: state, watch mode, condition, target tab, owner, current value, timing and any attention details.',
+  list_triggers: 'List triggers with their stored status. Returns active and needs-attention watchers by default; include_terminal adds fired and stopped ones.',
+
+  // --- registry screenshot tool (screenshots.ts) ---
+  capture_screenshot: 'Capture a screenshot of the page as a lossless PNG: the viewport, the full page, a region or one element. It renders CSS, fonts, SVG, canvas and open shadow DOM but not browser chrome; FSB overlays are hidden unless include_fsb_overlays is true. Returns an image and a private saved file. Desktop or mobile emulation is temporary and never reloads the page or changes the user agent.',
+
+  // --- vault tools (vault.ts) ---
+  list_credentials: 'List saved credentials as domain and username pairs; passwords are never returned. To fill a login form, use fill_credential.',
+  fill_credential: "Fill a login form with the saved credential for the tab's domain. The password is resolved inside the extension and typed into the page; it is never returned or sent over the bridge. The credential vault must be unlocked.",
+  list_payment_methods: 'List saved payment methods: card brand, last 4 digits and cardholder name only; full card numbers and CVV are never returned. To fill a checkout form, use use_payment_method.',
+  use_payment_method: 'Use a saved payment method to fill a checkout form. A confirmation prompt shows the card brand, last 4 digits and merchant domain before any fill. Card data is resolved inside the extension and never returned; the merchant domain comes from the tab URL, not this request. The credential vault and payment access must be unlocked.',
+
+  // --- capability tools (capabilities.ts) ---
+  search_capabilities: 'Search the FSB capability catalog by intent; use it before DOM tools for first-party actions on the current site. Returns up to topN hits ranked toward the tab origin, each with slug, service, side-effect class (read, mutate or destructive), readiness and a params schema. Only t1-ready hits run as direct API calls.',
+  invoke_capability: "Invoke a capability by slug from a search_capabilities hit, with params matching its schema. Ready capabilities call the service's real web API in your signed-in session, and mutating ones perform real side effects, so check the side-effect class first. On RECIPE_DOM_FALLBACK_PENDING, RECIPE_LEARN_PENDING or RECIPE_EXPIRED, continue the task with DOM tools.",
 });
 
 // Tool name -> parameter name -> short MCP parameter description. Per-tool
@@ -151,6 +183,97 @@ export const MCP_PARAM_DESCRIPTIONS: Readonly<Record<string, TextTable>> = Objec
   upload_file: Object.freeze({
     selector: 'CSS selector of the <input type=file>, or of a dropzone that wraps a hidden one.',
     file_path: 'Absolute path of the file on disk; relative and ~ paths are rejected.',
+  }),
+
+  // --- registry read-only tools ---
+  get_text: Object.freeze({
+    selector: 'CSS selector or element ref (e3) from get_dom_snapshot.',
+  }),
+  get_attribute: Object.freeze({
+    selector: 'CSS selector or element ref (e7) from get_dom_snapshot.',
+    attribute: 'Attribute name, such as href, src or value.',
+  }),
+  complete_task: Object.freeze({
+    summary: 'What was accomplished.',
+    tab_id: 'Tab this outcome belongs to; pass it when more than one tab or session may be active.',
+    session_token: 'Token from start_visual_session; only to finalize a client-owned visual session.',
+  }),
+  partial_task: Object.freeze({
+    summary: 'Useful work completed before the blocker.',
+    blocker: 'What blocked the final step, such as "Messaging requires login".',
+    next_step: 'Manual step the user can take to finish or resume; include it for auth or approval blockers.',
+    tab_id: 'Tab this outcome belongs to; pass it when more than one tab or session may be active.',
+    reason: 'Optional blocker category.',
+    session_token: 'Token from start_visual_session; only to finalize a client-owned visual session.',
+  }),
+  fail_task: Object.freeze({
+    reason: 'Why the task cannot be completed, such as "Page requires login".',
+    tab_id: 'Tab this outcome belongs to; pass it when more than one tab or session may be active.',
+    session_token: 'Token from start_visual_session; only to end a client-owned visual session.',
+  }),
+
+  // --- registry trigger tools ---
+  trigger: Object.freeze({
+    selector: 'CSS selector of the element to watch.',
+    condition: 'Condition object: changed, threshold, delta_percent, equals, contains, regex, or compound AND/OR.',
+    trigger_id: 'Optional correlation id; generated when omitted.',
+    detached: 'True returns trigger_id at once instead of blocking.',
+    timeout_ms: 'Blocking wait in ms (default 120000); then returns timed_out.',
+    rearm_on_fire: 'True keeps watching after a fire; status shows fire_count and last_event.',
+    watch: 'live-observe watches DOM mutations; refresh-poll reloads the tab and re-reads the selector.',
+    tab_id: 'Optional tab to watch; alias of target_tab_id.',
+    target_tab_id: 'Optional tab to watch.',
+    extract: 'Value to read: text, number or attribute (default chosen from the condition).',
+    attrName: 'Alias of attribute.',
+    poll_interval_ms: 'refresh-poll interval in ms; the runtime enforces a minimum.',
+    locale: 'Locale for number parsing, such as en-US or de-DE.',
+    decimal_separator: 'Decimal separator for number parsing.',
+  }),
+  stop_trigger: Object.freeze({
+    tab_id: 'Optional tab of the trigger, for scoped cleanup.',
+  }),
+  get_trigger_status: Object.freeze({
+    tab_id: 'Optional tab id for scoped trigger access.',
+  }),
+  list_triggers: Object.freeze({
+    include_terminal: 'True also lists fired and stopped triggers.',
+    tab_id: 'Optional tab to filter by.',
+  }),
+
+  // --- registry screenshot tool ---
+  capture_screenshot: Object.freeze({
+    coordinate_space: 'Region coordinates: viewport (default) or page.',
+    x: 'Region left edge, CSS px.',
+    y: 'Region top edge, CSS px.',
+    width: 'Region width, CSS px.',
+    height: 'Region height, CSS px.',
+    selector: 'Element mode: CSS selector or element ref.',
+    device_mode: 'current, or temporary desktop or mobile emulation; viewport sizes alone imply desktop.',
+    viewport_width: 'Emulated width in CSS px (set both sizes).',
+    viewport_height: 'Emulated height in CSS px (set both sizes).',
+    device_scale_factor: 'Emulated scale factor, 1 to 4 (default 1).',
+    orientation: 'Mobile orientation (default auto).',
+    wait_ms: 'Extra settle time, 0 to 5000 ms (default 250).',
+    include_fsb_overlays: 'True keeps FSB overlays in the capture (default false).',
+  }),
+
+  // --- vault tools (inline; every parameter listed, tab_id uses the common text) ---
+  fill_credential: Object.freeze({
+    domain: 'Ignored hint kept for compatibility; the tab URL picks the credential.',
+  }),
+  use_payment_method: Object.freeze({
+    payment_method_id: 'Payment method ID from list_payment_methods.',
+  }),
+
+  // --- capability tools (inline; every parameter listed, tab_id uses the common text) ---
+  search_capabilities: Object.freeze({
+    query: 'Natural-language intent, such as "show my github notifications".',
+    origin: 'Optional expected origin, such as https://github.com; omit to use the tab origin, which it must match.',
+    topN: 'Max results (default 5, max 5).',
+  }),
+  invoke_capability: Object.freeze({
+    slug: 'Capability slug from a search_capabilities hit.',
+    params: "Parameters matching the hit's params schema.",
   }),
 });
 
