@@ -1,0 +1,824 @@
+'use strict';
+
+/**
+ * mcp-settings-route.test.js (Phase 66.1, plan 05)
+ *
+ * The service-worker side of the MCP `settings` tool: the mcp:get-settings and
+ * mcp:set-setting message routes in extension/ws/mcp-tool-dispatcher.js.
+ *
+ * Part A drives the real dispatcher and the real FsbSettingsSchema
+ * (extension/config/config.js) against a fake chrome.storage.local that
+ * supports callback and promise forms, records every set call and fires
+ * storage.onChanged listeners. It covers reads (D-07, D-10..D-12), writes
+ * (D-13..D-15), the delegated-write gate (D-20), the write lock (Pitfall 9),
+ * propagation to existing consumers, the operator log lines (D-18), typed
+ * failures with recovery hints, and the test-only fixture entry (D-17, SC4).
+ *
+ * Every response, set call, logger call and console line is kept and scanned
+ * at the end: no submitted SENTINEL value may appear in any of them.
+ *
+ * Plain node, Node 20-safe, binds no port. Chain command:
+ *   node tests/mcp-settings-route.test.js
+ */
+
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
+
+const ROOT = path.resolve(__dirname, '..');
+
+let passed = 0;
+let failed = 0;
+
+function out(line) {
+  process.stdout.write(line + '\n');
+}
+
+function check(cond, msg) {
+  if (cond) {
+    passed += 1;
+    out('  PASS: ' + msg);
+  } else {
+    failed += 1;
+    process.stderr.write('  FAIL: ' + msg + '\n');
+  }
+}
+
+function checkDeep(actual, expected, msg) {
+  const ok = util.isDeepStrictEqual(actual, expected);
+  check(ok, ok ? msg : msg + ' (expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + ')');
+}
+
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function clone(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function nextTick() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+// ---------------------------------------------------------------------------
+// Sinks scanned for SENTINEL at the end
+// ---------------------------------------------------------------------------
+
+const allResponses = [];
+const allSetCalls = [];
+const loggerCalls = [];
+const consoleLines = [];
+
+for (const method of ['log', 'info', 'warn', 'error', 'debug']) {
+  const original = console[method].bind(console);
+  console[method] = function (...args) {
+    try {
+      consoleLines.push(args.map((arg) => (typeof arg === 'string' ? arg : util.inspect(arg, { depth: 6 }))).join(' '));
+    } catch (_e) { /* capture is best-effort */ }
+    return original(...args);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fake chrome (installed before any extension module is required)
+// ---------------------------------------------------------------------------
+
+const fakeStorage = {
+  store: {},
+  setCalls: [],
+  listeners: [],
+  failNextSet: false,
+  failNextGet: false
+};
+
+function pickFromStore(keys) {
+  const store = fakeStorage.store;
+  if (keys === null || keys === undefined) return clone(store);
+  const list = typeof keys === 'string' ? [keys] : keys;
+  if (Array.isArray(list)) {
+    const result = {};
+    for (const key of list) {
+      if (hasOwn(store, key)) result[key] = clone(store[key]);
+    }
+    return result;
+  }
+  if (typeof keys === 'object') {
+    const result = {};
+    for (const key of Object.keys(keys)) {
+      result[key] = hasOwn(store, key) ? clone(store[key]) : keys[key];
+    }
+    return result;
+  }
+  return {};
+}
+
+const tabsCreateCalls = [];
+let fetchCalls = 0;
+
+global.chrome = {
+  storage: {
+    local: {
+      // Callback form (dispatcher change-report hydration) and promise form.
+      // Both resolve on a later macrotask, as chrome.storage does, so
+      // concurrent callers really interleave.
+      get(keys, callback) {
+        const failing = fakeStorage.failNextGet;
+        fakeStorage.failNextGet = false;
+        const promise = nextTick().then(() => {
+          if (failing) throw new Error('storage read failed');
+          return pickFromStore(keys);
+        });
+        if (typeof callback === 'function') {
+          promise.then((result) => callback(result), () => callback({}));
+          return undefined;
+        }
+        return promise;
+      },
+      set(items, callback) {
+        const snapshot = clone(items);
+        fakeStorage.setCalls.push(snapshot);
+        allSetCalls.push(snapshot);
+        const failing = fakeStorage.failNextSet;
+        fakeStorage.failNextSet = false;
+        const promise = nextTick().then(() => {
+          if (failing) throw new Error('QUOTA_BYTES quota exceeded');
+          const changes = {};
+          for (const key of Object.keys(snapshot)) {
+            changes[key] = { oldValue: clone(fakeStorage.store[key]), newValue: clone(snapshot[key]) };
+            fakeStorage.store[key] = clone(snapshot[key]);
+          }
+          for (const listener of fakeStorage.listeners.slice()) {
+            try { listener(changes, 'local'); } catch (_e) { /* a listener cannot break the writer */ }
+          }
+        });
+        if (typeof callback === 'function') {
+          promise.then(() => callback(), () => callback());
+          return undefined;
+        }
+        return promise;
+      }
+    },
+    onChanged: {
+      addListener(listener) {
+        fakeStorage.listeners.push(listener);
+      }
+    }
+  },
+  tabs: {
+    create(options) {
+      tabsCreateCalls.push(options);
+      return Promise.resolve({ id: 99 });
+    }
+  }
+};
+
+global.automationLogger = {
+  info(message, data) { loggerCalls.push({ level: 'info', message, data: clone(data) }); },
+  warn(message, data) { loggerCalls.push({ level: 'warn', message, data: clone(data) }); },
+  error(message, data) { loggerCalls.push({ level: 'error', message, data: clone(data) }); },
+  debug(message, data) { loggerCalls.push({ level: 'debug', message, data: clone(data) }); }
+};
+
+global.fetch = function () {
+  fetchCalls += 1;
+  throw new Error('network access is not allowed in the settings routes');
+};
+
+const configModule = require(path.join(ROOT, 'extension', 'config', 'config.js'));
+const PRODUCTION_SCHEMA = globalThis.FsbSettingsSchema;
+const dispatcher = require(path.join(ROOT, 'extension', 'ws', 'mcp-tool-dispatcher.js'));
+
+// ---------------------------------------------------------------------------
+// Fixtures and helpers
+// ---------------------------------------------------------------------------
+
+const SECRET_KEYS = [
+  'apiKey', 'geminiApiKey', 'openaiApiKey', 'anthropicApiKey',
+  'customApiKey', 'openrouterApiKey', 'captchaApiKey', 'serverHashKey'
+];
+const ENDPOINT_KEYS = ['customEndpoint', 'lmstudioBaseUrl', 'serverUrl'];
+const HINT_PANEL = 'Change this setting in the FSB Control Panel.';
+const HINT_UNSUPPORTED = 'Update the FSB extension, or change the setting in the FSB Control Panel.';
+const HINT_DEFAULT = 'Call settings with only a key to see its type and allowed values, or with no arguments to list every setting.';
+const EXPECTED_HINTS = {
+  SETTING_PROTECTED_KEY: HINT_PANEL,
+  SETTING_DELEGATED_WRITE_REFUSED: HINT_PANEL,
+  SETTING_PROVIDER_NOT_READY: HINT_PANEL,
+  SETTING_UNSUPPORTED: HINT_UNSUPPORTED
+};
+
+// Non-delegated client: only agent_delegated is mapped to a delegated run.
+const OK_CLIENT = {
+  _isDelegationScopedInbound(_type, payload) {
+    return Boolean(payload && payload.agentId === 'agent_delegated');
+  }
+};
+
+const SHIPPED_PROVIDERS_STUB = Object.freeze({
+  ids() { return Object.freeze(['claude-code', 'grok-build', 'codex']); },
+  isShippedId(id) { return id === 'claude-code' || id === 'grok-build'; }
+});
+
+function resetStorage(initial) {
+  fakeStorage.store = clone(initial || {});
+  fakeStorage.setCalls = [];
+  fakeStorage.failNextSet = false;
+  fakeStorage.failNextGet = false;
+}
+
+function resetGlobals() {
+  globalThis.FsbSettingsSchema = PRODUCTION_SCHEMA;
+  delete globalThis.FsbAgentCapRecommendation;
+  delete globalThis.FsbDelegationProviders;
+}
+
+function capStub(value) {
+  return {
+    async getRecommendedAgentCap() {
+      await nextTick();
+      return value;
+    }
+  };
+}
+
+async function getSettings(payload, client) {
+  const response = await dispatcher.dispatchMcpMessageRoute({
+    type: 'mcp:get-settings',
+    payload: payload || {},
+    client: client === undefined ? OK_CLIENT : client
+  });
+  allResponses.push(response);
+  return response;
+}
+
+async function setSetting(payload, client) {
+  const response = await dispatcher.dispatchMcpMessageRoute({
+    type: 'mcp:set-setting',
+    payload: payload || {},
+    client: client === undefined ? OK_CLIENT : client
+  });
+  allResponses.push(response);
+  return response;
+}
+
+function writePayload(key, value, extra) {
+  const payload = Object.assign({ agentId: 'agent_ok', recordingCallId: 'call-1', recordingLeaseMs: 10000 }, extra || {});
+  if (key !== undefined) payload.key = key;
+  if (value !== undefined) payload.value = value;
+  return payload;
+}
+
+function isFailure(response, code) {
+  return Boolean(response) && response.success === false && response.code === code && response.errorCode === code;
+}
+
+function hasSentinel(value) {
+  return JSON.stringify(value === undefined ? null : value).includes('SENTINEL');
+}
+
+async function runSection(name, fn) {
+  out('\n--- ' + name + ' ---');
+  resetGlobals();
+  resetStorage({});
+  try {
+    await fn();
+  } catch (error) {
+    check(false, name + ' threw: ' + (error && error.stack ? error.stack.split('\n').slice(0, 3).join(' | ') : String(error)));
+  } finally {
+    resetGlobals();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Part A: dispatcher routes
+// ---------------------------------------------------------------------------
+
+async function partA() {
+  await runSection('exports and route table', async () => {
+    check(typeof dispatcher.handleGetSettingsMessageRoute === 'function', 'handleGetSettingsMessageRoute is exported');
+    check(typeof dispatcher.handleSetSettingMessageRoute === 'function', 'handleSetSettingMessageRoute is exported');
+    check(typeof dispatcher._withSettingsWriteLock === 'function', '_withSettingsWriteLock is exported');
+    check(dispatcher.hasMcpMessageRoute('mcp:get-settings') === true, 'mcp:get-settings has a dispatcher message route');
+    check(dispatcher.hasMcpMessageRoute('mcp:set-setting') === true, 'mcp:set-setting has a dispatcher message route');
+    check(typeof PRODUCTION_SCHEMA === 'object' && typeof PRODUCTION_SCHEMA.planWrite === 'function',
+      'config.js installed the production FsbSettingsSchema');
+  });
+
+  await runSection('read all (D-07, D-10, D-11)', async () => {
+    const stored = {
+      lmstudioBaseUrl: 'http://user:pw@127.0.0.1:1234/v1?t=SENTINEL',
+      customEndpoint: 'https://api.example.test/v1?token=SENTINEL',
+      maxIterations: 250
+    };
+    for (const key of SECRET_KEYS) stored[key] = 'sk-SENTINEL-1';
+    stored.openrouterApiKey = '';
+    resetStorage(stored);
+    const response = await getSettings({ agentId: 'agent_ok' });
+    check(response && response.success === true, 'read-all succeeds');
+    const settings = (response && response.settings) || {};
+    check(Object.keys(settings).length === 35, 'read-all returns the 35 schema keys (got ' + Object.keys(settings).length + ')');
+    check(Array.isArray(response.readOnly) && response.readOnly.length === 11, 'read-all lists the 11 read-only keys');
+    checkDeep(response.readOnly, PRODUCTION_SCHEMA.readOnlyKeys(), 'readOnly is the schema read-only list');
+    for (const key of SECRET_KEYS.filter((k) => k !== 'openrouterApiKey')) {
+      check(settings[key] === '[set]', key + ' reads as [set]');
+    }
+    check(settings.openrouterApiKey === '', 'an empty secret reads as ""');
+    check(settings.lmstudioBaseUrl === 'http://127.0.0.1:1234/...', 'lmstudioBaseUrl reads origin only');
+    check(settings.customEndpoint === 'https://api.example.test/...', 'customEndpoint reads origin only');
+    check(settings.serverUrl === 'https://full-selfbrowsing.com', 'serverUrl reads its effective default origin');
+    check(settings.maxIterations === 250, 'a stored value is returned');
+    check(settings.showSidepanelProgress === true, 'an absent key returns its effective default');
+    check(!hasSentinel(response), 'no stored secret, userinfo or query text appears in the read-all reply');
+    check(fakeStorage.setCalls.length === 0, 'read-all makes no storage write');
+    checkDeep(Object.keys(response).sort(), ['readOnly', 'settings', 'success'], 'read-all reply carries success, settings and readOnly only');
+  });
+
+  await runSection('agent cap recommendation is awaited (D-12)', async () => {
+    globalThis.FsbAgentCapRecommendation = capStub(12);
+    resetStorage({});
+    const all = await getSettings({ agentId: 'agent_ok' });
+    check(all && all.settings && all.settings.fsbAgentCap === 12, 'read-all reports the awaited recommendation 12');
+    const one = await getSettings({ agentId: 'agent_ok', key: 'fsbAgentCap' });
+    check(one && one.success === true && one.value === 12, 'read-one reports the awaited recommendation 12');
+
+    resetStorage({ fsbAgentCap: 5 });
+    const stored = await getSettings({ agentId: 'agent_ok', key: 'fsbAgentCap' });
+    check(stored && stored.value === 5, 'a stored agent cap wins over the recommendation');
+
+    globalThis.FsbAgentCapRecommendation = {
+      async getRecommendedAgentCap() {
+        await nextTick();
+        throw new Error('memory info unavailable');
+      }
+    };
+    resetStorage({});
+    const rejected = await getSettings({ agentId: 'agent_ok', key: 'fsbAgentCap' });
+    check(rejected && rejected.success === true && rejected.value === 8, 'a rejecting recommendation falls back to 8');
+
+    delete globalThis.FsbAgentCapRecommendation;
+    const missing = await getSettings({ agentId: 'agent_ok', key: 'fsbAgentCap' });
+    check(missing && missing.success === true && missing.value === 8, 'no recommendation module falls back to 8');
+
+    globalThis.FsbAgentCapRecommendation = capStub(12);
+    resetStorage({});
+    const write = await setSetting(writePayload('fsbAgentCap', '20'));
+    check(write && write.success === true && write.previous === 12 && write.value === 20,
+      'a write over an unset agent cap reports previous 12 (got ' + JSON.stringify(write && write.previous) + ')');
+    checkDeep(fakeStorage.setCalls, [{ fsbAgentCap: 20 }], 'the agent cap write stores only fsbAgentCap');
+  });
+
+  await runSection('read one key', async () => {
+    resetStorage({});
+    const maxIterations = await getSettings({ agentId: 'agent_ok', key: 'maxIterations' });
+    checkDeep(maxIterations,
+      { success: true, key: 'maxIterations', value: 100, type: 'integer', writable: true, range: { min: 50, max: 500 } },
+      'maxIterations read-one carries type, writable and range');
+
+    resetStorage({ modelProvider: 'xai' });
+    const modelName = await getSettings({ agentId: 'agent_ok', key: 'modelName' });
+    check(modelName && modelName.success === true && modelName.value === 'grok-4-1-fast', 'modelName read-one returns the default model');
+    check(Array.isArray(modelName.values) && modelName.values.length > 0 && modelName.values.length <= 25,
+      'modelName read-one lists at most 25 known ids');
+    check(Array.isArray(modelName.values) && modelName.values.includes('grok-4-1-fast'), 'the xai list includes grok-4-1-fast');
+
+    const manyModels = [];
+    for (let i = 0; i < 40; i += 1) manyModels.push({ id: 'disc-' + i });
+    resetStorage({
+      modelProvider: 'openai',
+      fsbDiscoveryCache: {
+        'openai:abc123': { expiresAt: Date.now() + 60000, result: { ok: true, models: manyModels } }
+      }
+    });
+    const capped = await getSettings({ agentId: 'agent_ok', key: 'modelName' });
+    check(Array.isArray(capped.values) && capped.values.length === 25, 'a long discovered list is capped at 25');
+    check(Array.isArray(capped.values) && capped.values[0] === 'gpt-4o', 'built-in ids come before discovered ids');
+
+    resetStorage({ modelProvider: 'lmstudio' });
+    const lmstudio = await getSettings({ agentId: 'agent_ok', key: 'modelName' });
+    check(lmstudio && lmstudio.success === true && !hasOwn(lmstudio, 'values'), 'lmstudio modelName carries no values list');
+
+    globalThis.FsbDelegationProviders = SHIPPED_PROVIDERS_STUB;
+    resetStorage({});
+    const agentProvider = await getSettings({ agentId: 'agent_ok', key: 'agentProviderId' });
+    checkDeep(agentProvider && agentProvider.values, ['', 'claude-code', 'grok-build'],
+      'agentProviderId read-one lists "" and the shipped ids only');
+
+    resetStorage({ apiKey: 'sk-SENTINEL-1' });
+    const secret = await getSettings({ agentId: 'agent_ok', key: 'apiKey' });
+    checkDeep(secret, { success: true, key: 'apiKey', value: '[set]', type: 'string', writable: false },
+      'a secret read-one is masked and not writable');
+
+    const unknown = await getSettings({ agentId: 'agent_ok', key: 'nope' });
+    check(isFailure(unknown, 'SETTING_UNKNOWN_KEY') && unknown.key === 'nope', 'an unknown key is SETTING_UNKNOWN_KEY with its label');
+    const invalid = await getSettings({ agentId: 'agent_ok', key: 'bad key' });
+    check(isFailure(invalid, 'SETTING_UNKNOWN_KEY') && invalid.key === '[invalid]', 'a malformed key is SETTING_UNKNOWN_KEY labelled [invalid]');
+    const empty = await getSettings({ agentId: 'agent_ok', key: '' });
+    check(isFailure(empty, 'SETTING_UNKNOWN_KEY') && empty.key === '[invalid]', 'an empty key is SETTING_UNKNOWN_KEY');
+    const proto = await getSettings({ agentId: 'agent_ok', key: 'constructor' });
+    check(isFailure(proto, 'SETTING_UNKNOWN_KEY'), 'a prototype name is not a setting');
+    check(typeof unknown.error === 'string' && unknown.error.length > 0, 'an unknown-key failure carries a sentence');
+    check(fakeStorage.setCalls.length === 0, 'read-one makes no storage write');
+  });
+
+  await runSection('write one key (D-13)', async () => {
+    resetStorage({});
+    const first = await setSetting(writePayload('debugMode', 'true'));
+    checkDeep(first, { success: true, key: 'debugMode', value: true, previous: false, changed: ['debugMode'] },
+      'debugMode write returns key, value, previous and changed');
+    checkDeep(fakeStorage.setCalls, [{ debugMode: true }], 'exactly one set call with only debugMode');
+    const again = await setSetting(writePayload('debugMode', 'true'));
+    check(again && again.success === true && Array.isArray(again.changed) && again.changed.length === 0,
+      'repeating the same value succeeds with changed []');
+    check(fakeStorage.setCalls.length === 1, 'an equal stored value adds no set call');
+    check(fakeStorage.store.debugMode === true, 'storage holds the new value');
+
+    resetStorage({});
+    const absent = await setSetting(writePayload('showSidepanelProgress', 'true'));
+    checkDeep(absent && absent.changed, ['showSidepanelProgress'], 'writing the default to an absent key is a real write (Pitfall 10)');
+    checkDeep(fakeStorage.setCalls, [{ showSidepanelProgress: true }], 'the absent key is materialised');
+
+    resetStorage({});
+    const missingValue = await setSetting(writePayload('debugMode'));
+    check(isFailure(missingValue, 'SETTING_REQUEST_INVALID'), 'a write with no value is SETTING_REQUEST_INVALID');
+    const objectValue = await setSetting(writePayload('debugMode', { nested: 'SENTINEL-object' }));
+    check(isFailure(objectValue, 'SETTING_REQUEST_INVALID') && !hasSentinel(objectValue), 'a non-string value is refused without echo');
+    check(fakeStorage.setCalls.length === 0, 'refused requests make no set call');
+  });
+
+  await runSection('invalid values and protected keys (D-10, D-11, D-14)', async () => {
+    resetStorage({});
+    const range = await setSetting(writePayload('maxIterations', '600'));
+    check(isFailure(range, 'SETTING_VALUE_INVALID'), 'maxIterations 600 is SETTING_VALUE_INVALID');
+    checkDeep(range && range.range, { min: 50, max: 500 }, 'the failure carries the range');
+    check(range && typeof range.error === 'string' && range.error.includes('Allowed: 50 to 500'), 'the error states Allowed: 50 to 500');
+    check(range && range.key === 'maxIterations', 'the failure names the key');
+
+    resetStorage({ modelProvider: 'xai' });
+    const model = await setSetting(writePayload('modelName', 'SENTINEL-MODEL'));
+    check(isFailure(model, 'SETTING_VALUE_INVALID'), 'an unknown xai model is SETTING_VALUE_INVALID');
+    check(Array.isArray(model.values) && model.values.length > 0 && model.values.length <= 25 && model.values.includes('grok-4-1-fast'),
+      'the model failure lists at most 25 known ids including grok-4-1-fast');
+    check(typeof model.error === 'string' && model.error.includes('Allowed: ') && model.error.includes('grok-4-1-fast'),
+      'the model error carries the Allowed clause');
+    check(!hasSentinel(model), 'the model failure never echoes the submitted id');
+
+    globalThis.FsbDelegationProviders = SHIPPED_PROVIDERS_STUB;
+    resetStorage({});
+    const agent = await setSetting(writePayload('agentProviderId', 'SENTINEL-AGENT'));
+    check(isFailure(agent, 'SETTING_VALUE_INVALID'), 'an unshipped agent id is SETTING_VALUE_INVALID');
+    checkDeep(agent && agent.values, ['', 'claude-code', 'grok-build'], 'the agent failure lists "" and the shipped ids');
+    check(typeof agent.error === 'string' && agent.error.includes('Allowed: "", claude-code, grok-build'),
+      'the agent error carries Allowed: "", claude-code, grok-build');
+    check(!hasSentinel(agent), 'the agent failure never echoes the submitted id');
+
+    for (const key of SECRET_KEYS.concat(ENDPOINT_KEYS)) {
+      resetStorage({});
+      const refused = await setSetting(writePayload(key, key === 'serverUrl' || key.endsWith('Url') || key === 'customEndpoint'
+        ? 'https://SENTINEL.example.test/?k=sk-SENTINEL-2'
+        : 'sk-SENTINEL-2'));
+      check(isFailure(refused, 'SETTING_PROTECTED_KEY') && refused.key === key, key + ' write is SETTING_PROTECTED_KEY');
+      check(fakeStorage.setCalls.length === 0, key + ' write makes no set call');
+      check(!hasSentinel(refused), key + ' refusal never echoes the value');
+    }
+    check(fakeStorage.setCalls.length === 0 && allSetCalls.every((call) => !hasSentinel(call)), 'no refused value ever reached storage');
+  });
+
+  await runSection('provider pair (D-15)', async () => {
+    resetStorage({ geminiApiKey: 'sk-SENTINEL-1' });
+    const gemini = await setSetting(writePayload('modelProvider', 'gemini'));
+    check(gemini && gemini.success === true, 'modelProvider gemini succeeds with its key stored');
+    checkDeep(gemini && gemini.changed, ['modelProvider', 'modelName'], 'changed lists both provider keys');
+    checkDeep(fakeStorage.setCalls, [{ modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }],
+      'ONE set call writes the provider and its default model');
+    check(gemini && gemini.previous === 'xai', 'previous is the effective default provider');
+
+    resetStorage({});
+    const notReady = await setSetting(writePayload('modelProvider', 'gemini'));
+    check(isFailure(notReady, 'SETTING_PROVIDER_NOT_READY'), 'modelProvider gemini without its key is SETTING_PROVIDER_NOT_READY');
+    check(fakeStorage.setCalls.length === 0, 'a not-ready provider makes no set call');
+  });
+
+  await runSection('model ids come from the persisted discovery cache (Pitfall 7)', async () => {
+    fetchCalls = 0;
+    tabsCreateCalls.length = 0;
+    resetStorage({ modelProvider: 'openai' });
+    const noCache = await setSetting(writePayload('modelName', 'disc-model-1'));
+    check(isFailure(noCache, 'SETTING_VALUE_INVALID'), 'an undiscovered model is refused');
+
+    resetStorage({
+      modelProvider: 'openai',
+      fsbDiscoveryCache: {
+        'openai:feedbeef': { expiresAt: Date.now() - 1000, result: { ok: true, models: [{ id: 'disc-model-1' }] } }
+      }
+    });
+    const expired = await setSetting(writePayload('modelName', 'disc-model-1'));
+    check(isFailure(expired, 'SETTING_VALUE_INVALID'), 'an expired discovery entry does not count');
+
+    resetStorage({
+      modelProvider: 'openai',
+      fsbDiscoveryCache: {
+        'xai:feedbeef': { expiresAt: Date.now() + 60000, result: { ok: true, models: [{ id: 'disc-model-1' }] } },
+        'openai:failed': { expiresAt: Date.now() + 60000, result: { ok: false, models: [{ id: 'disc-model-1' }] } }
+      }
+    });
+    const wrongProvider = await setSetting(writePayload('modelName', 'disc-model-1'));
+    check(isFailure(wrongProvider, 'SETTING_VALUE_INVALID'), 'another provider\'s or a failed entry does not count');
+
+    resetStorage({
+      modelProvider: 'openai',
+      fsbDiscoveryCache: {
+        'openai:feedbeef': { expiresAt: Date.now() + 60000, result: { ok: true, models: [{ id: 'disc-model-1' }, { id: 'disc-model-2' }] } }
+      }
+    });
+    const discovered = await setSetting(writePayload('modelName', 'disc-model-1'));
+    checkDeep(discovered, { success: true, key: 'modelName', value: 'disc-model-1', previous: 'grok-4-1-fast', changed: ['modelName'] },
+      'a model in a live discovery entry is accepted');
+    checkDeep(fakeStorage.setCalls, [{ modelName: 'disc-model-1' }], 'only modelName is written');
+    check(fetchCalls === 0, 'no network call ran');
+    check(tabsCreateCalls.length === 0, 'no tab or UI side effect ran');
+  });
+
+  await runSection('providerKind agent needs a shipped agent (D-15)', async () => {
+    globalThis.FsbDelegationProviders = SHIPPED_PROVIDERS_STUB;
+    resetStorage({ agentProviderId: 'claude-code' });
+    const agent = await setSetting(writePayload('providerKind', 'agent'));
+    checkDeep(agent, { success: true, key: 'providerKind', value: 'agent', previous: 'api', changed: ['providerKind'] },
+      'providerKind agent succeeds with a shipped agent stored');
+
+    delete globalThis.FsbDelegationProviders;
+    resetStorage({ agentProviderId: 'claude-code' });
+    const noProviders = await setSetting(writePayload('providerKind', 'agent'));
+    check(isFailure(noProviders, 'SETTING_PROVIDER_NOT_READY'), 'without FsbDelegationProviders it fails closed');
+    check(fakeStorage.setCalls.length === 0, 'the fail-closed refusal makes no set call');
+  });
+
+  await runSection('delegated-write gate (D-20)', async () => {
+    const cases = [
+      { name: 'a delegated agent', client: { _isDelegationScopedInbound: () => true }, payload: writePayload('debugMode', 'true') },
+      { name: 'a throwing detector', client: { _isDelegationScopedInbound: () => { throw new Error('registry broke'); } }, payload: writePayload('debugMode', 'true') },
+      { name: 'a truthy non-boolean detector result', client: { _isDelegationScopedInbound: () => 'no' }, payload: writePayload('debugMode', 'true') },
+      // Only an answer of exactly false allows the write.
+      { name: 'a detector that returns undefined', client: { _isDelegationScopedInbound: () => undefined }, payload: writePayload('debugMode', 'true') },
+      { name: 'a detector that returns 0', client: { _isDelegationScopedInbound: () => 0 }, payload: writePayload('debugMode', 'true') },
+      { name: 'a missing client', client: null, payload: writePayload('debugMode', 'true') },
+      { name: 'a client without the detector', client: {}, payload: writePayload('debugMode', 'true') },
+      { name: 'a payload without agentId', client: OK_CLIENT, payload: { key: 'debugMode', value: 'true' } },
+      { name: 'an empty agentId', client: OK_CLIENT, payload: writePayload('debugMode', 'true', { agentId: '' }) },
+      { name: 'a non-string agentId', client: OK_CLIENT, payload: writePayload('debugMode', 'true', { agentId: 42 }) },
+      { name: 'the mapped delegated agent', client: OK_CLIENT, payload: writePayload('debugMode', 'true', { agentId: 'agent_delegated' }) }
+    ];
+    for (const testCase of cases) {
+      resetStorage({});
+      const response = await setSetting(testCase.payload, testCase.client);
+      check(isFailure(response, 'SETTING_DELEGATED_WRITE_REFUSED'), testCase.name + ' is refused with SETTING_DELEGATED_WRITE_REFUSED');
+      check(fakeStorage.setCalls.length === 0, testCase.name + ' makes no set call');
+    }
+    let sawType = null;
+    const spyClient = {
+      _isDelegationScopedInbound(type, payload) {
+        sawType = type;
+        return payload.agentId === 'agent_delegated';
+      }
+    };
+    resetStorage({});
+    await setSetting(writePayload('debugMode', 'true'), spyClient);
+    check(sawType === 'mcp:set-setting', 'the detector is asked about mcp:set-setting');
+
+    resetStorage({ maxIterations: 300 });
+    const delegatedRead = await getSettings({ agentId: 'agent_delegated', key: 'maxIterations' }, { _isDelegationScopedInbound: () => true });
+    check(delegatedRead && delegatedRead.success === true && delegatedRead.value === 300, 'a delegated agent can still read one key');
+    const delegatedReadAll = await getSettings({ agentId: 'agent_delegated' }, { _isDelegationScopedInbound: () => true });
+    check(delegatedReadAll && delegatedReadAll.success === true, 'a delegated agent can still read all');
+  });
+
+  await runSection('write lock serializes concurrent writes (Pitfall 9)', async () => {
+    resetStorage({});
+    const [a, b] = await Promise.all([
+      setSetting(writePayload('maxIterations', '60')),
+      setSetting(writePayload('maxIterations', '70'))
+    ]);
+    check(a && a.success === true && a.previous === 100 && a.value === 60, 'the first write reports previous 100');
+    check(b && b.success === true && b.previous === 60 && b.value === 70, 'the second write reports previous 60 (got ' + JSON.stringify(b && b.previous) + ')');
+    checkDeep(fakeStorage.setCalls, [{ maxIterations: 60 }, { maxIterations: 70 }], 'two set calls, in order');
+
+    const order = [];
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const first = dispatcher._withSettingsWriteLock(async () => { order.push('first-start'); await gate; order.push('first-end'); return 1; });
+    const second = dispatcher._withSettingsWriteLock(async () => { order.push('second'); return 2; });
+    await nextTick();
+    checkDeep(order, ['first-start'], 'a queued call waits for the running one');
+    release();
+    checkDeep(await Promise.all([first, second]), [1, 2], 'both locked calls resolve with their own results');
+    checkDeep(order, ['first-start', 'first-end', 'second'], 'locked calls run one at a time, in order');
+    const failing = dispatcher._withSettingsWriteLock(async () => { throw new Error('boom'); });
+    let rejected = false;
+    try { await failing; } catch (_e) { rejected = true; }
+    check(rejected, 'a failing locked call rejects to its caller');
+    check(await dispatcher._withSettingsWriteLock(async () => 'after') === 'after', 'a rejection does not poison the chain');
+  });
+
+  await runSection('existing consumers see the write (D-13)', async () => {
+    resetStorage({ openaiApiKey: 'sk-SENTINEL-1' });
+    const consumer = new configModule.Config();
+    consumer._cachedConfig = { stale: true };
+    consumer._cacheTimestamp = Date.now();
+    const write = await setSetting(writePayload('modelProvider', 'openai'));
+    check(write && write.success === true, 'modelProvider openai is written');
+    check(consumer._cachedConfig === null, 'the Config cache clears on the storage change');
+    const fresh = await chrome.storage.local.get(['providerKind', 'modelProvider', 'modelName']);
+    checkDeep(fresh, { modelProvider: 'openai', modelName: 'gpt-4o' }, 'a fresh run_task-style storage read returns the new pair');
+    check(fetchCalls === 0 && tabsCreateCalls.length === 0, 'no network or UI side effect ran');
+  });
+
+  await runSection('operator log lines (D-18)', async () => {
+    resetStorage({ fsbMcpSessionRecordingEnabled: false });
+    const before = loggerCalls.length;
+    const read = await getSettings({ agentId: 'agent_ok' });
+    check(read && read.success === true && loggerCalls.length === before, 'reads write no operator log line');
+
+    const accepted = await setSetting(writePayload('debugMode', 'true', { visualSession: { client: 'Claude' } }));
+    check(accepted && accepted.success === true, 'the logged write succeeds');
+    const infoLines = loggerCalls.slice(before).filter((call) => call.level === 'info');
+    check(infoLines.length === 1, 'an accepted write logs exactly one info line');
+    const info = infoLines[0] || { data: {} };
+    check(info.message === 'MCP settings write', 'the info line is "MCP settings write"');
+    checkDeep(Object.keys(info.data || {}).sort(), ['at', 'changed', 'client', 'key', 'previous', 'value'],
+      'the info line carries exactly key, previous, value, changed, client and at');
+    check(info.data.key === 'debugMode' && info.data.previous === false && info.data.value === true, 'the info line has key, previous and value');
+    checkDeep(info.data.changed, ['debugMode'], 'the info line has changed');
+    check(info.data.client === 'Claude', 'the info line has the MCP client label');
+    check(typeof info.data.at === 'string' && !Number.isNaN(Date.parse(info.data.at)), 'the info line has an ISO time');
+
+    const beforeRefusal = loggerCalls.length;
+    const refused = await setSetting(writePayload('apiKey', 'sk-SENTINEL-3'));
+    check(isFailure(refused, 'SETTING_PROTECTED_KEY'), 'the logged refusal is SETTING_PROTECTED_KEY');
+    const warnLines = loggerCalls.slice(beforeRefusal).filter((call) => call.level === 'warn');
+    check(warnLines.length === 1 && loggerCalls.length === beforeRefusal + 1, 'a refused write logs exactly one warn line');
+    const warn = warnLines[0] || { data: {} };
+    check(warn.message === 'MCP settings write refused', 'the warn line is "MCP settings write refused"');
+    checkDeep(Object.keys(warn.data || {}).sort(), ['at', 'client', 'code', 'key'], 'the warn line carries exactly key, code, client and at');
+    check(warn.data.key === 'apiKey' && warn.data.code === 'SETTING_PROTECTED_KEY', 'the warn line has the key label and the code');
+
+    const beforeInvalidKey = loggerCalls.length;
+    await setSetting(writePayload('no such key!', 'x'));
+    const invalidKeyLine = loggerCalls[beforeInvalidKey] || { data: {} };
+    check(invalidKeyLine.level === 'warn' && invalidKeyLine.data.key === '[invalid]' && invalidKeyLine.data.code === 'SETTING_UNKNOWN_KEY',
+      'a malformed key is logged as [invalid]');
+
+    const beforeGate = loggerCalls.length;
+    await setSetting(writePayload('debugMode', 'false', { agentId: 'agent_delegated' }));
+    const gateLine = loggerCalls[beforeGate] || { data: {} };
+    check(gateLine.level === 'warn' && gateLine.data.code === 'SETTING_DELEGATED_WRITE_REFUSED' && gateLine.data.key === 'debugMode',
+      'a delegated refusal is logged with key and code');
+    check(fakeStorage.store.fsbMcpSessionRecordingEnabled === false, 'the lines are written while session recording is off');
+
+    const beforeNoop = loggerCalls.length;
+    const noop = await setSetting(writePayload('debugMode', 'true'));
+    check(noop && noop.success === true && noop.changed.length === 0, 'the no-op write succeeds');
+    check(loggerCalls.length === beforeNoop + 1 && loggerCalls[beforeNoop].level === 'info', 'a no-op write is logged as accepted');
+
+    const savedLogger = global.automationLogger;
+    delete global.automationLogger;
+    try {
+      resetStorage({});
+      const withoutLogger = await setSetting(writePayload('debugMode', 'true'));
+      check(withoutLogger && withoutLogger.success === true, 'a missing automationLogger does not break the write');
+      global.automationLogger = { info() { throw new Error('logger broke'); }, warn() { throw new Error('logger broke'); } };
+      resetStorage({});
+      const throwingLogger = await setSetting(writePayload('debugMode', 'true'));
+      check(throwingLogger && throwingLogger.success === true, 'a throwing automationLogger does not break the write');
+      const throwingRefusal = await setSetting(writePayload('apiKey', 'x'));
+      check(isFailure(throwingRefusal, 'SETTING_PROTECTED_KEY'), 'a throwing automationLogger does not break a refusal');
+    } finally {
+      global.automationLogger = savedLogger;
+    }
+  });
+
+  await runSection('unsupported schema and storage failures', async () => {
+    delete globalThis.FsbSettingsSchema;
+    resetStorage({});
+    const read = await getSettings({ agentId: 'agent_ok' });
+    check(isFailure(read, 'SETTING_UNSUPPORTED'), 'read without a schema is SETTING_UNSUPPORTED');
+    const before = loggerCalls.length;
+    const write = await setSetting(writePayload('debugMode', 'true'));
+    check(isFailure(write, 'SETTING_UNSUPPORTED'), 'write without a schema is SETTING_UNSUPPORTED');
+    const line = loggerCalls[before] || { data: {} };
+    check(line.level === 'warn' && line.data.key === '[invalid]' && line.data.code === 'SETTING_UNSUPPORTED',
+      'the unsupported write is logged as a refusal with key [invalid]');
+    globalThis.FsbSettingsSchema = { keys() { return []; } };
+    const partial = await getSettings({ agentId: 'agent_ok' });
+    check(isFailure(partial, 'SETTING_UNSUPPORTED'), 'a schema without projectAll/describe is SETTING_UNSUPPORTED');
+    const partialWrite = await setSetting(writePayload('debugMode', 'true'));
+    check(isFailure(partialWrite, 'SETTING_UNSUPPORTED'), 'a schema without planWrite is SETTING_UNSUPPORTED');
+    globalThis.FsbSettingsSchema = PRODUCTION_SCHEMA;
+
+    resetStorage({});
+    fakeStorage.failNextSet = true;
+    const beforeStorage = loggerCalls.length;
+    const failedSet = await setSetting(writePayload('debugMode', 'true'));
+    check(isFailure(failedSet, 'SETTING_STORAGE_FAILED'), 'a rejected storage set is SETTING_STORAGE_FAILED');
+    const storageLine = loggerCalls.slice(beforeStorage).find((call) => call.level === 'warn') || { data: {} };
+    check(storageLine.data.code === 'SETTING_STORAGE_FAILED' && storageLine.data.key === 'debugMode', 'the storage failure is logged as a refusal');
+    check(loggerCalls.slice(beforeStorage).every((call) => call.level !== 'info'), 'a failed write logs no accepted line');
+
+    resetStorage({});
+    fakeStorage.failNextGet = true;
+    const failedRead = await getSettings({ agentId: 'agent_ok' });
+    check(isFailure(failedRead, 'SETTING_STORAGE_FAILED'), 'a rejected storage read is SETTING_STORAGE_FAILED');
+    fakeStorage.failNextGet = true;
+    const failedWriteRead = await setSetting(writePayload('debugMode', 'true'));
+    check(isFailure(failedWriteRead, 'SETTING_STORAGE_FAILED'), 'a rejected read before a write is SETTING_STORAGE_FAILED');
+    check(fakeStorage.setCalls.length === 0, 'a failed read makes no set call');
+  });
+
+  await runSection('handlers never throw', async () => {
+    const getHandler = dispatcher.handleGetSettingsMessageRoute;
+    const setHandler = dispatcher.handleSetSettingMessageRoute;
+    const inputs = [undefined, {}, { payload: null }, { payload: [] }, { payload: 'text' }, { payload: { key: 42 } },
+      { payload: { key: { toString() { throw new Error('x'); } } } }];
+    for (const input of inputs) {
+      let threw = false;
+      let response;
+      try { response = await getHandler(input); } catch (_e) { threw = true; }
+      check(!threw && response && typeof response.success === 'boolean', 'get handler returns a result for ' + util.inspect(input && input.payload));
+      allResponses.push(response);
+      threw = false;
+      try { response = await setHandler(input === undefined ? undefined : Object.assign({ client: OK_CLIENT }, input)); } catch (_e) { threw = true; }
+      check(!threw && response && response.success === false, 'set handler returns a failure for ' + util.inspect(input && input.payload));
+      allResponses.push(response);
+    }
+    const nonObject = await setHandler({ payload: 'text', client: OK_CLIENT });
+    check(isFailure(nonObject, 'SETTING_REQUEST_INVALID'), 'a non-object payload is SETTING_REQUEST_INVALID');
+  });
+
+  await runSection('recovery hints on every SETTING_ failure', async () => {
+    const failures = allResponses.filter((response) => response && response.success === false
+      && typeof response.code === 'string' && response.code.indexOf('SETTING_') === 0);
+    check(failures.length >= 30, 'collected ' + failures.length + ' SETTING_ failures');
+    const codes = new Set(failures.map((response) => response.code));
+    for (const code of ['SETTING_REQUEST_INVALID', 'SETTING_UNKNOWN_KEY', 'SETTING_PROTECTED_KEY', 'SETTING_VALUE_INVALID',
+      'SETTING_PROVIDER_NOT_READY', 'SETTING_DELEGATED_WRITE_REFUSED', 'SETTING_UNSUPPORTED', 'SETTING_STORAGE_FAILED']) {
+      check(codes.has(code), code + ' was exercised');
+    }
+    let wrongHint = 0;
+    let shapeErrors = 0;
+    for (const response of failures) {
+      const expected = EXPECTED_HINTS[response.code] || HINT_DEFAULT;
+      if (response.recoveryHint !== expected) wrongHint += 1;
+      if (response.errorCode !== response.code || typeof response.error !== 'string' || response.error === '') shapeErrors += 1;
+    }
+    check(wrongHint === 0, 'every SETTING_ failure carries its mapped recoveryHint (' + wrongHint + ' wrong)');
+    check(shapeErrors === 0, 'every SETTING_ failure has code === errorCode and a non-empty error (' + shapeErrors + ' bad)');
+    check(failures.every((response) => !hasSentinel(response.recoveryHint) && !hasSentinel(response.error)),
+      'no recoveryHint or error contains a SENTINEL value');
+  });
+
+  await runSection('fixture schema entry needs no MCP change (D-17, SC4)', async () => {
+    const fixture = PRODUCTION_SCHEMA.create(PRODUCTION_SCHEMA.entries.concat([
+      { key: 'fsbFixtureFastMode', type: 'boolean', cls: 'writable', default: false }
+    ]));
+    globalThis.FsbSettingsSchema = fixture;
+    resetStorage({});
+    const all = await getSettings({ agentId: 'agent_ok' });
+    check(all && all.settings && all.settings.fsbFixtureFastMode === false, 'read-all includes the fixture key with its default');
+    const one = await getSettings({ agentId: 'agent_ok', key: 'fsbFixtureFastMode' });
+    checkDeep(one, { success: true, key: 'fsbFixtureFastMode', value: false, type: 'boolean', writable: true },
+      'read-one describes the fixture key');
+    const write = await setSetting(writePayload('fsbFixtureFastMode', 'true'));
+    checkDeep(write, { success: true, key: 'fsbFixtureFastMode', value: true, previous: false, changed: ['fsbFixtureFastMode'] },
+      'the fixture key is writable through the route');
+    checkDeep(fakeStorage.setCalls, [{ fsbFixtureFastMode: true }], 'the fixture write stores only its key');
+
+    globalThis.FsbSettingsSchema = PRODUCTION_SCHEMA;
+    const gone = await getSettings({ agentId: 'agent_ok', key: 'fsbFixtureFastMode' });
+    check(isFailure(gone, 'SETTING_UNKNOWN_KEY'), 'the production schema does not know the fixture key');
+    const goneWrite = await setSetting(writePayload('fsbFixtureFastMode', 'true'));
+    check(isFailure(goneWrite, 'SETTING_UNKNOWN_KEY'), 'the production schema refuses to write the fixture key');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Value hygiene across every sink
+// ---------------------------------------------------------------------------
+
+function sentinelScan() {
+  out('\n--- SENTINEL scan across every sink ---');
+  check(allResponses.length > 0 && allResponses.every((response) => !hasSentinel(response)), 'no route response contains a SENTINEL value');
+  check(allSetCalls.every((call) => !hasSentinel(call)), 'no storage set call contains a SENTINEL value');
+  check(loggerCalls.every((call) => !hasSentinel(call)), 'no automationLogger call contains a SENTINEL value');
+  check(consoleLines.every((line) => !line.includes('SENTINEL')), 'no console line contains a SENTINEL value');
+  check(fetchCalls === 0, 'no route ever called fetch');
+  check(tabsCreateCalls.length === 0, 'no route ever opened a tab');
+}
+
+(async () => {
+  await partA();
+  sentinelScan();
+  out('\nmcp-settings-route: ' + passed + ' passed, ' + failed + ' failed');
+  process.exit(failed > 0 ? 1 : 0);
+})().catch((error) => {
+  process.stderr.write('mcp-settings-route crashed: ' + (error && error.stack ? error.stack : String(error)) + '\n');
+  process.exit(1);
+});

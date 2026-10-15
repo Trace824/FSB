@@ -152,7 +152,15 @@ const MCP_PHASE199_MESSAGE_ROUTES = {
   // boundary; Phase 238 is structural setup only.
   'agent:register': { routeFamily: 'agent', handler: handleAgentRegisterRoute },
   'agent:release':  { routeFamily: 'agent', handler: handleAgentReleaseRoute },
-  'agent:status':   { routeFamily: 'agent', handler: handleAgentStatusRoute }
+  'agent:status':   { routeFamily: 'agent', handler: handleAgentStatusRoute },
+  // Phase 66.1 (SET-01/SET-02, D-06): the settings tool's two INTERNAL-ONLY
+  // message routes. They are not TOOL_REGISTRY tools, so the frozen INV-01
+  // registry hash is unmoved. They are reachable only through the MCP bridge
+  // (MCPBridgeClient._routeMessage); chrome.runtime.onMessage handles neither,
+  // so pages and content scripts cannot reach them. Writes from delegated
+  // agent runs are refused inside handleSetSettingMessageRoute (D-20).
+  'mcp:get-settings': { routeFamily: 'settings', handler: handleGetSettingsMessageRoute },
+  'mcp:set-setting': { routeFamily: 'settings', handler: handleSetSettingMessageRoute }
 };
 
 // Non-enumerable, in-process-only recorder context. A Symbol prevents an MCP
@@ -3622,6 +3630,253 @@ async function handleGetLogsMessageRoute({ payload }) {
   };
 }
 
+// ---- Phase 66.1 settings routes (SET-01, SET-02) ---------------------------
+// mcp:get-settings reads every setting or one key; mcp:set-setting writes one
+// key (or the modelProvider+modelName pair) to chrome.storage.local. The
+// schema (globalThis.FsbSettingsSchema, extension/config/config.js) owns every
+// rule, mask and sentence. These routes read storage, gather the outside
+// facts the schema needs, write the planned patch and log the outcome. Both
+// handlers return typed SETTING_* failures and never throw. A submitted value
+// never goes into an error, a log line or a console call.
+
+// Serializes every settings write (read, plan, write) so concurrent writes
+// each report the right previous value and never interleave the provider
+// pair (Pitfall 9). Same shape as _withLabelStorageLock, on its own chain.
+var _settingsWriteChain = Promise.resolve();
+function _withSettingsWriteLock(fn) {
+  var next = _settingsWriteChain.then(fn, fn);
+  _settingsWriteChain = next.catch(function () { /* swallow so chain continues */ });
+  return next;
+}
+
+// The recovery hint every SETTING_* failure carries. mcp/src/errors.ts shows a
+// result's recoveryHint and keeps no per-code table of its own.
+const SETTING_RECOVERY_HINTS = Object.freeze({
+  SETTING_PROTECTED_KEY: 'Change this setting in the FSB Control Panel.',
+  SETTING_DELEGATED_WRITE_REFUSED: 'Change this setting in the FSB Control Panel.',
+  SETTING_PROVIDER_NOT_READY: 'Change this setting in the FSB Control Panel.',
+  SETTING_UNSUPPORTED: 'Update the FSB extension, or change the setting in the FSB Control Panel.',
+  default: 'Call settings with only a key to see its type and allowed values, or with no arguments to list every setting.'
+});
+
+// Same sentence as the schema's unknown-key failure.
+const SETTING_UNKNOWN_KEY_ERROR = 'Unknown setting key. Call settings with no arguments to list keys.';
+
+function _settingsFailure(code, error, extra) {
+  const recoveryHint = (code !== 'default' && Object.prototype.hasOwnProperty.call(SETTING_RECOVERY_HINTS, code))
+    ? SETTING_RECOVERY_HINTS[code]
+    : SETTING_RECOVERY_HINTS.default;
+  return Object.assign({ success: false, code, errorCode: code, error, recoveryHint }, extra || {});
+}
+
+// Looked up at call time, so a test fixture instance (D-17) or an older build
+// without the schema is honoured. A partial schema counts as missing.
+function _resolveSettingsSchema() {
+  const schema = typeof globalThis !== 'undefined' ? globalThis.FsbSettingsSchema : undefined;
+  if (!schema || typeof schema !== 'object') return null;
+  const required = ['keys', 'get', 'safeKeyLabel', 'effectiveDefault', 'projectAll', 'describe', 'planWrite',
+    'knownModelIds', 'discoveredIdsFromCache'];
+  for (const name of required) {
+    if (typeof schema[name] !== 'function') return null;
+  }
+  return schema;
+}
+
+async function _readSettingsStorage(keys) {
+  if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local
+      || typeof chrome.storage.local.get !== 'function') {
+    throw new Error('chrome.storage.local unavailable');
+  }
+  const result = await chrome.storage.local.get(keys);
+  return (result && typeof result === 'object') ? result : {};
+}
+
+async function _writeSettingsStorage(patch) {
+  if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local
+      || typeof chrome.storage.local.set !== 'function') {
+    throw new Error('chrome.storage.local unavailable');
+  }
+  await chrome.storage.local.set(patch);
+}
+
+// The provider the D-15 model rules compare against: the stored string, else
+// the schema's effective default (as the schema's own planWrite does).
+function _settingsCurrentProvider(schema, stored) {
+  if (stored && typeof stored.modelProvider === 'string') return stored.modelProvider;
+  const fallback = schema.effectiveDefault('modelProvider');
+  return typeof fallback === 'string' ? fallback : '';
+}
+
+// The outside facts planWrite and the read projection need (ctx). Every one
+// is optional and fails closed in the schema when it is missing.
+async function _buildSettingsContext(schema, stored, needDiscoveryFor) {
+  const ctx = {};
+  // D-12: getRecommendedAgentCap is async. Without the await the schema would
+  // see a Promise instead of a number and quietly fall back to 8.
+  const capModule = typeof globalThis !== 'undefined' ? globalThis.FsbAgentCapRecommendation : undefined;
+  if (capModule && typeof capModule.getRecommendedAgentCap === 'function') {
+    try {
+      ctx.agentCapRecommendation = await capModule.getRecommendedAgentCap();
+    } catch (_e) {
+      ctx.agentCapRecommendation = undefined;
+    }
+  }
+  const providers = typeof globalThis !== 'undefined' ? globalThis.FsbDelegationProviders : undefined;
+  if (providers && typeof providers.isShippedId === 'function') {
+    ctx.isShippedAgentId = function (id) { return providers.isShippedId(id) === true; };
+    if (typeof providers.ids === 'function') {
+      try {
+        const ids = providers.ids();
+        if (Array.isArray(ids)) {
+          ctx.shippedAgentIds = ids.filter(function (id) {
+            try { return providers.isShippedId(id) === true; } catch (_e) { return false; }
+          });
+        }
+      } catch (_e) { /* the shipped list stays unknown */ }
+    }
+  }
+  if (typeof needDiscoveryFor === 'string' && needDiscoveryFor !== '') {
+    // Pitfall 7: the persisted discovery cache, never the SW's in-memory copy,
+    // and never a network call.
+    const cached = await _readSettingsStorage('fsbDiscoveryCache');
+    ctx.discoveredModelIds = schema.discoveredIdsFromCache(cached.fsbDiscoveryCache, needDiscoveryFor, Date.now());
+  }
+  return ctx;
+}
+
+function _isHostedSettingsProvider(schema, provider) {
+  return Array.isArray(schema.HOSTED_PROVIDERS) && schema.HOSTED_PROVIDERS.indexOf(provider) !== -1;
+}
+
+// D-18 operator line in automationLogs, written whether or not session
+// recording is on. Fire-and-forget: it never gates or changes the response.
+function _logSettingsWrite(level, data) {
+  try {
+    if (typeof automationLogger === 'undefined' || !automationLogger) return;
+    const method = level === 'warn' ? 'warn' : 'info';
+    if (typeof automationLogger[method] !== 'function') return;
+    const message = method === 'warn' ? 'MCP settings write refused' : 'MCP settings write';
+    const logged = automationLogger[method](message, data);
+    if (logged && typeof logged.catch === 'function') logged.catch(function () {});
+  } catch (_e) { /* the operator log never gates the response */ }
+}
+
+async function handleGetSettingsMessageRoute({ payload } = {}) {
+  try {
+    const schema = _resolveSettingsSchema();
+    if (!schema) return _settingsFailure('SETTING_UNSUPPORTED', 'This FSB build has no settings schema.');
+    const request = (payload && typeof payload === 'object') ? payload : {};
+    const key = request.key;
+    if (key !== undefined && (typeof key !== 'string' || !schema.get(key))) {
+      return _settingsFailure('SETTING_UNKNOWN_KEY', SETTING_UNKNOWN_KEY_ERROR, { key: schema.safeKeyLabel(key) });
+    }
+    const stored = await _readSettingsStorage(schema.keys());
+    if (key === undefined) {
+      const ctx = await _buildSettingsContext(schema, stored, null);
+      return Object.assign({ success: true }, schema.projectAll(stored, ctx));
+    }
+    const provider = key === 'modelName' ? _settingsCurrentProvider(schema, stored) : '';
+    const hosted = provider !== '' && _isHostedSettingsProvider(schema, provider);
+    const ctx = await _buildSettingsContext(schema, stored, hosted ? provider : null);
+    const described = schema.describe(key, stored, ctx);
+    if (!described) {
+      return _settingsFailure('SETTING_UNKNOWN_KEY', SETTING_UNKNOWN_KEY_ERROR, { key: schema.safeKeyLabel(key) });
+    }
+    const reply = Object.assign({ success: true }, described);
+    if (key === 'modelName' && hosted) {
+      const cap = Number.isInteger(schema.MODEL_LIST_CAP) ? schema.MODEL_LIST_CAP : 25;
+      reply.values = schema.knownModelIds(provider, ctx.discoveredModelIds).slice(0, cap);
+    }
+    if (key === 'agentProviderId' && Array.isArray(ctx.shippedAgentIds)) {
+      reply.values = [''].concat(ctx.shippedAgentIds);
+    }
+    return reply;
+  } catch (_e) {
+    return _settingsFailure('SETTING_STORAGE_FAILED', 'Could not read FSB settings.');
+  }
+}
+
+async function handleSetSettingMessageRoute({ payload, client } = {}) {
+  const request = (payload && typeof payload === 'object' && !Array.isArray(payload)) ? payload : null;
+  let schema = null;
+  try { schema = _resolveSettingsSchema(); } catch (_e) { schema = null; }
+  let clientLabel = 'unknown';
+  try {
+    const resolved = resolveMcpClientLabel(request);
+    if (typeof resolved === 'string' && resolved !== '') clientLabel = resolved;
+  } catch (_e) { clientLabel = 'unknown'; }
+
+  // Refusals log the safe key label and the code only (D-18).
+  function refuse(code, error, extra) {
+    let keyLabel = '[invalid]';
+    try {
+      if (schema && request) keyLabel = schema.safeKeyLabel(request.key);
+    } catch (_e) { keyLabel = '[invalid]'; }
+    _logSettingsWrite('warn', { key: keyLabel, code, client: clientLabel, at: new Date().toISOString() });
+    return _settingsFailure(code, error, extra);
+  }
+
+  if (!request) return refuse('SETTING_REQUEST_INVALID', 'The settings request is malformed.');
+  if (!schema) return refuse('SETTING_UNSUPPORTED', 'This FSB build has no settings schema.');
+
+  // D-20: delegated agent runs can read settings but never write them. This
+  // runs before anything reads the value, and fails closed: a missing agentId,
+  // a missing client or detector, a throwing detector, or any answer other
+  // than exactly false (the registry is missing, malformed or maps this
+  // agent to a delegation) is a refusal.
+  let writeAllowed = false;
+  if (typeof request.agentId === 'string' && request.agentId.length > 0
+      && client && typeof client._isDelegationScopedInbound === 'function') {
+    try {
+      writeAllowed = client._isDelegationScopedInbound('mcp:set-setting', request) === false;
+    } catch (_e) {
+      writeAllowed = false;
+    }
+  }
+  if (!writeAllowed) {
+    return refuse('SETTING_DELEGATED_WRITE_REFUSED',
+      'Settings writes are not allowed from delegated agent runs or unidentified sessions.');
+  }
+
+  try {
+    return await _withSettingsWriteLock(async function () {
+      const key = request.key;
+      const stored = await _readSettingsStorage(schema.keys());
+      const provider = key === 'modelName' ? _settingsCurrentProvider(schema, stored) : '';
+      const ctx = await _buildSettingsContext(schema, stored,
+        provider !== '' && _isHostedSettingsProvider(schema, provider) ? provider : null);
+      const plan = schema.planWrite(key, request.value, stored, ctx);
+      if (!plan || plan.ok !== true) {
+        const code = plan && typeof plan.code === 'string' ? plan.code : 'SETTING_REQUEST_INVALID';
+        const extra = { key: plan && typeof plan.key === 'string' ? plan.key : schema.safeKeyLabel(key) };
+        if (plan && plan.range) extra.range = plan.range;
+        if (plan && Array.isArray(plan.values)) extra.values = plan.values;
+        return refuse(code, plan && typeof plan.error === 'string' ? plan.error : 'The setting could not be changed.', extra);
+      }
+      const patch = plan.patch && typeof plan.patch === 'object' ? plan.patch : {};
+      if (Object.keys(patch).length > 0) {
+        try {
+          await _writeSettingsStorage(patch);
+        } catch (_e) {
+          return refuse('SETTING_STORAGE_FAILED', 'Could not save the setting.', { key: plan.key });
+        }
+      }
+      const changed = Array.isArray(plan.changed) ? plan.changed.slice() : [];
+      _logSettingsWrite('info', {
+        key: plan.key,
+        previous: plan.previous,
+        value: plan.value,
+        changed: changed.slice(),
+        client: clientLabel,
+        at: new Date().toISOString()
+      });
+      return { success: true, key: plan.key, value: plan.value, previous: plan.previous, changed };
+    });
+  } catch (_e) {
+    return refuse('SETTING_STORAGE_FAILED', 'Could not change the setting.');
+  }
+}
+
 async function handleSearchMemoryMessageRoute({ payload }) {
   if (typeof memoryManager === 'undefined' || typeof memoryManager?.search !== 'function') {
     return createMcpRouteError('search_memory', 'observability', MCP_ROUTE_RECOVERY_HINT, { error: 'Memory search unavailable' });
@@ -4579,7 +4834,11 @@ const _mcp_dispatcher_exports = {
   FSB_AGENT_CLIENT_LABELS_KEY,
   // Phase 66 call timing (test-only)
   readDispatcherCallStamp,
-  buildDispatcherCallTiming
+  buildDispatcherCallTiming,
+  // Phase 66.1 settings routes and their write lock (test access).
+  handleGetSettingsMessageRoute,
+  handleSetSettingMessageRoute,
+  _withSettingsWriteLock
 };
 
 if (typeof globalThis !== 'undefined') {
