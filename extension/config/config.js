@@ -172,15 +172,7 @@ class Config {
     }
 
     // Default fallbacks per provider (used when modelName is empty/missing)
-    const defaultModels = {
-      'xai': 'grok-4-1-fast',
-      'gemini': 'gemini-2.5-flash',
-      'openai': 'gpt-4o',
-      'anthropic': 'claude-sonnet-4-6',
-      'openrouter': 'openai/gpt-4o',
-      'lmstudio': '',
-      'custom': ''
-    };
+    const defaultModels = Config.DEFAULT_MODELS;
 
     // Empty/missing modelName -> per-provider default (existing behavior)
     if (!modelName) {
@@ -304,6 +296,20 @@ class Config {
   }
 }
 
+// Per-provider default model ids. Shared by validateAndCorrectModel (an empty
+// model name falls back to its provider's default) and the settings schema's
+// write planner (a modelProvider change sets modelName to this default, D-15).
+// lmstudio and custom stay empty: their model is resolved at start.
+Config.DEFAULT_MODELS = Object.freeze({
+  'xai': 'grok-4-1-fast',
+  'gemini': 'gemini-2.5-flash',
+  'openai': 'gpt-4o',
+  'anthropic': 'claude-sonnet-4-6',
+  'openrouter': 'openai/gpt-4o',
+  'lmstudio': '',
+  'custom': ''
+});
+
 // Export singleton instance
 const config = new Config();
 
@@ -333,6 +339,8 @@ if (typeof module !== 'undefined' && module.exports) {
  * every importScripts file (and the panel scope with options.js), so this
  * block adds no top-level name. It reads no storage, calls no chrome.* API
  * and does not touch SW-only globals at load (config.js loads first).
+ * planWrite reads Config.DEFAULT_MODELS and the config singleton's built-in
+ * model list at call time only; the caller passes stored values and ctx in.
  */
 (function (global) {
   'use strict';
@@ -358,8 +366,22 @@ if (typeof module !== 'undefined' && module.exports) {
   var MODEL_LIST_CAP = 25;
   var AGENT_CAP_FALLBACK = 8;
   var PROVIDERS = Object.freeze(['xai', 'gemini', 'openai', 'anthropic', 'openrouter', 'lmstudio', 'custom']);
+  var HOSTED_PROVIDERS = Object.freeze(['xai', 'gemini', 'openai', 'anthropic', 'openrouter']);
+  // The stored API key each provider needs; mirrors Config.prototype.getApiKey
+  // (a behavioural parity test pins it). lmstudio needs none.
+  var PROVIDER_API_KEY = Object.freeze({
+    xai: 'apiKey',
+    gemini: 'geminiApiKey',
+    openai: 'openaiApiKey',
+    anthropic: 'anthropicApiKey',
+    openrouter: 'openrouterApiKey',
+    custom: 'customApiKey',
+    lmstudio: null
+  });
+  var ALLOWED_ENTRY_MAX = 200;
+  var UNKNOWN_KEY_SENTENCE = 'Unknown setting key. Call settings with no arguments to list keys.';
 
-  var TYPES = ['boolean', 'integer', 'enum', 'string'];
+  var TYPES =['boolean', 'integer', 'enum', 'string'];
   var CLASSES = ['writable', 'secret', 'endpoint'];
   var GROUPS = ['provider'];
   var DEFAULT_SOURCES = ['agentCapRecommendation'];
@@ -449,6 +471,109 @@ if (typeof module !== 'undefined' && module.exports) {
     return out;
   }
 
+  function isFiniteNumber(value) {
+    return typeof value === 'number' && isFinite(value);
+  }
+
+  function isNonEmptyString(value) {
+    return typeof value === 'string' && value !== '';
+  }
+
+  function storedNonBlank(stored, key) {
+    return isStored(stored, key) && typeof stored[key] === 'string' && stored[key].trim() !== '';
+  }
+
+  function isHostedProvider(provider) {
+    return typeof provider === 'string' && HOSTED_PROVIDERS.indexOf(provider) !== -1;
+  }
+
+  // The allowed-values text of an invalid-value error (D-07). It reads only
+  // its three arguments, which come from the schema, the built-in model list,
+  // the discovery cache and the shipped agent ids; it never sees the raw input.
+  function formatAllowed(spec) {
+    var parts = [];
+    var range = spec !== null && typeof spec === 'object' ? spec.range : undefined;
+    if (range !== null && typeof range === 'object' && isFiniteNumber(range.min) && isFiniteNumber(range.max)) {
+      parts.push(String(range.min) + ' to ' + String(range.max));
+    }
+    var values = spec !== null && typeof spec === 'object' ? spec.values : undefined;
+    if (Array.isArray(values)) {
+      var rendered = [];
+      for (var i = 0; i < values.length; i += 1) {
+        var value = values[i];
+        if (typeof value !== 'string' && !isFiniteNumber(value)) continue;
+        var text = String(value);
+        rendered.push(text === '' ? '""' : text.slice(0, ALLOWED_ENTRY_MAX));
+      }
+      var list = rendered.join(', ');
+      var omitted = spec.omitted;
+      if (Number.isInteger(omitted) && omitted > 0) {
+        list = list === '' ? '(+' + omitted + ' more)' : list + ' (+' + omitted + ' more)';
+      }
+      if (list !== '') parts.push(list);
+    }
+    return parts.join('; ');
+  }
+
+  // planWrite's failure path: an invalid-value failure that carries a range or
+  // allowed values says what is allowed in its own sentence. parseValue's own
+  // failures stay as they are; no other code gets the clause.
+  function withAllowedClause(result, omitted) {
+    if (!result || result.ok !== false || result.code !== CODES.VALUE_INVALID) return result;
+    if (!result.range && !result.values) return result;
+    var allowed = formatAllowed({ range: result.range, values: result.values, omitted: omitted });
+    if (allowed !== '') result.error = result.error + ' Allowed: ' + allowed + '.';
+    return result;
+  }
+
+  // Built-in ids from the config singleton declared above this block, read at
+  // call time (never at load), then the given discovered ids; de-duplicated,
+  // in order. Only hosted providers have a known list.
+  function knownModelIds(provider, discoveredIds) {
+    if (!isHostedProvider(provider)) return [];
+    var ids = [];
+    function add(id) {
+      if (isNonEmptyString(id) && ids.indexOf(id) === -1) ids.push(id);
+    }
+    var available = (typeof config !== 'undefined' && config && config.availableModels) ? config.availableModels : null;
+    var builtIn = available && hasOwn(available, provider) && Array.isArray(available[provider]) ? available[provider] : [];
+    for (var b = 0; b < builtIn.length; b += 1) add(builtIn[b] && builtIn[b].id);
+    if (Array.isArray(discoveredIds)) {
+      for (var d = 0; d < discoveredIds.length; d += 1) add(discoveredIds[d]);
+    }
+    return ids;
+  }
+
+  // The getDiscoveredModelIds rule (extension/ai/model-discovery.js) applied
+  // to the persisted fsbDiscoveryCache object: the SW's in-memory copy is
+  // hydrated once and misses discoveries the panel ran later (Pitfall 7).
+  // Entries keyed '<provider>:...', not expired, ok:true with a models array;
+  // the last qualifying entry in object order wins.
+  function discoveredIdsFromCache(cacheObject, provider, nowMs) {
+    if (cacheObject === null || typeof cacheObject !== 'object' || Array.isArray(cacheObject)) return [];
+    if (!isNonEmptyString(provider)) return [];
+    var prefix = provider + ':';
+    var best = null;
+    var cacheKeys = Object.keys(cacheObject);
+    for (var i = 0; i < cacheKeys.length; i += 1) {
+      if (cacheKeys[i].indexOf(prefix) !== 0) continue;
+      var entry = cacheObject[cacheKeys[i]];
+      if (entry === null || typeof entry !== 'object') continue;
+      if (!(entry.expiresAt > nowMs)) continue;
+      var result = entry.result;
+      if (result === null || typeof result !== 'object' || result.ok !== true || !Array.isArray(result.models)) continue;
+      best = result.models;
+    }
+    if (!best) return [];
+    var ids = [];
+    for (var m = 0; m < best.length; m += 1) {
+      var model = best[m];
+      var id = String((model && model.id) || '');
+      if (id !== '') ids.push(id);
+    }
+    return ids;
+  }
+
   function invalidEntry(index, reason) {
     return new TypeError('FsbSettingsSchema entry ' + index + ': ' + reason);
   }
@@ -528,8 +653,13 @@ if (typeof module !== 'undefined' && module.exports) {
     VALUE_MAX_LENGTH: VALUE_MAX_LENGTH,
     PROVIDERS: PROVIDERS,
     MODEL_LIST_CAP: MODEL_LIST_CAP,
+    HOSTED_PROVIDERS: HOSTED_PROVIDERS,
+    PROVIDER_API_KEY: PROVIDER_API_KEY,
     safeKeyLabel: safeKeyLabel,
-    originOnly: originOnly
+    originOnly: originOnly,
+    knownModelIds: knownModelIds,
+    discoveredIdsFromCache: discoveredIdsFromCache,
+    formatAllowed: formatAllowed
   };
 
   function create(entries) {
@@ -619,7 +749,7 @@ if (typeof module !== 'undefined' && module.exports) {
     function parseValue(key, raw) {
       var entry = get(key);
       if (!entry) {
-        return failure(CODES.UNKNOWN_KEY, key, 'Unknown setting key. Call settings with no arguments to list keys.');
+        return failure(CODES.UNKNOWN_KEY, key, UNKNOWN_KEY_SENTENCE);
       }
       var label = entry.key;
       if (entry.cls !== 'writable') {
@@ -659,6 +789,124 @@ if (typeof module !== 'undefined' && module.exports) {
       return { ok: true, value: trimmed };
     }
 
+    // The value a provider-group rule compares against: the stored string,
+    // else the effective default (a non-string counts as absent, as in
+    // background.js fsbReadAuthoritativeProviderConfig).
+    function currentText(key, stored) {
+      if (isStored(stored, key) && typeof stored[key] === 'string') return stored[key];
+      var fallback = effectiveDefault(key);
+      return typeof fallback === 'string' ? fallback : '';
+    }
+
+    function isShippedAgent(ctx, id) {
+      if (typeof ctx.isShippedAgentId !== 'function') return false;
+      try {
+        return ctx.isShippedAgentId(id) === true;
+      } catch (_e) {
+        return false;
+      }
+    }
+
+    // D-15 provider rules. Returns { failure, omitted } to refuse, { patch }
+    // to replace the default one-key patch, or {} to keep it.
+    function providerRule(key, value, stored, ctx) {
+      if (key === 'modelProvider') {
+        if (value === currentText('modelProvider', stored)) return { patch: { modelProvider: value } };
+        if (isHostedProvider(value)) {
+          if (!storedNonBlank(stored, PROVIDER_API_KEY[value])) {
+            return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Store the ' + value + ' API key in the FSB Control Panel first.') };
+          }
+        } else if (value === 'custom') {
+          if (!storedNonBlank(stored, 'customEndpoint')) {
+            return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Set a custom endpoint in the FSB Control Panel first.') };
+          }
+        } else if (value !== 'lmstudio') {
+          return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Choose a model provider in the FSB Control Panel first.') };
+        }
+        var defaults = Config.DEFAULT_MODELS;
+        var modelName = hasOwn(defaults, value) && typeof defaults[value] === 'string' ? defaults[value] : '';
+        return { patch: { modelProvider: value, modelName: modelName } };
+      }
+      if (key === 'modelName') {
+        var provider = currentText('modelProvider', stored);
+        if (provider === 'lmstudio' || provider === 'custom') return {};
+        if (!isHostedProvider(provider)) {
+          return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Choose a model provider in the FSB Control Panel first.') };
+        }
+        var known = knownModelIds(provider, ctx.discoveredModelIds);
+        if (known.indexOf(value) !== -1) return {};
+        var shown = known.slice(0, MODEL_LIST_CAP);
+        return {
+          failure: failure(CODES.VALUE_INVALID, key,
+            key + ' is not a known ' + provider + ' model. Refresh models in the FSB Control Panel if it is new.',
+            { values: shown }),
+          omitted: known.length - shown.length
+        };
+      }
+      if (key === 'providerKind') {
+        if (value !== 'agent') return {};
+        var agentId = currentText('agentProviderId', stored);
+        if (agentId === '' || !isShippedAgent(ctx, agentId)) {
+          return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Choose an agent provider in the FSB Control Panel first.') };
+        }
+        return {};
+      }
+      if (key === 'agentProviderId') {
+        if (value !== '' && !isShippedAgent(ctx, value)) {
+          var extra = Array.isArray(ctx.shippedAgentIds)
+            ? { values: [''].concat(ctx.shippedAgentIds.filter(isNonEmptyString)) }
+            : null;
+          return { failure: failure(CODES.VALUE_INVALID, key, key + ' is not a shipped agent provider.', extra) };
+        }
+        if (value === '' && currentText('providerKind', stored) === 'agent') {
+          return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Set providerKind to api before clearing agentProviderId.') };
+        }
+        return {};
+      }
+      return {};
+    }
+
+    // Decides one MCP write without storage, clock or network access: unknown
+    // keys, then secrets and endpoints (before the value is looked at), then
+    // strict parsing, then the D-15 provider rules. Nothing is ever clamped.
+    // A value equal to a stored one is a no-op (changed []); an absent key is
+    // a real write, so every consumer sees one value (D-13, Pitfall 10).
+    // ctx: { isShippedAgentId, shippedAgentIds, discoveredModelIds, agentCapRecommendation }.
+    function planWrite(key, raw, stored, ctx) {
+      var entry = get(key);
+      if (!entry) return failure(CODES.UNKNOWN_KEY, key, UNKNOWN_KEY_SENTENCE);
+      if (entry.cls !== 'writable') {
+        return failure(CODES.PROTECTED_KEY, key, entry.key + ' is read-only over MCP; change it in the FSB Control Panel.');
+      }
+      if (raw === undefined) return failure(CODES.REQUEST_INVALID, key, 'A value is required to change ' + entry.key + '.');
+      var parsed = parseValue(entry.key, raw);
+      if (parsed.ok !== true) return withAllowedClause(parsed, 0);
+
+      var store = (stored !== null && typeof stored === 'object') ? stored : {};
+      var context = (ctx !== null && typeof ctx === 'object') ? ctx : {};
+      var value = parsed.value;
+      var patch = null;
+      if (entry.group === 'provider') {
+        var ruled = providerRule(entry.key, value, store, context);
+        if (ruled.failure) return withAllowedClause(ruled.failure, ruled.omitted || 0);
+        if (ruled.patch) patch = ruled.patch;
+      }
+      if (!patch) {
+        patch = {};
+        patch[entry.key] = value;
+      }
+      var previous = projectValue(entry.key, store, context);
+      var changed = Object.keys(patch);
+      var noOp = changed.every(function (patchKey) {
+        return isStored(store, patchKey) && store[patchKey] === patch[patchKey];
+      });
+      if (noOp) {
+        patch = {};
+        changed = [];
+      }
+      return { ok: true, key: entry.key, value: value, previous: previous, patch: patch, changed: changed };
+    }
+
     var instance = {
       entries: frozenEntries,
       keys: keys,
@@ -669,7 +917,8 @@ if (typeof module !== 'undefined' && module.exports) {
       projectValue: projectValue,
       projectAll: projectAll,
       describe: describe,
-      parseValue: parseValue
+      parseValue: parseValue,
+      planWrite: planWrite
     };
     var staticNames = Object.keys(STATICS);
     for (var s = 0; s < staticNames.length; s += 1) instance[staticNames[s]] = STATICS[staticNames[s]];

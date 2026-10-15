@@ -621,5 +621,521 @@ vm.runInContext(CONFIG_SOURCE, noUrlContext, { filename: 'config.js' });
 check(vm.runInContext('FsbSettingsSchema.originOnly("https://user:pw@h.example/x")', noUrlContext) === '[set]',
   'originOnly fails closed to [set] when URL is unavailable');
 
-console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
-process.exit(failed > 0 ? 1 : 0);
+// ===========================================================================
+// 66.1-02 Task 1: the write planner (D-13, D-14, D-15) and its helpers.
+// A section that throws records one failure and the suite carries on.
+// ===========================================================================
+function runSection(title, fn) {
+  console.log(`\n--- ${title} ---`);
+  try {
+    fn();
+  } catch (err) {
+    check(false, `${title} threw: ${err && err.message}`);
+  }
+}
+
+const EXPECTED_DEFAULT_MODELS = {
+  xai: 'grok-4-1-fast',
+  gemini: 'gemini-2.5-flash',
+  openai: 'gpt-4o',
+  anthropic: 'claude-sonnet-4-6',
+  openrouter: 'openai/gpt-4o',
+  lmstudio: '',
+  custom: '',
+};
+const HOSTED_IDS = ['xai', 'gemini', 'openai', 'anthropic', 'openrouter'];
+const EXPECTED_PROVIDER_API_KEY = {
+  xai: 'apiKey',
+  gemini: 'geminiApiKey',
+  openai: 'openaiApiKey',
+  anthropic: 'anthropicApiKey',
+  openrouter: 'openrouterApiKey',
+  custom: 'customApiKey',
+  lmstudio: null,
+};
+const XAI_BUILT_IN_IDS = new Config().availableModels.xai.map((model) => model.id);
+const NOT_READY_CODE = 'SETTING_PROVIDER_NOT_READY';
+const planSuccesses = [];
+
+function plan(key, raw, stored, ctx) {
+  const result = schema.planWrite(key, raw, stored, ctx);
+  if (result && result.ok === true) planSuccesses.push(result);
+  return result;
+}
+
+function expectPlanFail(result, code, tag) {
+  check(Boolean(result) && result.ok === false && result.code === code,
+    `${tag} fails with ${code} (got ${JSON.stringify(result && result.code)})`);
+  check(Boolean(result) && typeof result.error === 'string' && result.error.length > 0, `${tag} carries an error sentence`);
+  return result || {};
+}
+
+function expectPlanOk(result, expected, tag) {
+  checkDeep(result, { ok: true, ...expected }, tag);
+  return result || {};
+}
+
+function endsWith(text, suffix) {
+  return typeof text === 'string' && text.endsWith(suffix);
+}
+
+runSection('Config.DEFAULT_MODELS (one shared default-model map)', () => {
+  const map = Config.DEFAULT_MODELS;
+  check(map !== null && typeof map === 'object' && Object.isFrozen(map), 'Config.DEFAULT_MODELS is a frozen object');
+  checkDeep({ ...map }, EXPECTED_DEFAULT_MODELS, 'Config.DEFAULT_MODELS holds the seven provider defaults');
+  checkDeep(Object.keys(map || {}), Object.keys(EXPECTED_DEFAULT_MODELS), 'Config.DEFAULT_MODELS keeps the provider order');
+  const literalCount = (CONFIG_SOURCE.match(/['"]?gemini['"]?\s*:\s*'gemini-2\.5-flash'/g) || []).length;
+  check(literalCount === 1, `the gemini default literal appears once in config.js (got ${literalCount})`);
+  const vcmStart = CONFIG_SOURCE.indexOf('validateAndCorrectModel(modelName');
+  const vcmBody = CONFIG_SOURCE.slice(vcmStart, CONFIG_SOURCE.indexOf('isDevelopment() {', vcmStart));
+  check(vcmStart !== -1 && vcmBody.includes('Config.DEFAULT_MODELS'), 'validateAndCorrectModel reads Config.DEFAULT_MODELS');
+  check(!/const defaultModels = \{/.test(vcmBody), 'validateAndCorrectModel no longer declares its own default literal');
+  checkDeep(new Config().defaults, CONFIG_DEFAULTS_SNAPSHOT, 'Config.defaults is still unchanged');
+
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => { warnings.push(args.join(' ')); };
+  const got = {};
+  try {
+    const cfg = new Config();
+    for (const provider of PROVIDER_IDS) got[provider] = cfg.validateAndCorrectModel('', provider);
+    got.unknown = cfg.validateAndCorrectModel('', 'nope');
+    got.undefinedName = cfg.validateAndCorrectModel(undefined, 'gemini');
+    got.defaultProvider = cfg.validateAndCorrectModel('');
+  } finally {
+    console.warn = originalWarn;
+  }
+  check(got.gemini === 'gemini-2.5-flash', 'validateAndCorrectModel("", "gemini") still returns gemini-2.5-flash');
+  check(got.unknown === 'grok-4-1-fast', 'validateAndCorrectModel("", "nope") still returns grok-4-1-fast');
+  for (const provider of HOSTED_IDS) {
+    check(got[provider] === EXPECTED_DEFAULT_MODELS[provider], `validateAndCorrectModel("", "${provider}") returns ${EXPECTED_DEFAULT_MODELS[provider]}`);
+  }
+  check(got.lmstudio === '' && got.custom === '', 'lmstudio and custom still keep an empty model name');
+  check(got.undefinedName === 'gemini-2.5-flash', 'an undefined model name still gets the provider default');
+  check(got.defaultProvider === 'grok-4-1-fast', 'the provider argument still defaults to xai');
+  // Five hosted providers + unknown + undefined name + default provider; lmstudio/custom return early.
+  check(warnings.length === 8, `the empty-name console.warn still fires once per corrected call (got ${warnings.length})`);
+  check(warnings.every((line) => line.startsWith('[Config] Model "')), 'the empty-name warning text is unchanged');
+});
+
+runSection('write-planner statics', () => {
+  checkDeep([...(schema.HOSTED_PROVIDERS || [])], HOSTED_IDS, 'HOSTED_PROVIDERS lists the five hosted providers');
+  check(Object.isFrozen(schema.HOSTED_PROVIDERS), 'HOSTED_PROVIDERS is frozen');
+  checkDeep({ ...schema.PROVIDER_API_KEY }, EXPECTED_PROVIDER_API_KEY, 'PROVIDER_API_KEY maps each provider to its stored key');
+  check(Object.isFrozen(schema.PROVIDER_API_KEY), 'PROVIDER_API_KEY is frozen');
+  checkDeep(Object.keys(schema.PROVIDER_API_KEY || {}).sort(), [...PROVIDER_IDS].sort(), 'PROVIDER_API_KEY covers exactly the seven providers');
+  for (const [provider, key] of Object.entries(schema.PROVIDER_API_KEY || {})) {
+    if (key !== null) check(schema.get(key) !== null && schema.get(key).cls === 'secret', `PROVIDER_API_KEY.${provider} (${key}) is a secret schema key`);
+  }
+  for (const name of ['knownModelIds', 'discoveredIdsFromCache', 'formatAllowed', 'planWrite']) {
+    check(typeof schema[name] === 'function', `${name} is a function on the production schema`);
+  }
+});
+
+runSection('formatAllowed (the value-free Allowed text)', () => {
+  const fa = schema.formatAllowed;
+  check(fa({ range: { min: 1, max: 64 } }) === '1 to 64', 'a range renders as "<min> to <max>"');
+  check(fa({ values: ['', 'a', 3, null, { x: 1 }] }) === '"", a, 3', 'values keep strings and finite numbers and show "" for empty');
+  check(fa({ values: ['a'], omitted: 5 }) === 'a (+5 more)', 'a positive omitted count appends (+N more)');
+  check(fa({}) === '', 'nothing to show renders as empty');
+  check(fa() === '' && fa(null) === '', 'a missing argument renders as empty');
+  check(fa({ values: ['L'.repeat(250)] }) === 'L'.repeat(200), 'a 250-character entry is cut to 200');
+  check(fa({ range: { min: 50, max: 500 }, values: ['a', 'b'] }) === '50 to 500; a, b', 'range and values join with "; "');
+  check(fa({ range: { min: 1, max: Infinity } }) === '', 'a non-finite bound shows no range');
+  check(fa({ range: { min: 1 } }) === '' && fa({ range: { min: '1', max: '2' } }) === '', 'a partial or non-numeric range shows nothing');
+  check(fa({ values: [NaN, Infinity, 'x'] }) === 'x', 'non-finite numbers are dropped');
+  check(fa({ values: 'abc' }) === '', 'non-array values show nothing');
+  for (const omitted of [0, -1, 2.5, '3', NaN]) {
+    check(fa({ values: ['a'], omitted }) === 'a', `omitted ${String(omitted)} adds no count`);
+  }
+  check(fa({ values: [], omitted: 4 }) === '(+4 more)', 'an empty list with a count shows only the count');
+});
+
+runSection('discoveredIdsFromCache (mirrors getDiscoveredModelIds over fsbDiscoveryCache)', () => {
+  const NOW = 1700000000000;
+  const later = NOW + 60000;
+  const cache = {
+    'xai:hashA': { result: { ok: true, models: [{ id: 'old-id' }] }, expiresAt: later },
+    'xai:hashB': { result: { ok: true, models: [{ id: 'new-id' }, { id: '' }, {}, null, { id: 7 }] }, expiresAt: later },
+    'xai:hashC': { result: { ok: true, models: [{ id: 'expired-id' }] }, expiresAt: NOW },
+    'xai:hashD': { result: { ok: false, models: [{ id: 'not-ok-id' }] }, expiresAt: later },
+    'xai:hashE': { result: { ok: true, models: 'not-an-array' }, expiresAt: later },
+    'xai:hashF': null,
+    'xai:hashG': { result: { ok: true, models: [{ id: 'no-expiry-id' }] } },
+    'xaix:hash': { result: { ok: true, models: [{ id: 'other-prefix-id' }] }, expiresAt: later },
+    'gemini:hash': { result: { ok: true, models: [{ id: 'gemini-id' }] }, expiresAt: later },
+  };
+  const frozen = JSON.stringify(cache);
+  checkDeep(schema.discoveredIdsFromCache(cache, 'xai', NOW), ['new-id', '7'],
+    'the last qualifying xai entry wins; expired, not-ok, non-array, null and other-prefix entries are ignored');
+  checkDeep(schema.discoveredIdsFromCache(cache, 'gemini', NOW), ['gemini-id'], 'a provider only sees its own prefix');
+  checkDeep(schema.discoveredIdsFromCache(cache, 'openai', NOW), [], 'a provider with no entry gets []');
+  checkDeep(schema.discoveredIdsFromCache(cache, 'xai', later), [], 'every entry is expired once now reaches expiresAt');
+  checkDeep(schema.discoveredIdsFromCache(cache, 'xai', undefined), [], 'a missing clock fails closed to []');
+  for (const input of [null, undefined, 'cache', 42, true, ['xai:hashA']]) {
+    checkDeep(schema.discoveredIdsFromCache(input, 'xai', NOW), [], `a non-object cache (${JSON.stringify(input)}) gives []`);
+  }
+  for (const provider of ['', null, 7]) {
+    checkDeep(schema.discoveredIdsFromCache(cache, provider, NOW), [], `provider ${JSON.stringify(provider)} gives []`);
+  }
+  check(JSON.stringify(cache) === frozen, 'the cache object is not modified');
+});
+
+runSection('knownModelIds (built-in list plus discovered ids)', () => {
+  checkDeep(schema.knownModelIds('xai', []), XAI_BUILT_IN_IDS, 'xai lists its built-in ids in order');
+  checkDeep(schema.knownModelIds('xai', undefined), XAI_BUILT_IN_IDS, 'missing discovered ids are treated as none');
+  checkDeep(schema.knownModelIds('xai', ['grok-4', 'new-x', 'new-x', '', 5, null]), [...XAI_BUILT_IN_IDS, 'new-x'],
+    'discovered ids are appended once, after the built-in ids; non-strings and empties are dropped');
+  checkDeep(schema.knownModelIds('gemini', []), new Config().availableModels.gemini.map((model) => model.id), 'gemini lists its built-in ids');
+  for (const provider of ['lmstudio', 'custom', 'nope', '', undefined]) {
+    checkDeep(schema.knownModelIds(provider, ['some-id']), [], `${String(provider)} has no known model list`);
+  }
+  const first = schema.knownModelIds('xai', []);
+  first.push('mutated');
+  checkDeep(schema.knownModelIds('xai', []), XAI_BUILT_IN_IDS, 'knownModelIds returns a fresh array');
+});
+
+runSection('planWrite: key and class checks come first', () => {
+  const unknown = expectPlanFail(plan('nope', 'x', {}), 'SETTING_UNKNOWN_KEY', 'planWrite(nope)');
+  check(unknown.key === 'nope', 'an unknown valid key is reported by name');
+  check(unknown.error === 'Unknown setting key. Call settings with no arguments to list keys.', 'the unknown-key sentence is fixed');
+  check(expectPlanFail(plan('a b', 'x', {}), 'SETTING_UNKNOWN_KEY', 'planWrite("a b")').key === '[invalid]', 'an invalid key is labelled [invalid]');
+  expectPlanFail(plan(42, 'x', {}), 'SETTING_UNKNOWN_KEY', 'planWrite(42)');
+  expectPlanFail(plan('constructor', 'true', {}), 'SETTING_UNKNOWN_KEY', 'planWrite(constructor)');
+  expectPlanFail(plan('speedMode', 'fast', {}), 'SETTING_UNKNOWN_KEY', 'planWrite(speedMode), an excluded legacy key');
+
+  const apiKey = expectPlanFail(plan('apiKey', 'sk-SENTINEL', {}), 'SETTING_PROTECTED_KEY', 'planWrite(apiKey)');
+  check(apiKey.error === 'apiKey is read-only over MCP; change it in the FSB Control Panel.', 'the protected-key sentence names the key only');
+  expectPlanFail(plan('serverUrl', 'https://evil.example', {}), 'SETTING_PROTECTED_KEY', 'planWrite(serverUrl)');
+  let rawTouched = false;
+  const trap = new Proxy({}, { get() { rawTouched = true; return undefined; }, has() { rawTouched = true; return false; } });
+  for (const key of [...SECRET_KEYS, ...ENDPOINT_KEYS]) {
+    for (const raw of ['sk-SENTINEL', 'https://evil.example', undefined, 5, { value: 'SENTINEL' }, trap]) {
+      const result = schema.planWrite(key, raw, { apiKey: 'stored-SENTINEL' }, {});
+      check(result && result.code === 'SETTING_PROTECTED_KEY', `planWrite(${key}, ${typeof raw}) is refused as protected`);
+      const json = JSON.stringify(result);
+      check(!json.includes('SENTINEL') && !json.includes('evil'), `planWrite(${key}, ${typeof raw}) failure holds no value`);
+    }
+  }
+  check(rawTouched === false, 'the raw value of a protected key is never inspected');
+});
+
+runSection('planWrite: strict parsing and the Allowed clause', () => {
+  const missing = expectPlanFail(plan('debugMode', undefined, {}), 'SETTING_REQUEST_INVALID', 'planWrite(debugMode, undefined)');
+  check(missing.error === 'A value is required to change debugMode.', 'a missing value has its own sentence');
+  const range = expectPlanFail(plan('maxIterations', '600', {}), 'SETTING_VALUE_INVALID', 'planWrite(maxIterations, "600")');
+  checkDeep(range.range, { min: 50, max: 500 }, 'the integer failure keeps its range field');
+  check(endsWith(range.error, 'Allowed: 50 to 500.'), `the integer failure ends with "Allowed: 50 to 500." (got ${JSON.stringify(range.error)})`);
+  check(range.error === 'maxIterations must be a whole number from 50 to 500. Allowed: 50 to 500.', 'the integer sentence keeps the parse sentence and adds the clause');
+  const enumFail = expectPlanFail(plan('sttProvider', 'Whisper', {}), 'SETTING_VALUE_INVALID', 'planWrite(sttProvider, "Whisper")');
+  checkDeep(enumFail.values, ['browser', 'whisper'], 'the enum failure keeps its values field');
+  check(endsWith(enumFail.error, 'Allowed: browser, whisper.'), `the enum failure ends with "Allowed: browser, whisper." (got ${JSON.stringify(enumFail.error)})`);
+  const providerEnum = expectPlanFail(plan('modelProvider', 'XAI', {}), 'SETTING_VALUE_INVALID', 'planWrite(modelProvider, "XAI")');
+  check(endsWith(providerEnum.error, `Allowed: ${PROVIDER_IDS.join(', ')}.`), 'the modelProvider failure lists the seven providers');
+  check((providerEnum.error.match(/Allowed:/g) || []).length === 1, 'the clause is appended once');
+  expectPlanFail(plan('fsbAgentCap', '0', {}), 'SETTING_VALUE_INVALID', 'planWrite(fsbAgentCap, "0")');
+  check(endsWith(plan('fsbAgentCap', '65', {}).error, 'Allowed: 1 to 64.'), 'fsbAgentCap refuses 65 and states 1 to 64 (never clamped)');
+  check(endsWith(plan('fsbMcpSessionRetentionDays', '366', {}).error, 'Allowed: 1 to 365.'), 'fsbMcpSessionRetentionDays refuses 366 (never clamped)');
+
+  const noClause = [
+    plan('nope', 'x', {}),
+    plan('apiKey', 'x', {}),
+    plan('debugMode', undefined, {}),
+    plan('debugMode', 5, {}),
+    plan('debugMode', 'yes', {}),
+    plan('modelName', 'm'.repeat(201), { modelProvider: 'lmstudio' }),
+    plan('modelProvider', 'gemini', {}),
+    plan('providerKind', 'agent', {}),
+  ];
+  noClause.forEach((result, index) => {
+    check(result && result.ok === false && !String(result.error).includes('Allowed:'), `failure ${index + 1} (${result && result.code}) carries no Allowed clause`);
+  });
+});
+
+runSection('planWrite: no-op and absent-key semantics (D-13, Pitfall 10)', () => {
+  expectPlanOk(plan('debugMode', 'true', {}),
+    { key: 'debugMode', value: true, previous: false, patch: { debugMode: true }, changed: ['debugMode'] },
+    'writing an absent key is a real write');
+  expectPlanOk(plan('debugMode', 'true', { debugMode: true }),
+    { key: 'debugMode', value: true, previous: true, patch: {}, changed: [] },
+    'writing the stored value is a no-op');
+  expectPlanOk(plan('showSidepanelProgress', 'true', { showSidepanelProgress: false }),
+    { key: 'showSidepanelProgress', value: true, previous: false, patch: { showSidepanelProgress: true }, changed: ['showSidepanelProgress'] },
+    'a stored false flips to true');
+  expectPlanOk(plan('showSidepanelProgress', 'true', {}),
+    { key: 'showSidepanelProgress', value: true, previous: true, patch: { showSidepanelProgress: true }, changed: ['showSidepanelProgress'] },
+    'writing the effective default to an absent key still writes it');
+  expectPlanOk(plan('debugMode', 'true', { debugMode: undefined }),
+    { key: 'debugMode', value: true, previous: false, patch: { debugMode: true }, changed: ['debugMode'] },
+    'a stored undefined counts as absent');
+  expectPlanOk(plan('maxIterations', '250', { maxIterations: 250 }),
+    { key: 'maxIterations', value: 250, previous: 250, patch: {}, changed: [] },
+    'an equal stored integer is a no-op');
+  expectPlanOk(plan('maxIterations', '250', { maxIterations: '250' }),
+    { key: 'maxIterations', value: 250, previous: '250', patch: { maxIterations: 250 }, changed: ['maxIterations'] },
+    'a stored string "250" is not equal to 250, so the number is written');
+  expectPlanOk(plan('fsbAgentCap', '12', {}, { agentCapRecommendation: 12 }),
+    { key: 'fsbAgentCap', value: 12, previous: 12, patch: { fsbAgentCap: 12 }, changed: ['fsbAgentCap'] },
+    'fsbAgentCap previous uses the recommendation, and the absent key is written');
+  expectPlanOk(plan('sttProvider', 'whisper', null, null),
+    { key: 'sttProvider', value: 'whisper', previous: 'browser', patch: { sttProvider: 'whisper' }, changed: ['sttProvider'] },
+    'a null store and ctx are treated as empty');
+
+  const frozenStored = Object.freeze({ debugMode: false, modelProvider: 'xai', geminiApiKey: 'g' });
+  const frozenCtx = Object.freeze({ agentCapRecommendation: 9, discoveredModelIds: Object.freeze(['x']) });
+  const before = JSON.stringify(frozenStored);
+  let threw = null;
+  try {
+    schema.planWrite('debugMode', 'true', frozenStored, frozenCtx);
+    schema.planWrite('modelProvider', 'gemini', frozenStored, frozenCtx);
+    schema.planWrite('modelName', 'x', frozenStored, frozenCtx);
+  } catch (err) {
+    threw = err;
+  }
+  check(threw === null, `planWrite accepts a frozen store and ctx${threw ? ` (${threw.message})` : ''}`);
+  check(JSON.stringify(frozenStored) === before, 'planWrite never modifies the stored object');
+});
+
+runSection('planWrite: modelProvider (D-15)', () => {
+  const notReady = expectPlanFail(plan('modelProvider', 'gemini', {}), NOT_READY_CODE, 'gemini without its API key');
+  check(notReady.error === 'Store the gemini API key in the FSB Control Panel first.', 'the hosted not-ready sentence names the provider');
+  expectPlanFail(plan('modelProvider', 'gemini', { geminiApiKey: '   ' }), NOT_READY_CODE, 'gemini with a blank API key');
+  expectPlanFail(plan('modelProvider', 'gemini', { geminiApiKey: 5 }), NOT_READY_CODE, 'gemini with a non-string API key');
+  expectPlanFail(plan('modelProvider', 'openai', { apiKey: 'k', geminiApiKey: 'g' }), NOT_READY_CODE, 'another provider\'s key does not count');
+  expectPlanOk(plan('modelProvider', 'gemini', { geminiApiKey: 'g' }),
+    { key: 'modelProvider', value: 'gemini', previous: 'xai', patch: { modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }, changed: ['modelProvider', 'modelName'] },
+    'gemini with its key stored also sets the gemini default model');
+  for (const provider of HOSTED_IDS) {
+    const keyName = EXPECTED_PROVIDER_API_KEY[provider];
+    const from = provider === 'xai' ? 'gemini' : 'xai';
+    const ready = plan('modelProvider', provider, { modelProvider: from, modelName: 'whatever', [keyName]: 'k' });
+    check(ready && ready.ok === true && ready.patch.modelName === EXPECTED_DEFAULT_MODELS[provider],
+      `switching to ${provider} sets modelName to ${EXPECTED_DEFAULT_MODELS[provider]}`);
+    const blocked = plan('modelProvider', provider, { modelProvider: from });
+    check(blocked && blocked.code === NOT_READY_CODE && blocked.error === `Store the ${provider} API key in the FSB Control Panel first.`,
+      `switching to ${provider} without ${keyName} is not ready`);
+  }
+  const custom = expectPlanFail(plan('modelProvider', 'custom', {}), NOT_READY_CODE, 'custom without an endpoint');
+  check(custom.error === 'Set a custom endpoint in the FSB Control Panel first.', 'the custom not-ready sentence asks for an endpoint');
+  expectPlanFail(plan('modelProvider', 'custom', { customEndpoint: '  ' }), NOT_READY_CODE, 'custom with a blank endpoint');
+  expectPlanOk(plan('modelProvider', 'custom', { customEndpoint: 'https://x.example' }),
+    { key: 'modelProvider', value: 'custom', previous: 'xai', patch: { modelProvider: 'custom', modelName: '' }, changed: ['modelProvider', 'modelName'] },
+    'custom with an endpoint sets an empty modelName');
+  expectPlanOk(plan('modelProvider', 'lmstudio', {}),
+    { key: 'modelProvider', value: 'lmstudio', previous: 'xai', patch: { modelProvider: 'lmstudio', modelName: '' }, changed: ['modelProvider', 'modelName'] },
+    'lmstudio needs no key and sets an empty modelName');
+  expectPlanOk(plan('modelProvider', 'xai', { modelProvider: 'xai' }),
+    { key: 'modelProvider', value: 'xai', previous: 'xai', patch: {}, changed: [] },
+    'xai when xai is stored needs no API key and is a no-op');
+  expectPlanOk(plan('modelProvider', 'xai', { modelProvider: 'xai', modelName: 'grok-4' }),
+    { key: 'modelProvider', value: 'xai', previous: 'xai', patch: {}, changed: [] },
+    'a same-provider write never resets modelName');
+  expectPlanOk(plan('modelProvider', 'xai', { modelName: 'grok-4' }),
+    { key: 'modelProvider', value: 'xai', previous: 'xai', patch: { modelProvider: 'xai' }, changed: ['modelProvider'] },
+    'an absent provider equal to the default is made explicit without touching modelName');
+  expectPlanOk(plan('modelProvider', 'gemini', { modelProvider: 'gemini', modelName: 'gemini-2.5-pro' }),
+    { key: 'modelProvider', value: 'gemini', previous: 'gemini', patch: {}, changed: [] },
+    'the current provider needs no readiness check even without its key');
+  expectPlanOk(plan('modelProvider', 'lmstudio', { modelProvider: 'lmstudio', modelName: 'qwen/local' }),
+    { key: 'modelProvider', value: 'lmstudio', previous: 'lmstudio', patch: {}, changed: [] },
+    're-selecting lmstudio keeps its model');
+  expectPlanOk(plan('modelProvider', 'xai', { modelProvider: 7, apiKey: 'k' }),
+    { key: 'modelProvider', value: 'xai', previous: 7, patch: { modelProvider: 'xai' }, changed: ['modelProvider'] },
+    'a non-string stored provider counts as the default xai and is corrected');
+});
+
+runSection('planWrite: modelName (D-15, cache only, no network)', () => {
+  let fetchCalls = 0;
+  const hadFetch = Object.prototype.hasOwnProperty.call(globalThis, 'fetch');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => { fetchCalls += 1; throw new Error('planWrite must not call the network'); };
+  try {
+    expectPlanOk(plan('modelName', 'grok-4-1-fast', { modelProvider: 'xai', modelName: 'grok-4' }),
+      { key: 'modelName', value: 'grok-4-1-fast', previous: 'grok-4', patch: { modelName: 'grok-4-1-fast' }, changed: ['modelName'] },
+      'a built-in xai id is accepted');
+    const invalid = expectPlanFail(plan('modelName', 'made-up-model', { modelProvider: 'xai' }), 'SETTING_VALUE_INVALID', 'an unknown xai model');
+    check(Array.isArray(invalid.values) && invalid.values.length > 0 && invalid.values.length <= 25, 'the failure lists between 1 and 25 known ids');
+    check(Array.isArray(invalid.values) && invalid.values.includes('grok-4-1-fast'), 'the known ids include grok-4-1-fast');
+    check(/Refresh models/.test(invalid.error), 'the error suggests refreshing models');
+    check(invalid.error.startsWith('modelName is not a known xai model.'), 'the error names the key and the provider');
+    check(Array.isArray(invalid.values) && invalid.error.includes(`Allowed: ${invalid.values.join(', ')}`), 'the error lists the known ids in its Allowed clause');
+    check(!invalid.error.includes('(+'), 'no (+N more) when every id fits');
+    check(!JSON.stringify(invalid).includes('made-up-model'), 'the failure never echoes the submitted id');
+    expectPlanOk(plan('modelName', 'made-up-model', { modelProvider: 'xai' }, { discoveredModelIds: ['made-up-model'] }),
+      { key: 'modelName', value: 'made-up-model', previous: 'grok-4-1-fast', patch: { modelName: 'made-up-model' }, changed: ['modelName'] },
+      'a discovered id is accepted');
+
+    const discovered = [];
+    for (let i = 1; i <= 30; i += 1) discovered.push(`disc-${String(i).padStart(2, '0')}`);
+    const known = schema.knownModelIds('xai', discovered);
+    const capped = expectPlanFail(plan('modelName', 'not-listed-model', { modelProvider: 'xai' }, { discoveredModelIds: discovered }),
+      'SETTING_VALUE_INVALID', 'an unknown id with 36 known ids');
+    check(Array.isArray(capped.values) && capped.values.length === 25, 'the values field is capped at 25 ids');
+    checkDeep(capped.values, known.slice(0, 25), 'the capped values are the first 25 known ids');
+    check(endsWith(capped.error, `(+${known.length - 25} more).`), `the error ends with (+${known.length - 25} more). (got ${JSON.stringify(capped.error)})`);
+    check(known.slice(25).every((id) => !capped.error.includes(id)), 'no id after the 25th is named');
+    check(!capped.error.includes('not-listed-model'), 'the capped error never echoes the submitted id');
+
+    expectPlanFail(plan('modelName', 'gemini-2.5-flash', {}), 'SETTING_VALUE_INVALID', 'an absent provider counts as xai, so a gemini id is refused');
+    expectPlanFail(plan('modelName', '', { modelProvider: 'openai' }), 'SETTING_VALUE_INVALID', 'a hosted provider refuses an empty model name');
+    expectPlanOk(plan('modelName', 'gemini-2.5-pro', { modelProvider: 'gemini' }),
+      { key: 'modelName', value: 'gemini-2.5-pro', previous: 'grok-4-1-fast', patch: { modelName: 'gemini-2.5-pro' }, changed: ['modelName'] },
+      'a built-in gemini id is accepted for gemini');
+    expectPlanOk(plan('modelName', '', { modelProvider: 'lmstudio', modelName: 'qwen' }),
+      { key: 'modelName', value: '', previous: 'qwen', patch: { modelName: '' }, changed: ['modelName'] },
+      'lmstudio accepts an empty model name');
+    expectPlanOk(plan('modelName', ' vendor/local-model ', { modelProvider: 'lmstudio' }),
+      { key: 'modelName', value: 'vendor/local-model', previous: 'grok-4-1-fast', patch: { modelName: 'vendor/local-model' }, changed: ['modelName'] },
+      'lmstudio accepts any bounded string (trimmed)');
+    check(plan('modelName', 'm'.repeat(200), { modelProvider: 'custom' }).ok === true, 'custom accepts a 200-character model name');
+    expectPlanFail(plan('modelName', 'm'.repeat(201), { modelProvider: 'custom' }), 'SETTING_VALUE_INVALID', 'custom still enforces the length bound');
+    const unknownProvider = expectPlanFail(plan('modelName', 'x', { modelProvider: 'retired-provider' }), NOT_READY_CODE, 'a stored provider outside the seven');
+    check(!unknownProvider.error.includes('retired-provider'), 'the unknown-provider sentence does not echo the stored provider');
+  } finally {
+    if (hadFetch) globalThis.fetch = originalFetch;
+    else delete globalThis.fetch;
+  }
+  check(fetchCalls === 0, 'planWrite never called fetch');
+});
+
+runSection('planWrite: providerKind and agentProviderId (D-15, A3)', () => {
+  const shipped = (id) => id === 'claude-code' || id === 'grok-build';
+  const agentCtx = { isShippedAgentId: shipped, shippedAgentIds: ['claude-code', 'grok-build'] };
+  expectPlanOk(plan('providerKind', 'agent', { agentProviderId: 'claude-code' }, { isShippedAgentId: (id) => id === 'claude-code' }),
+    { key: 'providerKind', value: 'agent', previous: 'api', patch: { providerKind: 'agent' }, changed: ['providerKind'] },
+    'agent with a shipped agent id is accepted');
+  const noChecker = expectPlanFail(plan('providerKind', 'agent', { agentProviderId: 'claude-code' }, {}), NOT_READY_CODE, 'agent without isShippedAgentId (fails closed)');
+  check(noChecker.error === 'Choose an agent provider in the FSB Control Panel first.', 'the agent not-ready sentence is fixed');
+  expectPlanFail(plan('providerKind', 'agent', { agentProviderId: 'claude-code' }), NOT_READY_CODE, 'agent with no ctx at all');
+  expectPlanFail(plan('providerKind', 'agent', { agentProviderId: '' }, agentCtx), NOT_READY_CODE, 'agent with an empty agent id');
+  expectPlanFail(plan('providerKind', 'agent', {}, agentCtx), NOT_READY_CODE, 'agent with no stored agent id');
+  expectPlanFail(plan('providerKind', 'agent', { agentProviderId: 'codex' }, agentCtx), NOT_READY_CODE, 'agent with a retired agent id');
+  expectPlanFail(plan('providerKind', 'agent', { agentProviderId: 'claude-code' }, { isShippedAgentId: () => { throw new Error('boom'); } }),
+    NOT_READY_CODE, 'agent when the checker throws');
+  expectPlanFail(plan('providerKind', 'agent', { agentProviderId: 'claude-code' }, { isShippedAgentId: () => 1 }),
+    NOT_READY_CODE, 'agent when the checker returns a truthy non-true value');
+  expectPlanOk(plan('providerKind', 'api', {}),
+    { key: 'providerKind', value: 'api', previous: 'api', patch: { providerKind: 'api' }, changed: ['providerKind'] },
+    'api is always accepted (absent key written)');
+  expectPlanOk(plan('providerKind', 'api', { providerKind: 'agent', agentProviderId: '' }),
+    { key: 'providerKind', value: 'api', previous: 'agent', patch: { providerKind: 'api' }, changed: ['providerKind'] },
+    'api is accepted from agent');
+
+  const retired = expectPlanFail(plan('agentProviderId', 'codex', {}, agentCtx), 'SETTING_VALUE_INVALID', 'a retired agent id');
+  checkDeep(retired.values, ['', 'claude-code', 'grok-build'], 'the agent-id failure lists "" and the shipped ids');
+  check(endsWith(retired.error, 'Allowed: "", claude-code, grok-build.'), `the agent-id failure ends with the shipped ids (got ${JSON.stringify(retired.error)})`);
+  check(!retired.error.includes('codex'), 'the agent-id failure never echoes the submitted id');
+  const noList = expectPlanFail(plan('agentProviderId', 'codex', {}, { isShippedAgentId: shipped }), 'SETTING_VALUE_INVALID', 'a retired agent id without the id list');
+  check(!('values' in noList) && !noList.error.includes('Allowed:'), 'without shippedAgentIds there is no values field and no clause');
+  expectPlanFail(plan('agentProviderId', 'claude-code', {}, {}), 'SETTING_VALUE_INVALID', 'a shipped id without isShippedAgentId (fails closed)');
+  expectPlanOk(plan('agentProviderId', 'claude-code', {}, agentCtx),
+    { key: 'agentProviderId', value: 'claude-code', previous: '', patch: { agentProviderId: 'claude-code' }, changed: ['agentProviderId'] },
+    'a shipped agent id is accepted');
+  expectPlanOk(plan('agentProviderId', 'claude-code', { agentProviderId: 'claude-code' }, agentCtx),
+    { key: 'agentProviderId', value: 'claude-code', previous: 'claude-code', patch: {}, changed: [] },
+    'the stored agent id is a no-op');
+  const clearing = expectPlanFail(plan('agentProviderId', '', { providerKind: 'agent', agentProviderId: 'claude-code' }, agentCtx),
+    NOT_READY_CODE, 'clearing the agent id while providerKind is agent');
+  check(!clearing.error.includes('Allowed:'), 'the clearing refusal carries no clause');
+  expectPlanOk(plan('agentProviderId', '', { providerKind: 'api', agentProviderId: 'claude-code' }, agentCtx),
+    { key: 'agentProviderId', value: '', previous: 'claude-code', patch: { agentProviderId: '' }, changed: ['agentProviderId'] },
+    'clearing the agent id while providerKind is api is accepted');
+  expectPlanOk(plan('agentProviderId', '', {}),
+    { key: 'agentProviderId', value: '', previous: '', patch: { agentProviderId: '' }, changed: ['agentProviderId'] },
+    'an empty agent id needs no checker');
+});
+
+runSection('planWrite: patches only ever hold schema keys', () => {
+  const writable = schema.keys().filter((key) => schema.isWritable(key));
+  check(planSuccesses.length > 20, `the cases above produced successful plans (${planSuccesses.length})`);
+  const patchKeys = new Set();
+  for (const result of planSuccesses) for (const key of Object.keys(result.patch)) patchKeys.add(key);
+  check([...patchKeys].every((key) => writable.includes(key)), `every patched key is a writable schema key (${[...patchKeys].join(', ')})`);
+  check(planSuccesses.every((result) => Object.keys(result.patch).length <= 2), 'a patch holds at most two keys');
+  check(planSuccesses.every((result) => isDeepEqual(result.changed, Object.keys(result.patch))), 'changed always lists the patch keys');
+  check(planSuccesses.filter((result) => Object.keys(result.patch).length === 2).every((result) => result.key === 'modelProvider'),
+    'only a modelProvider change writes two keys');
+});
+
+runSection('planWrite: value-free failures, Allowed clause included', () => {
+  const RAW = 'SENTINEL-raw';
+  const agentCtx = { isShippedAgentId: (id) => id === 'claude-code', shippedAgentIds: ['claude-code', 'grok-build'] };
+  const cases = [
+    ['debugMode', RAW, {}, {}],
+    ['maxIterations', `5${RAW}`, {}, {}],
+    ['sttProvider', RAW, {}, {}],
+    ['modelProvider', RAW, {}, {}],
+    ['providerKind', RAW, {}, {}],
+    ['modelName', RAW, { modelProvider: 'xai' }, {}],
+    ['modelName', RAW, { modelProvider: 'anthropic' }, { discoveredModelIds: ['a', 'b'] }],
+    ['modelName', RAW, { modelProvider: 'retired-provider' }, {}],
+    ['modelName', `${'x'.repeat(201)}${RAW}`, { modelProvider: 'lmstudio' }, {}],
+    ['agentProviderId', RAW, {}, agentCtx],
+    ['agentProviderId', RAW, {}, {}],
+    ['apiKey', RAW, {}, {}],
+    ['serverHashKey', RAW, {}, {}],
+    ['customEndpoint', `https://${RAW}.example/`, {}, {}],
+    ['nope', RAW, {}, {}],
+    [`${RAW} key`, RAW, {}, {}],
+  ];
+  for (const [key, raw, stored, ctx] of cases) {
+    const result = schema.planWrite(key, raw, stored, ctx);
+    const label = `planWrite(${schema.safeKeyLabel(key)}, <sentinel>)`;
+    check(result && result.ok === false, `${label} fails`);
+    check(!JSON.stringify(result).includes('SENTINEL'), `${label} failure holds no raw value`);
+  }
+});
+
+runSection('planWrite: fixture instances (D-17)', () => {
+  const FAST_KEY = 'fsbFixtureFastMode';
+  const fastFixture = schema.create([...schema.entries, { key: FAST_KEY, type: 'boolean', cls: 'writable', default: false }]);
+  check(typeof fastFixture.planWrite === 'function', 'a fixture instance has planWrite');
+  for (const name of ['HOSTED_PROVIDERS', 'PROVIDER_API_KEY', 'knownModelIds', 'discoveredIdsFromCache', 'formatAllowed']) {
+    check(fastFixture[name] === schema[name], `the fixture instance carries the static ${name}`);
+  }
+  checkDeep(fastFixture.planWrite(FAST_KEY, 'true', {}, {}),
+    { ok: true, key: FAST_KEY, value: true, previous: false, patch: { [FAST_KEY]: true }, changed: [FAST_KEY] },
+    'the fixture key plans a write with no tool change');
+  check(schema.planWrite(FAST_KEY, 'true', {}, {}).code === 'SETTING_UNKNOWN_KEY', 'the production schema refuses the fixture key');
+  check(fastFixture.planWrite('modelProvider', 'gemini', { geminiApiKey: 'g' }, {}).changed.join() === 'modelProvider,modelName',
+    'the fixture instance keeps the provider rules');
+});
+
+runSection('planWrite in the SW and panel scopes (lazy Config access)', () => {
+  check(vm.runInContext('self.FsbSettingsSchema.planWrite("modelProvider", "gemini", { geminiApiKey: "g" }, {}).patch.modelName', swContext)
+    === 'gemini-2.5-flash', 'the SW scope plans a provider change from Config.DEFAULT_MODELS');
+  check(vm.runInContext('self.FsbSettingsSchema.planWrite("modelName", "grok-4", { modelProvider: "xai" }, {}).ok', swContext) === true,
+    'the SW scope reads the built-in models from the config singleton');
+  check(chromeCalls === 1, 'planning in the SW scope makes no chrome call');
+  check(vm.runInContext('FsbSettingsSchema.planWrite("maxIterations", "70", {}, {}).changed.join()', panelContext) === 'maxIterations',
+    'the panel scope plans a write');
+});
+
+async function runAsyncChecks() {
+  console.log('\n--- PROVIDER_API_KEY parity with Config.prototype.getApiKey ---');
+  try {
+    const markerConfig = new Config();
+    const markers = {};
+    for (const key of SECRET_KEYS) markers[key] = `marker-${key}`;
+    markerConfig.loadFromStorage = async () => ({ ...markerConfig.defaults, ...markers });
+    for (const provider of PROVIDER_IDS) {
+      const got = await markerConfig.getApiKey(provider);
+      const mapped = schema.PROVIDER_API_KEY ? schema.PROVIDER_API_KEY[provider] : undefined;
+      if (mapped === null) {
+        check(got === '', `getApiKey(${provider}) returns '' and PROVIDER_API_KEY.${provider} is null`);
+      } else {
+        check(typeof mapped === 'string' && got === `marker-${mapped}`, `getApiKey(${provider}) reads ${mapped} (got ${got})`);
+      }
+    }
+  } catch (err) {
+    check(false, `PROVIDER_API_KEY parity threw: ${err && err.message}`);
+  }
+}
+
+runAsyncChecks().then(() => {
+  console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
+  process.exit(failed > 0 ? 1 : 0);
+}, (err) => {
+  console.error('settings-schema async checks crashed:', err);
+  process.exit(1);
+});
