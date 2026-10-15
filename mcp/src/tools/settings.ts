@@ -150,7 +150,10 @@ function failure(result: BridgeResult): SettingsToolResult {
 export function registerSettingsTool(
   server: McpServer,
   bridge: WebSocketBridge,
-  queue: TaskQueue,
+  // Unused on purpose: reads and writes bypass the TaskQueue (D-05). The
+  // parameter only keeps the shape of the other register* calls; do not route
+  // settings writes through the queue.
+  _queue: TaskQueue,
   agentScope: AgentScope,
 ): void {
   const send = (type: 'mcp:get-settings' | 'mcp:set-setting', payload: Record<string, unknown>) =>
