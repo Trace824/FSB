@@ -328,6 +328,759 @@ check('the module still exports the change-report builder unchanged', () => {
 });
 
 // =============================================================================
+// Task 2 -- the self-contained page probe
+// =============================================================================
+
+console.log('\n--- _fsbExpectProbeInPage (stub DOM) ---');
+
+const vm = require('node:vm');
+
+// Element-like stub. getAttribute answers attrs first, then id/name/type.
+function stubEl(o) {
+  const opts = o || {};
+  const attrs = Object.assign({}, opts.attrs || {});
+  const e = {
+    tagName: opts.tag || 'DIV',
+    id: opts.id || '',
+    name: opts.name || '',
+    textContent: opts.text != null ? opts.text : '',
+    innerText: opts.innerText != null ? opts.innerText : (opts.text != null ? opts.text : ''),
+    isConnected: opts.isConnected !== false,
+    parentElement: opts.parent || null,
+    shadowRoot: opts.shadowRoot || null,
+    _rects: opts.rects != null ? opts.rects : [{ width: 10, height: 10 }],
+    _visibility: opts.visibility || 'visible',
+    getAttribute(n) {
+      if (Object.prototype.hasOwnProperty.call(attrs, n)) return attrs[n];
+      if (n === 'id' && this.id) return this.id;
+      if (n === 'name' && this.name) return this.name;
+      if (n === 'type' && typeof this.type === 'string') return this.type;
+      return null;
+    },
+    hasAttribute(n) { return this.getAttribute(n) !== null; },
+    getClientRects() { return this._rects; }
+  };
+  if (opts.type !== undefined) e.type = opts.type;
+  if (opts.value !== undefined) e.value = opts.value;
+  if (opts.checked !== undefined) e.checked = opts.checked;
+  if (opts.open !== undefined) e.open = opts.open;
+  if (opts.control !== undefined) e.control = opts.control;
+  if (opts.isContentEditable !== undefined) e.isContentEditable = opts.isContentEditable;
+  return e;
+}
+
+// Builds stub window/document globals for one probe run.
+function stubPage(o) {
+  const opts = o || {};
+  const bySelector = opts.elements || {};
+  const all = opts.all || Object.values(bySelector);
+  const dialogs = opts.dialogs || [];
+  const doc = {
+    title: opts.title || 'Stub',
+    body: { innerText: opts.bodyText != null ? opts.bodyText : '' },
+    documentElement: { tagName: 'HTML' },
+    querySelector(sel) {
+      if (opts.throwOn && opts.throwOn.includes(sel)) throw new SyntaxError(`'${sel}' is not a valid selector`);
+      return Object.prototype.hasOwnProperty.call(bySelector, sel) ? bySelector[sel] : null;
+    },
+    querySelectorAll(sel) {
+      if (sel === '*') return all;
+      if (/dialog/.test(sel)) return dialogs;
+      return [];
+    }
+  };
+  if (opts.bodyThrows) {
+    Object.defineProperty(doc, 'body', { get() { throw new Error('body exploded'); } });
+  }
+  const win = {
+    location: { href: opts.url || 'https://example.com/' },
+    getComputedStyle: (el) => ({ visibility: (el && el._visibility) || 'visible' })
+  };
+  if (opts.FSB) win.FSB = opts.FSB;
+  return { win, doc };
+}
+
+function probeSpec(checks, extra) {
+  return Object.assign({
+    checks,
+    textScanMax: av.EXPECT_TEXT_SCAN_MAX_CHARS,
+    shadowHostBudget: av.EXPECT_SHADOW_HOST_BUDGET,
+    observedMax: av.EXPECT_OBSERVED_MAX,
+    redacted: av.EXPECT_REDACTED,
+    sensitiveNameSource: av.EXPECT_SENSITIVE_NAME_SOURCE
+  }, extra || {});
+}
+
+function runProbe(pageOpts, checks, extra) {
+  const { win, doc } = stubPage(pageOpts);
+  const priorWindow = global.window;
+  const priorDocument = global.document;
+  global.window = win;
+  global.document = doc;
+  try {
+    return av._fsbExpectProbeInPage(probeSpec(checks, extra));
+  } finally {
+    global.window = priorWindow;
+    global.document = priorDocument;
+  }
+}
+
+function obsOf(result, i) {
+  assert.equal(result.ok, true, `probe ok (${result && result.error})`);
+  return result.observations[i || 0];
+}
+
+check('probe source is self-contained: no timers, observers, rAF or extension APIs', () => {
+  const src = String(av._fsbExpectProbeInPage);
+  assert.ok(!/setTimeout|MutationObserver|requestAnimationFrame|chrome\./.test(src));
+});
+
+check('probe runs in a fresh vm context with only window/document (no closures over SW scope)', () => {
+  const { win, doc } = stubPage({ bodyText: 'Order Saved' });
+  const spec = probeSpec([{ kind: 'text_visible', expected: 'order saved' }]);
+  const result = vm.runInNewContext(`(${String(av._fsbExpectProbeInPage)})(${JSON.stringify(spec)})`,
+    { window: win, document: doc });
+  assert.equal(result.ok, true);
+  assert.equal(result.observations[0].holds, true);
+});
+
+check('text_visible matches lowercased, whitespace-collapsed body text', () => {
+  const r = runProbe({ bodyText: 'Your   order\n\nwas  SAVED.' }, [
+    { kind: 'text_visible', expected: 'order was saved' },
+    { kind: 'text_visible', expected: 'Nope' }
+  ]);
+  assert.deepEqual(obsOf(r, 0), { kind: 'text_visible', observable: true, holds: true, observed: 'present', redact: false });
+  assert.equal(obsOf(r, 1).holds, false);
+  assert.equal(obsOf(r, 1).observed, 'absent');
+  assert.equal(r.textTruncated, false);
+});
+
+check('text checks include open shadow-root text', () => {
+  const shadowRoot = {
+    childNodes: [{ nodeType: 1, tagName: 'SPAN', innerText: 'Shadow  Greeting', textContent: 'Shadow  Greeting' }],
+    querySelectorAll: () => []
+  };
+  const host = stubEl({ tag: 'MY-WIDGET', shadowRoot });
+  const r = runProbe({ bodyText: 'Light text', all: [host] }, [
+    { kind: 'text_visible', expected: 'shadow greeting' },
+    { kind: 'text_gone', expected: 'shadow greeting' }
+  ]);
+  assert.equal(obsOf(r, 0).holds, true);
+  assert.equal(obsOf(r, 1).holds, false);
+});
+
+check('text_gone holds when absent; a truncated scan without a match is text_budget_exhausted', () => {
+  const full = runProbe({ bodyText: 'Done' }, [{ kind: 'text_gone', expected: 'Loading' }]);
+  assert.equal(obsOf(full).observable, true);
+  assert.equal(obsOf(full).holds, true);
+  const truncated = runProbe({ bodyText: 'a'.repeat(50) + ' Loading' }, [
+    { kind: 'text_gone', expected: 'Loading' },
+    { kind: 'text_visible', expected: 'aaaa' }
+  ], { textScanMax: 20 });
+  assert.equal(truncated.textTruncated, true);
+  assert.equal(obsOf(truncated, 0).observable, false);
+  assert.equal(obsOf(truncated, 0).reason, 'text_budget_exhausted');
+  assert.equal(obsOf(truncated, 0).observed, null);
+  assert.equal(obsOf(truncated, 1).holds, true, 'a match inside the scanned part still counts');
+});
+
+check('the shadow-host budget bounds the scan and marks it truncated', () => {
+  const mk = (t) => stubEl({ tag: 'X-H', shadowRoot: { childNodes: [{ nodeType: 3, textContent: t }], querySelectorAll: () => [] } });
+  const r = runProbe({ bodyText: 'body', all: [mk('one'), mk('two'), mk('three')] }, [
+    { kind: 'text_gone', expected: 'three' }
+  ], { shadowHostBudget: 2 });
+  assert.equal(r.textTruncated, true);
+  assert.equal(obsOf(r).observable, false);
+  assert.equal(obsOf(r).reason, 'text_budget_exhausted');
+});
+
+check('an FSB ref uses window.FSB.resolveRef; without FSB it is ref_unavailable', () => {
+  const target = stubEl({ tag: 'BUTTON' });
+  const seen = [];
+  const withFsb = runProbe({ FSB: { resolveRef: (ref) => { seen.push(ref); return target; } } }, [
+    { kind: 'state', expected: 'visible', selector: 'e12' }
+  ]);
+  assert.deepEqual(seen, ['e12']);
+  assert.equal(obsOf(withFsb).holds, true);
+  const without = runProbe({}, [{ kind: 'state', expected: 'visible', selector: 'e12' }]);
+  assert.equal(obsOf(without).observable, false);
+  assert.equal(obsOf(without).reason, 'ref_unavailable');
+  assert.equal(obsOf(without).observed, null);
+});
+
+check('CSS selectors use FSB.querySelectorWithShadow when present, else document.querySelector', () => {
+  const viaFsb = stubEl({ tag: 'DIV' });
+  const seen = [];
+  const r1 = runProbe({ FSB: { querySelectorWithShadow: (s) => { seen.push(s); return viaFsb; } } }, [
+    { kind: 'state', expected: 'visible', selector: '#deep' }
+  ]);
+  assert.deepEqual(seen, ['#deep']);
+  assert.equal(obsOf(r1).holds, true);
+  const viaDoc = stubEl({ tag: 'DIV' });
+  const r2 = runProbe({ elements: { '#plain': viaDoc } }, [{ kind: 'state', expected: 'visible', selector: '#plain' }]);
+  assert.equal(obsOf(r2).holds, true);
+});
+
+check('a throwing selector is invalid_selector', () => {
+  const r = runProbe({ throwOn: ['div[[['] }, [{ kind: 'state', expected: 'visible', selector: 'div[[[' }]);
+  assert.equal(obsOf(r).observable, false);
+  assert.equal(obsOf(r).reason, 'invalid_selector');
+  const r2 = runProbe({ throwOn: ['div[[['], FSB: { querySelectorWithShadow: () => null } },
+    [{ kind: 'state', expected: 'gone', selector: 'div[[[' }]);
+  assert.equal(obsOf(r2).reason, 'invalid_selector', 'FSB swallowing the error does not turn it into absent');
+});
+
+check('state visible / gone report visible, hidden or absent', () => {
+  const shown = stubEl({});
+  const invisible = stubEl({ visibility: 'hidden' });
+  const noRects = stubEl({ rects: [] });
+  const detached = stubEl({ isConnected: false });
+  const page = { elements: { '#shown': shown, '#invisible': invisible, '#norects': noRects, '#detached': detached } };
+  const r = runProbe(page, [
+    { kind: 'state', expected: 'visible', selector: '#shown' },
+    { kind: 'state', expected: 'visible', selector: '#invisible' },
+    { kind: 'state', expected: 'gone', selector: '#norects' },
+    { kind: 'state', expected: 'gone', selector: '#detached' },
+    { kind: 'state', expected: 'gone', selector: '#missing' },
+    { kind: 'state', expected: 'visible', selector: '#missing' },
+    { kind: 'state', expected: 'gone', selector: '#shown' }
+  ]);
+  const got = r.observations.map((o) => [o.observable, o.holds, o.observed]);
+  assert.deepEqual(got, [
+    [true, true, 'visible'],
+    [true, false, 'hidden'],
+    [true, true, 'hidden'],
+    [true, true, 'hidden'],
+    [true, true, 'absent'],
+    [true, false, 'absent'],
+    [true, false, 'visible']
+  ]);
+});
+
+check('checked / unchecked read the D-13 toggle signals of the element', () => {
+  const page = {
+    elements: {
+      '#cb-on': stubEl({ tag: 'INPUT', type: 'checkbox', checked: true }),
+      '#cb-off': stubEl({ tag: 'INPUT', type: 'checkbox', checked: false }),
+      '#aria-checked': stubEl({ attrs: { 'aria-checked': 'true' } }),
+      '#pressed': stubEl({ tag: 'BUTTON', attrs: { 'aria-pressed': 'true' } }),
+      '#unpressed': stubEl({ tag: 'BUTTON', attrs: { 'aria-pressed': 'false' } }),
+      '#selected': stubEl({ attrs: { 'aria-selected': 'true' } }),
+      '#ds-open': stubEl({ attrs: { 'data-state': 'open' } }),
+      '#ds-on': stubEl({ attrs: { 'data-state': 'on' } }),
+      '#ds-closed': stubEl({ attrs: { 'data-state': 'closed' } }),
+      '#details': stubEl({ tag: 'DETAILS', open: true }),
+      '#expanded-only': stubEl({ attrs: { 'aria-expanded': 'true' } }),
+      '#text': stubEl({ tag: 'INPUT', type: 'text', checked: false, value: 'x' })
+    }
+  };
+  const rows = [
+    ['#cb-on', 'checked', true, true, 'checked'],
+    ['#cb-off', 'unchecked', true, true, 'unchecked'],
+    ['#cb-off', 'checked', true, false, 'unchecked'],
+    ['#aria-checked', 'checked', true, true, 'checked'],
+    ['#pressed', 'checked', true, true, 'checked'],
+    ['#unpressed', 'unchecked', true, true, 'unchecked'],
+    ['#selected', 'checked', true, true, 'checked'],
+    ['#ds-open', 'checked', true, true, 'checked'],
+    ['#ds-on', 'checked', true, true, 'checked'],
+    ['#ds-closed', 'unchecked', true, true, 'unchecked'],
+    ['#details', 'checked', true, true, 'checked'],
+    ['#missing', 'checked', true, false, 'absent'],
+    ['#missing', 'unchecked', true, false, 'absent']
+  ];
+  const r = runProbe(page, rows.map(([selector, expected]) => ({ kind: 'state', expected, selector })));
+  rows.forEach(([sel, exp, observable, holds, observed], i) => {
+    const o = r.observations[i];
+    assert.deepEqual([o.observable, o.holds, o.observed], [observable, holds, observed], `${sel} ${exp}`);
+  });
+  const none = runProbe(page, [
+    { kind: 'state', expected: 'checked', selector: '#expanded-only' },
+    { kind: 'state', expected: 'unchecked', selector: '#text' }
+  ]);
+  for (const o of none.observations) {
+    assert.equal(o.observable, false, 'aria-expanded and a text input carry no toggle signal');
+    assert.equal(o.reason, 'no_toggle_signal');
+  }
+});
+
+check('checked follows the associated control: label -> control, summary -> details', () => {
+  const control = stubEl({ tag: 'INPUT', type: 'checkbox', checked: true });
+  const label = stubEl({ tag: 'LABEL', control });
+  const details = stubEl({ tag: 'DETAILS', open: false });
+  const summary = stubEl({ tag: 'SUMMARY', parent: details });
+  const r = runProbe({ elements: { '#label': label, '#summary': summary } }, [
+    { kind: 'state', expected: 'checked', selector: '#label' },
+    { kind: 'state', expected: 'unchecked', selector: '#summary' }
+  ]);
+  assert.equal(r.observations[0].holds, true);
+  assert.equal(r.observations[1].holds, true);
+  assert.equal(r.observations[1].observed, 'unchecked');
+});
+
+check('value compares in the page and never returns the raw value', () => {
+  const page = {
+    elements: {
+      '#email': stubEl({ tag: 'INPUT', type: 'text', id: 'email', value: 'a@b.c' }),
+      '#empty': stubEl({ tag: 'INPUT', type: 'text', id: 'q', value: '' }),
+      '#ce': stubEl({ tag: 'DIV', text: 'Rich text', isContentEditable: true }),
+      '#novalue': stubEl({ tag: 'DIV' })
+    }
+  };
+  const r = runProbe(page, [
+    { kind: 'value', expected: 'a@b.c', selector: '#email' },
+    { kind: 'value', expected: 'wrong', selector: '#email' },
+    { kind: 'value', expected: '', selector: '#empty' },
+    { kind: 'value', expected: 'Rich text', selector: '#ce' },
+    { kind: 'value', expected: 'x', selector: '#novalue' }
+  ]);
+  assert.deepEqual(r.observations[0], { kind: 'value', observable: true, holds: true, observed: 'a@b.c', redact: false });
+  assert.deepEqual(r.observations[1], { kind: 'value', observable: true, holds: false, observed: '[redacted]', redact: false });
+  assert.deepEqual(r.observations[2], { kind: 'value', observable: true, holds: true, observed: '', redact: false });
+  assert.equal(r.observations[3].holds, true, 'contenteditable reads textContent');
+  assert.equal(r.observations[4].observable, false);
+  assert.equal(r.observations[4].reason, 'value_unreadable');
+  assert.equal(r.observations[4].observed, null);
+  const unmetOnly = runProbe(page, [{ kind: 'value', expected: 'wrong', selector: '#email' }]);
+  assert.ok(!JSON.stringify(unmetOnly).includes('a@b.c'), 'the raw value never leaves the page');
+});
+
+check('sensitive fields set redact and observed is the marker even when equal', () => {
+  const page = {
+    elements: {
+      '#pw': stubEl({ tag: 'INPUT', type: 'password', id: 'pw', value: 'hunter2' }),
+      '#tok': stubEl({ tag: 'INPUT', type: 'hidden', id: 'tok', value: 'csrf-1' }),
+      '#footprint': stubEl({ tag: 'INPUT', type: 'text', id: 'footprint', value: 'size 9' }),
+      '#otpCode': stubEl({ tag: 'INPUT', type: 'text', id: 'otpCode', value: '123456' })
+    }
+  };
+  const r = runProbe(page, [
+    { kind: 'value', expected: 'hunter2', selector: '#pw' },
+    { kind: 'value', expected: 'nope', selector: '#tok' },
+    { kind: 'value', expected: 'size 9', selector: '#footprint' },
+    { kind: 'value', expected: '123456', selector: '#otpCode' }
+  ]);
+  assert.deepEqual(r.observations[0], { kind: 'value', observable: true, holds: true, observed: '[redacted]', redact: true });
+  assert.deepEqual(r.observations[1], { kind: 'value', observable: true, holds: false, observed: '[redacted]', redact: true });
+  assert.equal(r.observations[2].redact, false, 'footprint is not sensitive');
+  assert.equal(r.observations[2].observed, 'size 9');
+  assert.equal(r.observations[3].redact, true, 'otpCode is sensitive');
+  assert.equal(r.observations[3].observed, '[redacted]');
+  const s = JSON.stringify(r);
+  for (const secret of ['hunter2', 'csrf-1', '123456']) assert.ok(!s.includes(secret), secret);
+});
+
+check('dialog_open: dialog[open], visible role=dialog/alertdialog or aria-modal', () => {
+  const openDialog = stubEl({ tag: 'DIALOG', open: true, attrs: { open: '' } });
+  const visibleRole = stubEl({ attrs: { role: 'alertdialog' } });
+  const hiddenRole = stubEl({ attrs: { role: 'dialog' }, rects: [] });
+  const modal = stubEl({ attrs: { 'aria-modal': 'true' } });
+  const closedDialog = stubEl({ tag: 'DIALOG', open: false });
+  const exp = [{ kind: 'dialog_open', expected: true }, { kind: 'dialog_open', expected: false }];
+  for (const dialogs of [[openDialog], [visibleRole], [modal]]) {
+    const r = runProbe({ dialogs }, exp);
+    assert.equal(r.observations[0].holds, true);
+    assert.equal(r.observations[0].observed, true);
+    assert.equal(r.observations[1].holds, false);
+  }
+  const none = runProbe({ dialogs: [hiddenRole, closedDialog] }, exp);
+  assert.equal(none.observations[0].holds, false);
+  assert.equal(none.observations[1].holds, true);
+  assert.equal(none.observations[1].observed, false);
+});
+
+check('any thrown error returns { ok: false, error }', () => {
+  const r = runProbe({ bodyThrows: true }, [{ kind: 'text_visible', expected: 'x' }]);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /body exploded/);
+});
+
+// =============================================================================
+// Task 2 -- the bounded evaluation loop (fake clock)
+// =============================================================================
+
+console.log('\n--- evaluateExpectation (fake clock) ---');
+
+const TAB = { url: 'https://e.test/app', title: 'App', status: 'complete' };
+
+function makeDeps(o) {
+  const opts = o || {};
+  let t = 5000;
+  const calls = { tabs: 0, probe: 0, probeArgs: [], probeFuncs: [] };
+  const deps = {
+    tabsGet: async () => {
+      calls.tabs++;
+      return typeof opts.tab === 'function' ? opts.tab(calls.tabs, t) : (opts.tab === undefined ? TAB : opts.tab);
+    },
+    executeProbe: async (tabId, func, args) => {
+      calls.probe++;
+      calls.probeFuncs.push(func);
+      calls.probeArgs.push(args);
+      return opts.probe(calls.probe, args[0], t);
+    },
+    now: () => t,
+    sleep: async (ms) => { t += ms; }
+  };
+  return { deps, calls };
+}
+
+function probeOk(observations, documentId) {
+  return { ok: true, documentId: documentId || 'doc-1', result: { ok: true, textTruncated: false, observations } };
+}
+
+const met = (kind, extra) => Object.assign({ kind, observable: true, holds: true, observed: null, redact: false }, extra || {});
+const miss = (kind, extra) => Object.assign({ kind, observable: true, holds: false, observed: null, redact: false }, extra || {});
+
+function spec(raw) {
+  const n = av.normalizeExpectSpec(raw);
+  assert.equal(n.ok, true, `spec ${JSON.stringify(raw)} ok: ${n.detail}`);
+  return n.spec;
+}
+
+function assertShape(result) {
+  const keys = Object.keys(result);
+  const want = result.status === 'uncertain'
+    ? ['status', 'checks', 'waited_ms', 'timeout_ms', 'reason']
+    : ['status', 'checks', 'waited_ms', 'timeout_ms'];
+  assert.deepEqual(keys, want, 'result keys');
+  for (const c of result.checks) assert.deepEqual(Object.keys(c), ['kind', 'expected', 'observed', 'status'], 'check keys');
+  assert.ok(Number.isInteger(result.waited_ms), 'waited_ms integer');
+  assert.ok(Number.isInteger(result.timeout_ms), 'timeout_ms integer');
+}
+
+checkAsync('all checks met on the first probe -> verified, waited_ms 0, one probe', async () => {
+  const { deps, calls } = makeDeps({
+    probe: () => probeOk([met('text_visible', { observed: 'present' }), met('state', { observed: 'visible' })])
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'Saved', selector: '#a' }), deps });
+  assertShape(r);
+  assert.equal(r.status, 'verified');
+  assert.equal(r.waited_ms, 0);
+  assert.equal(r.timeout_ms, 2000);
+  assert.equal(calls.probe, 1);
+  assert.deepEqual(r.checks, [
+    { kind: 'text_visible', expected: 'Saved', observed: 'present', status: 'met' },
+    { kind: 'state', expected: 'visible', observed: 'visible', status: 'met' }
+  ]);
+});
+
+checkAsync('executeProbe receives the real probe and a serialisable probeSpec of DOM checks only', async () => {
+  const { deps, calls } = makeDeps({ probe: () => probeOk([met('text_visible')]) });
+  await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: '/app', text_visible: 'x' }), deps });
+  assert.equal(calls.probeFuncs[0], av._fsbExpectProbeInPage);
+  const ps = calls.probeArgs[0][0];
+  assert.deepEqual(JSON.parse(JSON.stringify(ps)), ps);
+  assert.deepEqual(ps.checks, [{ kind: 'text_visible', expected: 'x' }]);
+  assert.equal(ps.redacted, '[redacted]');
+  assert.equal(ps.sensitiveNameSource, av.EXPECT_SENSITIVE_NAME_SOURCE);
+  assert.equal(ps.textScanMax, av.EXPECT_TEXT_SCAN_MAX_CHARS);
+  assert.equal(ps.shadowHostBudget, av.EXPECT_SHADOW_HOST_BUDGET);
+});
+
+checkAsync('text appearing on the 4th probe -> verified with waited_ms 600', async () => {
+  const { deps, calls } = makeDeps({
+    probe: (n) => probeOk([n >= 4 ? met('text_visible') : miss('text_visible')])
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'Saved' }), deps });
+  assert.equal(r.status, 'verified');
+  assert.equal(r.waited_ms, 600);
+  assert.equal(calls.probe, 4);
+});
+
+checkAsync('never met by the 2000 ms deadline -> unmet, bounded probe count', async () => {
+  const { deps, calls } = makeDeps({ probe: () => probeOk([miss('text_visible')]) });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'Saved' }), deps });
+  assertShape(r);
+  assert.equal(r.status, 'unmet');
+  assert.ok(r.waited_ms >= 2000, `waited ${r.waited_ms}`);
+  assert.ok(calls.probe <= Math.ceil(2000 / 200) + 1, `probes ${calls.probe}`);
+  assert.deepEqual(r.checks, [{ kind: 'text_visible', expected: 'Saved', observed: 'absent', status: 'unmet' }]);
+});
+
+checkAsync('negative predicates need two consecutive holding probes before an early exit', async () => {
+  const { deps, calls } = makeDeps({ probe: () => probeOk([met('text_gone')]) });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_gone: 'Loading' }), deps });
+  assert.equal(r.status, 'verified');
+  assert.equal(calls.probe, 2);
+  assert.equal(r.waited_ms, 200);
+  assert.equal(r.checks[0].observed, 'absent');
+
+  const flaky = makeDeps({ probe: (n) => probeOk([n === 2 ? miss('text_gone') : met('text_gone')]) });
+  const r2 = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_gone: 'Loading' }), deps: flaky.deps });
+  assert.equal(r2.status, 'verified');
+  assert.equal(flaky.calls.probe, 4, 'the streak restarts after a non-holding probe');
+
+  for (const raw of [{ selector: '#s', state: 'gone' }, { selector: '#s', state: 'unchecked' }, { dialog_open: false }]) {
+    const kind = raw.dialog_open === false ? 'dialog_open' : 'state';
+    const d = makeDeps({ probe: () => probeOk([met(kind)]) });
+    const rr = await av.evaluateExpectation({ tabId: 7, spec: spec(raw), deps: d.deps });
+    assert.equal(rr.status, 'verified');
+    assert.equal(d.calls.probe, 2, `two probes for ${JSON.stringify(raw)}`);
+  }
+
+  const zero = makeDeps({ probe: () => probeOk([met('text_gone')]) });
+  const r3 = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_gone: 'Loading', timeout_ms: 0 }), deps: zero.deps });
+  assert.equal(r3.status, 'verified', 'timeout_ms 0 accepts one holding probe');
+  assert.equal(zero.calls.probe, 1);
+  assert.equal(r3.waited_ms, 0);
+  assert.equal(r3.timeout_ms, 0);
+});
+
+checkAsync('a probe timeout makes DOM checks probe_timeout and no further DOM probe is issued', async () => {
+  const { deps, calls } = makeDeps({
+    tab: (n) => Object.assign({}, TAB, { url: n >= 3 ? 'https://e.test/done' : 'https://e.test/start' }),
+    probe: () => ({ ok: false, reason: 'timeout' })
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: '/done', text_visible: 'x' }), deps });
+  assertShape(r);
+  assert.equal(calls.probe, 1, 'one probe only');
+  assert.ok(calls.tabs >= 3, 'url keeps being evaluated');
+  assert.equal(r.checks[0].status, 'met');
+  assert.equal(r.checks[1].status, 'uncertain');
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'probe_timeout');
+});
+
+checkAsync('cross-origin DOM checks are uncertain probe_failed while url_includes stays observable', async () => {
+  const { deps } = makeDeps({
+    tab: { url: 'https://other.test/landing', title: 'Other', status: 'complete' },
+    probe: () => ({ ok: false, reason: 'Cannot access contents of url "https://other.test/". Extension manifest must request permission to access this host.' })
+  });
+  const r = await av.evaluateExpectation({
+    tabId: 7, spec: spec({ url_includes: 'other.test', text_visible: 'Welcome', selector: '#a', timeout_ms: 400 }), deps
+  });
+  assertShape(r);
+  assert.deepEqual(r.checks.map((c) => c.status), ['met', 'uncertain', 'uncertain']);
+  assert.equal(r.checks[0].observed, 'https://other.test/landing');
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'probe_failed');
+});
+
+checkAsync('a closed tab makes every check uncertain tab_closed', async () => {
+  const { deps, calls } = makeDeps({ tab: null, probe: () => probeOk([met('text_visible')]) });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: '/a', text_visible: 'x' }), deps });
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'tab_closed');
+  assert.ok(r.checks.every((c) => c.status === 'uncertain' && c.observed === null));
+  assert.equal(calls.probe, 0);
+});
+
+checkAsync('restricted pages skip the probe: DOM checks uncertain restricted_page', async () => {
+  const restricted = [
+    'chrome://settings/', 'chrome-extension://abc/page.html', 'edge://flags', 'devtools://devtools/bundled/x.html',
+    'view-source:https://e.test/', 'about:version', 'https://chromewebstore.google.com/detail/x'
+  ];
+  for (const url of restricted) {
+    const { deps, calls } = makeDeps({ tab: { url, title: 'R', status: 'complete' }, probe: () => probeOk([met('text_visible')]) });
+    const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'x', timeout_ms: 0 }), deps });
+    assert.equal(calls.probe, 0, `no probe on ${url}`);
+    assert.equal(r.status, 'uncertain');
+    assert.equal(r.reason, 'restricted_page', url);
+  }
+  const blank = makeDeps({ tab: { url: 'about:blank', title: '', status: 'complete' }, probe: () => probeOk([met('text_visible')]) });
+  const rb = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'x', timeout_ms: 0 }), deps: blank.deps });
+  assert.equal(blank.calls.probe, 1, 'about:blank is probed');
+  assert.equal(rb.status, 'verified');
+});
+
+checkAsync('commit.required with no commit by the deadline -> every check uncertain no_commit', async () => {
+  const { deps, calls } = makeDeps({ probe: () => probeOk([met('text_visible')]) });
+  const commit = { required: true, isCommitted: () => false, documentId: () => null };
+  const r = await av.evaluateExpectation({
+    tabId: 7, spec: spec({ url_includes: '/app', text_visible: 'x', timeout_ms: 400 }), deps, commit
+  });
+  assert.equal(calls.probe, 0);
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'no_commit');
+  assert.ok(r.checks.every((c) => c.status === 'uncertain'));
+  assert.ok(r.waited_ms >= 400);
+});
+
+checkAsync('probes from a document other than the committed one are ignored (stale_document)', async () => {
+  let committed = false;
+  const { deps, calls } = makeDeps({
+    probe: (n) => {
+      if (n >= 2) committed = true;
+      return probeOk([met('text_visible')], n >= 3 ? 'doc-new' : 'doc-old');
+    }
+  });
+  const commit = { required: true, isCommitted: () => true, documentId: () => 'doc-new' };
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'x' }), deps, commit });
+  assert.equal(r.status, 'verified');
+  assert.equal(calls.probe, 3);
+  assert.ok(committed);
+
+  const stale = makeDeps({ probe: () => probeOk([met('text_visible')], 'doc-old') });
+  const r2 = await av.evaluateExpectation({
+    tabId: 7, spec: spec({ text_visible: 'x', timeout_ms: 400 }), deps: stale.deps, commit
+  });
+  assert.equal(r2.status, 'uncertain');
+  assert.equal(r2.reason, 'stale_document');
+
+  const late = makeDeps({ probe: () => probeOk([met('text_visible')], 'doc-new') });
+  let polls = 0;
+  const lateCommit = { required: true, isCommitted: () => (++polls >= 3), documentId: () => 'doc-new' };
+  const r3 = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'x' }), deps: late.deps, commit: lateCommit });
+  assert.equal(r3.status, 'verified');
+  assert.equal(late.calls.probe, 1, 'no probe before the commit');
+  assert.equal(r3.waited_ms, 400);
+});
+
+checkAsync('a still-loading tab with a pendingUrl turns would-be unmet checks into still_loading', async () => {
+  const { deps } = makeDeps({
+    tab: { url: 'https://e.test/a', title: 'A', status: 'loading', pendingUrl: 'https://e.test/b' },
+    probe: () => probeOk([miss('text_visible')])
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'B page', timeout_ms: 400 }), deps });
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'still_loading');
+  assert.equal(r.checks[0].status, 'uncertain');
+});
+
+checkAsync('pageUnresponsive skips the probe; tab-level checks are still judged', async () => {
+  const { deps, calls } = makeDeps({ probe: () => probeOk([met('text_visible')]) });
+  const r = await av.evaluateExpectation({
+    tabId: 7, spec: spec({ url_includes: '/app', text_visible: 'x' }), deps, pageUnresponsive: true
+  });
+  assert.equal(calls.probe, 0);
+  assert.equal(r.checks[0].status, 'met');
+  assert.equal(r.checks[1].status, 'uncertain');
+  assert.equal(r.reason, 'page_unresponsive');
+});
+
+checkAsync('url_includes is a case-sensitive substring; title_includes is normalized', async () => {
+  const { deps } = makeDeps({
+    tab: { url: 'https://e.test/Inbox?x=1', title: '  My   INBOX  ', status: 'complete' },
+    probe: () => probeOk([])
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: '/inbox', title_includes: 'my inbox', timeout_ms: 0 }), deps });
+  assert.equal(r.checks[0].status, 'unmet');
+  assert.equal(r.checks[1].status, 'met');
+  assert.equal(r.status, 'unmet');
+  const ok = makeDeps({ tab: { url: 'https://e.test/Inbox', title: 'x', status: 'complete' }, probe: () => probeOk([]) });
+  const r2 = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: '/Inbox' }), deps: ok.deps });
+  assert.equal(r2.status, 'verified');
+});
+
+checkAsync('a redacted value check reports both expected and observed as [redacted]', async () => {
+  const { deps } = makeDeps({ probe: () => probeOk([met('value', { observed: '[redacted]', redact: true })]) });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ selector: '#pw', value: 'hunter2' }), deps });
+  assert.equal(r.status, 'verified');
+  assert.deepEqual(r.checks[0], { kind: 'value', expected: '[redacted]', observed: '[redacted]', status: 'met' });
+  assert.ok(!JSON.stringify(r).includes('hunter2'));
+});
+
+checkAsync('D-19 value rule holds against a regressed probe that leaks a raw page value', async () => {
+  const { deps } = makeDeps({
+    probe: () => probeOk([{ kind: 'value', observable: true, holds: false, observed: 'secret-token-123', redact: false }])
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ selector: '#token', value: 'x', timeout_ms: 0 }), deps });
+  assert.equal(r.status, 'unmet');
+  assert.deepEqual(r.checks[0], { kind: 'value', expected: 'x', observed: '[redacted]', status: 'unmet' });
+  assert.ok(!JSON.stringify(r).includes('secret-token-123'));
+
+  const metLeak = makeDeps({
+    probe: () => probeOk([{ kind: 'value', observable: true, holds: true, observed: 'page-read-value', redact: false }])
+  });
+  const r2 = await av.evaluateExpectation({ tabId: 7, spec: spec({ selector: '#q', value: 'typed' }), deps: metLeak.deps });
+  assert.equal(r2.checks[0].observed, 'typed', 'met observed is the caller expected, not a page read');
+  assert.ok(!JSON.stringify(r2).includes('page-read-value'));
+});
+
+checkAsync('met value on a plain field echoes expected; unobservable is null; value "" verifies', async () => {
+  const a = makeDeps({ probe: () => probeOk([met('value', { observed: 'a@b.c' })]) });
+  const ra = await av.evaluateExpectation({ tabId: 7, spec: spec({ selector: '#email', value: 'a@b.c' }), deps: a.deps });
+  assert.deepEqual(ra.checks[0], { kind: 'value', expected: 'a@b.c', observed: 'a@b.c', status: 'met' });
+
+  const b = makeDeps({
+    probe: () => probeOk([{ kind: 'value', observable: false, holds: false, observed: null, redact: null, reason: 'invalid_selector' }])
+  });
+  const rb = await av.evaluateExpectation({ tabId: 7, spec: spec({ selector: '#q', value: 'v', timeout_ms: 0 }), deps: b.deps });
+  assert.equal(rb.checks[0].observed, null);
+  assert.equal(rb.checks[0].status, 'uncertain');
+  assert.equal(rb.checks[0].expected, '[redacted]', 'nothing proved the field is not a secret');
+  assert.equal(rb.reason, 'invalid_selector');
+
+  const c = makeDeps({ probe: () => probeOk([met('value', { observed: '' })]) });
+  const rc = await av.evaluateExpectation({ tabId: 7, spec: spec({ selector: '#q', value: '' }), deps: c.deps });
+  assert.equal(rc.status, 'verified');
+  assert.deepEqual(rc.checks[0], { kind: 'value', expected: '', observed: '', status: 'met' });
+});
+
+checkAsync('the probe and loop together: a real stub DOM end to end', async () => {
+  const page = {
+    bodyText: 'Saved',
+    elements: { '#email': stubEl({ tag: 'INPUT', type: 'text', id: 'email', value: 'a@b.c' }) }
+  };
+  const { win, doc } = stubPage(page);
+  const priorWindow = global.window;
+  const priorDocument = global.document;
+  let t = 0;
+  const deps = {
+    tabsGet: async () => TAB,
+    executeProbe: async (tabId, func, args) => {
+      global.window = win; global.document = doc;
+      try { return { ok: true, documentId: 'd', result: func(...args) }; }
+      finally { global.window = priorWindow; global.document = priorDocument; }
+    },
+    now: () => t,
+    sleep: async (ms) => { t += ms; }
+  };
+  const r = await av.evaluateExpectation({
+    tabId: 7, spec: spec({ text_visible: 'saved', selector: '#email', value: 'wrong', timeout_ms: 0 }), deps
+  });
+  assert.equal(r.status, 'unmet');
+  assert.deepEqual(r.checks[1], { kind: 'value', expected: 'wrong', observed: '[redacted]', status: 'unmet' });
+  assert.ok(!JSON.stringify(r).includes('a@b.c'));
+});
+
+checkAsync('observed strings are capped at 120 characters', async () => {
+  const longUrl = 'https://e.test/' + 'p'.repeat(300);
+  const { deps } = makeDeps({ tab: { url: longUrl, title: 't', status: 'complete' }, probe: () => probeOk([]) });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: 'ppp', timeout_ms: 0 }), deps });
+  assert.equal(r.checks[0].observed.length, 120);
+  assert.ok(r.checks[0].observed.endsWith('...'));
+});
+
+checkAsync('exceptions inside deps become uncertain evaluator_failed; the loop never throws', async () => {
+  const { deps } = makeDeps({ probe: () => { throw new Error('boom'); } });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'x' }), deps });
+  assertShape(r);
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'evaluator_failed');
+  const tabsThrow = makeDeps({ probe: () => probeOk([]) });
+  tabsThrow.deps.tabsGet = async () => { throw new Error('tabs gone'); };
+  const r2 = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: 'x' }), deps: tabsThrow.deps });
+  assert.equal(r2.reason, 'evaluator_failed');
+});
+
+checkAsync('missing deps, a missing tab id and a raw invalid spec are uncertain, never thrown', async () => {
+  const r1 = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'x' }), deps: {} });
+  assert.equal(r1.reason, 'evaluator_unavailable');
+  const { deps } = makeDeps({ probe: () => probeOk([met('text_visible')]) });
+  const r2 = await av.evaluateExpectation({ tabId: null, spec: spec({ text_visible: 'x' }), deps });
+  assert.equal(r2.reason, 'no_tab');
+  const r3 = await av.evaluateExpectation({ tabId: 7, spec: { bogus: 1 }, deps });
+  assert.equal(r3.reason, 'invalid_expect');
+  const r4 = await av.evaluateExpectation({ tabId: 7, spec: { text_visible: 'x', timeout_ms: 0 }, deps });
+  assert.equal(r4.status, 'verified', 'a raw valid spec is normalized first');
+  const r5 = await av.evaluateExpectation();
+  assert.equal(r5.status, 'uncertain');
+  for (const r of [r1, r2, r3, r5]) assertShape(r);
+});
+
+checkAsync('an unmet check outranks uncertain ones; reason is only present when uncertain', async () => {
+  const { deps } = makeDeps({
+    probe: () => probeOk([miss('text_visible'), { kind: 'state', observable: false, holds: false, observed: null, redact: false, reason: 'ref_unavailable' }])
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'x', selector: 'e3', timeout_ms: 0 }), deps });
+  assertShape(r);
+  assert.equal(r.status, 'unmet');
+  assert.equal('reason' in r, false);
+  assert.deepEqual(r.checks.map((c) => c.status), ['unmet', 'uncertain']);
+});
+
+// =============================================================================
 // Runner
 // =============================================================================
 

@@ -889,6 +889,614 @@ function buildUncertainExpectResult(spec, reason) {
   };
 }
 
+// -----------------------------------------------------------------------------
+// _fsbExpectProbeInPage: the read-only page probe (D-18).
+//
+// Serialized and injected with chrome.scripting.executeScript (plan 69-05 uses
+// the ISOLATED world, where page scripts cannot spoof it and window.FSB, the
+// content scripts' selector helpers, is reachable: RESEARCH Finding 15). It
+// must therefore be self-contained: every helper is declared inside the body,
+// all inputs come from its one serialisable argument, and it reads
+// globalThis.window / globalThis.document so Node tests can stub them.
+//
+// Read-only and one-shot by design: synchronous DOM reads only, with no
+// timers, no mutation observers and no animation-frame callbacks (frames are
+// throttled in background tabs, RESEARCH Pitfall 10), so a late execution on
+// a hung renderer is harmless. The loop below polls by injecting it again.
+// The one side effect: FSB.resolveRef / FSB.querySelectorWithShadow may update
+// FSB's own element cache in the ISOLATED world; the page itself is untouched.
+//
+// Toggle signals follow D-13 (native checked, aria-checked, aria-pressed,
+// aria-selected, data-state, open) and deliberately leave out aria-expanded,
+// which content/actions.js uses for click-effect detection but D-13 does not
+// list: an expanded menu is not a checked control.
+//
+// D-19 vault-filled guarantee: a value check compares inside the page and
+// returns only holds, redact and the observed-rule result (the caller's
+// expected string when equal, the redaction marker otherwise). The raw field
+// value never leaves the page, so a value filled from the vault is never
+// echoed even though no vault-filled marker exists to detect it.
+//
+// probeSpec = { checks, textScanMax, shadowHostBudget, observedMax, redacted, sensitiveNameSource }
+// returns { ok: true, observations: [{ kind, observable, holds, observed, redact, reason? }], textTruncated }
+//      or { ok: false, error }
+// -----------------------------------------------------------------------------
+function _fsbExpectProbeInPage(probeSpec) {
+  try {
+    const spec = (probeSpec && typeof probeSpec === 'object') ? probeSpec : {};
+    const scope = (typeof globalThis !== 'undefined') ? globalThis : {};
+    const win = scope.window || null;
+    const doc = scope.document || (win && win.document) || null;
+    if (!doc) return { ok: false, error: 'no document' };
+    const checks = Array.isArray(spec.checks) ? spec.checks : [];
+    const textScanMax = (typeof spec.textScanMax === 'number' && spec.textScanMax > 0) ? spec.textScanMax : 200000;
+    const hostBudget = (typeof spec.shadowHostBudget === 'number' && spec.shadowHostBudget >= 0) ? spec.shadowHostBudget : 2000;
+    const REDACTED = (typeof spec.redacted === 'string' && spec.redacted) ? spec.redacted : '[redacted]';
+    const observedMax = (typeof spec.observedMax === 'number' && spec.observedMax > 3) ? spec.observedMax : 120;
+    function cap(s) { return (typeof s === 'string' && s.length > observedMax) ? s.slice(0, observedMax - 3) + '...' : s; }
+    let nameRe = null;
+    let nameRuleBroken = false;
+    if (typeof spec.sensitiveNameSource === 'string' && spec.sensitiveNameSource) {
+      try { nameRe = new RegExp(spec.sensitiveNameSource, 'i'); } catch (e) { nameRuleBroken = true; }
+    }
+
+    function lower(v) { return (typeof v === 'string') ? v.toLowerCase() : ''; }
+    function normText(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().toLowerCase(); }
+    function attr(el, name) {
+      try { return (el && typeof el.getAttribute === 'function') ? el.getAttribute(name) : null; } catch (e) { return null; }
+    }
+    function splitWords(v) {
+      return String(v).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+    }
+    // Same rules as isRedactedField (utils/action-verification.js).
+    function isSensitive(el) {
+      if (!el || typeof el !== 'object') return false;
+      const tag = lower(el.tagName);
+      let type = (typeof el.type === 'string') ? el.type : attr(el, 'type');
+      type = lower(type);
+      if ((tag === '' || tag === 'input') && (type === 'password' || type === 'hidden')) return true;
+      let ac = attr(el, 'autocomplete');
+      if (typeof ac !== 'string') ac = (typeof el.autocomplete === 'string') ? el.autocomplete : '';
+      const tokens = ac.toLowerCase().split(/\s+/);
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t === 'current-password' || t === 'new-password' || t === 'one-time-code' || t.indexOf('cc-') === 0) return true;
+      }
+      if (nameRuleBroken) return true; // fail closed when the name rule cannot be compiled
+      if (!nameRe) return false;
+      let name = attr(el, 'name');
+      if (typeof name !== 'string') name = (typeof el.name === 'string') ? el.name : '';
+      let id = attr(el, 'id');
+      if (typeof id !== 'string') id = (typeof el.id === 'string') ? el.id : '';
+      const names = [name, id, ac];
+      for (let i = 0; i < names.length; i++) {
+        if (names[i] && nameRe.test(splitWords(names[i]))) return true;
+      }
+      return false;
+    }
+    function isVisible(el) {
+      if (!el) return false;
+      if (el.isConnected === false) return false;
+      if (typeof el.getClientRects === 'function') {
+        let rects = null;
+        try { rects = el.getClientRects(); } catch (e) { rects = null; }
+        if (!rects || rects.length === 0) return false;
+      }
+      if (win && typeof win.getComputedStyle === 'function') {
+        try {
+          const cs = win.getComputedStyle(el);
+          if (cs && (cs.visibility === 'hidden' || cs.visibility === 'collapse')) return false;
+        } catch (e) { /* style unavailable: rely on the client rects */ }
+      }
+      return true;
+    }
+
+    // Text: body innerText plus open shadow-root text, bounded by textScanMax
+    // characters and hostBudget shadow roots. Computed once per probe.
+    let textCache = null;
+    function shadowText(root) {
+      let out = '';
+      const kids = (root && root.childNodes) || [];
+      for (let i = 0; i < kids.length; i++) {
+        const k = kids[i];
+        if (!k) continue;
+        if (k.nodeType === 3) {
+          out += ' ' + (k.textContent || '');
+        } else if (k.nodeType === 1) {
+          const tag = lower(k.tagName);
+          if (tag === 'style' || tag === 'script' || tag === 'template') continue;
+          out += ' ' + ((typeof k.innerText === 'string') ? k.innerText : (k.textContent || ''));
+        }
+      }
+      return out;
+    }
+    function pageText() {
+      if (textCache) return textCache;
+      const parts = [];
+      let total = 0;
+      let truncated = false;
+      function add(s) {
+        if (truncated) return;
+        const str = (typeof s === 'string') ? s : '';
+        if (total + str.length > textScanMax) {
+          parts.push(str.slice(0, Math.max(0, textScanMax - total)));
+          total = textScanMax;
+          truncated = true;
+          return;
+        }
+        parts.push(str);
+        total += str.length + 1;
+      }
+      const body = doc.body || doc.documentElement || null;
+      add(body ? ((typeof body.innerText === 'string') ? body.innerText : (body.textContent || '')) : '');
+      let hosts = 0;
+      const queue = [doc];
+      while (queue.length > 0 && !truncated) {
+        const root = queue.shift();
+        let all = [];
+        try { all = (root && typeof root.querySelectorAll === 'function') ? root.querySelectorAll('*') : []; } catch (e) { all = []; }
+        for (let i = 0; i < all.length; i++) {
+          const sr = all[i] && all[i].shadowRoot;
+          if (!sr) continue;
+          if (hosts >= hostBudget) { truncated = true; break; }
+          hosts++;
+          add(shadowText(sr));
+          if (truncated) break;
+          queue.push(sr);
+        }
+      }
+      textCache = { text: normText(parts.join(' ')), truncated: truncated };
+      return textCache;
+    }
+
+    // Selector: an FSB ref (e12) through FSB.resolveRef; CSS through
+    // FSB.querySelectorWithShadow when present, else document.querySelector.
+    function resolveTarget(sel) {
+      const fsb = win && win.FSB;
+      if (/^e\d+$/.test(sel)) {
+        if (!fsb || typeof fsb.resolveRef !== 'function') return { reason: 'ref_unavailable' };
+        try { return { el: fsb.resolveRef(sel) || null }; } catch (e) { return { reason: 'ref_unavailable' }; }
+      }
+      const hasFsbQuery = !!(fsb && typeof fsb.querySelectorWithShadow === 'function');
+      let el = null;
+      if (hasFsbQuery) {
+        try { el = fsb.querySelectorWithShadow(sel) || null; } catch (e) { el = null; }
+        if (el && el.isConnected === false) el = null; // a stale cache entry
+      }
+      if (!el) {
+        // FSB-only syntax (XPath, >>> shadow piercing) has no native fallback.
+        const fsbOnly = hasFsbQuery && (sel.indexOf('>>>') !== -1 || sel.charAt(0) === '/');
+        if (!fsbOnly) {
+          try { el = doc.querySelector(sel) || null; } catch (e) { return { reason: 'invalid_selector' }; }
+        }
+      }
+      return { el: el };
+    }
+    function toggleSignals(el) {
+      const out = { any: false, positive: false };
+      if (!el) return out;
+      const tag = lower(el.tagName);
+      const type = lower((typeof el.type === 'string') ? el.type : attr(el, 'type'));
+      if (typeof el.checked === 'boolean' && !(tag === 'input' && type !== 'checkbox' && type !== 'radio')) {
+        out.any = true;
+        if (el.checked) out.positive = true;
+      }
+      const aria = ['aria-checked', 'aria-pressed', 'aria-selected'];
+      for (let i = 0; i < aria.length; i++) {
+        const v = attr(el, aria[i]);
+        if (v != null) { out.any = true; if (lower(String(v)) === 'true') out.positive = true; }
+      }
+      const ds = attr(el, 'data-state');
+      if (ds != null) {
+        out.any = true;
+        const d = lower(String(ds));
+        if (d === 'checked' || d === 'on' || d === 'active' || d === 'open') out.positive = true;
+      }
+      if (typeof el.open === 'boolean') { out.any = true; if (el.open) out.positive = true; }
+      return out;
+    }
+    // Mirrors getAssociatedStateElement (content/actions.js) with the D-13 set.
+    function associatedControl(el) {
+      let node = el;
+      for (let depth = 0; node && depth <= 5; depth++, node = node.parentElement) {
+        const tag = (typeof node.tagName === 'string') ? node.tagName.toUpperCase() : '';
+        if (tag === 'LABEL') {
+          const control = node.control;
+          return control && control !== el ? control : null;
+        }
+        const parent = node.parentElement;
+        if (tag === 'SUMMARY' && parent && typeof parent.tagName === 'string' && parent.tagName.toUpperCase() === 'DETAILS') {
+          return parent;
+        }
+        if (node !== el && typeof node.hasAttribute === 'function') {
+          const names = ['aria-checked', 'aria-pressed', 'aria-selected', 'data-state'];
+          for (let i = 0; i < names.length; i++) {
+            if (node.hasAttribute(names[i])) return node;
+          }
+        }
+      }
+      return null;
+    }
+    function readValue(el) {
+      const ce = attr(el, 'contenteditable');
+      const editable = el.isContentEditable === true
+        || ce === '' || lower(ce) === 'true' || lower(ce) === 'plaintext-only';
+      if (editable) return (typeof el.textContent === 'string') ? el.textContent : null;
+      if (typeof el.value === 'string') return el.value;
+      return null;
+    }
+    // Mirrors isDialogNode / D-04's dialog definition.
+    function dialogIsOpen() {
+      let nodes = [];
+      try { nodes = doc.querySelectorAll('dialog[open], [role="dialog"], [role="alertdialog"], [aria-modal="true"]'); } catch (e) { nodes = []; }
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (!n) continue;
+        if (lower(n.tagName) === 'dialog') {
+          if (n.open === true || attr(n, 'open') !== null) return true;
+          continue;
+        }
+        if (isVisible(n)) return true;
+      }
+      return false;
+    }
+
+    function unobservable(kind, reason, redact) {
+      return { kind: kind, observable: false, holds: false, observed: null, redact: redact, reason: reason };
+    }
+
+    const observations = [];
+    let textTruncated = false;
+    for (let i = 0; i < checks.length; i++) {
+      const c = checks[i] || {};
+      const kind = c.kind;
+      if (kind === 'text_visible' || kind === 'text_gone') {
+        const t = pageText();
+        if (t.truncated) textTruncated = true;
+        const found = t.text.indexOf(normText(c.expected)) !== -1;
+        if (!found && t.truncated) {
+          observations.push(unobservable(kind, 'text_budget_exhausted', false));
+        } else {
+          observations.push({
+            kind: kind, observable: true,
+            holds: kind === 'text_visible' ? found : !found,
+            observed: found ? 'present' : 'absent', redact: false
+          });
+        }
+      } else if (kind === 'state' || kind === 'value') {
+        const sel = (typeof c.selector === 'string') ? c.selector : '';
+        const target = resolveTarget(sel);
+        if (target.reason) { observations.push(unobservable(kind, target.reason, null)); continue; }
+        const el = target.el;
+        if (kind === 'state') {
+          const expected = c.expected;
+          if (expected === 'visible' || expected === 'gone') {
+            const vis = !!el && isVisible(el);
+            const observed = !el ? 'absent' : (vis ? 'visible' : 'hidden');
+            observations.push({ kind: kind, observable: true, holds: expected === 'visible' ? vis : !vis, observed: observed, redact: false });
+          } else if (!el) {
+            observations.push({ kind: kind, observable: true, holds: false, observed: 'absent', redact: false });
+          } else {
+            let sig = toggleSignals(el);
+            if (!sig.any) {
+              const assoc = associatedControl(el);
+              if (assoc) sig = toggleSignals(assoc);
+            }
+            if (!sig.any) {
+              observations.push(unobservable(kind, 'no_toggle_signal', false));
+            } else {
+              const state = sig.positive ? 'checked' : 'unchecked';
+              observations.push({ kind: kind, observable: true, holds: state === expected, observed: state, redact: false });
+            }
+          }
+        } else {
+          if (!el) { observations.push(unobservable(kind, 'value_unreadable', null)); continue; }
+          const redact = isSensitive(el);
+          const raw = readValue(el);
+          if (typeof raw !== 'string') { observations.push(unobservable(kind, 'value_unreadable', redact)); continue; }
+          const expectedValue = String(c.expected == null ? '' : c.expected);
+          const holds = raw === expectedValue;
+          observations.push({
+            kind: kind, observable: true, holds: holds,
+            observed: redact ? REDACTED : (holds ? cap(expectedValue) : REDACTED),
+            redact: redact
+          });
+        }
+      } else if (kind === 'dialog_open') {
+        const open = dialogIsOpen();
+        observations.push({ kind: kind, observable: true, holds: open === (c.expected === true), observed: open, redact: false });
+      } else {
+        observations.push(unobservable(kind, 'probe_failed', null));
+      }
+    }
+    return { ok: true, observations: observations, textTruncated: textTruncated };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+}
+
+// -----------------------------------------------------------------------------
+// evaluateExpectation: the bounded evaluation loop (D-19, D-20).
+//
+// Planner decisions (Claude's discretion items in CONTEXT):
+//   - Repeated short probes, not one long-lived in-page poller: a poller breaks
+//     on navigation and stacks up on hung renderers.
+//   - Poll interval EXPECT_POLL_INTERVAL_MS (uncalibrated, pending V4).
+//   - At most one DOM probe in flight, and none after a probe timed out: a
+//     page that missed one 750 ms race is not hammered again.
+//   - No extra settle injection: evaluation starts right after the action's
+//     own settle and returns as soon as every check holds.
+//   - Negative predicates (text_gone, state gone / unchecked, dialog_open
+//     false) need two consecutive holding probes before an early exit
+//     (RESEARCH Pitfall 5: the spinner may not have appeared yet). The rule
+//     gates only the early exit; at the deadline the final probe decides.
+//   - Navigation checks are not judged until the commit is seen, and DOM
+//     observations count only from the committed document (Pitfall 1).
+//   - Overall reason = the first uncertain check's reason.
+// -----------------------------------------------------------------------------
+
+const _fsbExpectRestrictedPrefixes = Object.freeze([
+  'chrome://', 'chrome-extension://', 'chrome-untrusted://', 'chrome-search://', 'edge://', 'brave://',
+  'opera://', 'vivaldi://', 'devtools://', 'view-source:', 'https://chromewebstore.google.com/',
+  'https://chrome.google.com/webstore', 'https://microsoftedge.microsoft.com/addons'
+]);
+
+function _fsbExpectIsRestrictedUrl(url) {
+  if (typeof url !== 'string' || url.length === 0) return false;
+  const u = url.toLowerCase();
+  if (u === 'https://chromewebstore.google.com') return true;
+  for (let i = 0; i < _fsbExpectRestrictedPrefixes.length; i++) {
+    if (u.indexOf(_fsbExpectRestrictedPrefixes[i]) === 0) return true;
+  }
+  if (u.indexOf('about:') === 0) {
+    return !(u === 'about:blank' || u.indexOf('about:blank#') === 0 || u.indexOf('about:blank?') === 0);
+  }
+  return false;
+}
+
+function _fsbExpectNormText(value) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function _fsbExpectIsNegative(check) {
+  if (!check) return false;
+  if (check.kind === 'text_gone') return true;
+  if (check.kind === 'state') return check.expected === 'gone' || check.expected === 'unchecked';
+  if (check.kind === 'dialog_open') return check.expected === false;
+  return false;
+}
+
+// Observed values for DOM checks are re-derived here instead of trusted from
+// the probe, so a regressed probe cannot put page text into expect_result.
+function _fsbExpectSanitizeObserved(check, obs) {
+  const holds = obs.holds === true;
+  switch (check.kind) {
+    case 'text_visible': return holds ? 'present' : 'absent';
+    case 'text_gone': return holds ? 'absent' : 'present';
+    case 'dialog_open': return holds ? check.expected === true : check.expected !== true;
+    case 'state':
+      return ['visible', 'hidden', 'absent', 'checked', 'unchecked'].includes(obs.observed) ? obs.observed : null;
+    default: return null; // value: _fsbExpectApplyValueRule decides
+  }
+}
+
+// D-19 value-check observed rule, applied to every value check whatever the
+// probe returned: met -> the caller's expected string (an echo of caller
+// input, never a page read); unmet -> EXPECT_REDACTED; uncertain -> null.
+// This rule, not the name heuristics, is what delivers D-19's "vault-filled
+// fields are never echoed": no page-read value ever reaches expect_result.
+function _fsbExpectApplyValueRule(status, expected) {
+  if (status === 'met') return expected;
+  if (status === 'unmet') return EXPECT_REDACTED;
+  return null;
+}
+
+function _fsbExpectBuildCheck(check, st) {
+  let expected = check.expected;
+  let observed = st.status === 'uncertain' ? null : st.observed;
+  if (check.kind === 'value') {
+    observed = _fsbExpectApplyValueRule(st.status, expected);
+    // Redact expected (and observed) when the field is sensitive, and also
+    // when nothing proved it is not: the field was never seen.
+    if (check.sensitiveHint === true || st.sawRedact || !st.sawPlain) {
+      expected = EXPECT_REDACTED;
+      if (observed !== null) observed = EXPECT_REDACTED;
+    }
+  }
+  return { kind: check.kind, expected: capObserved(expected), observed: capObserved(observed), status: st.status };
+}
+
+async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clock) {
+  const checks = spec.checks;
+  const timeoutMs = clampExpectTimeoutMs(spec.timeoutMs);
+  const commit = (commitArg && commitArg.required === true) ? commitArg : null;
+  const states = checks.map(() => ({ status: 'uncertain', reason: 'probe_failed', observed: null, streak: 0, sawPlain: false, sawRedact: false }));
+  const tabIdx = [];
+  const domIdx = [];
+  checks.forEach((c, i) => {
+    if (c && (c.kind === 'url_includes' || c.kind === 'title_includes')) tabIdx.push(i);
+    else domIdx.push(i);
+  });
+  const probeSpec = {
+    checks: domIdx.map((i) => {
+      const c = checks[i] || {};
+      const out = { kind: c.kind, expected: c.expected };
+      if (typeof c.selector === 'string') out.selector = c.selector;
+      return out;
+    }),
+    textScanMax: EXPECT_TEXT_SCAN_MAX_CHARS,
+    shadowHostBudget: EXPECT_SHADOW_HOST_BUDGET,
+    observedMax: EXPECT_OBSERVED_MAX,
+    redacted: EXPECT_REDACTED,
+    sensitiveNameSource: EXPECT_SENSITIVE_NAME_SOURCE
+  };
+
+  function setResult(i, holds, observed) {
+    const st = states[i];
+    st.status = holds ? 'met' : 'unmet';
+    st.reason = null;
+    st.observed = observed;
+    st.streak = holds ? st.streak + 1 : 0;
+  }
+  function setUncertain(i, reason) {
+    const st = states[i];
+    st.status = 'uncertain';
+    st.reason = reason;
+    st.observed = null;
+    st.streak = 0;
+  }
+
+  const start = deps.now();
+  clock.start = start;
+  const deadline = start + timeoutMs;
+  let lastTab = null;
+  let probeTimedOut = false;
+
+  for (;;) {
+    const tab = await deps.tabsGet(tabId);
+    lastTab = tab || null;
+    if (!tab) {
+      for (let i = 0; i < states.length; i++) setUncertain(i, 'tab_closed');
+      break;
+    }
+    const committed = !commit || (typeof commit.isCommitted === 'function' && commit.isCommitted() === true);
+    if (!committed) {
+      for (let i = 0; i < states.length; i++) setUncertain(i, 'no_commit');
+    } else {
+      // url_includes / title_includes come from tabs.get, never from the page
+      // (T-69-01), so they stay observable across cross-origin moves (D-18).
+      for (let k = 0; k < tabIdx.length; k++) {
+        const i = tabIdx[k];
+        const c = checks[i];
+        if (c.kind === 'url_includes') {
+          if (typeof tab.url !== 'string') setUncertain(i, 'restricted_page');
+          else setResult(i, tab.url.indexOf(c.expected) !== -1, tab.url);
+        } else if (typeof tab.title !== 'string') {
+          setUncertain(i, 'restricted_page');
+        } else {
+          setResult(i, _fsbExpectNormText(tab.title).indexOf(_fsbExpectNormText(c.expected)) !== -1, tab.title);
+        }
+      }
+      if (domIdx.length > 0) {
+        let domReason = null;
+        if (pageUnresponsive) domReason = 'page_unresponsive';
+        else if (_fsbExpectIsRestrictedUrl(tab.url)) domReason = 'restricted_page';
+        else if (probeTimedOut) domReason = 'probe_timeout';
+        else {
+          const res = await deps.executeProbe(tabId, _fsbExpectProbeInPage, [probeSpec]);
+          if (!res || res.ok !== true) {
+            if (res && res.reason === 'timeout') { probeTimedOut = true; domReason = 'probe_timeout'; }
+            else domReason = 'probe_failed'; // injection refused: cross-origin, closed frame, ...
+          } else {
+            const wantDoc = (commit && typeof commit.documentId === 'function') ? commit.documentId() : null;
+            const result = res.result;
+            if (wantDoc && res.documentId && res.documentId !== wantDoc) {
+              domReason = 'stale_document';
+            } else if (!result || result.ok !== true || !Array.isArray(result.observations)) {
+              domReason = 'probe_failed';
+            } else {
+              for (let k = 0; k < domIdx.length; k++) {
+                const i = domIdx[k];
+                const c = checks[i];
+                const o = result.observations[k];
+                if (!o || typeof o !== 'object' || o.kind !== c.kind) { setUncertain(i, 'probe_failed'); continue; }
+                if (c.kind === 'value') {
+                  if (o.redact === true) states[i].sawRedact = true;
+                  else if (o.redact === false) states[i].sawPlain = true;
+                }
+                if (o.observable !== true) {
+                  setUncertain(i, EXPECT_UNCERTAIN_REASONS.includes(o.reason) ? o.reason : 'probe_failed');
+                  continue;
+                }
+                setResult(i, o.holds === true, _fsbExpectSanitizeObserved(c, o));
+              }
+            }
+          }
+        }
+        if (domReason) {
+          for (let k = 0; k < domIdx.length; k++) setUncertain(domIdx[k], domReason);
+        }
+      }
+    }
+
+    // Early exit: every check holds, negative ones on two consecutive probes.
+    const settled = states.every((st, i) => st.status === 'met' && (!_fsbExpectIsNegative(checks[i]) || st.streak >= 2));
+    if (settled) break;
+    // Nothing left to learn: the DOM checks can no longer be probed and every
+    // tab-level check already holds.
+    const domDead = domIdx.length > 0 && (pageUnresponsive || probeTimedOut);
+    if (domDead && tabIdx.every((i) => states[i].status === 'met')) break;
+    const t = deps.now();
+    if (t >= deadline) break;
+    await deps.sleep(Math.min(EXPECT_POLL_INTERVAL_MS, deadline - t));
+  }
+
+  // A tab still loading toward another URL has not shown its final state yet.
+  if (lastTab && lastTab.status === 'loading' && lastTab.pendingUrl) {
+    for (let i = 0; i < states.length; i++) {
+      if (states[i].status === 'unmet') setUncertain(i, 'still_loading');
+    }
+  }
+
+  const out = checks.map((c, i) => _fsbExpectBuildCheck(c, states[i]));
+  const status = aggregateExpectStatus(out);
+  const result = {
+    status,
+    checks: out,
+    waited_ms: Math.max(0, Math.round(deps.now() - start)),
+    timeout_ms: timeoutMs
+  };
+  if (status === 'uncertain') {
+    const first = states.find((st) => st.status === 'uncertain');
+    result.reason = (first && EXPECT_UNCERTAIN_REASONS.includes(first.reason)) ? first.reason : 'invalid_expect';
+  }
+  return result;
+}
+
+/**
+ * Evaluate a same-call `expect` after an action (D-17..D-20). Never throws:
+ * internal errors become status 'uncertain' with reason 'evaluator_failed'.
+ *
+ * @param {Object} args
+ * @param {number} args.tabId
+ * @param {Object} args.spec - normalized spec ({ timeoutMs, checks }); a raw
+ *   expect object is normalized first.
+ * @param {Object} args.deps - { tabsGet(tabId) -> Promise<tab|null>,
+ *   executeProbe(tabId, func, args) -> Promise<{ ok, result, documentId, reason }>,
+ *   now() -> number, sleep(ms) -> Promise }
+ * @param {Object} [args.commit] - navigation tools only:
+ *   { required, isCommitted() -> boolean, documentId() -> string|null }
+ * @param {boolean} [args.pageUnresponsive]
+ * @returns {Promise<Object>} expect_result
+ */
+async function evaluateExpectation(args) {
+  const a = (args && typeof args === 'object') ? args : {};
+  let spec = a.spec;
+  const clock = { start: null };
+  try {
+    if (!spec || typeof spec !== 'object' || !Array.isArray(spec.checks)) {
+      const n = normalizeExpectSpec(spec);
+      if (!n.ok) return buildUncertainExpectResult(null, 'invalid_expect');
+      spec = n.spec;
+    }
+    const deps = a.deps;
+    if (!deps || typeof deps.tabsGet !== 'function' || typeof deps.executeProbe !== 'function'
+        || typeof deps.now !== 'function' || typeof deps.sleep !== 'function') {
+      return buildUncertainExpectResult(spec, 'evaluator_unavailable');
+    }
+    if (!Number.isFinite(a.tabId)) return buildUncertainExpectResult(spec, 'no_tab');
+    return await _fsbExpectRun(a.tabId, spec, deps, a.commit, a.pageUnresponsive === true, clock);
+  } catch (_) {
+    const failed = buildUncertainExpectResult(spec && Array.isArray(spec.checks) ? spec : null, 'evaluator_failed');
+    try {
+      if (clock.start !== null && a.deps && typeof a.deps.now === 'function') {
+        failed.waited_ms = Math.max(0, Math.round(a.deps.now() - clock.start)) || 0;
+      }
+    } catch (__) { /* keep 0 */ }
+    return failed;
+  }
+}
+
 // Export for use in content script
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -929,6 +1537,8 @@ if (typeof module !== 'undefined' && module.exports) {
     aggregateExpectStatus,
     capObserved,
     isRedactedField,
-    buildUncertainExpectResult
+    buildUncertainExpectResult,
+    _fsbExpectProbeInPage,
+    evaluateExpectation
   };
 }
