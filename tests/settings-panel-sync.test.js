@@ -1,0 +1,740 @@
+'use strict';
+
+/**
+ * Phase 66.1 Plan 04 (D-16): FSBSettingsSync keeps an open Control Panel in
+ * step with settings written from outside it (the MCP settings tool, another
+ * panel tab), so a later Save never silently reverts them.
+ *
+ * Layer 1 loads extension/ui/options.js under a small DOM shim (the
+ * tests/model-discovery-ui.test.js pattern) and exercises the load-time
+ * global: touched tracking, external-change tracking, the Save-time filter,
+ * the self-write echo records and the in-place refresh of simple fields and
+ * the provider group.
+ *
+ * No network and no ports: global.fetch is a throwing spy. Node 20-safe.
+ *
+ * Run: node tests/settings-panel-sync.test.js
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+let passed = 0;
+let failed = 0;
+const failures = [];
+
+function check(cond, msg) {
+  if (cond) {
+    passed += 1;
+    console.log('  PASS:', msg);
+  } else {
+    failed += 1;
+    failures.push(msg);
+    console.error('  FAIL:', msg);
+  }
+}
+
+function section(title) {
+  console.log('\n--- ' + title + ' ---');
+}
+
+function sameJson(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+const OPTIONS_PATH = path.join(__dirname, '..', 'extension', 'ui', 'options.js');
+const OPTIONS_SOURCE = fs.readFileSync(OPTIONS_PATH, 'utf8');
+const INSTALL_IDENTITY_UI_SOURCE = fs.readFileSync(
+  path.join(__dirname, '..', 'extension', 'ui', 'install-identity-ui.js'),
+  'utf8'
+);
+
+// ---------------------------------------------------------------------------
+// DOM shim
+// ---------------------------------------------------------------------------
+
+let dispatchCount = 0;
+
+function makeEl(tagName, id) {
+  const el = {
+    tagName: String(tagName || 'div').toUpperCase(),
+    id: id || '',
+    children: [],
+    attributes: {},
+    classList: {
+      _set: new Set(),
+      add(...names) { names.forEach((n) => this._set.add(n)); },
+      remove(...names) { names.forEach((n) => this._set.delete(n)); },
+      contains(n) { return this._set.has(n); },
+      toggle(n, on) { if (on) this.add(n); else this.remove(n); }
+    },
+    textContent: '',
+    value: '',
+    checked: false,
+    disabled: false,
+    hidden: false,
+    style: {},
+    appendChild(child) { this.children.push(child); return child; },
+    setAttribute(k, v) { this.attributes[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attributes, k) ? this.attributes[k] : null; },
+    removeAttribute(k) { delete this.attributes[k]; },
+    addEventListener() {},
+    querySelector() { return null; },
+    dispatchEvent() { dispatchCount += 1; return true; }
+  };
+  return el;
+}
+
+// A select whose value setter only accepts an existing option's value, like a
+// real <select>, and whose innerHTML = '' clears the options.
+function makeSelect(id, values) {
+  const el = makeEl('select', id);
+  el.options = [];
+  let current = '';
+  el.appendChild = function (child) {
+    child.parentNode = el;
+    el.options.push(child);
+    el.children.push(child);
+    if (el.options.length === 1 && current === '') current = child.value;
+    return child;
+  };
+  Object.defineProperty(el, 'value', {
+    configurable: true,
+    get() { return current; },
+    set(v) {
+      const s = String(v);
+      if (el.options.some((o) => o.value === s)) current = s;
+      else current = '';
+    }
+  });
+  Object.defineProperty(el, 'innerHTML', {
+    configurable: true,
+    get() { return ''; },
+    set(v) {
+      if (v === '') {
+        el.options = [];
+        el.children = [];
+        current = '';
+      }
+    }
+  });
+  el.querySelector = function (selector) {
+    const match = /option\[value="([^"]*)"\]/.exec(String(selector));
+    if (!match) return null;
+    return el.options.find((o) => o.value === match[1]) || null;
+  };
+  (values || []).forEach((v) => {
+    const option = makeEl('option');
+    option.value = v;
+    option.textContent = v;
+    el.appendChild(option);
+  });
+  return el;
+}
+
+const registry = new Map();
+function reg(el) { registry.set(el.id, el); return el; }
+
+function buildRegistry() {
+  registry.clear();
+  for (const id of [
+    'maxIterations', 'maxIterationsSlider', 'maxIterationsDisplay',
+    'maxDOMElements', 'maxDOMElementsSlider', 'maxDOMElementsDisplay',
+    'elementCacheSize', 'elementCacheSizeDisplay', 'elementCacheSizeCustom',
+    'fsbAgentCap', 'fsbAgentCapDisplay', 'fsbTriggerCap', 'fsbTriggerCapDisplay',
+    'fsbMcpSessionRetentionDays', 'modelDescription', 'modelSearch',
+    'apiKey', 'geminiApiKey', 'openaiApiKey', 'anthropicApiKey', 'openrouterApiKey',
+    'customApiKey', 'customEndpoint', 'lmstudioBaseUrl', 'captchaApiKey',
+    'serverUrl', 'serverHashKey'
+  ]) reg(makeEl('input', id));
+  for (const id of [
+    'debugMode', 'domOptimization', 'prioritizeViewport', 'animatedActionHighlights',
+    'showSidepanelProgress', 'enableLogin', 'captchaSolverEnabled', 'sttProvider',
+    'voiceInputEnabled', 'autoRefineSiteMaps', 'fsbChangeReportsEnabled',
+    'fsbMcpSessionRecordingEnabled', 'autoAnalyzeToggle', 'fsbTelemetryOptOut'
+  ]) {
+    const el = reg(makeEl('input', id));
+    el.type = 'checkbox';
+  }
+  const wrap = reg(makeEl('div', 'elementCacheSizeCustomWrap'));
+  wrap.style.display = 'none';
+  reg(makeSelect('elementCacheSizePreset', ['100', '200', '500', 'custom']));
+  reg(makeSelect('modelProvider', [
+    'xai', 'gemini', 'openai', 'anthropic', 'openrouter', 'lmstudio', 'custom', 'claude-code', 'grok-build'
+  ]));
+  reg(makeSelect('modelName', ['grok-4-1-fast', 'grok-4', 'grok-3-mini']));
+  for (const id of ['xaiApiKeyGroup', 'geminiApiKeyGroup', 'openaiApiKeyGroup', 'anthropicApiKeyGroup',
+    'customApiGroup', 'openrouterApiKeyGroup', 'lmstudioServerGroup', 'modelDiscoveryStatus',
+    'refreshModelsBtn', 'saveBtn', 'fullApiTest', 'captchaSolverConfig']) {
+    reg(makeEl('div', id));
+  }
+}
+
+const documentListeners = [];
+const onChangedListeners = [];
+let fetchCalls = 0;
+let storageSets = [];
+
+function installShims() {
+  buildRegistry();
+  documentListeners.length = 0;
+  onChangedListeners.length = 0;
+  global.document = {
+    readyState: 'complete',
+    getElementById: (id) => registry.get(id) || null,
+    createElement: (tag) => makeEl(tag),
+    addEventListener: (type, fn, options) => { documentListeners.push({ type, fn, options }); },
+    querySelector: () => null,
+    querySelectorAll: () => []
+  };
+  global.chrome = {
+    storage: {
+      local: {
+        get: (_keys, cb) => { if (typeof cb === 'function') cb({}); return Promise.resolve({}); },
+        set: (obj, cb) => { storageSets.push(obj); if (typeof cb === 'function') cb(); return Promise.resolve(); }
+      },
+      onChanged: { addListener: (fn) => { onChangedListeners.push(fn); } }
+    },
+    runtime: {
+      sendMessage: () => Promise.resolve({}),
+      getManifest: () => ({ version: '0.0.0' })
+    }
+  };
+  global.window = global;
+  global.FSBAnalytics = function () {
+    return { addEventListener: () => {}, refreshAnalytics: () => {}, getStats: () => ({}) };
+  };
+  global.fetch = function () {
+    fetchCalls += 1;
+    throw new Error('settings-panel-sync: network is forbidden in this test');
+  };
+}
+
+// config.js first: it defines FsbSettingsSchema. Then the panel globals.
+const { FsbSettingsSchema } = require('../extension/config/config.js');
+global.FsbSettingsSchema = FsbSettingsSchema;
+global.config = {
+  availableModels: { xai: [], gemini: [], openai: [], anthropic: [], openrouter: [], lmstudio: [] }
+};
+
+function loadOptionsFresh() {
+  delete require.cache[require.resolve(OPTIONS_PATH)];
+  installShims();
+  const exported = require(OPTIONS_PATH);
+  return { exported, sync: global.FSBSettingsSync };
+}
+
+function countEditListeners() {
+  return documentListeners.filter((l) => l.type === 'input' || l.type === 'change' || l.type === 'click').length;
+}
+
+// ---------------------------------------------------------------------------
+section('Load-time exposure and purity');
+// ---------------------------------------------------------------------------
+
+const first = loadOptionsFresh();
+check(typeof first.sync === 'object' && first.sync !== null, 'requiring options.js exposes global.FSBSettingsSync');
+check(first.exported && first.exported.FSBSettingsSync === first.sync, 'module.exports.FSBSettingsSync is the same object');
+check(Object.isFrozen(first.sync), 'FSBSettingsSync is frozen');
+for (const name of ['keyForElementId', 'noteTouched', 'noteSelfWrite', 'noteStorageChanges',
+  'filterForSave', 'noteSaved', 'reset', 'applyToForm', 'attach']) {
+  check(typeof (first.sync && first.sync[name]) === 'function', 'FSBSettingsSync.' + name + ' is a function');
+}
+check(first.sync && sameJson(first.sync.PROVIDER_GROUP_KEYS, ['providerKind', 'agentProviderId', 'modelProvider', 'modelName']),
+  'PROVIDER_GROUP_KEYS lists the four provider keys in order');
+check(onChangedListeners.length === 0, 'loading options.js installs no chrome.storage.onChanged listener');
+check(countEditListeners() === 0, 'loading options.js installs no document input/change/click listener');
+
+const second = loadOptionsFresh();
+check(second.sync !== first.sync && typeof second.sync === 'object', 'a fresh require builds a fresh FSBSettingsSync');
+check(onChangedListeners.length === 0 && countEditListeners() === 0,
+  'a second fresh require also installs nothing until attach()');
+
+const sync = second.sync;
+
+// ---------------------------------------------------------------------------
+section('keyForElementId');
+// ---------------------------------------------------------------------------
+
+const ALIASES = {
+  maxIterationsSlider: 'maxIterations',
+  maxIterations: 'maxIterations',
+  maxDOMElementsSlider: 'maxDOMElements',
+  maxDOMElements: 'maxDOMElements',
+  elementCacheSizePreset: 'elementCacheSize',
+  elementCacheSizeCustom: 'elementCacheSize',
+  elementCacheSize: 'elementCacheSize',
+  fsbAgentCap: 'fsbAgentCap',
+  fsbAgentCapReset: 'fsbAgentCap',
+  fsbTriggerCap: 'fsbTriggerCap',
+  fsbTriggerCapReset: 'fsbTriggerCap',
+  autoAnalyzeToggle: 'autoAnalyzeMemories',
+  apiKey: 'apiKey',
+  debugMode: 'debugMode',
+  fsbTelemetryOptOut: 'fsbTelemetryOptOut'
+};
+for (const [id, key] of Object.entries(ALIASES)) {
+  check(sync.keyForElementId(id) === key, 'keyForElementId(' + id + ') -> ' + key);
+}
+check(sync.PROVIDER_GROUP_KEYS.includes(sync.keyForElementId('modelProvider')), 'keyForElementId(modelProvider) is a provider key');
+check(sync.PROVIDER_GROUP_KEYS.includes(sync.keyForElementId('modelName')), 'keyForElementId(modelName) is a provider key');
+check(sync.PROVIDER_GROUP_KEYS.includes(sync.keyForElementId('modelSearch')), 'keyForElementId(modelSearch) is a provider key');
+for (const id of ['unknownId', '', 'saveBtn', 'refreshModelsBtn', '__proto__', 'constructor', 'toString']) {
+  check(sync.keyForElementId(id) === null, 'keyForElementId(' + JSON.stringify(id) + ') -> null');
+}
+check(sync.keyForElementId(undefined) === null && sync.keyForElementId(42) === null, 'non-string ids map to null');
+
+// Every alias target id exists in control_panel.html.
+const HTML = fs.readFileSync(path.join(__dirname, '..', 'extension', 'ui', 'control_panel.html'), 'utf8');
+for (const id of Object.keys(ALIASES).concat(['modelProvider', 'modelName', 'modelSearch'])) {
+  check(HTML.includes('id="' + id + '"'), 'control_panel.html has id="' + id + '"');
+}
+
+// ---------------------------------------------------------------------------
+section('External changes, touched fields and filterForSave');
+// ---------------------------------------------------------------------------
+
+function fullSettings(overrides) {
+  return Object.assign({
+    providerKind: 'api', agentProviderId: '', modelProvider: 'xai', modelName: 'grok-4-1-fast',
+    apiKey: 'k', maxIterations: 100, debugMode: false, domOptimization: true
+  }, overrides || {});
+}
+
+sync.reset({ debugMode: false, maxIterations: 100 });
+let result = sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'local');
+check(sameJson(result.apply, { debugMode: true }), 'an untouched external debugMode change is applied');
+let settings = fullSettings();
+let dropped = sync.filterForSave(settings);
+check(sameJson(dropped, ['debugMode']), 'filterForSave drops the pending debugMode');
+check(!Object.prototype.hasOwnProperty.call(settings, 'debugMode'), 'debugMode is deleted from the settings object');
+check(settings.maxIterations === 100 && settings.apiKey === 'k', 'other keys stay in the settings object');
+
+sync.reset({ debugMode: false });
+sync.noteTouched('debugMode');
+result = sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'local');
+check(sameJson(result.apply, {}), 'a touched debugMode is not applied');
+settings = fullSettings({ debugMode: false });
+dropped = sync.filterForSave(settings);
+check(dropped.length === 0 && settings.debugMode === false, 'filterForSave keeps the touched debugMode (the user edit wins)');
+
+// Provider group.
+sync.reset({ providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' });
+result = sync.noteStorageChanges({
+  modelProvider: { oldValue: 'xai', newValue: 'gemini' },
+  modelName: { oldValue: 'grok-4-1-fast', newValue: 'gemini-2.5-flash' }
+}, 'local');
+check(sameJson(result.apply, { modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }),
+  'an untouched provider-group change is applied');
+settings = fullSettings();
+dropped = sync.filterForSave(settings);
+check(sameJson(dropped.slice().sort(), ['modelName', 'modelProvider']), 'filterForSave drops both changed provider keys');
+check(settings.providerKind === 'api' && settings.agentProviderId === '', 'unchanged provider keys stay');
+
+sync.reset({ providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' });
+sync.noteTouched('modelName');
+result = sync.noteStorageChanges({
+  modelProvider: { oldValue: 'xai', newValue: 'gemini' },
+  modelName: { oldValue: 'grok-4-1-fast', newValue: 'gemini-2.5-flash' }
+}, 'local');
+check(!sync.PROVIDER_GROUP_KEYS.some((k) => Object.prototype.hasOwnProperty.call(result.apply, k)),
+  'touching modelName keeps every provider key out of apply');
+settings = fullSettings();
+dropped = sync.filterForSave(settings);
+check(dropped.length === 0, 'touching modelName means no provider key is dropped');
+check(sync.PROVIDER_GROUP_KEYS.every((k) => Object.prototype.hasOwnProperty.call(settings, k)), 'all four provider keys are written');
+
+sync.reset({});
+sync.noteTouched('providerKind');
+result = sync.noteStorageChanges({ agentProviderId: { newValue: 'grok-build' } }, 'local');
+check(sameJson(result.apply, {}), 'touching providerKind marks agentProviderId touched too');
+
+// Area and key filters.
+sync.reset({});
+result = sync.noteStorageChanges({ debugMode: { newValue: true } }, 'session');
+check(sameJson(result.apply, {}), 'area session is ignored');
+check(sync.filterForSave(fullSettings()).length === 0, 'an ignored area marks nothing pending');
+result = sync.noteStorageChanges({ debugMode: { newValue: true } }, 'sync');
+check(sameJson(result.apply, {}) && sync.filterForSave(fullSettings()).length === 0, 'area sync is ignored');
+result = sync.noteStorageChanges({
+  fsbAgentRegistry: { newValue: { records: {} } },
+  fsbConsentPolicies: { newValue: {} },
+  fsbUsageData: { newValue: [] }
+}, 'local');
+const probe = { fsbAgentRegistry: 1, fsbConsentPolicies: 2, fsbUsageData: 3 };
+check(sameJson(result.apply, {}) && sync.filterForSave(probe).length === 0 && Object.keys(probe).length === 3,
+  'non-schema keys are ignored');
+check(sameJson(sync.noteStorageChanges(null, 'local').apply, {}), 'null changes are ignored');
+
+// Secrets and endpoints.
+sync.reset({});
+result = sync.noteStorageChanges({
+  apiKey: { newValue: 'SENTINEL-secret' },
+  geminiApiKey: { newValue: 'SENTINEL-secret-2' },
+  customEndpoint: { newValue: 'https://example.test/v1' },
+  lmstudioBaseUrl: { newValue: 'http://127.0.0.1:9999' },
+  serverHashKey: { newValue: 'SENTINEL-hash' }
+}, 'local');
+check(sameJson(result.apply, {}), 'secret and endpoint keys never appear in apply');
+settings = fullSettings({ geminiApiKey: 'g', customEndpoint: 'c', lmstudioBaseUrl: 'l' });
+dropped = sync.filterForSave(settings);
+check(sameJson(dropped.slice().sort(), ['apiKey', 'customEndpoint', 'geminiApiKey', 'lmstudioBaseUrl']),
+  'externally changed secrets and endpoints are pending, so Save does not overwrite them');
+
+// ---------------------------------------------------------------------------
+section('Self-write records');
+// ---------------------------------------------------------------------------
+
+sync.reset({ maxIterations: 100, debugMode: false });
+sync.noteSelfWrite({ maxIterations: 120, debugMode: false });
+check(sameJson(sync.inspect().selfWriteKeys, ['maxIterations']), 'noteSelfWrite records only the key whose value changes');
+result = sync.noteStorageChanges({ maxIterations: { oldValue: 100, newValue: 120 } }, 'local');
+check(sameJson(result.apply, {}), 'the echo of a self-write is not applied');
+check(sync.filterForSave(fullSettings()).length === 0, 'the echo of a self-write is not pending');
+check(sync.inspect().selfWriteKeys.length === 0, 'the echo consumes the self-write record');
+result = sync.noteStorageChanges({ maxIterations: { oldValue: 120, newValue: 150 } }, 'local');
+check(sameJson(result.apply, { maxIterations: 150 }), 'a later external change of the same key is applied');
+check(sameJson(sync.filterForSave(fullSettings()), ['maxIterations']), 'a later external change of the same key is pending');
+
+// Checker W8: an unchanged rewrite leaves no record that could swallow a real change.
+sync.reset({ maxIterations: 100 });
+sync.noteSelfWrite({ maxIterations: 100 });
+check(sync.inspect().selfWriteKeys.length === 0, 'rewriting an unchanged value records nothing');
+result = sync.noteStorageChanges({ maxIterations: { oldValue: 100, newValue: 150 } }, 'local');
+check(sameJson(result.apply, { maxIterations: 150 }), 'external change to 150 is applied');
+result = sync.noteStorageChanges({ maxIterations: { oldValue: 150, newValue: 100 } }, 'local');
+check(sameJson(result.apply, { maxIterations: 100 }), 'external change back to 100 is applied, not swallowed as a self-write');
+
+// Two quick saves of the same new value produce one echo and one record.
+sync.reset({ maxIterations: 100 });
+sync.noteSelfWrite({ maxIterations: 120 });
+sync.noteSelfWrite({ maxIterations: 120 });
+sync.noteStorageChanges({ maxIterations: { oldValue: 100, newValue: 120 } }, 'local');
+check(sync.inspect().selfWriteKeys.length === 0, 'two saves of one new value leave no stale record');
+result = sync.noteStorageChanges({ maxIterations: { oldValue: 120, newValue: 100 } }, 'local');
+check(sameJson(result.apply, { maxIterations: 100 }), 'a later external change back is still seen');
+
+// A key absent from the snapshot is recorded (its first write produces an echo).
+sync.reset({});
+sync.noteSelfWrite({ debugMode: false });
+check(sameJson(sync.inspect().selfWriteKeys, ['debugMode']), 'a key absent from lastKnown is recorded');
+sync.noteStorageChanges({ debugMode: { newValue: false } }, 'local');
+check(sync.inspect().selfWriteKeys.length === 0 && sync.filterForSave(fullSettings()).length === 0,
+  'its echo is consumed and not pending');
+
+// lastKnown follows every change, self or external.
+sync.reset({ debugMode: false });
+sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'local');
+sync.noteSelfWrite({ debugMode: true });
+check(sync.inspect().selfWriteKeys.length === 0, 'lastKnown is updated by external changes (rewriting the new value records nothing)');
+
+// Non-schema keys and non-objects are not recorded.
+sync.reset({});
+sync.noteSelfWrite({ fsbUsageData: [1], speedMode: 'fast' });
+sync.noteSelfWrite(null);
+sync.noteSelfWrite('debugMode');
+check(sync.inspect().selfWriteKeys.length === 0, 'non-schema keys and non-objects are not recorded');
+
+// ---------------------------------------------------------------------------
+section('noteSaved and reset');
+// ---------------------------------------------------------------------------
+
+sync.reset({ debugMode: false, modelProvider: 'xai' });
+sync.noteTouched('debugMode');
+sync.noteStorageChanges({ modelProvider: { oldValue: 'xai', newValue: 'gemini' } }, 'local');
+settings = fullSettings({ debugMode: true });
+dropped = sync.filterForSave(settings);
+check(sameJson(dropped, ['modelProvider']), 'the Save drops the pending modelProvider');
+sync.noteSaved(Object.keys(settings));
+let state = sync.inspect();
+check(state.touched.length === 0, 'noteSaved clears the touched set');
+check(sameJson(state.pending, ['modelProvider']), 'noteSaved keeps the dropped modelProvider pending');
+sync.noteStorageChanges({ debugMode: { oldValue: false, newValue: true } }, 'local');
+sync.noteSaved(['debugMode']);
+check(sameJson(sync.inspect().pending, ['modelProvider']), 'noteSaved removes written keys from pending');
+
+sync.noteTouched('maxIterations');
+sync.noteSelfWrite({ maxIterations: 300 });
+sync.reset({});
+state = sync.inspect();
+check(state.touched.length === 0 && state.pending.length === 0 && state.selfWriteKeys.length === 0,
+  'reset({}) clears touched, pending and self-writes');
+sync.reset('not-an-object');
+check(sync.inspect().lastKnownKeys.length === 0, 'reset with a non-object seeds an empty lastKnown');
+sync.reset({ debugMode: true, fsbUsageData: [1], maxIterations: 200 });
+check(sameJson(sync.inspect().lastKnownKeys.slice().sort(), ['debugMode', 'maxIterations']),
+  'reset seeds lastKnown with schema keys only');
+check(JSON.stringify(sync.inspect()).indexOf('200') === -1, 'inspect() exposes key names, never values');
+
+// ---------------------------------------------------------------------------
+section('applyToForm: simple fields');
+// ---------------------------------------------------------------------------
+
+function makeCounters() {
+  const calls = {};
+  const deps = {};
+  const counted = (name, fn) => {
+    calls[name] = [];
+    deps[name] = (...args) => {
+      calls[name].push(args);
+      return fn ? fn(...args) : undefined;
+    };
+  };
+  return { calls, deps, counted };
+}
+
+function simpleDeps() {
+  const c = makeCounters();
+  c.counted('getElement', (id) => registry.get(id) || null);
+  c.counted('refreshStepper');
+  c.counted('setAgentCap');
+  c.counted('setPersistedVoiceInputEnabled');
+  for (const name of ['getProviderState', 'getPersistedProviderSelection', 'setPersistedProviderSelection',
+    'normalizeProviderSettings', 'invalidateDiscovery', 'updateApiKeyVisibility', 'updateModelDescription',
+    'setDiscoveryStatus', 'setControlsDisabled', 'refreshCombobox', 'renderProviderKind', 'syncSelectLabels',
+    'createOption']) {
+    c.counted(name);
+  }
+  return c;
+}
+
+const PROVIDER_DEP_NAMES = ['getProviderState', 'getPersistedProviderSelection', 'setPersistedProviderSelection',
+  'normalizeProviderSettings', 'invalidateDiscovery', 'updateApiKeyVisibility', 'updateModelDescription',
+  'setDiscoveryStatus', 'setControlsDisabled', 'refreshCombobox', 'renderProviderKind', 'syncSelectLabels',
+  'createOption'];
+
+buildRegistry();
+dispatchCount = 0;
+fetchCalls = 0;
+let c = simpleDeps();
+registry.get('voiceInputEnabled').checked = true;
+registry.get('sttProvider').checked = false;
+let applied = sync.applyToForm({ maxIterations: 150, voiceInputEnabled: false, sttProvider: 'whisper', fsbAgentCap: 12 }, c.deps);
+check(String(registry.get('maxIterations').value) === '150', 'maxIterations hidden input updated');
+check(String(registry.get('maxIterationsSlider').value) === '150', 'maxIterations stepper input updated');
+check(String(registry.get('maxIterationsDisplay').textContent) === '150', 'maxIterations display updated');
+check(c.calls.refreshStepper.some((args) => args[0] === registry.get('maxIterationsSlider')), 'the maxIterations stepper is refreshed');
+check(registry.get('voiceInputEnabled').checked === false, 'voiceInputEnabled unchecked');
+check(sameJson(c.calls.setPersistedVoiceInputEnabled, [[false]]), 'the voice baseline is set to false through deps');
+check(registry.get('sttProvider').checked === true, 'sttProvider checked for whisper');
+check(sameJson(c.calls.setAgentCap, [[12]]), 'the agent-cap setter receives 12');
+check(PROVIDER_DEP_NAMES.every((name) => c.calls[name].length === 0), 'no provider dep is called without a provider key');
+check(fetchCalls === 0, 'no fetch');
+check(dispatchCount === 0, 'no element event is dispatched');
+check(sameJson(applied.slice().sort(), ['fsbAgentCap', 'maxIterations', 'sttProvider', 'voiceInputEnabled']),
+  'applyToForm returns the keys it refreshed');
+
+buildRegistry();
+c = simpleDeps();
+sync.applyToForm({
+  debugMode: true, domOptimization: false, maxDOMElements: 3000, prioritizeViewport: false,
+  animatedActionHighlights: false, showSidepanelProgress: false, enableLogin: false,
+  captchaSolverEnabled: true, autoRefineSiteMaps: false, fsbTriggerCap: 99,
+  fsbChangeReportsEnabled: false, fsbMcpSessionRecordingEnabled: false, fsbMcpSessionRetentionDays: 400,
+  autoAnalyzeMemories: false, fsbTelemetryOptOut: true
+}, c.deps);
+check(registry.get('debugMode').checked === true, 'debugMode checked');
+check(registry.get('domOptimization').checked === false, 'domOptimization unchecked');
+check(String(registry.get('maxDOMElements').value) === '3000' && String(registry.get('maxDOMElementsSlider').value) === '3000'
+  && String(registry.get('maxDOMElementsDisplay').textContent) === '3000', 'maxDOMElements triplet updated');
+check(registry.get('prioritizeViewport').checked === false && registry.get('animatedActionHighlights').checked === false
+  && registry.get('showSidepanelProgress').checked === false, 'viewport, highlights and progress checkboxes updated');
+check(registry.get('captchaSolverEnabled').checked === true, 'captchaSolverEnabled checked');
+check(registry.get('captchaSolverConfig').style.display === 'block', 'the CAPTCHA config panel visibility follows (updateCaptchaSolverVisibility)');
+check(registry.get('autoRefineSiteMaps').checked === false, 'autoRefineSiteMaps unchecked');
+check(String(registry.get('fsbTriggerCap').value) === '64' && String(registry.get('fsbTriggerCapDisplay').textContent) === '64',
+  'fsbTriggerCap clamps to 64 like the load path');
+check(registry.get('fsbChangeReportsEnabled').checked === false && registry.get('fsbMcpSessionRecordingEnabled').checked === false,
+  'change-report and recording toggles updated');
+check(String(registry.get('fsbMcpSessionRetentionDays').value) === '365', 'retention days clamp to 365 like the load path');
+check(registry.get('autoAnalyzeToggle').checked === false, 'autoAnalyzeToggle follows autoAnalyzeMemories');
+check(registry.get('fsbTelemetryOptOut').checked === false, 'the telemetry toggle is inverse: opted out shows unchecked');
+const ariaOff = registry.get('fsbTelemetryOptOut').getAttribute('aria-label');
+check(typeof ariaOff === 'string' && INSTALL_IDENTITY_UI_SOURCE.includes("'" + ariaOff + "'"),
+  'the telemetry aria-label matches install-identity-ui.js');
+sync.applyToForm({ fsbTelemetryOptOut: false }, c.deps);
+const ariaOn = registry.get('fsbTelemetryOptOut').getAttribute('aria-label');
+check(registry.get('fsbTelemetryOptOut').checked === true && ariaOn !== ariaOff
+  && INSTALL_IDENTITY_UI_SOURCE.includes("'" + ariaOn + "'"), 'telemetry on shows checked with the matching aria-label');
+check(PROVIDER_DEP_NAMES.every((name) => c.calls[name].length === 0), 'still no provider dep');
+
+// elementCacheSize: preset, custom, and the custom-select label sync.
+buildRegistry();
+c = simpleDeps();
+sync.applyToForm({ elementCacheSize: 500 }, c.deps);
+check(String(registry.get('elementCacheSize').value) === '500' && String(registry.get('elementCacheSizeDisplay').textContent) === '500',
+  'elementCacheSize hidden input and display updated');
+check(registry.get('elementCacheSizePreset').value === '500' && registry.get('elementCacheSizeCustomWrap').style.display === 'none',
+  'a preset value selects the preset and hides the custom stepper');
+check(c.calls.syncSelectLabels.length === 1, 'the custom-select labels are re-synced once');
+sync.applyToForm({ elementCacheSize: 333 }, c.deps);
+check(registry.get('elementCacheSizePreset').value === 'custom' && registry.get('elementCacheSizeCustomWrap').style.display === ''
+  && String(registry.get('elementCacheSizeCustom').value) === '333', 'a non-preset value switches to the custom stepper');
+
+// Removal (no newValue) refreshes to the effective default.
+buildRegistry();
+c = simpleDeps();
+registry.get('debugMode').checked = true;
+sync.applyToForm({ debugMode: undefined, maxIterations: undefined }, c.deps);
+check(registry.get('debugMode').checked === false && String(registry.get('maxIterations').value) === '100',
+  'a removed key refreshes to its default');
+
+// Secrets, endpoints and unknown keys are never written to the form.
+buildRegistry();
+c = simpleDeps();
+registry.get('apiKey').value = 'typed';
+applied = sync.applyToForm({ apiKey: 'SENTINEL', customEndpoint: 'x', lmstudioBaseUrl: 'y', serverUrl: 'z', notAKey: 1 }, c.deps);
+check(registry.get('apiKey').value === 'typed' && registry.get('customEndpoint').value === ''
+  && registry.get('lmstudioBaseUrl').value === '' && registry.get('serverUrl').value === '', 'secret and endpoint inputs are never touched');
+check(applied.length === 0, 'nothing is reported as applied');
+check(sameJson(sync.applyToForm(null, c.deps), []), 'applyToForm(null) is a no-op');
+
+// ---------------------------------------------------------------------------
+section('applyToForm: provider refresh');
+// ---------------------------------------------------------------------------
+
+function providerDeps(stateInit, persistedInit, normalize) {
+  const c2 = simpleDeps();
+  const state = Object.assign({ requiresProviderReselection: false, retiredAgentProviderId: '' }, stateInit);
+  let persisted = Object.assign({}, persistedInit);
+  c2.state = state;
+  c2.persisted = () => persisted;
+  c2.counted('getProviderState', () => state);
+  c2.counted('getPersistedProviderSelection', () => persisted);
+  c2.counted('setPersistedProviderSelection', (obj) => { persisted = obj; });
+  c2.counted('normalizeProviderSettings', normalize || ((obj) => ({
+    providerKind: obj.providerKind,
+    modelProvider: obj.modelProvider,
+    agentProviderId: obj.agentProviderId,
+    requiresProviderReselection: false,
+    retiredAgentProviderId: ''
+  })));
+  c2.counted('createOption', () => makeEl('option'));
+  return c2;
+}
+
+buildRegistry();
+dispatchCount = 0;
+fetchCalls = 0;
+let p = providerDeps(
+  { providerKind: 'api', modelProvider: 'xai', agentProviderId: '' },
+  { providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' }
+);
+registry.get('modelProvider').value = 'xai';
+registry.get('modelName').value = 'grok-4-1-fast';
+sync.applyToForm({ modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }, p.deps);
+check(p.state.modelProvider === 'gemini' && p.state.providerKind === 'api', 'the provider state moves to gemini');
+check(registry.get('modelProvider').value === 'gemini', 'the modelProvider select shows gemini');
+const modelSel = registry.get('modelName');
+check(modelSel.options.length === 1 && modelSel.options[0].value === 'gemini-2.5-flash'
+  && modelSel.options[0].textContent === 'gemini-2.5-flash', 'the model select holds only the stored gemini model');
+check(modelSel.value === 'gemini-2.5-flash', 'the stored model is selected');
+check(sameJson(p.calls.updateApiKeyVisibility, [['gemini']]), 'updateApiKeyVisibility(gemini) once');
+for (const name of ['invalidateDiscovery', 'refreshCombobox', 'renderProviderKind', 'syncSelectLabels']) {
+  check(p.calls[name].length === 1, name + ' called exactly once');
+}
+check(sameJson(p.calls.updateModelDescription, [['']]), 'the model description resets for the new provider');
+check(p.calls.setDiscoveryStatus.length === 1 && p.calls.setDiscoveryStatus[0][0].kind === 'info'
+  && /Provider changed outside this panel/.test(p.calls.setDiscoveryStatus[0][0].text), 'an info status explains the change');
+check(sameJson(p.calls.setControlsDisabled, [[false]]), 'the model controls are re-enabled for the new provider');
+check(sameJson(p.calls.setPersistedProviderSelection, [[{ providerKind: 'api', modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }]]),
+  'the persisted selection baseline equals the shown selection');
+check(p.calls.normalizeProviderSettings.length === 1, 'the provider settings are normalised once');
+check(p.calls.invalidateDiscovery.length === 1 && p.calls.createOption.length === 1, 'one option is created');
+check(fetchCalls === 0 && dispatchCount === 0, 'no fetch and no dispatched events during the provider refresh');
+
+// Same-provider model change.
+buildRegistry();
+p = providerDeps(
+  { providerKind: 'api', modelProvider: 'xai', agentProviderId: '' },
+  { providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' }
+);
+registry.get('modelName').value = 'grok-4-1-fast';
+sync.applyToForm({ modelName: 'grok-4' }, p.deps);
+check(registry.get('modelName').options.length === 3, 'an existing model keeps the option list');
+check(registry.get('modelName').value === 'grok-4', 'the existing option is selected');
+check(p.calls.updateModelDescription.length === 0 && p.calls.setDiscoveryStatus.length === 0
+  && p.calls.setControlsDisabled.length === 0, 'no description reset, status or control change for the same provider');
+check(p.calls.createOption.length === 0, 'no option is created when it already exists');
+check(sameJson(p.calls.setPersistedProviderSelection, [[{ providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4' }]]),
+  'the baseline follows the new model');
+sync.applyToForm({ modelName: 'grok-5-preview' }, p.deps);
+check(registry.get('modelName').options.length === 4 && registry.get('modelName').value === 'grok-5-preview',
+  'a model the list lacks is appended and selected');
+
+// Agent switch.
+buildRegistry();
+p = providerDeps(
+  { providerKind: 'api', modelProvider: 'xai', agentProviderId: 'claude-code' },
+  { providerKind: 'api', modelProvider: 'xai', modelName: 'grok-4-1-fast' }
+);
+registry.get('modelName').value = 'grok-4-1-fast';
+sync.applyToForm({ providerKind: 'agent' }, p.deps);
+check(p.state.providerKind === 'agent', 'the provider state switches to agent');
+check(registry.get('modelProvider').value === 'claude-code', 'the modelProvider select shows the agent id');
+check(registry.get('modelName').options.length === 3 && registry.get('modelName').value === 'grok-4-1-fast',
+  'the model select options are untouched');
+check(sameJson(p.persisted(), { providerKind: 'agent', modelProvider: 'xai', modelName: 'grok-4-1-fast' }),
+  'the baseline persists providerKind agent');
+
+// Real normaliser: a retired agent stays in the reselection state.
+const providersPanel = require('../extension/ui/providers-panel.js');
+buildRegistry();
+p = providerDeps(
+  { providerKind: 'agent', modelProvider: 'xai', agentProviderId: '', requiresProviderReselection: true, retiredAgentProviderId: 'codex' },
+  { providerKind: 'agent', modelProvider: 'xai', modelName: 'grok-4-1-fast' },
+  (obj) => providersPanel.normalizeSettings(obj)
+);
+sync.applyToForm({ modelName: 'grok-4' }, p.deps);
+check(p.state.requiresProviderReselection === true && p.state.retiredAgentProviderId === 'codex',
+  'a model-only change keeps the retired-agent reselection state');
+check(registry.get('modelProvider').value === '', 'the provider select stays blank while reselection is required');
+sync.applyToForm({ providerKind: 'api' }, p.deps);
+check(p.state.requiresProviderReselection === false && p.state.providerKind === 'api'
+  && registry.get('modelProvider').value === 'xai', 'an external switch to api clears the reselection state');
+
+// An unknown provider id is normalised by the real helper (never shown raw).
+buildRegistry();
+p = providerDeps(
+  { providerKind: 'api', modelProvider: 'gemini', agentProviderId: '' },
+  { providerKind: 'api', modelProvider: 'gemini', modelName: 'gemini-2.5-flash' },
+  (obj) => providersPanel.normalizeSettings(obj)
+);
+sync.applyToForm({ modelProvider: 'not-a-provider' }, p.deps);
+check(p.state.modelProvider === 'xai', 'an unknown provider normalises to xai like the load path');
+
+// ---------------------------------------------------------------------------
+section('No-schema safety');
+// ---------------------------------------------------------------------------
+
+const savedSchema = global.FsbSettingsSchema;
+global.FsbSettingsSchema = undefined;
+sync.reset({ debugMode: false });
+sync.noteTouched('debugMode');
+result = sync.noteStorageChanges({ debugMode: { newValue: true } }, 'local');
+settings = fullSettings();
+check(sameJson(result.apply, {}) && sync.filterForSave(settings).length === 0 && settings.debugMode === false,
+  'without FsbSettingsSchema nothing is applied or dropped');
+check(sync.keyForElementId('debugMode') === null, 'without FsbSettingsSchema no id maps to a key');
+global.FsbSettingsSchema = savedSchema;
+sync.reset({});
+
+// ---------------------------------------------------------------------------
+section('Registration');
+// ---------------------------------------------------------------------------
+
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+check(pkg.scripts.test.split(' && ').filter((cmd) => cmd === 'node tests/settings-panel-sync.test.js').length === 1,
+  'package.json test chain runs this suite exactly once');
+const contract = fs.readFileSync(path.join(__dirname, 'delegation-phase-contract.test.js'), 'utf8');
+check(contract.split("'node tests/settings-panel-sync.test.js',").length - 1 === 1,
+  'REFINEMENT_ROOT_TEST_COMMANDS lists this suite exactly once');
+
+// ---------------------------------------------------------------------------
+
+console.log('\n' + passed + ' passed, ' + failed + ' failed');
+if (failed > 0) {
+  console.error('Failures:\n - ' + failures.join('\n - '));
+  process.exit(1);
+}
+process.exit(0);

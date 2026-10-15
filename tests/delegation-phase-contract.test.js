@@ -159,6 +159,7 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node --test tests/content-click-single-activation.test.js',
   'node --test tests/bench-export-history.test.mjs tests/bench-stats.test.mjs tests/bench-outcome.test.mjs tests/bench-identity.test.mjs tests/bench-tasks.test.mjs tests/bench-fixture-server.test.mjs tests/bench-claude-stream.test.mjs tests/bench-corpus.test.mjs tests/bench-report.test.mjs tests/bench-drivers.test.mjs',
   'node tests/settings-schema.test.js',
+  'node tests/settings-panel-sync.test.js',
 ]);
 
 const PHASE64_RETAINED_ROOT_COMMANDS = Object.freeze([
