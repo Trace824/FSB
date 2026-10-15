@@ -40,8 +40,8 @@
 
 ### SET — Settings Control
 
-- [ ] **SET-01:** An MCP client can use one new tool to view all of FSB's control-panel settings in one compact call and to change a single setting by key in one call. Secret values are masked on read and refused on write. Every other setting is writable.
-- [ ] **SET-02:** Changes made through the settings tool use the control panel's own validation and storage, so the control panel, autopilot, and `run_task` share one value per setting, including the Jev fast-mode switch once Phase 68 adds it. Only MCP clients get the tool, and the autopilot tool list stays unchanged.
+- [ ] **SET-01:** An MCP client can use one new tool to view all of FSB's control-panel settings in one compact call and to change a single setting by key in one call. Secret values are masked on read and refused on write. Every other setting is writable. (code-complete; live proof deferred to V5)
+- [ ] **SET-02:** Changes made through the settings tool use the control panel's own validation and storage, so the control panel, autopilot, and `run_task` share one value per setting, including the Jev fast-mode switch once Phase 68 adds it. Only MCP clients get the tool, and the autopilot tool list stays unchanged. (code-complete; live proof deferred to V5)
 
 ### EVAL — Comparative Release Gate
 
@@ -81,7 +81,7 @@
 | Phase | Requirements | Count |
 | --- | --- | ---: |
 | 66 — Baseline and Session Timing | MEAS-01, MEAS-02, MEAS-03 | 3 |
-| 66.1 — MCP Settings Tool (inserted) | SET-01, SET-02 | 2 |
+| 66.1 — MCP Settings Tool (inserted; code-complete 2026-10-15, live proof deferred to V5) | SET-01, SET-02 | 2 |
 | 67 — Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07 | 7 |
 | 68 — Autopilot Fast Mode | AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05 | 5 |
 | 69 — MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | 3 |

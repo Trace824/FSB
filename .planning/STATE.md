@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: executing
-stopped_at: Phase 66 code-complete (9/11; 66-10/66-11 deferred to Validation Block V1); next Phase 66.1
-last_updated: "2026-10-15T06:37:07.000Z"
-last_activity: 2026-10-15 -- validations deferred to the milestone-end Validation Block; origin/main merged
+stopped_at: Phase 66.1 code-complete; next: Phase 69
+last_updated: "2026-10-15T12:49:12.000Z"
+last_activity: 2026-10-15 -- Phase 66.1 executed
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 11
-  completed_plans: 9
+  total_plans: 40
+  completed_plans: 17
   percent: 0
 ---
 
@@ -31,21 +31,21 @@ See: .planning/milestones/v0.9.91-ROADMAP.md, .planning/milestones/v0.9.91-REQUI
 See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIREMENTS.md, .planning/v1.2.0-MILESTONE-AUDIT.md (archived Showcase i18n Completeness milestone)
 
 **Core value:** Reliable single-attempt execution — the AI decides correctly, the mechanics execute precisely.
-**Current focus:** Phase 66 — Baseline and Session Timing
+**Current focus:** Phase 69 — MCP Descriptions and Same-Call Checks (next after Phase 66.1)
 
 ## Current Position
 
-Phase: 66 (Baseline and Session Timing) — EXECUTING
-Plan: 9 of 11 complete (66-02..66-09, plus 66-01 closed without execution because its source sessions were lost). Remaining plans are human-gated: 66-10 (H2/H3 bench profile, smoke), then 66-11 (H4 campaign approval, H5 restore)
-Status: Phase 66 code-complete; 66-10/66-11 deferred to the milestone-end Validation Block (V1). Next: plan and build Phases 66.1, 67, 69, then 68, 70, 71
-Last activity: 2026-10-15 -- owner deferred all human validations to one end-of-milestone Validation Block; origin/main (MCP 0.11.2, showcase refresh) merged into Jev
+Phase: 66.1 (MCP Settings Tool, inserted) — CODE-COMPLETE
+Plan: 8 of 8 complete (66.1-01..66.1-08), plus 10 code-review fix commits (125079b3..25735565); verification `human_needed` at 25735565 (62/63 must-haves, 1 owner decision, 0 failed)
+Status: Phase 66.1 code-complete; its 10 human/live items are deferred to the milestone-end Validation Block (V5 UAT incl. the WR-02/WR-04 D-15 owner decision, V1 digest cross-check, V6 release; see `66.1-HUMAN-UAT.md`). Phase 66 remains code-complete with 66-10/66-11 in V1. Next: execute Phase 69, then 67, then plan 68 (then 70, 71)
+Last activity: 2026-10-15 -- Phase 66.1 executed
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 66 | Baseline and Session Timing | MEAS-01..03 | Code-complete (9/11; 66-10/66-11 in Validation Block V1) |
-| 66.1 | MCP Settings Tool (inserted) | SET-01..02 | Not started |
+| 66.1 | MCP Settings Tool (inserted) | SET-01..02 | Code-complete (8/8; human/live checks in Validation Block V5, V1 cross-check, V6 release) |
 | 67 | Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01..07 | Not started |
 | 68 | Autopilot Fast Mode | AUTO-01..05 | Not started |
 | 69 | MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | Not started |
@@ -105,6 +105,7 @@ v1.0.0-specific decisions:
   - **V5, human UAT:** every `human_needed` verification item and every UI check from Phases 66.1-71.
   - **V6, release:** the version commits can be prepared in code, but publishing and merging to `main` wait for V4's gate and the owner's approval.
 - [Phase 66, 2026-10-15]: Phase 66 is code-complete (9/11). 66-10 and 66-11 are deferred to Validation Block V1, and later phases treat the pinned commit `8a058bdf` as "the Phase 66 baseline" (for example, Phase 69's tool-list token count is measured against the tool list at `8a058bdf`).
+- [Phase 66.1, 2026-10-15]: Phase 66.1 is code-complete (8/8 plans plus 10 review-fix commits; verification `human_needed`, 62/63, 0 failed). SET-01/SET-02 stay unticked until their live proof runs in V5. One owner decision is pending in V5: accept or revert the review fixes WR-02 (a switch to `custom` keeps a stored model name) and WR-04 (`providerKind=api` needs a ready provider), which depart from the letter of D-15. Open non-blocking follow-up IN-02: add a parity test for the settings literals hand-mirrored in `mcp-tool-dispatcher.js` before Phase 68 extends the schema.
 
 v0.9.91-specific decisions so far:
 

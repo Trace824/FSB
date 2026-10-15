@@ -77,6 +77,7 @@ Plans:
 **Goal:** Let an MCP client view FSB's control-panel settings and change one setting at a time through a single new tool, without exposing secrets or changing behavior for existing callers or autopilot.
 **Depends on:** Phase 66 (the baseline records the MCP tool list before this phase changes it).
 **Requirements:** SET-01, SET-02.
+**Status:** Code-complete 2026-10-15; human/live checks deferred to the Validation Block (V5 UAT incl. the WR-02/WR-04 owner decision, V1 digest cross-check, V6 release; see `66.1-HUMAN-UAT.md`).
 **Success Criteria:**
 
 1. One new MCP tool returns every control-panel setting as compact key-value data in a single call, and changes one setting by key in a single call.
@@ -97,35 +98,35 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 66.1-01-PLAN.md — Pre-edit sweep and tools/list digest baselines; FsbSettingsSchema in config.js with masked reads, origin-only endpoints, effective defaults and strict parsing (wave 1)
+- [x] 66.1-01-PLAN.md — Pre-edit sweep and tools/list digest baselines; FsbSettingsSchema in config.js with masked reads, origin-only endpoints, effective defaults and strict parsing (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 66.1-02-PLAN.md — Write planner with D-15 provider group rules, shared DEFAULT_MODELS and a value-free Allowed clause in invalid-value errors; inventory, default and bounds parity with the control panel (wave 2)
+- [x] 66.1-02-PLAN.md — Write planner with D-15 provider group rules, shared DEFAULT_MODELS and a value-free Allowed clause in invalid-value errors; inventory, default and bounds parity with the control panel (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 66.1-03-PLAN.md — MCP surface: two additive wire types, SETTING_ error passthrough under a Settings label, the settings tool with a value-safe write preflight, runtime wiring and smoke (wave 3)
+- [x] 66.1-03-PLAN.md — MCP surface: two additive wire types, SETTING_ error passthrough under a Settings label, the settings tool with a value-safe write preflight, runtime wiring and smoke (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 66.1-04-PLAN.md — Control-panel sync (FSBSettingsSync): touched tracking, no-network in-place refresh of simple fields and the provider group, and a Save-time filter so MCP writes are never reverted (wave 4)
+- [x] 66.1-04-PLAN.md — Control-panel sync (FSBSettingsSync): touched tracking, no-network in-place refresh of simple fields and the provider group, and a Save-time filter so MCP writes are never reverted (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 66.1-05-PLAN.md — Service-worker settings routes, write lock, fail-closed delegated-write refusal, operator log lines, bridge routing and icon class (wave 5)
+- [x] 66.1-05-PLAN.md — Service-worker settings routes, write lock, fail-closed delegated-write refusal, operator log lines, bridge routing and icon class (wave 5)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 66.1-06-PLAN.md — Recording hygiene: request/response sanitizers, journal projection, sentinel sweep across every sink, replay classification (wave 6)
+- [x] 66.1-06-PLAN.md — Recording hygiene: request/response sanitizers, journal projection, sentinel sweep across every sink, replay classification (wave 6)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 66.1-07-PLAN.md — Built-runtime contract: tool shape, 8a058bdf tools, prompt and resource digests, MCP-edge rules, end-to-end round trip, SC4 fixture, delegated refusal (wave 7)
+- [x] 66.1-07-PLAN.md — Built-runtime contract: tool shape, 8a058bdf tools, prompt and resource digests, MCP-edge rules, end-to-end round trip, SC4 fixture, delegated refusal (wave 7)
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 66.1-08-PLAN.md — Phase gate: full chain, MCP smoke, Node 20, regression sweep, mcp/ footprint and byte-identity audits, VALIDATION.md results (wave 8)
+- [x] 66.1-08-PLAN.md — Phase gate: full chain, MCP smoke, Node 20, regression sweep, mcp/ footprint and byte-identity audits, VALIDATION.md results (wave 8)
 
 ### Phase 67: Hosted Jev Gateway, Policy, and Shadow Mode
 
