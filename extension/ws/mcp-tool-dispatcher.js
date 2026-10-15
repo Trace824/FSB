@@ -4896,6 +4896,216 @@ function _originOf(url) {
   try { return new URL(url).origin; } catch (_) { return null; }
 }
 
+// ---- Phase 69 same-call expect (D-17..D-20) ----------------------------------
+// Evaluated after execute() for the 29 expect tools, whatever the change-report
+// toggle or the tool's _emitChangeReport flag. Without expect nothing here runs.
+
+// D-18: the read-only probe runs in the ISOLATED world, so page scripts cannot
+// patch the DOM APIs it reads, and with injectImmediately, so a still-loading
+// document is probed instead of queued behind document_idle. Sibling of
+// _injectFn, whose MAIN-world calls are unchanged. Never throws.
+async function _injectProbe(tabId, func, args) {
+  if (typeof chrome === 'undefined' || !chrome.scripting || typeof chrome.scripting.executeScript !== 'function') {
+    return { ok: false, reason: 'no_scripting' };
+  }
+  let timer = null;
+  try {
+    const injection = chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'ISOLATED',
+      injectImmediately: true,
+      func,
+      args: args || []
+    });
+    const timedOut = {};
+    const results = await Promise.race([
+      injection,
+      new Promise((resolve) => { timer = setTimeout(() => resolve(timedOut), _PAGE_INJECTION_TIMEOUT_MS); })
+    ]);
+    if (results === timedOut) return { ok: false, reason: 'timeout' };
+    const first = Array.isArray(results) ? results[0] : null;
+    if (!first) return { ok: false, reason: 'no_result' };
+    const documentId = (typeof first.documentId === 'string' && first.documentId) ? first.documentId : null;
+    return { ok: true, result: first.result, documentId };
+  } catch (err) {
+    return { ok: false, reason: (err && err.message) ? String(err.message) : String(err) };
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
+// The evaluator lives in utils/action-verification.js (plan 69-03). In the
+// service worker its EXPECT_* constants are top-level const bindings of a
+// classic script: shared lexically, never properties of globalThis or self,
+// so only bare identifiers reach them (a globalThis.EXPECT_* read would
+// silently disable expect in the real extension). Node tests use require.
+function _resolveExpectEvaluator() {
+  try {
+    if (typeof normalizeExpectSpec === 'function' && typeof evaluateExpectation === 'function'
+        && typeof buildUncertainExpectResult === 'function' && typeof _fsbExpectProbeInPage === 'function'
+        && typeof EXPECT_TOOL_NAMES !== 'undefined' && typeof EXPECT_NAV_TOOL_NAMES !== 'undefined') {
+      return {
+        normalizeExpectSpec, evaluateExpectation, buildUncertainExpectResult, _fsbExpectProbeInPage,
+        EXPECT_TOOL_NAMES, EXPECT_NAV_TOOL_NAMES
+      };
+    }
+  } catch (_) { /* a binding left uninitialized by a failed script load */ }
+  if (typeof require !== 'undefined') {
+    try {
+      const av = require('../utils/action-verification.js');
+      if (av && typeof av.normalizeExpectSpec === 'function' && typeof av.evaluateExpectation === 'function'
+          && typeof av.buildUncertainExpectResult === 'function' && typeof av._fsbExpectProbeInPage === 'function'
+          && Array.isArray(av.EXPECT_TOOL_NAMES) && Array.isArray(av.EXPECT_NAV_TOOL_NAMES)) {
+        return {
+          normalizeExpectSpec: av.normalizeExpectSpec,
+          evaluateExpectation: av.evaluateExpectation,
+          buildUncertainExpectResult: av.buildUncertainExpectResult,
+          _fsbExpectProbeInPage: av._fsbExpectProbeInPage,
+          EXPECT_TOOL_NAMES: av.EXPECT_TOOL_NAMES,
+          EXPECT_NAV_TOOL_NAMES: av.EXPECT_NAV_TOOL_NAMES
+        };
+      }
+    } catch (_) { /* not available */ }
+  }
+  return null;
+}
+
+// null means today's path: no expect, an evaluator that is unavailable (the
+// MCP side then reports extension_unsupported) or a tool outside the 29.
+// The bridge passes wire verbs (type, keyPress, cdpClickAt, ...), so the
+// name is resolved before the membership check (RESEARCH Finding 9).
+function _resolveExpectSpec(rawExpect, toolNameOrVerb) {
+  if (rawExpect === undefined || rawExpect === null) return null;
+  const evaluator = _resolveExpectEvaluator();
+  if (!evaluator) return null;
+  let toolName = null;
+  try {
+    const def = (typeof _mcp_getToolByNameOrVerb === 'function') ? _mcp_getToolByNameOrVerb(toolNameOrVerb) : null;
+    toolName = (def && typeof def.name === 'string') ? def.name : null;
+  } catch (_) { toolName = null; }
+  if (!toolName && toolNameOrVerb === 'back') toolName = 'back';
+  if (!toolName || evaluator.EXPECT_TOOL_NAMES.indexOf(toolName) === -1) return null;
+  let normalized;
+  try { normalized = evaluator.normalizeExpectSpec(rawExpect); } catch (_) { normalized = { ok: false, reason: 'invalid_expect' }; }
+  return {
+    toolName,
+    isNav: evaluator.EXPECT_NAV_TOOL_NAMES.indexOf(toolName) !== -1,
+    normalized,
+    evaluator
+  };
+}
+
+// Main-frame commit watcher for navigation tools (RESEARCH Finding 2,
+// Pitfall 1). Subscribe it before the navigation starts: until a commit is
+// seen the evaluator judges nothing, and a probe of any other document than
+// the latest committed one is stale. A null tabId buffers commits per tab
+// until bindTab(id) picks one (navigate bootstrap). Same listen and remove
+// pattern as navigateTabAndWaitForCommit.
+function _watchMainFrameCommit(tabId) {
+  const events = (typeof chrome !== 'undefined' && chrome.webNavigation) ? chrome.webNavigation : null;
+  if (!events || !events.onCommitted || typeof events.onCommitted.addListener !== 'function') {
+    return { required: false, isCommitted: () => true, documentId: () => null, bindTab() {}, dispose() {} };
+  }
+  let boundTab = Number.isFinite(tabId) ? tabId : null;
+  let committed = false;
+  let committedDoc = null;
+  const pending = new Map();
+  const listeners = [];
+  const record = (details, newDocument) => {
+    if (!details || details.frameId !== 0 || !Number.isFinite(details.tabId)) return;
+    const doc = (typeof details.documentId === 'string' && details.documentId) ? details.documentId : null;
+    if (boundTab === null) {
+      const prev = pending.get(details.tabId);
+      pending.set(details.tabId, (newDocument || doc) ? doc : (prev || null));
+      return;
+    }
+    if (details.tabId !== boundTab) return;
+    committed = true;
+    // A same-document update (fragment, history state) keeps the document.
+    if (newDocument || doc) committedDoc = doc;
+  };
+  const listen = (event, listener) => {
+    if (!event || typeof event.addListener !== 'function') return;
+    try { event.addListener(listener); listeners.push([event, listener]); } catch (_) { /* best-effort */ }
+  };
+  listen(events.onCommitted, (details) => record(details, true));
+  listen(events.onReferenceFragmentUpdated, (details) => record(details, false));
+  listen(events.onHistoryStateUpdated, (details) => record(details, false));
+  return {
+    required: true,
+    isCommitted: () => committed,
+    documentId: () => committedDoc,
+    bindTab(id) {
+      if (boundTab !== null || !Number.isFinite(id)) return;
+      boundTab = id;
+      if (pending.has(id)) { committed = true; committedDoc = pending.get(id); }
+      pending.clear();
+    },
+    dispose() {
+      while (listeners.length > 0) {
+        const [event, listener] = listeners.pop();
+        try { event.removeListener(listener); } catch (_) { /* best-effort */ }
+      }
+      pending.clear();
+    }
+  };
+}
+
+// D-19: expect_result rides only on success:true or mayHaveExecuted:true
+// results; definitive failures keep today's shape. success is never changed
+// and nothing here throws. Evaluation never re-dispatches the action.
+async function _attachExpectResult(response, expectCtx, tabId, commit) {
+  if (!expectCtx || !response || typeof response !== 'object') return response;
+  if (response.success !== true && response.mayHaveExecuted !== true) return response;
+  const evaluator = expectCtx.evaluator || _resolveExpectEvaluator();
+  if (!evaluator) return response;
+  const targetTabId = Number.isFinite(tabId) ? tabId : (Number.isFinite(response.tabId) ? response.tabId : null);
+  const normalized = expectCtx.normalized;
+  if (!normalized || normalized.ok !== true) {
+    try { response.expect_result = evaluator.buildUncertainExpectResult(null, 'invalid_expect'); } catch (_) { /* never throws */ }
+    return response;
+  }
+  const spec = normalized.spec;
+  try {
+    response.expect_result = await evaluator.evaluateExpectation({
+      tabId: targetTabId,
+      spec,
+      deps: {
+        tabsGet: async (id) => {
+          try {
+            if (typeof chrome === 'undefined' || !chrome.tabs || typeof chrome.tabs.get !== 'function') return null;
+            return (await chrome.tabs.get(id)) || null;
+          } catch (_) { return null; }
+        },
+        executeProbe: _injectProbe,
+        now: () => Date.now(),
+        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)))
+      },
+      commit: commit || undefined,
+      pageUnresponsive: response.errorCode === 'PAGE_UNRESPONSIVE' || response.code === 'PAGE_UNRESPONSIVE'
+    });
+  } catch (_) {
+    try { response.expect_result = evaluator.buildUncertainExpectResult(spec, 'evaluator_failed'); } catch (__) { /* never throws */ }
+  }
+  return response;
+}
+
+// Gate-skip path with expect. Navigation tools subscribe the commit watcher
+// before execute(); a throw from execute() disposes it and propagates exactly
+// as the bare return execute() does.
+async function _executeWithExpect(expectCtx, execute, tabId) {
+  const watcher = expectCtx.isNav ? _watchMainFrameCommit(tabId) : null;
+  try {
+    const response = await execute();
+    if (watcher && !Number.isFinite(tabId) && response && Number.isFinite(response.tabId)) {
+      watcher.bindTab(response.tabId);
+    }
+    return await _attachExpectResult(response, expectCtx, tabId, watcher);
+  } finally {
+    if (watcher) watcher.dispose();
+  }
+}
+
 /**
  * Wrap an action tool dispatch with a change_report harvest.
  *
@@ -4920,10 +5130,13 @@ async function wrapWithChangeReport(ctx) {
   const flagOn = !!(toolDef && toolDef._emitChangeReport === true);
   // Gate 2: global toggle
   const globalOn = !!fsbChangeReportsEnabled;
+  // Phase 69 D-17: same-call expect; null (today's path) without one.
+  const expectCtx = _resolveExpectSpec(ctx && ctx.expect, toolName);
 
   if (!flagOn || !globalOn || !Number.isFinite(tabId) ||
       ['navigate', 'close_tab', 'refresh', 'go_back', 'go_forward', 'open_tab', 'switch_tab'].includes(toolName)) {
-    return execute();
+    if (!expectCtx) return execute();
+    return _executeWithExpect(expectCtx, execute, tabId);
   }
 
   // Begin harvest. If injection fails (cross-origin start, restricted page,
@@ -4946,7 +5159,7 @@ async function wrapWithChangeReport(ctx) {
     response = { success: false, error: err && err.message ? err.message : String(err) };
   }
 
-  if (!startedHarvest) return response;
+  if (!startedHarvest) return expectCtx ? await _attachExpectResult(response, expectCtx, tabId, null) : response;
 
   // Race waitStable vs 500ms safety net. partial:true on safety hit.
   let partial = false;
@@ -4972,7 +5185,7 @@ async function wrapWithChangeReport(ctx) {
     if (!builders) {
       // Builder unavailable; clean up the page-side handle and skip.
       if (!crossOrigin) await _injectFn(tabId, _fsbHarvestStopInPage, [harvestToken]);
-      return response;
+      return expectCtx ? await _attachExpectResult(response, expectCtx, tabId, null) : response;
     }
 
     let beforeState = (startResult && startResult.beforeState) || {};
@@ -5012,7 +5225,7 @@ async function wrapWithChangeReport(ctx) {
     } catch (_) { /* logging never throws */ }
   }
 
-  return response;
+  return expectCtx ? await _attachExpectResult(response, expectCtx, tabId, null) : response;
 }
 
 const _mcp_dispatcher_exports = {
@@ -5035,6 +5248,10 @@ const _mcp_dispatcher_exports = {
   wrapWithChangeReport,
   _getChangeReportsEnabled,
   _setChangeReportsEnabledForTest,
+  // Phase 69 same-call expect helpers (test-only accessors).
+  _injectProbe,
+  _resolveExpectSpec,
+  _watchMainFrameCommit,
   // Telemetry client-label extraction (regression guard against the
   // bridge-object-as-client leak that recorded every event as 'unknown').
   extractMcpClientLabel,

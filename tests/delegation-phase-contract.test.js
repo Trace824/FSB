@@ -167,6 +167,7 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node tests/mcp-description-budget.test.js',
   'node tests/expect-evaluator.test.js',
   'node tests/change-report-redaction.test.js',
+  'node tests/expect-dispatcher.test.js',
 ]);
 
 const PHASE64_RETAINED_ROOT_COMMANDS = Object.freeze([
