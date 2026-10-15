@@ -5,6 +5,7 @@ import type { TaskQueue } from '../queue.js';
 import { AgentScope } from '../agent-scope.js';
 import { sendAgentScopedBridgeMessage } from '../agent-bridge.js';
 import { FSB_ERROR_MESSAGES, mapFSBError } from '../errors.js';
+import { mcpToolDescription, mcpParamDescription } from './descriptions.js';
 
 const SETTINGS_TIMEOUT_MS = 10_000;
 const SETTINGS_KEY_MAX = 64;
@@ -12,9 +13,6 @@ const SETTINGS_VALUE_MAX = 2048;
 // The default arm of an extension that predates the settings routes answers
 // with exactly this sentence (mcp-bridge-client.js), resolved as success:false.
 const UNSUPPORTED_SETTINGS_ERROR = /^Unknown MCP message type: mcp:(get-settings|set-setting)$/;
-
-const SETTINGS_DESCRIPTION =
-  'Read or change FSB settings. No args returns all; key returns one with its allowed values; key and value sets it. API keys and endpoints are read-only.';
 
 const REQUEST_INVALID_HINT =
   'Call settings with only a key to see its type and allowed values, or with no arguments to list every setting.';
@@ -164,11 +162,11 @@ export function registerSettingsTool(
 
   server.tool(
     'settings',
-    SETTINGS_DESCRIPTION,
+    mcpToolDescription('settings'),
     {
-      key: z.string().optional().describe('Setting name'),
+      key: z.string().optional().describe(mcpParamDescription('settings', 'key')),
       value: z.preprocess(toWireString, z.string()).optional()
-        .describe('New value (string; true/false and numbers accepted)'),
+        .describe(mcpParamDescription('settings', 'value')),
     },
     async ({ key, value }) => {
       if (!bridge.isConnected) {

@@ -92,17 +92,17 @@ export const MCP_TOOL_DESCRIPTIONS: TextTable = Object.freeze({
   get_page_snapshot: 'Get a markdown snapshot of the current page with ref IDs for its interactive elements. Take one at the start of each page and before clicking or typing. For plain text, use read_page.',
   get_site_guide: 'Get the site guide for a domain: known selectors, navigation patterns and automation tips. Use it when starting on a new site or when standard selectors fail.',
   complete_task: 'Signal that the task is complete. Call it only when everything the user asked for is done, with a summary of what was accomplished; never include passwords, tokens, API keys or sensitive form values.',
-  partial_task: 'Signal that the task is partially complete: useful work is done, but an external blocker such as login, missing or failed credentials, MFA or manual approval stops the final step. Use it instead of fail_task when the finished work still helps the user. Report what you completed, the exact blocker and the manual next step; never include passwords, tokens, API keys or sensitive form values. If the runtime offers one saved-credential or operator-prompt attempt, let it run first.',
+  partial_task: 'Signal that the task is partially complete: useful work is done, but a blocker such as login, missing or failed credentials, MFA or manual approval stops the final step. Use it instead of fail_task when the finished work still helps the user. Report what you completed, the exact blocker and the manual next step; never include passwords, tokens, API keys or sensitive form values. Let any offered saved-credential or operator-prompt attempt run first.',
   fail_task: 'Signal that the task failed and cannot be completed, with the reason. Call it instead of just stopping on an unrecoverable problem; never include passwords, tokens, API keys or sensitive form values.',
 
   // --- registry trigger tools (triggers.ts) ---
-  trigger: 'Arm a trigger that watches one element until it changes, crosses a threshold, equals or matches a value, or contains text. The background runtime owns the watch, so it survives service-worker restarts. The call blocks until the trigger fires or times out unless detached is true. Manage it with stop_trigger, get_trigger_status and list_triggers.',
+  trigger: 'Arm a trigger that watches one element until it changes, crosses a threshold, equals or matches a value, or contains text. The watch survives service-worker restarts. The call blocks until the trigger fires or times out unless detached is true; manage it with stop_trigger, get_trigger_status and list_triggers.',
   stop_trigger: 'Stop (cancel) a trigger by trigger_id. It runs promptly even while a trigger or another call is pending, and is safe to repeat on missing or finished triggers.',
   get_trigger_status: 'Get the stored status of one trigger by id: state, watch mode, condition, target tab, owner, current value, timing and any attention details.',
   list_triggers: 'List triggers with their stored status. Returns active and needs-attention watchers by default; include_terminal adds fired and stopped ones.',
 
   // --- registry screenshot tool (screenshots.ts) ---
-  capture_screenshot: 'Capture a screenshot of the page as a lossless PNG: the viewport, the full page, a region or one element. It renders CSS, fonts, SVG, canvas and open shadow DOM but not browser chrome; FSB overlays are hidden unless include_fsb_overlays is true. Returns an image and a private saved file. Desktop or mobile emulation is temporary and never reloads the page or changes the user agent.',
+  capture_screenshot: 'Capture a screenshot of the page as a lossless PNG: the viewport, the full page, a region or one element. It renders CSS, fonts, SVG, canvas and open shadow DOM but not browser chrome; FSB overlays are hidden by default. Returns an image and a private saved file. Desktop or mobile emulation is temporary and never reloads the page or changes the user agent.',
 
   // --- vault tools (vault.ts) ---
   list_credentials: 'List saved credentials as domain and username pairs; passwords are never returned. To fill a login form, use fill_credential.',
@@ -113,6 +113,31 @@ export const MCP_TOOL_DESCRIPTIONS: TextTable = Object.freeze({
   // --- capability tools (capabilities.ts) ---
   search_capabilities: 'Search the FSB capability catalog by intent; use it before DOM tools for first-party actions on the current site. Returns up to topN hits ranked toward the tab origin, each with slug, service, side-effect class (read, mutate or destructive), readiness and a params schema. Only t1-ready hits run as direct API calls.',
   invoke_capability: "Invoke a capability by slug from a search_capabilities hit, with params matching its schema. Ready capabilities call the service's real web API in your signed-in session, and mutating ones perform real side effects, so check the side-effect class first. On RECIPE_DOM_FALLBACK_PENDING, RECIPE_LEARN_PENDING or RECIPE_EXPIRED, continue the task with DOM tools.",
+
+  // --- back (agents.ts); it returns change_report, so the sentence is part of its text ---
+  back: "Go back one step in browser history on the agent's tab (single step, no count). It does not steal focus, so it works on background tabs. Returns status ok, no_history, cross_origin, bf_cache or fragment_only, with resultingUrl and historyDepth. "
+    + MCP_CHANGE_REPORT_SENTENCE,
+
+  // --- observability tools (observability.ts) ---
+  list_sessions: 'List past FSB automation sessions with task, status, duration, action count and cost. Pass a session ID to get_session_detail to inspect it.',
+  get_session_detail: 'Get full detail for one automation session: logs, action history and timing, as JSON or a text report. For a session still running (currentSessionId from get_task_status), it returns a partial snapshot with final: false.',
+  get_session_replay: 'Get the verified, redacted replay manifest of a recorded session: executable steps, logical tab targets, risk classes and the manifest hash, without signing receipts. Use it instead of rebuilding a replay from logs.',
+  replay_session: 'Replay a recorded session after the user approves it. FSB verifies the signed manifest and shows one approval card in the side panel; nothing runs until the user approves that exact manifest. FSB opens the recorded tabs itself, so never ask the user to open target pages manually.',
+  get_logs: 'Get recent automation logs, or the logs of one session, with an error and warning summary, to debug what FSB has been doing.',
+  search_memory: 'Search FSB memory for past experiences on similar sites or tasks, ranked by keyword relevance and recency. Use it before automating a site to reuse what FSB learned.',
+  get_memory_stats: 'Get FSB memory statistics: total count, breakdown by type and storage used.',
+
+  // --- autopilot tools (autopilot.ts) ---
+  run_task: 'Run a task with the FSB autopilot, whose built-in AI chooses the steps. Use it only when the user asks for autopilot, says "run a task" or says "let FSB handle it"; otherwise use the manual tools, which are more reliable. It waits for the task to end and returns a completion summary with success status and action log. Progress arrives as notifications; without them, poll get_task_status. Cancel with stop_task.',
+  stop_task: "Stop (cancel) the running autopilot task to regain manual control, for example when run_task is slow or off track. Only the calling agent's task is cancelled.",
+  get_task_status: "Get the status of the running autopilot task: whether it is running, percent complete, current phase and ETA. Poll it when progress notifications do not arrive; it reports the calling agent's task only.",
+
+  // --- removed visual-session tools (visual-session.ts) ---
+  start_visual_session: 'Start a visual session: REMOVED in v0.9.0, returns TOOL_REMOVED. Visual sessions are now implicit: pass visual_reason and client on any action tool, and is_final true to clear the overlay.',
+  end_visual_session: 'End a visual session: REMOVED in v0.9.0, returns TOOL_REMOVED. The session now clears after 60 seconds without calls, or at once when an action tool is called with is_final true.',
+
+  // --- settings (settings.ts, Phase 66.1; its contract test pins this text) ---
+  settings: 'Read or change FSB settings. No args returns all; key returns one with its allowed values; key and value sets it. API keys and endpoints are read-only.',
 });
 
 // Tool name -> parameter name -> short MCP parameter description. Per-tool
@@ -195,39 +220,40 @@ export const MCP_PARAM_DESCRIPTIONS: Readonly<Record<string, TextTable>> = Objec
   }),
   complete_task: Object.freeze({
     summary: 'What was accomplished.',
-    tab_id: 'Tab this outcome belongs to; pass it when more than one tab or session may be active.',
+    tab_id: 'Tab this outcome belongs to, when more than one may be active.',
     session_token: 'Token from start_visual_session; only to finalize a client-owned visual session.',
   }),
   partial_task: Object.freeze({
     summary: 'Useful work completed before the blocker.',
     blocker: 'What blocked the final step, such as "Messaging requires login".',
     next_step: 'Manual step the user can take to finish or resume; include it for auth or approval blockers.',
-    tab_id: 'Tab this outcome belongs to; pass it when more than one tab or session may be active.',
+    tab_id: 'Tab this outcome belongs to, when more than one may be active.',
     reason: 'Optional blocker category.',
     session_token: 'Token from start_visual_session; only to finalize a client-owned visual session.',
   }),
   fail_task: Object.freeze({
     reason: 'Why the task cannot be completed, such as "Page requires login".',
-    tab_id: 'Tab this outcome belongs to; pass it when more than one tab or session may be active.',
+    tab_id: 'Tab this outcome belongs to, when more than one may be active.',
     session_token: 'Token from start_visual_session; only to end a client-owned visual session.',
   }),
 
   // --- registry trigger tools ---
   trigger: Object.freeze({
     selector: 'CSS selector of the element to watch.',
-    condition: 'Condition object: changed, threshold, delta_percent, equals, contains, regex, or compound AND/OR.',
-    trigger_id: 'Optional correlation id; generated when omitted.',
+    condition: 'Condition object: changed, threshold, delta_percent, equals, contains, regex, or AND/OR of these.',
+    trigger_id: 'Optional correlation id (generated if omitted).',
     detached: 'True returns trigger_id at once instead of blocking.',
-    timeout_ms: 'Blocking wait in ms (default 120000); then returns timed_out.',
-    rearm_on_fire: 'True keeps watching after a fire; status shows fire_count and last_event.',
-    watch: 'live-observe watches DOM mutations; refresh-poll reloads the tab and re-reads the selector.',
+    timeout_ms: 'Blocking wait in ms (default 120000), then timed_out.',
+    rearm_on_fire: 'True keeps watching after a fire (see fire_count, last_event).',
+    watch: 'live-observe (DOM mutations) or refresh-poll (reload and re-read).',
     tab_id: 'Optional tab to watch; alias of target_tab_id.',
     target_tab_id: 'Optional tab to watch.',
-    extract: 'Value to read: text, number or attribute (default chosen from the condition).',
+    extract: 'text, number or attribute (default from the condition).',
+    attribute: 'Attribute name when extract is attribute.',
     attrName: 'Alias of attribute.',
-    poll_interval_ms: 'refresh-poll interval in ms; the runtime enforces a minimum.',
-    locale: 'Locale for number parsing, such as en-US or de-DE.',
-    decimal_separator: 'Decimal separator for number parsing.',
+    poll_interval_ms: 'refresh-poll interval in ms (runtime minimum applies).',
+    locale: 'Number-parsing locale, such as de-DE.',
+    decimal_separator: 'Decimal separator override.',
   }),
   stop_trigger: Object.freeze({
     tab_id: 'Optional tab of the trigger, for scoped cleanup.',
@@ -268,12 +294,58 @@ export const MCP_PARAM_DESCRIPTIONS: Readonly<Record<string, TextTable>> = Objec
   // --- capability tools (inline; every parameter listed, tab_id uses the common text) ---
   search_capabilities: Object.freeze({
     query: 'Natural-language intent, such as "show my github notifications".',
-    origin: 'Optional expected origin, such as https://github.com; omit to use the tab origin, which it must match.',
+    origin: 'Optional expected origin (https://github.com); must match the tab origin.',
     topN: 'Max results (default 5, max 5).',
   }),
   invoke_capability: Object.freeze({
     slug: 'Capability slug from a search_capabilities hit.',
     params: "Parameters matching the hit's params schema.",
+  }),
+
+  // --- observability tools (inline; every parameter listed) ---
+  list_sessions: Object.freeze({
+    limit: 'Max sessions (default all, max 50).',
+  }),
+  get_session_detail: Object.freeze({
+    sessionId: 'Session ID from list_sessions.',
+    format: 'json (default) or text (readable report).',
+  }),
+  get_session_replay: Object.freeze({
+    sessionId: 'Session ID from list_sessions.',
+  }),
+  replay_session: Object.freeze({
+    sessionId: 'Session ID from list_sessions.',
+  }),
+  get_logs: Object.freeze({
+    sessionId: "Only this session's logs; omit for the most recent.",
+    count: 'Number of recent logs (default 50, max 200); ignored with sessionId.',
+  }),
+  search_memory: Object.freeze({
+    query: 'Natural language search query.',
+    domain: 'Filter by domain, such as amazon.com.',
+    type: 'Filter by memory type.',
+    topN: 'Max results (default 5).',
+  }),
+
+  // --- autopilot tools (inline; every parameter listed) ---
+  run_task: Object.freeze({
+    task: 'Task to perform, in natural language.',
+  }),
+
+  // --- removed visual-session tools (inline; client and tab_id use the common text) ---
+  start_visual_session: Object.freeze({
+    task: 'Short task title for the overlay.',
+    detail: 'Optional first detail line for the overlay.',
+  }),
+  end_visual_session: Object.freeze({
+    session_token: 'Token from start_visual_session.',
+    reason: 'Optional end reason.',
+  }),
+
+  // --- settings (inline; Phase 66.1 text, pinned by its contract test) ---
+  settings: Object.freeze({
+    key: 'Setting name',
+    value: 'New value (string; true/false and numbers accepted)',
   }),
 });
 
