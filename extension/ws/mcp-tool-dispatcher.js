@@ -873,7 +873,7 @@ async function dispatchMcpMessageRoute({ type, payload = {}, client = null, mcpM
           var sessionRecordEntry = {
             client: resolveMcpClientLabel(payload),
             tool: type,
-            requestPayload: payload,
+            requestPayload: sanitizeMcpMessageRequestForRecording(type, payload),
             // Screenshot pixels are transport-only. The session journal keeps
             // sanitized metadata and never receives base64.
             response: sanitizeMcpMessageResponseForRecording(type, response),
@@ -918,7 +918,63 @@ async function dispatchMcpMessageRoute({ type, payload = {}, client = null, mcpM
   }
 }
 
+// Phase 66.1 D-19: a settings call is recorded without the submitted value.
+// The key label uses the schema's key pattern as a literal, so recording never
+// depends on the FsbSettingsSchema global.
+const SETTINGS_RECORDING_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+
+function _isSettingsRecordingType(type) {
+  return type === 'mcp:get-settings' || type === 'mcp:set-setting';
+}
+
+function _settingsRecordingKeyLabel(key) {
+  return typeof key === 'string' && SETTINGS_RECORDING_KEY_PATTERN.test(key) ? key : '[invalid]';
+}
+
+// Every other type keeps its payload reference. A settings request keeps key
+// (or '[invalid]'), agentId, the recording fields and any symbol-keyed context,
+// never value. A settings payload that is not a plain object records nothing.
+function sanitizeMcpMessageRequestForRecording(type, payload) {
+  if (!_isSettingsRecordingType(type) || payload === null || payload === undefined) return payload;
+  if (typeof payload !== 'object' || Array.isArray(payload)) return {};
+  const recorded = Object.assign({}, payload);
+  delete recorded.value;
+  if (Object.prototype.hasOwnProperty.call(recorded, 'key')) {
+    recorded.key = _settingsRecordingKeyLabel(recorded.key);
+  }
+  return recorded;
+}
+
+// Settings replies are recorded as summaries: read-all as its key count,
+// read-one as key and writable, an accepted write as key, value, previous and
+// changed (writable keys only, never a secret), a failure as code and key.
+function _summarizeSettingsResponseForRecording(type, response) {
+  if (response === null || response === undefined) return response;
+  if (typeof response !== 'object' || Array.isArray(response)) return { success: false };
+  if (response.success === false) {
+    const failure = { success: false };
+    const code = response.code || response.errorCode;
+    if (typeof code === 'string' && code !== '') failure.code = code;
+    if (response.key !== undefined) failure.key = _settingsRecordingKeyLabel(response.key);
+    return failure;
+  }
+  if (type === 'mcp:get-settings') {
+    if (response.settings && typeof response.settings === 'object') {
+      return { success: true, keyCount: Object.keys(response.settings).length };
+    }
+    return { success: true, key: _settingsRecordingKeyLabel(response.key), writable: response.writable === true };
+  }
+  return {
+    success: true,
+    key: _settingsRecordingKeyLabel(response.key),
+    value: response.value,
+    previous: response.previous,
+    changed: Array.isArray(response.changed) ? response.changed.slice() : []
+  };
+}
+
 function sanitizeMcpMessageResponseForRecording(type, response) {
+  if (_isSettingsRecordingType(type)) return _summarizeSettingsResponseForRecording(type, response);
   if (type !== 'mcp:capture-screenshot' || !response || typeof response !== 'object') {
     return response;
   }
@@ -4838,7 +4894,10 @@ const _mcp_dispatcher_exports = {
   // Phase 66.1 settings routes and their write lock (test access).
   handleGetSettingsMessageRoute,
   handleSetSettingMessageRoute,
-  _withSettingsWriteLock
+  _withSettingsWriteLock,
+  // Phase 66.1 D-19 recording sanitizers (test access).
+  sanitizeMcpMessageRequestForRecording,
+  sanitizeMcpMessageResponseForRecording
 };
 
 if (typeof globalThis !== 'undefined') {

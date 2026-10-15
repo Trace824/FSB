@@ -822,7 +822,9 @@ const HANDLE_GET_CONFIG_SHA256_469907CB = '4de2a8ab83d3fd2a2af84c9be0a4cf452ccb2
 // Files under extension/ that may name the two settings message types. A new
 // holder must be a reviewed addition here; a chrome.runtime.onMessage handler
 // never may (D-06, T-66.1-11).
-const ALLOWED_SETTINGS_TYPE_FILES = ['ws/mcp-bridge-client.js', 'ws/mcp-tool-dispatcher.js'];
+// utils/mcp-session-recorder.js names them only in JOURNAL_FULL_RESULT_TOOLS,
+// a journal projection table (plan 66.1-06).
+const ALLOWED_SETTINGS_TYPE_FILES = ['utils/mcp-session-recorder.js', 'ws/mcp-bridge-client.js', 'ws/mcp-tool-dispatcher.js'];
 
 function createVmFakeTimers() {
   const noop = { cleared: false };
@@ -1111,6 +1113,341 @@ async function partB() {
 }
 
 // ---------------------------------------------------------------------------
+// Part C: session recording keeps settings values out (D-18, D-19, Pitfall 3-5)
+// ---------------------------------------------------------------------------
+
+const RECORDER_PATH = path.join(ROOT, 'extension', 'utils', 'mcp-session-recorder.js');
+const RECORDING_RUN_ID = 'recording-run-settings';
+
+// sanitizeMcpMessageResponseForRecording('mcp:capture-screenshot', ...) as the
+// pre-66.1-06 implementation returned it (captured from 6a934f50 source). The
+// settings branch must leave the screenshot path byte-identical in behaviour.
+const SCREENSHOT_SAMPLES = Object.freeze({
+  ok: {
+    success: true,
+    dataUrl: 'data:image/png;base64,AAAA',
+    metadata: {
+      capture_id: 'cap-1', output_width: 1280, output_height: 720, byte_length: 4096,
+      duration_ms: 31, delivery_status: 'delivered', format: 'png', tabUrl: 'https://example.test/'
+    },
+    note: 'extra'
+  },
+  fail: { success: false, errorCode: 'CAPTURE_FAILED', retryable: true, error: 'boom', metadata: { capture_id: 'cap-2', duration_ms: 5 } },
+  failCode: { success: false, code: 'SCREENSHOT_TOO_LARGE', errorCode: 'IGNORED', retryable: 'yes' },
+  noMeta: { success: true, metadata: null }
+});
+const SCREENSHOT_FIXTURE = Object.freeze({
+  ok: {
+    success: true,
+    metadata: { capture_id: 'cap-1', output_width: 1280, output_height: 720, byte_length: 4096, duration_ms: 31, delivery_status: 'delivered' }
+  },
+  fail: { success: false, metadata: { capture_id: 'cap-2', duration_ms: 5 }, code: 'CAPTURE_FAILED', retryable: true },
+  failCode: { success: false, metadata: {}, code: 'SCREENSHOT_TOO_LARGE', retryable: false },
+  noMeta: { success: true, metadata: {} }
+});
+
+function makeRecorderStorage() {
+  const state = {};
+  return {
+    state,
+    async get(keys) {
+      if (keys === null || keys === undefined) return { ...state };
+      const names = Array.isArray(keys) ? keys : (typeof keys === 'string' ? [keys] : Object.keys(keys));
+      const result = {};
+      for (const key of names) {
+        if (hasOwn(state, key)) result[key] = state[key];
+      }
+      return result;
+    },
+    async set(values) { Object.assign(state, values || {}); },
+    async remove(keys) {
+      for (const key of (Array.isArray(keys) ? keys : [keys])) delete state[key];
+    }
+  };
+}
+
+// The tests/mcp-session-recorder-journal.test.js journalStub pattern: the
+// recorder hands its journal snapshot (the tool.call event input) to
+// recordDispatch.
+function makeJournalStub() {
+  const dispatches = [];
+  return {
+    IDLE_ALARM_PREFIX: 'fsbMcpJournal:idle:',
+    RETENTION_ALARM: 'fsbMcpJournal:retention',
+    dispatches,
+    validRunSidecar(value) { return typeof value === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(value); },
+    async hasCall() { return false; },
+    async hasCorrelation() { return false; },
+    async recordDispatch(value) { dispatches.push(value); return { recorded: true }; },
+    async markRecordingGap() {},
+    async degradeOpenRuns() { return { degraded: 0, ids: [] }; },
+    async prune() { return { removed: 0, ids: [] }; },
+    async initialize() {},
+    async handleAlarm() { return { handled: false }; }
+  };
+}
+
+const RECORDER_LOGGER_STUB = Object.freeze({
+  async withSessionMutationLock(fn) { return fn(); },
+  async pruneMcpSessions() { return { removed: 0, ids: [] }; },
+  logSessionStart() {},
+  logAction() {},
+  getSessionLogs() { return [{ data: {} }]; },
+  async saveSession() { return true; },
+  async updateSessionOutcome() { return true; }
+});
+
+let realRecorder = null;
+
+// Loads the real recorder once. It starts an initialization pass at load, so
+// it gets a private chrome and logger for that pass (the suite's fake storage,
+// listeners and logger capture stay untouched), and the global it registers
+// is removed again: only the capture wrapper below may forward to it.
+async function loadRealRecorder() {
+  if (realRecorder) return realRecorder;
+  const saved = {
+    chrome: global.chrome,
+    logger: global.automationLogger,
+    recorder: globalThis.fsbMcpSessionRecorder,
+    journal: globalThis.FsbMcpLatticeJournal,
+    replay: globalThis.FsbLatticeReplay
+  };
+  global.chrome = {
+    storage: { local: makeRecorderStorage(), session: makeRecorderStorage(), onChanged: { addListener() {} } },
+    alarms: { async create() {}, async clear() { return true; }, async get() { return null; }, async getAll() { return []; } }
+  };
+  global.automationLogger = RECORDER_LOGGER_STUB;
+  globalThis.FsbMcpLatticeJournal = makeJournalStub();
+  globalThis.FsbLatticeReplay = null;
+  try {
+    const loaded = require(RECORDER_PATH);
+    loaded._setStorageShim(makeRecorderStorage());
+    loaded._setLocalStorageShim(makeRecorderStorage());
+    loaded._setAlarmShim({ async create() {}, async clear() {}, async get() { return null; } });
+    loaded._setTimeShim({ now: () => 1800000000000 });
+    await loaded._drainForTests();
+    realRecorder = loaded;
+  } finally {
+    global.chrome = saved.chrome;
+    global.automationLogger = saved.logger;
+    if (saved.recorder === undefined) delete globalThis.fsbMcpSessionRecorder;
+    else globalThis.fsbMcpSessionRecorder = saved.recorder;
+    if (saved.journal === undefined) delete globalThis.FsbMcpLatticeJournal;
+    else globalThis.FsbMcpLatticeJournal = saved.journal;
+    if (saved.replay === undefined) delete globalThis.FsbLatticeReplay;
+    else globalThis.FsbLatticeReplay = saved.replay;
+  }
+  return realRecorder;
+}
+
+// Points the real recorder at a fresh journal stub with the given policy.
+async function resetRealRecorder(recordingEnabled) {
+  const recorder = await loadRealRecorder();
+  await recorder._drainForTests();
+  recorder._resetForTests();
+  recorder._setStorageShim(makeRecorderStorage());
+  recorder._setLocalStorageShim(makeRecorderStorage());
+  const journal = makeJournalStub();
+  globalThis.FsbMcpLatticeJournal = journal;
+  await recorder._applyPolicyForTests(recordingEnabled !== false, 30, recorder.FSB_MCP_RECORDER_BACKEND_JOURNAL);
+  return { recorder, journal };
+}
+
+// Installs the dispatcher's session-recorder global as a capture that keeps
+// every entry and, when given, forwards it to the real recorder. No
+// spreadsheet redactor is present, so the dispatcher calls it directly.
+function installCaptureRecorder(forwardTo) {
+  const entries = [];
+  const saved = {
+    recorder: globalThis.fsbMcpSessionRecorder,
+    redactor: globalThis.FsbSpreadsheetRecordRedaction
+  };
+  delete globalThis.FsbSpreadsheetRecordRedaction;
+  globalThis.fsbMcpSessionRecorder = {
+    recordDispatch(entry) {
+      entries.push(entry);
+      if (forwardTo) forwardTo.recordDispatch(entry);
+    }
+  };
+  return {
+    entries,
+    restore() {
+      if (saved.recorder === undefined) delete globalThis.fsbMcpSessionRecorder;
+      else globalThis.fsbMcpSessionRecorder = saved.recorder;
+      if (saved.redactor !== undefined) globalThis.FsbSpreadsheetRecordRedaction = saved.redactor;
+      delete globalThis.FsbMcpLatticeJournal;
+    }
+  };
+}
+
+// JSON and util.inspect (which also shows symbol-keyed context) of a value.
+function sinkText(value) {
+  let json = '';
+  try { json = JSON.stringify(value === undefined ? null : value); } catch (_e) { json = '[unserializable]'; }
+  return json + '\n' + util.inspect(value, { depth: 12, breakLength: Infinity });
+}
+
+function recordedPayload(key, value, callId, extra) {
+  return writePayload(key, value, Object.assign({ recordingRunId: RECORDING_RUN_ID, recordingCallId: callId }, extra || {}));
+}
+
+async function partC() {
+  await runSection('recording sanitizers are exported (D-19)', async () => {
+    check(typeof dispatcher.sanitizeMcpMessageRequestForRecording === 'function', 'sanitizeMcpMessageRequestForRecording is exported');
+    check(typeof dispatcher.sanitizeMcpMessageResponseForRecording === 'function', 'sanitizeMcpMessageResponseForRecording is exported');
+  });
+
+  await runSection('request sanitizer drops the submitted value (D-19)', async () => {
+    const sanitizeRequest = dispatcher.sanitizeMcpMessageRequestForRecording;
+    const input = { key: 'apiKey', value: 'sk-SENTINEL-3', agentId: 'a1', recordingRunId: 'r1', recordingCallId: 'c1' };
+    const before = clone(input);
+    const recorded = sanitizeRequest('mcp:set-setting', input);
+    checkDeep(recorded, { key: 'apiKey', agentId: 'a1', recordingRunId: 'r1', recordingCallId: 'c1' },
+      'a set-setting request keeps key and the agent/recording fields but not value');
+    check(recorded !== input, 'the recorded request is a copy');
+    checkDeep(input, before, 'the input payload is not mutated');
+    check(!hasSentinel(recorded), 'the recorded request has no SENTINEL value');
+
+    checkDeep(sanitizeRequest('mcp:set-setting', { key: 'bad key', value: 'x', agentId: 'a1' }), { key: '[invalid]', agentId: 'a1' },
+      'a malformed key is recorded as [invalid]');
+    checkDeep(sanitizeRequest('mcp:set-setting', { key: 42, value: 1, agentId: 'a1' }), { key: '[invalid]', agentId: 'a1' },
+      'a non-string key is recorded as [invalid]');
+    checkDeep(sanitizeRequest('mcp:set-setting', { key: 'a'.repeat(65), value: 1 }), { key: '[invalid]' },
+      'a key longer than 64 characters is recorded as [invalid]');
+    checkDeep(sanitizeRequest('mcp:get-settings', { key: 'maxIterations', agentId: 'a1', connectionId: 'conn-1' }),
+      { key: 'maxIterations', agentId: 'a1', connectionId: 'conn-1' }, 'a get-settings request keeps key, agentId and connectionId');
+    checkDeep(sanitizeRequest('mcp:get-settings', { agentId: 'a1', value: 'sk-SENTINEL-3' }), { agentId: 'a1' },
+      'a get-settings request never records a value either, and gains no key');
+
+    const context = Symbol('replay-context');
+    const withSymbol = { key: 'debugMode', value: true, agentId: 'a1' };
+    withSymbol[context] = { tabId: 7 };
+    const symbolCopy = sanitizeRequest('mcp:set-setting', withSymbol);
+    check(symbolCopy[context] === withSymbol[context] && !hasOwn(symbolCopy, 'value'), 'symbol-keyed context is kept');
+
+    const otherPayload = { key: 'k', value: 'v', agentId: 'a1' };
+    check(sanitizeRequest('mcp:get-logs', otherPayload) === otherPayload, 'another type returns the same payload reference');
+    check(sanitizeRequest('mcp:capture-screenshot', otherPayload) === otherPayload, 'the screenshot type returns the same payload reference');
+    check(sanitizeRequest('mcp:set-setting', null) === null && sanitizeRequest('mcp:set-setting', undefined) === undefined,
+      'a null or missing settings payload stays as it is');
+    const malformed = [['a string', 'sk-SENTINEL-3'], ['an array', ['sk-SENTINEL-3']], ['a number', 7]];
+    for (const [name, payload] of malformed) {
+      const recordedMalformed = sanitizeRequest('mcp:set-setting', payload);
+      checkDeep(recordedMalformed, {}, name + ' settings payload is recorded as an empty object');
+    }
+  });
+
+  await runSection('response sanitizer records summaries (D-18, D-19)', async () => {
+    const sanitizeResponse = dispatcher.sanitizeMcpMessageResponseForRecording;
+    resetStorage({ maxIterations: 300 });
+    const all = await getSettings({ agentId: 'agent_ok' });
+    const allBefore = clone(all);
+    checkDeep(sanitizeResponse('mcp:get-settings', all), { success: true, keyCount: PRODUCTION_SCHEMA.keys().length },
+      'read-all is recorded as its key count');
+    check(PRODUCTION_SCHEMA.keys().length === Object.keys((all && all.settings) || {}).length,
+      'the key count equals the number of settings in the reply');
+    checkDeep(all, allBefore, 'the reply itself is not changed');
+
+    const one = await getSettings({ agentId: 'agent_ok', key: 'maxIterations' });
+    check(one && one.success === true && one.value === 300, 'the read-one reply carries the value');
+    checkDeep(sanitizeResponse('mcp:get-settings', one), { success: true, key: 'maxIterations', writable: true },
+      'read-one is recorded as key and writable');
+    const secretRead = await getSettings({ agentId: 'agent_ok', key: 'apiKey' });
+    checkDeep(sanitizeResponse('mcp:get-settings', secretRead), { success: true, key: 'apiKey', writable: false },
+      'a protected read is recorded as key and writable:false');
+
+    resetStorage({});
+    const write = await setSetting(writePayload('debugMode', 'true'));
+    checkDeep(sanitizeResponse('mcp:set-setting', write), { success: true, key: 'debugMode', value: true, previous: false, changed: ['debugMode'] },
+      'an accepted write is recorded as key, value, previous and changed');
+
+    const refused = await setSetting(writePayload('apiKey', 'sk-SENTINEL-3'));
+    checkDeep(sanitizeResponse('mcp:set-setting', refused), { success: false, code: 'SETTING_PROTECTED_KEY', key: 'apiKey' },
+      'a refused write is recorded as code and key');
+    checkDeep(sanitizeResponse('mcp:set-setting', { success: false, errorCode: 'SETTING_UNKNOWN_KEY', error: 'e', key: 'bad key', values: ['a'] }),
+      { success: false, code: 'SETTING_UNKNOWN_KEY', key: '[invalid]' }, 'a failure takes errorCode and labels a malformed key');
+    checkDeep(sanitizeResponse('mcp:get-settings', { success: false, code: 'SETTING_STORAGE_FAILED', errorCode: 'SETTING_STORAGE_FAILED', error: 'e' }),
+      { success: false, code: 'SETTING_STORAGE_FAILED' }, 'a failure without a key records no key');
+
+    for (const name of Object.keys(SCREENSHOT_SAMPLES)) {
+      checkDeep(sanitizeResponse('mcp:capture-screenshot', clone(SCREENSHOT_SAMPLES[name])), SCREENSHOT_FIXTURE[name],
+        'the screenshot ' + name + ' response is sanitized exactly as before');
+    }
+    check(sanitizeResponse('mcp:capture-screenshot', null) === null, 'a null screenshot response stays null');
+    const logs = { success: true, logs: [{ message: 'x' }] };
+    check(sanitizeResponse('mcp:get-logs', logs) === logs, 'another type returns the same response reference');
+  });
+
+  await runSection('dispatch records one value-free entry per settings call', async () => {
+    const capture = installCaptureRecorder(null);
+    try {
+      resetStorage({});
+      const write = await setSetting(recordedPayload('debugMode', 'true', 'recording-call-settings-1'));
+      check(write && write.success === true, 'the recorded write succeeds');
+      check(capture.entries.length === 1, 'one write records exactly one entry');
+      const entry = capture.entries[0] || { requestPayload: {} };
+      check(entry.tool === 'mcp:set-setting' && entry.dispatcher_route === 'message' && entry.success === true,
+        'the entry names the type, the message route and success');
+      check(entry.requestPayload && !hasOwn(entry.requestPayload, 'value'), 'the recorded request has no value');
+      check(entry.requestPayload && entry.requestPayload.key === 'debugMode' && entry.requestPayload.agentId === 'agent_ok'
+        && entry.requestPayload.recordingRunId === RECORDING_RUN_ID, 'the recorded request keeps key, agentId and recordingRunId');
+      checkDeep(entry.response, { success: true, key: 'debugMode', value: true, previous: false, changed: ['debugMode'] },
+        'the recorded response is the write summary');
+
+      const all = await getSettings({ agentId: 'agent_ok', recordingRunId: RECORDING_RUN_ID, recordingCallId: 'recording-call-settings-2' });
+      check(all && all.success === true && all.settings, 'the recorded read-all succeeds');
+      const readEntry = capture.entries[1] || {};
+      checkDeep(readEntry.response, { success: true, keyCount: PRODUCTION_SCHEMA.keys().length }, 'read-all is recorded as its key count');
+      check(readEntry.response && !hasOwn(readEntry.response, 'settings'), 'the recorded read-all has no settings map');
+
+      const refused = await setSetting(recordedPayload('apiKey', 'sk-SENTINEL-5', 'recording-call-settings-3'));
+      check(isFailure(refused, 'SETTING_PROTECTED_KEY'), 'the recorded refusal is SETTING_PROTECTED_KEY');
+      const refusedEntry = capture.entries[2] || {};
+      checkDeep(refusedEntry.response, { success: false, code: 'SETTING_PROTECTED_KEY', key: 'apiKey' }, 'the refusal is recorded as code and key');
+      check(capture.entries.length === 3, 'three settings calls record three entries');
+      check(capture.entries.every((item) => !sinkText(item).includes('SENTINEL')), 'no recorded entry contains a SENTINEL value');
+    } finally {
+      capture.restore();
+    }
+  });
+
+  await runSection('the journal keeps the accepted write facts (Pitfall 4)', async () => {
+    const { recorder, journal } = await resetRealRecorder(true);
+    const capture = installCaptureRecorder(null);
+    globalThis.FsbMcpLatticeJournal = journal;
+    try {
+      resetStorage({});
+      const write = await setSetting(recordedPayload('maxIterations', '120', 'recording-call-journal-1'));
+      check(write && write.success === true, 'the journaled write succeeds');
+      const all = await getSettings({ agentId: 'agent_ok', recordingRunId: RECORDING_RUN_ID, recordingCallId: 'recording-call-journal-2' });
+      check(all && all.success === true, 'the journaled read-all succeeds');
+      const refused = await setSetting(recordedPayload('serverHashKey', 'sk-SENTINEL-6', 'recording-call-journal-3'));
+      check(isFailure(refused, 'SETTING_PROTECTED_KEY'), 'the journaled refusal is SETTING_PROTECTED_KEY');
+      for (const entry of capture.entries) recorder.recordDispatch(entry);
+      await recorder._drainForTests();
+
+      check(journal.dispatches.length === 3, 'the real recorder hands three calls to the journal (got ' + journal.dispatches.length + ')');
+      const [writeEvent, readEvent, refusedEvent] = journal.dispatches;
+      const writeResult = (writeEvent && writeEvent.response) || {};
+      check(writeEvent && writeEvent.tool === 'mcp:set-setting' && writeEvent.resultProjection === 'journal-full-v1',
+        'the write uses the full-result journal projection');
+      checkDeep(writeResult, { success: true, key: 'maxIterations', value: 120, previous: 100, changed: ['maxIterations'] },
+        'the journal result keeps key, value, previous and changed');
+      check(writeEvent && writeEvent.requestPayload && !hasOwn(writeEvent.requestPayload, 'value')
+        && writeEvent.requestPayload.key === 'maxIterations', 'the journal request keeps key and no value');
+      check(readEvent && readEvent.resultProjection === 'journal-full-v1', 'the read uses the full-result journal projection');
+      checkDeep(readEvent && readEvent.response, { success: true, keyCount: PRODUCTION_SCHEMA.keys().length },
+        'the journal read result is the key count');
+      checkDeep(refusedEvent && refusedEvent.response, { success: false, code: 'SETTING_PROTECTED_KEY', key: 'serverHashKey' },
+        'the journal refusal result is code and key');
+      check(journal.dispatches.every((event) => !sinkText(event).includes('SENTINEL')), 'no journal event contains a SENTINEL value');
+    } finally {
+      capture.restore();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Value hygiene across every sink
 // ---------------------------------------------------------------------------
 
@@ -1127,6 +1464,7 @@ function sentinelScan() {
 (async () => {
   await partA();
   await partB();
+  await partC();
   sentinelScan();
   out('\nmcp-settings-route: ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed > 0 ? 1 : 0);
