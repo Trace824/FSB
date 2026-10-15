@@ -3520,5 +3520,492 @@
   },
   "entry_crawl_title": {
     "message": "FSB Crawling"
+  },
+  "panel_b2693770d3": {
+    "message": "Connection Test"
+  },
+  "panel_672f1efd8b": {
+    "message": "Provider:"
+  },
+  "panel_755c8b2a9f": {
+    "message": "Status:"
+  },
+  "panel_c88a0b9074": {
+    "message": "Success"
+  },
+  "panel_11a931060d": {
+    "message": "Model:"
+  },
+  "panel_8f6bed11e7": {
+    "message": "Response Time:"
+  },
+  "panel_5e1834d89d": {
+    "message": "$MS$ ms",
+    "placeholders": {
+      "ms": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_6170629067": {
+    "message": "Error:"
+  },
+  "panel_9ec41ffd77": {
+    "message": "View logs"
+  },
+  "panel_9af63d68f9": {
+    "message": "Download logs"
+  },
+  "panel_1c01ad70fe": {
+    "message": "Failed to load sessions: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_aaa0442372": {
+    "message": "Export as human-readable text"
+  },
+  "panel_52a0e8b87e": {
+    "message": "Export Text"
+  },
+  "panel_2e80d6e9a5": {
+    "message": "Download JSON logs"
+  },
+  "panel_49e0e6d56e": {
+    "message": "Download JSON"
+  },
+  "panel_7d9eb7acb1": {
+    "message": "Close"
+  },
+  "panel_cb9ac5c561": {
+    "message": "Session ID"
+  },
+  "panel_ecbc89cd37": {
+    "message": "Started"
+  },
+  "panel_7cdc804e69": {
+    "message": "Ended"
+  },
+  "panel_4fc52a3c4c": {
+    "message": "Duration"
+  },
+  "panel_ff8059dc67": {
+    "message": "Actions"
+  },
+  "panel_4740b57371": {
+    "message": "Iterations"
+  },
+  "panel_73912999fa": {
+    "message": "Prev"
+  },
+  "panel_1ff57a29d7": {
+    "message": "Next"
+  },
+  "panel_f03788e116": {
+    "message": "Step $CURRENT$ of $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a75ab6920d": {
+    "message": "Loading replay data..."
+  },
+  "panel_881c9fdb90": {
+    "message": "Show Raw Logs"
+  },
+  "panel_57df179c4f": {
+    "message": "Hide Raw Logs"
+  },
+  "panel_51cbb3bf88": {
+    "message": "No replay data available for this session"
+  },
+  "panel_dfa4ae555e": {
+    "message": "Targeting"
+  },
+  "panel_14b981a43b": {
+    "message": "Selector:"
+  },
+  "panel_9216cbad79": {
+    "message": "Element Found: Yes"
+  },
+  "panel_2dbfbc21aa": {
+    "message": "Element Found: No"
+  },
+  "panel_fe3d6f1947": {
+    "message": "Coordinates: ($X$, $Y$)",
+    "placeholders": {
+      "x": {
+        "content": "$1"
+      },
+      "y": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_4e5b548d6d": {
+    "message": "Element"
+  },
+  "panel_848bf594dd": {
+    "message": "Text: \"$TEXT$\"",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_e68b36b17c": {
+    "message": "Parameters"
+  },
+  "panel_b1fa878a98": {
+    "message": "Diagnostic"
+  },
+  "panel_27c2ccd962": {
+    "message": "Unknown error"
+  },
+  "panel_407fab696b": {
+    "message": "Suggestions:"
+  },
+  "panel_4de32d57f8": {
+    "message": "latest $COUNT$ of $TOTAL$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_23e0248aa9": {
+    "message": "Summary:"
+  },
+  "panel_d6f290028c": {
+    "message": "$DONE$/$TOTAL$ steps successful",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_ba5c173754": {
+    "message": "$COUNT$ failed",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_af3c60331d": {
+    "message": "No username"
+  },
+  "panel_6aeaa6a53d": {
+    "message": "Show password"
+  },
+  "panel_464c4ffd01": {
+    "message": "Edit"
+  },
+  "panel_e2d0a54968": {
+    "message": "Delete"
+  },
+  "panel_be3702e3f1": {
+    "message": "Card"
+  },
+  "panel_cae7d57bc0": {
+    "message": "Stop"
+  },
+  "panel_ada26b6a54": {
+    "message": "Starting crawl..."
+  },
+  "panel_7eae8fd81d": {
+    "message": "$COLLECTED$ / $MAX$ pages",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a854c3e6d9": {
+    "message": "Crawling $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b837e392c5": {
+    "message": "Crawl completed: $COUNT$ pages from $DOMAIN$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "domain": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_44761df9d9": {
+    "message": "$COUNT$ pages",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d1bf045bb5": {
+    "message": "View details"
+  },
+  "panel_6c0a28c891": {
+    "message": "Save as site map memory"
+  },
+  "panel_0f4baebaa0": {
+    "message": "Failed to load research results: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1c1944d338": {
+    "message": "$START$-$END$ of $TOTAL$",
+    "placeholders": {
+      "start": {
+        "content": "$1"
+      },
+      "end": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "panel_9046da16ae": {
+    "message": "Pages"
+  },
+  "panel_e1ff7a9061": {
+    "message": "Elements"
+  },
+  "panel_858451263b": {
+    "message": "Forms"
+  },
+  "panel_9024c197d8": {
+    "message": "Links"
+  },
+  "panel_a6d5df3737": {
+    "message": "Start URL:"
+  },
+  "panel_298d6c7549": {
+    "message": "Duration:"
+  },
+  "panel_184ab6989d": {
+    "message": "Depth:"
+  },
+  "panel_068fbd1599": {
+    "message": "Pages crawled ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_59ba6ff1da": {
+    "message": "$COUNT$ elements",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d81ab3063e": {
+    "message": "Refined"
+  },
+  "panel_0e35f6e974": {
+    "message": "Basic"
+  },
+  "panel_6ab098444e": {
+    "message": "Refine sitemap"
+  },
+  "panel_1e7f34ee8f": {
+    "message": "Refine"
+  },
+  "panel_d9483244b6": {
+    "message": "Toggle details"
+  },
+  "panel_cdf8d330f5": {
+    "message": "$COUNT$ accesses",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_008de64db2": {
+    "message": "$PERCENT$% conf",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_3aba541421": {
+    "message": "Delete memory"
+  },
+  "panel_aab6c5e605": {
+    "message": "None recorded"
+  },
+  "panel_dc937b5989": {
+    "message": "None"
+  },
+  "panel_060b7c4116": {
+    "message": "Final URL"
+  },
+  "panel_e7dcad8673": {
+    "message": "Steps Completed"
+  },
+  "panel_7bd31a025d": {
+    "message": "Failures"
+  },
+  "panel_304230dd7b": {
+    "message": "Site Map"
+  },
+  "panel_f02a172a35": {
+    "message": "Selector"
+  },
+  "panel_217baacf82": {
+    "message": "Site Pattern"
+  },
+  "panel_c910d474dc": {
+    "message": "General"
+  },
+  "panel_2502651aed": {
+    "message": "Cross-Site Pattern"
+  },
+  "panel_22e2dbcfc1": {
+    "message": "User Preference"
+  },
+  "panel_82ac23744f": {
+    "message": "...and $COUNT$ more",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b2fc7c1a37": {
+    "message": "($COUNT$ form)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_34a07bf033": {
+    "message": "($COUNT$ forms)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b358b78f08": {
+    "message": "($COUNT$ nav item)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_2d597de6ea": {
+    "message": "($COUNT$ nav items)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1b786c0eff": {
+    "message": "Nav Sections"
+  },
+  "panel_df71c8b46d": {
+    "message": "Crawled"
+  },
+  "panel_2521c156e7": {
+    "message": "(refined)"
+  },
+  "panel_c555ac6ba2": {
+    "message": "Pages Discovered"
+  },
+  "panel_8083e76d16": {
+    "message": "Forms Found"
+  },
+  "panel_3db65f8c2a": {
+    "message": "Navigation"
+  },
+  "panel_97100721e2": {
+    "message": "Selector Info"
+  },
+  "panel_041f11ea06": {
+    "message": "Domains Analyzed"
+  },
+  "panel_92f41ed9cf": {
+    "message": "Common Form Types"
+  },
+  "panel_7ea2d98ace": {
+    "message": "Shared Selector Patterns"
+  },
+  "panel_53e6cf4452": {
+    "message": "Validated At"
+  },
+  "panel_292c06f004": {
+    "message": "Category"
+  },
+  "panel_7baf29fa69": {
+    "message": "No steps recorded"
+  },
+  "panel_5b341c960f": {
+    "message": "Target URL"
+  },
+  "panel_4ccf1d74a7": {
+    "message": "Total Runs"
+  },
+  "panel_1de3df70dd": {
+    "message": "Steps"
+  },
+  "panel_01b7cdd40d": {
+    "message": "Selectors Used"
+  },
+  "panel_e70d8eb905": {
+    "message": "Analysis"
+  },
+  "panel_0a30a815d6": {
+    "message": "Page"
+  },
+  "panel_96a5ba634b": {
+    "message": "Discovered"
+  },
+  "panel_2e0e960ab3": {
+    "message": "Form"
+  },
+  "panel_2e2d5c5649": {
+    "message": "Workflow"
+  },
+  "panel_3fee95da5a": {
+    "message": "Simple"
+  },
+  "panel_008dacb6d1": {
+    "message": "Full"
   }
 }

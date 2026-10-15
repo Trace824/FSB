@@ -3520,5 +3520,492 @@
   },
   "entry_crawl_title": {
     "message": "FSB 순회 중"
+  },
+  "panel_b2693770d3": {
+    "message": "연결 테스트"
+  },
+  "panel_672f1efd8b": {
+    "message": "공급자:"
+  },
+  "panel_755c8b2a9f": {
+    "message": "상태:"
+  },
+  "panel_c88a0b9074": {
+    "message": "성공"
+  },
+  "panel_11a931060d": {
+    "message": "모델:"
+  },
+  "panel_8f6bed11e7": {
+    "message": "응답 시간:"
+  },
+  "panel_5e1834d89d": {
+    "message": "$MS$ms",
+    "placeholders": {
+      "ms": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_6170629067": {
+    "message": "오류:"
+  },
+  "panel_9ec41ffd77": {
+    "message": "로그 보기"
+  },
+  "panel_9af63d68f9": {
+    "message": "로그 다운로드"
+  },
+  "panel_1c01ad70fe": {
+    "message": "세션을 불러오지 못했습니다: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_aaa0442372": {
+    "message": "읽기 쉬운 텍스트로 내보내기"
+  },
+  "panel_52a0e8b87e": {
+    "message": "텍스트 내보내기"
+  },
+  "panel_2e80d6e9a5": {
+    "message": "JSON 로그 다운로드"
+  },
+  "panel_49e0e6d56e": {
+    "message": "JSON 다운로드"
+  },
+  "panel_7d9eb7acb1": {
+    "message": "닫기"
+  },
+  "panel_cb9ac5c561": {
+    "message": "세션 ID"
+  },
+  "panel_ecbc89cd37": {
+    "message": "시작"
+  },
+  "panel_7cdc804e69": {
+    "message": "종료"
+  },
+  "panel_4fc52a3c4c": {
+    "message": "소요 시간"
+  },
+  "panel_ff8059dc67": {
+    "message": "작업"
+  },
+  "panel_4740b57371": {
+    "message": "반복"
+  },
+  "panel_73912999fa": {
+    "message": "이전"
+  },
+  "panel_1ff57a29d7": {
+    "message": "다음"
+  },
+  "panel_f03788e116": {
+    "message": "$TOTAL$단계 중 $CURRENT$단계",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a75ab6920d": {
+    "message": "재생 데이터를 불러오는 중..."
+  },
+  "panel_881c9fdb90": {
+    "message": "원시 로그 표시"
+  },
+  "panel_57df179c4f": {
+    "message": "원시 로그 숨기기"
+  },
+  "panel_51cbb3bf88": {
+    "message": "이 세션에는 재생 데이터가 없습니다"
+  },
+  "panel_dfa4ae555e": {
+    "message": "대상 지정"
+  },
+  "panel_14b981a43b": {
+    "message": "선택자:"
+  },
+  "panel_9216cbad79": {
+    "message": "요소 찾음: 예"
+  },
+  "panel_2dbfbc21aa": {
+    "message": "요소 찾음: 아니요"
+  },
+  "panel_fe3d6f1947": {
+    "message": "좌표: ($X$, $Y$)",
+    "placeholders": {
+      "x": {
+        "content": "$1"
+      },
+      "y": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_4e5b548d6d": {
+    "message": "요소"
+  },
+  "panel_848bf594dd": {
+    "message": "텍스트: \"$TEXT$\"",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_e68b36b17c": {
+    "message": "매개변수"
+  },
+  "panel_b1fa878a98": {
+    "message": "진단"
+  },
+  "panel_27c2ccd962": {
+    "message": "알 수 없는 오류"
+  },
+  "panel_407fab696b": {
+    "message": "제안:"
+  },
+  "panel_4de32d57f8": {
+    "message": "$TOTAL$개 중 최근 $COUNT$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_23e0248aa9": {
+    "message": "요약:"
+  },
+  "panel_d6f290028c": {
+    "message": "$DONE$/$TOTAL$단계 성공",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_ba5c173754": {
+    "message": "$COUNT$개 실패",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_af3c60331d": {
+    "message": "사용자 이름 없음"
+  },
+  "panel_6aeaa6a53d": {
+    "message": "비밀번호 표시"
+  },
+  "panel_464c4ffd01": {
+    "message": "편집"
+  },
+  "panel_e2d0a54968": {
+    "message": "삭제"
+  },
+  "panel_be3702e3f1": {
+    "message": "카드"
+  },
+  "panel_cae7d57bc0": {
+    "message": "중지"
+  },
+  "panel_ada26b6a54": {
+    "message": "순회를 시작하는 중..."
+  },
+  "panel_7eae8fd81d": {
+    "message": "$COLLECTED$ / $MAX$ 페이지",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a854c3e6d9": {
+    "message": "$DOMAIN$ 순회 중",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b837e392c5": {
+    "message": "순회 완료: $DOMAIN$에서 $COUNT$페이지",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "domain": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_44761df9d9": {
+    "message": "$COUNT$페이지",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d1bf045bb5": {
+    "message": "세부 정보 보기"
+  },
+  "panel_6c0a28c891": {
+    "message": "사이트 맵 메모리로 저장"
+  },
+  "panel_0f4baebaa0": {
+    "message": "조사 결과를 불러오지 못했습니다: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1c1944d338": {
+    "message": "$TOTAL$개 중 $START$-$END$",
+    "placeholders": {
+      "start": {
+        "content": "$1"
+      },
+      "end": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "panel_9046da16ae": {
+    "message": "페이지"
+  },
+  "panel_e1ff7a9061": {
+    "message": "요소"
+  },
+  "panel_858451263b": {
+    "message": "양식"
+  },
+  "panel_9024c197d8": {
+    "message": "링크"
+  },
+  "panel_a6d5df3737": {
+    "message": "시작 URL:"
+  },
+  "panel_298d6c7549": {
+    "message": "소요 시간:"
+  },
+  "panel_184ab6989d": {
+    "message": "깊이:"
+  },
+  "panel_068fbd1599": {
+    "message": "순회한 페이지($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_59ba6ff1da": {
+    "message": "요소 $COUNT$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d81ab3063e": {
+    "message": "다듬음"
+  },
+  "panel_0e35f6e974": {
+    "message": "기본"
+  },
+  "panel_6ab098444e": {
+    "message": "사이트 맵 다듬기"
+  },
+  "panel_1e7f34ee8f": {
+    "message": "다듬기"
+  },
+  "panel_d9483244b6": {
+    "message": "세부 정보 펼치기/접기"
+  },
+  "panel_cdf8d330f5": {
+    "message": "$COUNT$회 접근",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_008de64db2": {
+    "message": "신뢰도 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_3aba541421": {
+    "message": "메모리 삭제"
+  },
+  "panel_aab6c5e605": {
+    "message": "기록 없음"
+  },
+  "panel_dc937b5989": {
+    "message": "없음"
+  },
+  "panel_060b7c4116": {
+    "message": "최종 URL"
+  },
+  "panel_e7dcad8673": {
+    "message": "완료한 단계"
+  },
+  "panel_7bd31a025d": {
+    "message": "실패"
+  },
+  "panel_304230dd7b": {
+    "message": "사이트 맵"
+  },
+  "panel_f02a172a35": {
+    "message": "선택자"
+  },
+  "panel_217baacf82": {
+    "message": "사이트 패턴"
+  },
+  "panel_c910d474dc": {
+    "message": "일반"
+  },
+  "panel_2502651aed": {
+    "message": "사이트 간 패턴"
+  },
+  "panel_22e2dbcfc1": {
+    "message": "사용자 기본 설정"
+  },
+  "panel_82ac23744f": {
+    "message": "...외 $COUNT$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b2fc7c1a37": {
+    "message": "(양식 $COUNT$개)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_34a07bf033": {
+    "message": "(양식 $COUNT$개)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b358b78f08": {
+    "message": "(탐색 항목 $COUNT$개)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_2d597de6ea": {
+    "message": "(탐색 항목 $COUNT$개)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1b786c0eff": {
+    "message": "탐색 섹션"
+  },
+  "panel_df71c8b46d": {
+    "message": "순회 시각"
+  },
+  "panel_2521c156e7": {
+    "message": "(다듬음)"
+  },
+  "panel_c555ac6ba2": {
+    "message": "발견한 페이지"
+  },
+  "panel_8083e76d16": {
+    "message": "찾은 양식"
+  },
+  "panel_3db65f8c2a": {
+    "message": "탐색"
+  },
+  "panel_97100721e2": {
+    "message": "선택자 정보"
+  },
+  "panel_041f11ea06": {
+    "message": "분석한 도메인"
+  },
+  "panel_92f41ed9cf": {
+    "message": "자주 쓰는 양식 유형"
+  },
+  "panel_7ea2d98ace": {
+    "message": "공통 선택자 패턴"
+  },
+  "panel_53e6cf4452": {
+    "message": "검증 시각"
+  },
+  "panel_292c06f004": {
+    "message": "범주"
+  },
+  "panel_7baf29fa69": {
+    "message": "기록된 단계가 없습니다"
+  },
+  "panel_5b341c960f": {
+    "message": "대상 URL"
+  },
+  "panel_4ccf1d74a7": {
+    "message": "총 실행 횟수"
+  },
+  "panel_1de3df70dd": {
+    "message": "단계"
+  },
+  "panel_01b7cdd40d": {
+    "message": "사용한 선택자"
+  },
+  "panel_e70d8eb905": {
+    "message": "분석"
+  },
+  "panel_0a30a815d6": {
+    "message": "페이지"
+  },
+  "panel_96a5ba634b": {
+    "message": "발견됨"
+  },
+  "panel_2e0e960ab3": {
+    "message": "양식"
+  },
+  "panel_2e2d5c5649": {
+    "message": "워크플로"
+  },
+  "panel_3fee95da5a": {
+    "message": "간단히"
+  },
+  "panel_008dacb6d1": {
+    "message": "전체"
   }
 }

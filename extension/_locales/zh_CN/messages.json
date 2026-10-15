@@ -3520,5 +3520,492 @@
   },
   "entry_crawl_title": {
     "message": "FSB 正在抓取"
+  },
+  "panel_b2693770d3": {
+    "message": "连接测试"
+  },
+  "panel_672f1efd8b": {
+    "message": "提供方："
+  },
+  "panel_755c8b2a9f": {
+    "message": "状态："
+  },
+  "panel_c88a0b9074": {
+    "message": "成功"
+  },
+  "panel_11a931060d": {
+    "message": "模型："
+  },
+  "panel_8f6bed11e7": {
+    "message": "响应时间："
+  },
+  "panel_5e1834d89d": {
+    "message": "$MS$ 毫秒",
+    "placeholders": {
+      "ms": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_6170629067": {
+    "message": "错误："
+  },
+  "panel_9ec41ffd77": {
+    "message": "查看日志"
+  },
+  "panel_9af63d68f9": {
+    "message": "下载日志"
+  },
+  "panel_1c01ad70fe": {
+    "message": "无法加载会话：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_aaa0442372": {
+    "message": "导出为易读文本"
+  },
+  "panel_52a0e8b87e": {
+    "message": "导出文本"
+  },
+  "panel_2e80d6e9a5": {
+    "message": "下载 JSON 日志"
+  },
+  "panel_49e0e6d56e": {
+    "message": "下载 JSON"
+  },
+  "panel_7d9eb7acb1": {
+    "message": "关闭"
+  },
+  "panel_cb9ac5c561": {
+    "message": "会话 ID"
+  },
+  "panel_ecbc89cd37": {
+    "message": "开始时间"
+  },
+  "panel_7cdc804e69": {
+    "message": "结束时间"
+  },
+  "panel_4fc52a3c4c": {
+    "message": "时长"
+  },
+  "panel_ff8059dc67": {
+    "message": "操作"
+  },
+  "panel_4740b57371": {
+    "message": "迭代次数"
+  },
+  "panel_73912999fa": {
+    "message": "上一个"
+  },
+  "panel_1ff57a29d7": {
+    "message": "下一个"
+  },
+  "panel_f03788e116": {
+    "message": "第 $CURRENT$ 步，共 $TOTAL$ 步",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a75ab6920d": {
+    "message": "正在加载重放数据..."
+  },
+  "panel_881c9fdb90": {
+    "message": "显示原始日志"
+  },
+  "panel_57df179c4f": {
+    "message": "隐藏原始日志"
+  },
+  "panel_51cbb3bf88": {
+    "message": "此会话没有重放数据"
+  },
+  "panel_dfa4ae555e": {
+    "message": "目标定位"
+  },
+  "panel_14b981a43b": {
+    "message": "选择器："
+  },
+  "panel_9216cbad79": {
+    "message": "找到元素：是"
+  },
+  "panel_2dbfbc21aa": {
+    "message": "找到元素：否"
+  },
+  "panel_fe3d6f1947": {
+    "message": "坐标：($X$, $Y$)",
+    "placeholders": {
+      "x": {
+        "content": "$1"
+      },
+      "y": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_4e5b548d6d": {
+    "message": "元素"
+  },
+  "panel_848bf594dd": {
+    "message": "文本：“$TEXT$”",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_e68b36b17c": {
+    "message": "参数"
+  },
+  "panel_b1fa878a98": {
+    "message": "诊断"
+  },
+  "panel_27c2ccd962": {
+    "message": "未知错误"
+  },
+  "panel_407fab696b": {
+    "message": "建议："
+  },
+  "panel_4de32d57f8": {
+    "message": "共 $TOTAL$ 个中的最近 $COUNT$ 个",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_23e0248aa9": {
+    "message": "摘要："
+  },
+  "panel_d6f290028c": {
+    "message": "$DONE$/$TOTAL$ 个步骤成功",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_ba5c173754": {
+    "message": "$COUNT$ 个失败",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_af3c60331d": {
+    "message": "无用户名"
+  },
+  "panel_6aeaa6a53d": {
+    "message": "显示密码"
+  },
+  "panel_464c4ffd01": {
+    "message": "编辑"
+  },
+  "panel_e2d0a54968": {
+    "message": "删除"
+  },
+  "panel_be3702e3f1": {
+    "message": "卡"
+  },
+  "panel_cae7d57bc0": {
+    "message": "停止"
+  },
+  "panel_ada26b6a54": {
+    "message": "正在开始抓取..."
+  },
+  "panel_7eae8fd81d": {
+    "message": "$COLLECTED$ / $MAX$ 页",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a854c3e6d9": {
+    "message": "正在抓取 $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b837e392c5": {
+    "message": "抓取完成：来自 $DOMAIN$ 的 $COUNT$ 个页面",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "domain": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_44761df9d9": {
+    "message": "$COUNT$ 个页面",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d1bf045bb5": {
+    "message": "查看详情"
+  },
+  "panel_6c0a28c891": {
+    "message": "保存为站点地图记忆"
+  },
+  "panel_0f4baebaa0": {
+    "message": "无法加载研究结果：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1c1944d338": {
+    "message": "第 $START$-$END$ 项，共 $TOTAL$ 项",
+    "placeholders": {
+      "start": {
+        "content": "$1"
+      },
+      "end": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "panel_9046da16ae": {
+    "message": "页面"
+  },
+  "panel_e1ff7a9061": {
+    "message": "元素"
+  },
+  "panel_858451263b": {
+    "message": "表单"
+  },
+  "panel_9024c197d8": {
+    "message": "链接"
+  },
+  "panel_a6d5df3737": {
+    "message": "起始 URL："
+  },
+  "panel_298d6c7549": {
+    "message": "时长："
+  },
+  "panel_184ab6989d": {
+    "message": "深度："
+  },
+  "panel_068fbd1599": {
+    "message": "已抓取页面（$COUNT$）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_59ba6ff1da": {
+    "message": "$COUNT$ 个元素",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d81ab3063e": {
+    "message": "已优化"
+  },
+  "panel_0e35f6e974": {
+    "message": "基础"
+  },
+  "panel_6ab098444e": {
+    "message": "优化站点地图"
+  },
+  "panel_1e7f34ee8f": {
+    "message": "优化"
+  },
+  "panel_d9483244b6": {
+    "message": "展开或收起详情"
+  },
+  "panel_cdf8d330f5": {
+    "message": "$COUNT$ 次访问",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_008de64db2": {
+    "message": "置信度 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_3aba541421": {
+    "message": "删除记忆"
+  },
+  "panel_aab6c5e605": {
+    "message": "无记录"
+  },
+  "panel_dc937b5989": {
+    "message": "无"
+  },
+  "panel_060b7c4116": {
+    "message": "最终 URL"
+  },
+  "panel_e7dcad8673": {
+    "message": "已完成的步骤"
+  },
+  "panel_7bd31a025d": {
+    "message": "失败"
+  },
+  "panel_304230dd7b": {
+    "message": "站点地图"
+  },
+  "panel_f02a172a35": {
+    "message": "选择器"
+  },
+  "panel_217baacf82": {
+    "message": "站点模式"
+  },
+  "panel_c910d474dc": {
+    "message": "通用"
+  },
+  "panel_2502651aed": {
+    "message": "跨站点模式"
+  },
+  "panel_22e2dbcfc1": {
+    "message": "用户偏好"
+  },
+  "panel_82ac23744f": {
+    "message": "...还有 $COUNT$ 个",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b2fc7c1a37": {
+    "message": "（$COUNT$ 个表单）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_34a07bf033": {
+    "message": "（$COUNT$ 个表单）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b358b78f08": {
+    "message": "（$COUNT$ 个导航项）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_2d597de6ea": {
+    "message": "（$COUNT$ 个导航项）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1b786c0eff": {
+    "message": "导航区块"
+  },
+  "panel_df71c8b46d": {
+    "message": "抓取时间"
+  },
+  "panel_2521c156e7": {
+    "message": "（已优化）"
+  },
+  "panel_c555ac6ba2": {
+    "message": "发现的页面"
+  },
+  "panel_8083e76d16": {
+    "message": "找到的表单"
+  },
+  "panel_3db65f8c2a": {
+    "message": "导航"
+  },
+  "panel_97100721e2": {
+    "message": "选择器信息"
+  },
+  "panel_041f11ea06": {
+    "message": "已分析的域名"
+  },
+  "panel_92f41ed9cf": {
+    "message": "常见表单类型"
+  },
+  "panel_7ea2d98ace": {
+    "message": "共享选择器模式"
+  },
+  "panel_53e6cf4452": {
+    "message": "验证时间"
+  },
+  "panel_292c06f004": {
+    "message": "类别"
+  },
+  "panel_7baf29fa69": {
+    "message": "没有记录的步骤"
+  },
+  "panel_5b341c960f": {
+    "message": "目标 URL"
+  },
+  "panel_4ccf1d74a7": {
+    "message": "总运行次数"
+  },
+  "panel_1de3df70dd": {
+    "message": "步骤"
+  },
+  "panel_01b7cdd40d": {
+    "message": "使用的选择器"
+  },
+  "panel_e70d8eb905": {
+    "message": "分析"
+  },
+  "panel_0a30a815d6": {
+    "message": "页面"
+  },
+  "panel_96a5ba634b": {
+    "message": "已发现"
+  },
+  "panel_2e0e960ab3": {
+    "message": "表单"
+  },
+  "panel_2e2d5c5649": {
+    "message": "工作流"
+  },
+  "panel_3fee95da5a": {
+    "message": "简单"
+  },
+  "panel_008dacb6d1": {
+    "message": "完整"
   }
 }

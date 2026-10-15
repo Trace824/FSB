@@ -3520,5 +3520,492 @@
   },
   "entry_crawl_title": {
     "message": "FSB recorriendo"
+  },
+  "panel_b2693770d3": {
+    "message": "Prueba de conexión"
+  },
+  "panel_672f1efd8b": {
+    "message": "Proveedor:"
+  },
+  "panel_755c8b2a9f": {
+    "message": "Estado:"
+  },
+  "panel_c88a0b9074": {
+    "message": "Correcto"
+  },
+  "panel_11a931060d": {
+    "message": "Modelo:"
+  },
+  "panel_8f6bed11e7": {
+    "message": "Tiempo de respuesta:"
+  },
+  "panel_5e1834d89d": {
+    "message": "$MS$ ms",
+    "placeholders": {
+      "ms": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_6170629067": {
+    "message": "Error:"
+  },
+  "panel_9ec41ffd77": {
+    "message": "Ver registros"
+  },
+  "panel_9af63d68f9": {
+    "message": "Descargar registros"
+  },
+  "panel_1c01ad70fe": {
+    "message": "No se pudieron cargar las sesiones: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_aaa0442372": {
+    "message": "Exportar como texto legible"
+  },
+  "panel_52a0e8b87e": {
+    "message": "Exportar texto"
+  },
+  "panel_2e80d6e9a5": {
+    "message": "Descargar registros JSON"
+  },
+  "panel_49e0e6d56e": {
+    "message": "Descargar JSON"
+  },
+  "panel_7d9eb7acb1": {
+    "message": "Cerrar"
+  },
+  "panel_cb9ac5c561": {
+    "message": "ID de sesión"
+  },
+  "panel_ecbc89cd37": {
+    "message": "Inicio"
+  },
+  "panel_7cdc804e69": {
+    "message": "Fin"
+  },
+  "panel_4fc52a3c4c": {
+    "message": "Duración"
+  },
+  "panel_ff8059dc67": {
+    "message": "Acciones"
+  },
+  "panel_4740b57371": {
+    "message": "Iteraciones"
+  },
+  "panel_73912999fa": {
+    "message": "Anterior"
+  },
+  "panel_1ff57a29d7": {
+    "message": "Siguiente"
+  },
+  "panel_f03788e116": {
+    "message": "Paso $CURRENT$ de $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a75ab6920d": {
+    "message": "Cargando datos de reproducción..."
+  },
+  "panel_881c9fdb90": {
+    "message": "Mostrar registros sin procesar"
+  },
+  "panel_57df179c4f": {
+    "message": "Ocultar registros sin procesar"
+  },
+  "panel_51cbb3bf88": {
+    "message": "No hay datos de reproducción para esta sesión"
+  },
+  "panel_dfa4ae555e": {
+    "message": "Selección del objetivo"
+  },
+  "panel_14b981a43b": {
+    "message": "Selector:"
+  },
+  "panel_9216cbad79": {
+    "message": "Elemento encontrado: Sí"
+  },
+  "panel_2dbfbc21aa": {
+    "message": "Elemento encontrado: No"
+  },
+  "panel_fe3d6f1947": {
+    "message": "Coordenadas: ($X$, $Y$)",
+    "placeholders": {
+      "x": {
+        "content": "$1"
+      },
+      "y": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_4e5b548d6d": {
+    "message": "Elemento"
+  },
+  "panel_848bf594dd": {
+    "message": "Texto: \"$TEXT$\"",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_e68b36b17c": {
+    "message": "Parámetros"
+  },
+  "panel_b1fa878a98": {
+    "message": "Diagnóstico"
+  },
+  "panel_27c2ccd962": {
+    "message": "Error desconocido"
+  },
+  "panel_407fab696b": {
+    "message": "Sugerencias:"
+  },
+  "panel_4de32d57f8": {
+    "message": "los últimos $COUNT$ de $TOTAL$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_23e0248aa9": {
+    "message": "Resumen:"
+  },
+  "panel_d6f290028c": {
+    "message": "$DONE$/$TOTAL$ pasos correctos",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_ba5c173754": {
+    "message": "$COUNT$ fallidos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_af3c60331d": {
+    "message": "Sin nombre de usuario"
+  },
+  "panel_6aeaa6a53d": {
+    "message": "Mostrar contraseña"
+  },
+  "panel_464c4ffd01": {
+    "message": "Editar"
+  },
+  "panel_e2d0a54968": {
+    "message": "Eliminar"
+  },
+  "panel_be3702e3f1": {
+    "message": "Tarjeta"
+  },
+  "panel_cae7d57bc0": {
+    "message": "Detener"
+  },
+  "panel_ada26b6a54": {
+    "message": "Iniciando el recorrido..."
+  },
+  "panel_7eae8fd81d": {
+    "message": "$COLLECTED$ / $MAX$ páginas",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a854c3e6d9": {
+    "message": "Recorriendo $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b837e392c5": {
+    "message": "Recorrido completado: $COUNT$ páginas de $DOMAIN$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "domain": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_44761df9d9": {
+    "message": "$COUNT$ páginas",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d1bf045bb5": {
+    "message": "Ver detalles"
+  },
+  "panel_6c0a28c891": {
+    "message": "Guardar como memoria de mapa del sitio"
+  },
+  "panel_0f4baebaa0": {
+    "message": "No se pudieron cargar los resultados de la investigación: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1c1944d338": {
+    "message": "$START$-$END$ de $TOTAL$",
+    "placeholders": {
+      "start": {
+        "content": "$1"
+      },
+      "end": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "panel_9046da16ae": {
+    "message": "Páginas"
+  },
+  "panel_e1ff7a9061": {
+    "message": "Elementos"
+  },
+  "panel_858451263b": {
+    "message": "Formularios"
+  },
+  "panel_9024c197d8": {
+    "message": "Enlaces"
+  },
+  "panel_a6d5df3737": {
+    "message": "URL de inicio:"
+  },
+  "panel_298d6c7549": {
+    "message": "Duración:"
+  },
+  "panel_184ab6989d": {
+    "message": "Profundidad:"
+  },
+  "panel_068fbd1599": {
+    "message": "Páginas recorridas ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_59ba6ff1da": {
+    "message": "$COUNT$ elementos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d81ab3063e": {
+    "message": "Refinado"
+  },
+  "panel_0e35f6e974": {
+    "message": "Básico"
+  },
+  "panel_6ab098444e": {
+    "message": "Refinar el mapa del sitio"
+  },
+  "panel_1e7f34ee8f": {
+    "message": "Refinar"
+  },
+  "panel_d9483244b6": {
+    "message": "Mostrar u ocultar detalles"
+  },
+  "panel_cdf8d330f5": {
+    "message": "$COUNT$ accesos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_008de64db2": {
+    "message": "$PERCENT$ % conf.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_3aba541421": {
+    "message": "Eliminar memoria"
+  },
+  "panel_aab6c5e605": {
+    "message": "No se registró nada"
+  },
+  "panel_dc937b5989": {
+    "message": "Ninguno"
+  },
+  "panel_060b7c4116": {
+    "message": "URL final"
+  },
+  "panel_e7dcad8673": {
+    "message": "Pasos completados"
+  },
+  "panel_7bd31a025d": {
+    "message": "Fallos"
+  },
+  "panel_304230dd7b": {
+    "message": "Mapa del sitio"
+  },
+  "panel_f02a172a35": {
+    "message": "Selector"
+  },
+  "panel_217baacf82": {
+    "message": "Patrón del sitio"
+  },
+  "panel_c910d474dc": {
+    "message": "General"
+  },
+  "panel_2502651aed": {
+    "message": "Patrón entre sitios"
+  },
+  "panel_22e2dbcfc1": {
+    "message": "Preferencia del usuario"
+  },
+  "panel_82ac23744f": {
+    "message": "...y $COUNT$ más",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b2fc7c1a37": {
+    "message": "($COUNT$ formulario)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_34a07bf033": {
+    "message": "($COUNT$ formularios)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b358b78f08": {
+    "message": "($COUNT$ elemento de navegación)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_2d597de6ea": {
+    "message": "($COUNT$ elementos de navegación)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1b786c0eff": {
+    "message": "Secciones de navegación"
+  },
+  "panel_df71c8b46d": {
+    "message": "Recorrido el"
+  },
+  "panel_2521c156e7": {
+    "message": "(refinado)"
+  },
+  "panel_c555ac6ba2": {
+    "message": "Páginas descubiertas"
+  },
+  "panel_8083e76d16": {
+    "message": "Formularios encontrados"
+  },
+  "panel_3db65f8c2a": {
+    "message": "Navegación"
+  },
+  "panel_97100721e2": {
+    "message": "Información del selector"
+  },
+  "panel_041f11ea06": {
+    "message": "Dominios analizados"
+  },
+  "panel_92f41ed9cf": {
+    "message": "Tipos de formulario comunes"
+  },
+  "panel_7ea2d98ace": {
+    "message": "Patrones de selector compartidos"
+  },
+  "panel_53e6cf4452": {
+    "message": "Validado el"
+  },
+  "panel_292c06f004": {
+    "message": "Categoría"
+  },
+  "panel_7baf29fa69": {
+    "message": "No se registraron pasos"
+  },
+  "panel_5b341c960f": {
+    "message": "URL de destino"
+  },
+  "panel_4ccf1d74a7": {
+    "message": "Ejecuciones totales"
+  },
+  "panel_1de3df70dd": {
+    "message": "Pasos"
+  },
+  "panel_01b7cdd40d": {
+    "message": "Selectores usados"
+  },
+  "panel_e70d8eb905": {
+    "message": "Análisis"
+  },
+  "panel_0a30a815d6": {
+    "message": "Página"
+  },
+  "panel_96a5ba634b": {
+    "message": "Descubierto"
+  },
+  "panel_2e0e960ab3": {
+    "message": "Formulario"
+  },
+  "panel_2e2d5c5649": {
+    "message": "Flujo de trabajo"
+  },
+  "panel_3fee95da5a": {
+    "message": "Simple"
+  },
+  "panel_008dacb6d1": {
+    "message": "Completo"
   }
 }

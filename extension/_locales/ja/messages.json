@@ -3520,5 +3520,492 @@
   },
   "entry_crawl_title": {
     "message": "FSB が巡回中"
+  },
+  "panel_b2693770d3": {
+    "message": "接続テスト"
+  },
+  "panel_672f1efd8b": {
+    "message": "プロバイダー:"
+  },
+  "panel_755c8b2a9f": {
+    "message": "状態:"
+  },
+  "panel_c88a0b9074": {
+    "message": "成功"
+  },
+  "panel_11a931060d": {
+    "message": "モデル:"
+  },
+  "panel_8f6bed11e7": {
+    "message": "応答時間:"
+  },
+  "panel_5e1834d89d": {
+    "message": "$MS$ ミリ秒",
+    "placeholders": {
+      "ms": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_6170629067": {
+    "message": "エラー:"
+  },
+  "panel_9ec41ffd77": {
+    "message": "ログを表示"
+  },
+  "panel_9af63d68f9": {
+    "message": "ログをダウンロード"
+  },
+  "panel_1c01ad70fe": {
+    "message": "セッションを読み込めませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_aaa0442372": {
+    "message": "読みやすいテキストとして書き出す"
+  },
+  "panel_52a0e8b87e": {
+    "message": "テキストを書き出す"
+  },
+  "panel_2e80d6e9a5": {
+    "message": "JSON ログをダウンロード"
+  },
+  "panel_49e0e6d56e": {
+    "message": "JSON をダウンロード"
+  },
+  "panel_7d9eb7acb1": {
+    "message": "閉じる"
+  },
+  "panel_cb9ac5c561": {
+    "message": "セッション ID"
+  },
+  "panel_ecbc89cd37": {
+    "message": "開始"
+  },
+  "panel_7cdc804e69": {
+    "message": "終了"
+  },
+  "panel_4fc52a3c4c": {
+    "message": "所要時間"
+  },
+  "panel_ff8059dc67": {
+    "message": "操作"
+  },
+  "panel_4740b57371": {
+    "message": "反復回数"
+  },
+  "panel_73912999fa": {
+    "message": "前へ"
+  },
+  "panel_1ff57a29d7": {
+    "message": "次へ"
+  },
+  "panel_f03788e116": {
+    "message": "ステップ $CURRENT$ / $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a75ab6920d": {
+    "message": "再生データを読み込み中..."
+  },
+  "panel_881c9fdb90": {
+    "message": "生ログを表示"
+  },
+  "panel_57df179c4f": {
+    "message": "生ログを隠す"
+  },
+  "panel_51cbb3bf88": {
+    "message": "このセッションには再生データがありません"
+  },
+  "panel_dfa4ae555e": {
+    "message": "ターゲット指定"
+  },
+  "panel_14b981a43b": {
+    "message": "セレクター:"
+  },
+  "panel_9216cbad79": {
+    "message": "要素の検出: あり"
+  },
+  "panel_2dbfbc21aa": {
+    "message": "要素の検出: なし"
+  },
+  "panel_fe3d6f1947": {
+    "message": "座標: ($X$, $Y$)",
+    "placeholders": {
+      "x": {
+        "content": "$1"
+      },
+      "y": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_4e5b548d6d": {
+    "message": "要素"
+  },
+  "panel_848bf594dd": {
+    "message": "テキスト: 「$TEXT$」",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_e68b36b17c": {
+    "message": "パラメーター"
+  },
+  "panel_b1fa878a98": {
+    "message": "診断"
+  },
+  "panel_27c2ccd962": {
+    "message": "不明なエラー"
+  },
+  "panel_407fab696b": {
+    "message": "提案:"
+  },
+  "panel_4de32d57f8": {
+    "message": "$TOTAL$ 件中の最新 $COUNT$ 件",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_23e0248aa9": {
+    "message": "概要:"
+  },
+  "panel_d6f290028c": {
+    "message": "$DONE$/$TOTAL$ ステップ成功",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_ba5c173754": {
+    "message": "$COUNT$ 件失敗",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_af3c60331d": {
+    "message": "ユーザー名なし"
+  },
+  "panel_6aeaa6a53d": {
+    "message": "パスワードを表示"
+  },
+  "panel_464c4ffd01": {
+    "message": "編集"
+  },
+  "panel_e2d0a54968": {
+    "message": "削除"
+  },
+  "panel_be3702e3f1": {
+    "message": "カード"
+  },
+  "panel_cae7d57bc0": {
+    "message": "停止"
+  },
+  "panel_ada26b6a54": {
+    "message": "巡回を開始しています..."
+  },
+  "panel_7eae8fd81d": {
+    "message": "$COLLECTED$ / $MAX$ ページ",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a854c3e6d9": {
+    "message": "$DOMAIN$ を巡回中",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b837e392c5": {
+    "message": "巡回が完了しました: $DOMAIN$ から $COUNT$ ページ",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "domain": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_44761df9d9": {
+    "message": "$COUNT$ ページ",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d1bf045bb5": {
+    "message": "詳細を表示"
+  },
+  "panel_6c0a28c891": {
+    "message": "サイトマップのメモリとして保存"
+  },
+  "panel_0f4baebaa0": {
+    "message": "調査結果を読み込めませんでした: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1c1944d338": {
+    "message": "$TOTAL$ 件中 $START$-$END$",
+    "placeholders": {
+      "start": {
+        "content": "$1"
+      },
+      "end": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "panel_9046da16ae": {
+    "message": "ページ"
+  },
+  "panel_e1ff7a9061": {
+    "message": "要素"
+  },
+  "panel_858451263b": {
+    "message": "フォーム"
+  },
+  "panel_9024c197d8": {
+    "message": "リンク"
+  },
+  "panel_a6d5df3737": {
+    "message": "開始 URL:"
+  },
+  "panel_298d6c7549": {
+    "message": "所要時間:"
+  },
+  "panel_184ab6989d": {
+    "message": "深さ:"
+  },
+  "panel_068fbd1599": {
+    "message": "巡回したページ（$COUNT$）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_59ba6ff1da": {
+    "message": "要素 $COUNT$ 件",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d81ab3063e": {
+    "message": "精緻化済み"
+  },
+  "panel_0e35f6e974": {
+    "message": "基本"
+  },
+  "panel_6ab098444e": {
+    "message": "サイトマップを精緻化"
+  },
+  "panel_1e7f34ee8f": {
+    "message": "精緻化"
+  },
+  "panel_d9483244b6": {
+    "message": "詳細の表示を切り替え"
+  },
+  "panel_cdf8d330f5": {
+    "message": "$COUNT$ 回アクセス",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_008de64db2": {
+    "message": "信頼度 $PERCENT$%",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_3aba541421": {
+    "message": "メモリを削除"
+  },
+  "panel_aab6c5e605": {
+    "message": "記録なし"
+  },
+  "panel_dc937b5989": {
+    "message": "なし"
+  },
+  "panel_060b7c4116": {
+    "message": "最終 URL"
+  },
+  "panel_e7dcad8673": {
+    "message": "完了した手順"
+  },
+  "panel_7bd31a025d": {
+    "message": "失敗"
+  },
+  "panel_304230dd7b": {
+    "message": "サイトマップ"
+  },
+  "panel_f02a172a35": {
+    "message": "セレクター"
+  },
+  "panel_217baacf82": {
+    "message": "サイトのパターン"
+  },
+  "panel_c910d474dc": {
+    "message": "一般"
+  },
+  "panel_2502651aed": {
+    "message": "サイト横断パターン"
+  },
+  "panel_22e2dbcfc1": {
+    "message": "ユーザー設定"
+  },
+  "panel_82ac23744f": {
+    "message": "...ほか $COUNT$ 件",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b2fc7c1a37": {
+    "message": "（フォーム $COUNT$ 件）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_34a07bf033": {
+    "message": "（フォーム $COUNT$ 件）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b358b78f08": {
+    "message": "（ナビゲーション項目 $COUNT$ 件）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_2d597de6ea": {
+    "message": "（ナビゲーション項目 $COUNT$ 件）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1b786c0eff": {
+    "message": "ナビゲーション区画"
+  },
+  "panel_df71c8b46d": {
+    "message": "巡回日時"
+  },
+  "panel_2521c156e7": {
+    "message": "（精緻化済み）"
+  },
+  "panel_c555ac6ba2": {
+    "message": "見つかったページ"
+  },
+  "panel_8083e76d16": {
+    "message": "見つかったフォーム"
+  },
+  "panel_3db65f8c2a": {
+    "message": "ナビゲーション"
+  },
+  "panel_97100721e2": {
+    "message": "セレクター情報"
+  },
+  "panel_041f11ea06": {
+    "message": "分析したドメイン"
+  },
+  "panel_92f41ed9cf": {
+    "message": "よくあるフォームの種類"
+  },
+  "panel_7ea2d98ace": {
+    "message": "共通のセレクターパターン"
+  },
+  "panel_53e6cf4452": {
+    "message": "検証日時"
+  },
+  "panel_292c06f004": {
+    "message": "分類"
+  },
+  "panel_7baf29fa69": {
+    "message": "記録された手順はありません"
+  },
+  "panel_5b341c960f": {
+    "message": "対象 URL"
+  },
+  "panel_4ccf1d74a7": {
+    "message": "総実行回数"
+  },
+  "panel_1de3df70dd": {
+    "message": "手順"
+  },
+  "panel_01b7cdd40d": {
+    "message": "使用したセレクター"
+  },
+  "panel_e70d8eb905": {
+    "message": "分析"
+  },
+  "panel_0a30a815d6": {
+    "message": "ページ"
+  },
+  "panel_96a5ba634b": {
+    "message": "検出済み"
+  },
+  "panel_2e0e960ab3": {
+    "message": "フォーム"
+  },
+  "panel_2e2d5c5649": {
+    "message": "ワークフロー"
+  },
+  "panel_3fee95da5a": {
+    "message": "簡易"
+  },
+  "panel_008dacb6d1": {
+    "message": "詳細"
   }
 }

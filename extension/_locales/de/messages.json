@@ -3520,5 +3520,492 @@
   },
   "entry_crawl_title": {
     "message": "FSB untersucht"
+  },
+  "panel_b2693770d3": {
+    "message": "Verbindungstest"
+  },
+  "panel_672f1efd8b": {
+    "message": "Anbieter:"
+  },
+  "panel_755c8b2a9f": {
+    "message": "Status:"
+  },
+  "panel_c88a0b9074": {
+    "message": "Erfolgreich"
+  },
+  "panel_11a931060d": {
+    "message": "Modell:"
+  },
+  "panel_8f6bed11e7": {
+    "message": "Antwortzeit:"
+  },
+  "panel_5e1834d89d": {
+    "message": "$MS$ ms",
+    "placeholders": {
+      "ms": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_6170629067": {
+    "message": "Fehler:"
+  },
+  "panel_9ec41ffd77": {
+    "message": "Protokolle ansehen"
+  },
+  "panel_9af63d68f9": {
+    "message": "Protokolle herunterladen"
+  },
+  "panel_1c01ad70fe": {
+    "message": "Sitzungen konnten nicht geladen werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_aaa0442372": {
+    "message": "Als lesbaren Text exportieren"
+  },
+  "panel_52a0e8b87e": {
+    "message": "Text exportieren"
+  },
+  "panel_2e80d6e9a5": {
+    "message": "JSON-Protokolle herunterladen"
+  },
+  "panel_49e0e6d56e": {
+    "message": "JSON herunterladen"
+  },
+  "panel_7d9eb7acb1": {
+    "message": "Schließen"
+  },
+  "panel_cb9ac5c561": {
+    "message": "Sitzungs-ID"
+  },
+  "panel_ecbc89cd37": {
+    "message": "Gestartet"
+  },
+  "panel_7cdc804e69": {
+    "message": "Beendet"
+  },
+  "panel_4fc52a3c4c": {
+    "message": "Dauer"
+  },
+  "panel_ff8059dc67": {
+    "message": "Aktionen"
+  },
+  "panel_4740b57371": {
+    "message": "Iterationen"
+  },
+  "panel_73912999fa": {
+    "message": "Zurück"
+  },
+  "panel_1ff57a29d7": {
+    "message": "Weiter"
+  },
+  "panel_f03788e116": {
+    "message": "Schritt $CURRENT$ von $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a75ab6920d": {
+    "message": "Wiedergabedaten werden geladen..."
+  },
+  "panel_881c9fdb90": {
+    "message": "Rohprotokolle anzeigen"
+  },
+  "panel_57df179c4f": {
+    "message": "Rohprotokolle ausblenden"
+  },
+  "panel_51cbb3bf88": {
+    "message": "Für diese Sitzung sind keine Wiedergabedaten verfügbar"
+  },
+  "panel_dfa4ae555e": {
+    "message": "Zielauswahl"
+  },
+  "panel_14b981a43b": {
+    "message": "Selektor:"
+  },
+  "panel_9216cbad79": {
+    "message": "Element gefunden: Ja"
+  },
+  "panel_2dbfbc21aa": {
+    "message": "Element gefunden: Nein"
+  },
+  "panel_fe3d6f1947": {
+    "message": "Koordinaten: ($X$, $Y$)",
+    "placeholders": {
+      "x": {
+        "content": "$1"
+      },
+      "y": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_4e5b548d6d": {
+    "message": "Element"
+  },
+  "panel_848bf594dd": {
+    "message": "Text: „$TEXT$“",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_e68b36b17c": {
+    "message": "Parameter"
+  },
+  "panel_b1fa878a98": {
+    "message": "Diagnose"
+  },
+  "panel_27c2ccd962": {
+    "message": "Unbekannter Fehler"
+  },
+  "panel_407fab696b": {
+    "message": "Vorschläge:"
+  },
+  "panel_4de32d57f8": {
+    "message": "die letzten $COUNT$ von $TOTAL$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_23e0248aa9": {
+    "message": "Zusammenfassung:"
+  },
+  "panel_d6f290028c": {
+    "message": "$DONE$/$TOTAL$ Schritte erfolgreich",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_ba5c173754": {
+    "message": "$COUNT$ fehlgeschlagen",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_af3c60331d": {
+    "message": "Kein Benutzername"
+  },
+  "panel_6aeaa6a53d": {
+    "message": "Passwort anzeigen"
+  },
+  "panel_464c4ffd01": {
+    "message": "Bearbeiten"
+  },
+  "panel_e2d0a54968": {
+    "message": "Löschen"
+  },
+  "panel_be3702e3f1": {
+    "message": "Karte"
+  },
+  "panel_cae7d57bc0": {
+    "message": "Stoppen"
+  },
+  "panel_ada26b6a54": {
+    "message": "Untersuchung wird gestartet..."
+  },
+  "panel_7eae8fd81d": {
+    "message": "$COLLECTED$ / $MAX$ Seiten",
+    "placeholders": {
+      "collected": {
+        "content": "$1"
+      },
+      "max": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_a854c3e6d9": {
+    "message": "Untersuche $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b837e392c5": {
+    "message": "Untersuchung abgeschlossen: $COUNT$ Seiten von $DOMAIN$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "domain": {
+        "content": "$2"
+      }
+    }
+  },
+  "panel_44761df9d9": {
+    "message": "$COUNT$ Seiten",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d1bf045bb5": {
+    "message": "Details ansehen"
+  },
+  "panel_6c0a28c891": {
+    "message": "Als Sitemap-Speicher sichern"
+  },
+  "panel_0f4baebaa0": {
+    "message": "Rechercheergebnisse konnten nicht geladen werden: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1c1944d338": {
+    "message": "$START$-$END$ von $TOTAL$",
+    "placeholders": {
+      "start": {
+        "content": "$1"
+      },
+      "end": {
+        "content": "$2"
+      },
+      "total": {
+        "content": "$3"
+      }
+    }
+  },
+  "panel_9046da16ae": {
+    "message": "Seiten"
+  },
+  "panel_e1ff7a9061": {
+    "message": "Elemente"
+  },
+  "panel_858451263b": {
+    "message": "Formulare"
+  },
+  "panel_9024c197d8": {
+    "message": "Links"
+  },
+  "panel_a6d5df3737": {
+    "message": "Start-URL:"
+  },
+  "panel_298d6c7549": {
+    "message": "Dauer:"
+  },
+  "panel_184ab6989d": {
+    "message": "Tiefe:"
+  },
+  "panel_068fbd1599": {
+    "message": "Untersuchte Seiten ($COUNT$)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_59ba6ff1da": {
+    "message": "$COUNT$ Elemente",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_d81ab3063e": {
+    "message": "Verfeinert"
+  },
+  "panel_0e35f6e974": {
+    "message": "Basis"
+  },
+  "panel_6ab098444e": {
+    "message": "Sitemap verfeinern"
+  },
+  "panel_1e7f34ee8f": {
+    "message": "Verfeinern"
+  },
+  "panel_d9483244b6": {
+    "message": "Details ein- oder ausblenden"
+  },
+  "panel_cdf8d330f5": {
+    "message": "$COUNT$ Zugriffe",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_008de64db2": {
+    "message": "$PERCENT$ % Konf.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_3aba541421": {
+    "message": "Speicher löschen"
+  },
+  "panel_aab6c5e605": {
+    "message": "Nichts aufgezeichnet"
+  },
+  "panel_dc937b5989": {
+    "message": "Keine"
+  },
+  "panel_060b7c4116": {
+    "message": "Letzte URL"
+  },
+  "panel_e7dcad8673": {
+    "message": "Abgeschlossene Schritte"
+  },
+  "panel_7bd31a025d": {
+    "message": "Fehler"
+  },
+  "panel_304230dd7b": {
+    "message": "Sitemap"
+  },
+  "panel_f02a172a35": {
+    "message": "Selektor"
+  },
+  "panel_217baacf82": {
+    "message": "Seitenmuster"
+  },
+  "panel_c910d474dc": {
+    "message": "Allgemein"
+  },
+  "panel_2502651aed": {
+    "message": "Websiteübergreifendes Muster"
+  },
+  "panel_22e2dbcfc1": {
+    "message": "Benutzereinstellung"
+  },
+  "panel_82ac23744f": {
+    "message": "...und $COUNT$ weitere",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b2fc7c1a37": {
+    "message": "($COUNT$ Formular)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_34a07bf033": {
+    "message": "($COUNT$ Formulare)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_b358b78f08": {
+    "message": "($COUNT$ Navigationseintrag)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_2d597de6ea": {
+    "message": "($COUNT$ Navigationseinträge)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "panel_1b786c0eff": {
+    "message": "Navigationsbereiche"
+  },
+  "panel_df71c8b46d": {
+    "message": "Untersucht am"
+  },
+  "panel_2521c156e7": {
+    "message": "(verfeinert)"
+  },
+  "panel_c555ac6ba2": {
+    "message": "Entdeckte Seiten"
+  },
+  "panel_8083e76d16": {
+    "message": "Gefundene Formulare"
+  },
+  "panel_3db65f8c2a": {
+    "message": "Navigation"
+  },
+  "panel_97100721e2": {
+    "message": "Selektorinfo"
+  },
+  "panel_041f11ea06": {
+    "message": "Analysierte Domains"
+  },
+  "panel_92f41ed9cf": {
+    "message": "Häufige Formulartypen"
+  },
+  "panel_7ea2d98ace": {
+    "message": "Gemeinsame Selektormuster"
+  },
+  "panel_53e6cf4452": {
+    "message": "Geprüft am"
+  },
+  "panel_292c06f004": {
+    "message": "Kategorie"
+  },
+  "panel_7baf29fa69": {
+    "message": "Keine Schritte aufgezeichnet"
+  },
+  "panel_5b341c960f": {
+    "message": "Ziel-URL"
+  },
+  "panel_4ccf1d74a7": {
+    "message": "Ausführungen gesamt"
+  },
+  "panel_1de3df70dd": {
+    "message": "Schritte"
+  },
+  "panel_01b7cdd40d": {
+    "message": "Verwendete Selektoren"
+  },
+  "panel_e70d8eb905": {
+    "message": "Analyse"
+  },
+  "panel_0a30a815d6": {
+    "message": "Seite"
+  },
+  "panel_96a5ba634b": {
+    "message": "Entdeckt"
+  },
+  "panel_2e0e960ab3": {
+    "message": "Formular"
+  },
+  "panel_2e2d5c5649": {
+    "message": "Ablauf"
+  },
+  "panel_3fee95da5a": {
+    "message": "Einfach"
+  },
+  "panel_008dacb6d1": {
+    "message": "Vollständig"
   }
 }
