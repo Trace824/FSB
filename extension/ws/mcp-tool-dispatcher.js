@@ -948,6 +948,20 @@ function sanitizeMcpMessageRequestForRecording(type, payload) {
 // Settings replies are recorded as summaries: read-all as its key count,
 // read-one as key and writable, an accepted write as key, value, previous and
 // changed (writable keys only, never a secret), a failure as code and key.
+// A copy of a write's coupled map ({ key: { value, previous } }) holding only
+// well-formed key labels; null when there is none. Shared by the reply, the
+// operator log line and the journal summary.
+function _settingsCoupledSummary(coupled) {
+  if (!coupled || typeof coupled !== 'object' || Array.isArray(coupled)) return null;
+  const out = {};
+  for (const key of Object.keys(coupled)) {
+    const entry = coupled[key];
+    if (!SETTINGS_RECORDING_KEY_PATTERN.test(key) || !entry || typeof entry !== 'object') continue;
+    out[key] = { value: entry.value, previous: entry.previous };
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 function _summarizeSettingsResponseForRecording(type, response) {
   if (response === null || response === undefined) return response;
   if (typeof response !== 'object' || Array.isArray(response)) return { success: false };
@@ -964,13 +978,16 @@ function _summarizeSettingsResponseForRecording(type, response) {
     }
     return { success: true, key: _settingsRecordingKeyLabel(response.key), writable: response.writable === true };
   }
-  return {
+  const summary = {
     success: true,
     key: _settingsRecordingKeyLabel(response.key),
     value: response.value,
     previous: response.previous,
     changed: Array.isArray(response.changed) ? response.changed.slice() : []
   };
+  const coupled = _settingsCoupledSummary(response.coupled);
+  if (coupled) summary.coupled = coupled;
+  return summary;
 }
 
 function sanitizeMcpMessageResponseForRecording(type, response) {
@@ -3918,15 +3935,22 @@ async function handleSetSettingMessageRoute({ payload, client } = {}) {
         }
       }
       const changed = Array.isArray(plan.changed) ? plan.changed.slice() : [];
-      _logSettingsWrite('info', {
+      // D-18: the other key a write also set (modelName on a provider change),
+      // with its new and previous value. Absent for one-key writes.
+      const coupled = _settingsCoupledSummary(plan.coupled);
+      const logged = {
         key: plan.key,
         previous: plan.previous,
         value: plan.value,
         changed: changed.slice(),
         client: clientLabel,
         at: new Date().toISOString()
-      });
-      return { success: true, key: plan.key, value: plan.value, previous: plan.previous, changed };
+      };
+      if (coupled) logged.coupled = coupled;
+      _logSettingsWrite('info', logged);
+      const reply = { success: true, key: plan.key, value: plan.value, previous: plan.previous, changed };
+      if (coupled) reply.coupled = _settingsCoupledSummary(coupled);
+      return reply;
     });
   } catch (_e) {
     return refuse('SETTING_STORAGE_FAILED', 'Could not change the setting.');

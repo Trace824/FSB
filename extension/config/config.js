@@ -823,6 +823,11 @@ if (typeof module !== 'undefined' && module.exports) {
         } else if (value !== 'lmstudio') {
           return { failure: failure(CODES.PROVIDER_NOT_READY, key, 'Choose a model provider in the FSB Control Panel first.') };
         }
+        // custom has no start-time model resolver (only lmstudio does), so its
+        // empty default would reach the endpoint as model ''. Keep a stored
+        // model name instead, as the control panel's Save does; the caller can
+        // then set modelName, which custom accepts as any bounded string.
+        if (value === 'custom' && storedNonBlank(stored, 'modelName')) return { patch: { modelProvider: value } };
         var defaults = Config.DEFAULT_MODELS;
         var modelName = hasOwn(defaults, value) && typeof defaults[value] === 'string' ? defaults[value] : '';
         return { patch: { modelProvider: value, modelName: modelName } };
@@ -904,7 +909,20 @@ if (typeof module !== 'undefined' && module.exports) {
         patch = {};
         changed = [];
       }
-      return { ok: true, key: entry.key, value: value, previous: previous, patch: patch, changed: changed };
+      var result = { ok: true, key: entry.key, value: value, previous: previous, patch: patch, changed: changed };
+      // D-18: a write that also sets another key (a modelProvider change sets
+      // modelName) reports that key's new and previous value as well, so the
+      // reply and the operator log show what was overwritten. Patches hold
+      // writable keys only, so no secret can appear here.
+      var coupledKeys = changed.filter(function (patchKey) { return patchKey !== entry.key; });
+      if (coupledKeys.length > 0) {
+        var coupled = {};
+        coupledKeys.forEach(function (patchKey) {
+          coupled[patchKey] = { value: patch[patchKey], previous: projectValue(patchKey, store, context) };
+        });
+        result.coupled = coupled;
+      }
+      return result;
     }
 
     var instance = {

@@ -24,7 +24,9 @@ const UNSUPPORTED_HINT = 'Update the FSB extension, or change the setting in the
 // extension adds to its answer reaches the client.
 const READ_ALL_FIELDS = ['settings', 'readOnly'] as const;
 const READ_ONE_FIELDS = ['key', 'value', 'type', 'writable', 'range', 'values'] as const;
-const WRITE_FIELDS = ['key', 'value', 'previous', 'changed'] as const;
+// `coupled` appears only when a write also set another key (a modelProvider
+// change sets modelName): { modelName: { value, previous } }.
+const WRITE_FIELDS = ['key', 'value', 'previous', 'changed', 'coupled'] as const;
 
 type BridgeResult = Record<string, unknown> | null | undefined;
 type SettingsToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: boolean };

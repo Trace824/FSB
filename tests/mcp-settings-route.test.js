@@ -669,6 +669,29 @@ async function partA() {
     check(info.data.client === 'Claude', 'the info line has the MCP client label');
     check(typeof info.data.at === 'string' && !Number.isNaN(Date.parse(info.data.at)), 'the info line has an ISO time');
 
+    // WR-02: a provider switch also overwrites modelName; the reply and the
+    // info line name its new and previous value, so the old id is recoverable.
+    const storeBeforePair = clone(fakeStorage.store);
+    resetStorage({ fsbMcpSessionRecordingEnabled: false, modelProvider: 'xai', modelName: 'grok-4', geminiApiKey: 'g-SENTINEL-4' });
+    const beforePair = loggerCalls.length;
+    const pair = await setSetting(writePayload('modelProvider', 'gemini'));
+    checkDeep(pair, {
+      success: true, key: 'modelProvider', value: 'gemini', previous: 'xai', changed: ['modelProvider', 'modelName'],
+      coupled: { modelName: { value: 'gemini-2.5-flash', previous: 'grok-4' } }
+    }, 'a provider switch reports the coupled modelName with its previous value');
+    checkDeep(fakeStorage.setCalls, [{ modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }], 'the provider pair is written in one set call');
+    const pairLine = loggerCalls.slice(beforePair).filter((call) => call.level === 'info')[0] || { data: {} };
+    checkDeep(pairLine.data.coupled, { modelName: { value: 'gemini-2.5-flash', previous: 'grok-4' } },
+      'the info line carries the coupled modelName with its previous and new value');
+    check(!hasSentinel(pair) && !hasSentinel(pairLine), 'the coupled report never carries a stored secret');
+
+    resetStorage({ fsbMcpSessionRecordingEnabled: false, modelProvider: 'openrouter', modelName: 'vendor/long-model-id', customEndpoint: 'https://x.example/v1' });
+    const keptModel = await setSetting(writePayload('modelProvider', 'custom'));
+    checkDeep(keptModel, { success: true, key: 'modelProvider', value: 'custom', previous: 'openrouter', changed: ['modelProvider'] },
+      'a switch to custom keeps the stored model (no coupled field)');
+    checkDeep(fakeStorage.setCalls, [{ modelProvider: 'custom' }], 'the switch to custom writes only modelProvider');
+    resetStorage(storeBeforePair);
+
     const beforeRefusal = loggerCalls.length;
     const refused = await setSetting(writePayload('apiKey', 'sk-SENTINEL-3'));
     check(isFailure(refused, 'SETTING_PROTECTED_KEY'), 'the logged refusal is SETTING_PROTECTED_KEY');
@@ -1510,6 +1533,17 @@ async function partC() {
     const write = await setSetting(writePayload('debugMode', 'true'));
     checkDeep(sanitizeResponse('mcp:set-setting', write), { success: true, key: 'debugMode', value: true, previous: false, changed: ['debugMode'] },
       'an accepted write is recorded as key, value, previous and changed');
+
+    resetStorage({ modelName: 'grok-4' });
+    const pairWrite = await setSetting(writePayload('modelProvider', 'lmstudio'));
+    checkDeep(sanitizeResponse('mcp:set-setting', pairWrite), {
+      success: true, key: 'modelProvider', value: 'lmstudio', previous: 'xai', changed: ['modelProvider', 'modelName'],
+      coupled: { modelName: { value: '', previous: 'grok-4' } }
+    }, 'a provider switch is recorded with its coupled modelName (WR-02)');
+    checkDeep(sanitizeResponse('mcp:set-setting', { success: true, key: 'modelProvider', value: 'x', previous: 'y', changed: [], coupled: { 'bad key!': { value: 1, previous: 2 }, modelName: 'not-an-object' } }),
+      { success: true, key: 'modelProvider', value: 'x', previous: 'y', changed: [] },
+      'a malformed coupled map records nothing');
+    resetStorage({});
 
     const refused = await setSetting(writePayload('apiKey', 'sk-SENTINEL-3'));
     checkDeep(sanitizeResponse('mcp:set-setting', refused), { success: false, code: 'SETTING_PROTECTED_KEY', key: 'apiKey' },

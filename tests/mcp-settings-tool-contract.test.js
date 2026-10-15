@@ -700,6 +700,27 @@ async function partContract() {
         check(parsed !== null && result.text === JSON.stringify(parsed), mode + ' output is compact JSON');
       }
     });
+
+    // WR-02: a provider switch also sets modelName; its new and previous value
+    // reach the client as `coupled`, which one-key writes never carry.
+    const coupled = { modelName: { value: 'gemini-2.5-flash', previous: 'grok-4' } };
+    const pairBridge = makeBridge({
+      respond: (type, payload) => {
+        if (type === 'mcp:get-settings') return { success: true, key: payload.key, value: 'xai', type: 'enum', writable: true };
+        if (type === 'mcp:set-setting') {
+          return { success: true, key: payload.key, value: 'gemini', previous: 'xai', changed: ['modelProvider', 'modelName'], coupled: clone(coupled), extra: 'dropped' };
+        }
+        return undefined;
+      }
+    });
+    await withSession(pairBridge, async (client) => {
+      const result = await callSettings(client, { key: 'modelProvider', value: 'gemini' });
+      let parsed = null;
+      try { parsed = JSON.parse(result.text); } catch (_e) { parsed = null; }
+      check(!result.isError && !result.text.includes('\n'), 'a provider switch is one compact line');
+      checkDeep(parsed, { key: 'modelProvider', value: 'gemini', previous: 'xai', changed: ['modelProvider', 'modelName'], coupled },
+        'a provider switch passes the coupled modelName through and drops other fields');
+    });
   });
 }
 

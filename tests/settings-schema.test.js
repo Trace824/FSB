@@ -937,8 +937,11 @@ runSection('planWrite: modelProvider (D-15)', () => {
   expectPlanFail(plan('modelProvider', 'gemini', { geminiApiKey: 5 }), NOT_READY_CODE, 'gemini with a non-string API key');
   expectPlanFail(plan('modelProvider', 'openai', { apiKey: 'k', geminiApiKey: 'g' }), NOT_READY_CODE, 'another provider\'s key does not count');
   expectPlanOk(plan('modelProvider', 'gemini', { geminiApiKey: 'g' }),
-    { key: 'modelProvider', value: 'gemini', previous: 'xai', patch: { modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }, changed: ['modelProvider', 'modelName'] },
-    'gemini with its key stored also sets the gemini default model');
+    {
+      key: 'modelProvider', value: 'gemini', previous: 'xai', patch: { modelProvider: 'gemini', modelName: 'gemini-2.5-flash' }, changed: ['modelProvider', 'modelName'],
+      coupled: { modelName: { value: 'gemini-2.5-flash', previous: 'grok-4-1-fast' } }
+    },
+    'gemini with its key stored also sets the gemini default model (and reports the overwritten model, D-18)');
   for (const provider of HOSTED_IDS) {
     const keyName = EXPECTED_PROVIDER_API_KEY[provider];
     const from = provider === 'xai' ? 'gemini' : 'xai';
@@ -953,11 +956,34 @@ runSection('planWrite: modelProvider (D-15)', () => {
   check(custom.error === 'Set a custom endpoint in the FSB Control Panel first.', 'the custom not-ready sentence asks for an endpoint');
   expectPlanFail(plan('modelProvider', 'custom', { customEndpoint: '  ' }), NOT_READY_CODE, 'custom with a blank endpoint');
   expectPlanOk(plan('modelProvider', 'custom', { customEndpoint: 'https://x.example' }),
-    { key: 'modelProvider', value: 'custom', previous: 'xai', patch: { modelProvider: 'custom', modelName: '' }, changed: ['modelProvider', 'modelName'] },
-    'custom with an endpoint sets an empty modelName');
+    {
+      key: 'modelProvider', value: 'custom', previous: 'xai', patch: { modelProvider: 'custom', modelName: '' }, changed: ['modelProvider', 'modelName'],
+      coupled: { modelName: { value: '', previous: 'grok-4-1-fast' } }
+    },
+    'custom with an endpoint and no stored model sets an empty modelName');
+  // WR-02: custom has no start-time model resolver, so a stored model is kept
+  // rather than blanked (the control panel's Save keeps it too).
+  expectPlanOk(plan('modelProvider', 'custom', { customEndpoint: 'https://x.example', modelProvider: 'openrouter', modelName: 'vendor/long-model-id' }),
+    { key: 'modelProvider', value: 'custom', previous: 'openrouter', patch: { modelProvider: 'custom' }, changed: ['modelProvider'] },
+    'custom keeps a stored non-blank modelName and writes only modelProvider');
+  expectPlanOk(plan('modelProvider', 'custom', { customEndpoint: 'https://x.example', modelName: '   ' }),
+    {
+      key: 'modelProvider', value: 'custom', previous: 'xai', patch: { modelProvider: 'custom', modelName: '' }, changed: ['modelProvider', 'modelName'],
+      coupled: { modelName: { value: '', previous: '   ' } }
+    },
+    'custom with a blank stored modelName still writes the empty default');
   expectPlanOk(plan('modelProvider', 'lmstudio', {}),
-    { key: 'modelProvider', value: 'lmstudio', previous: 'xai', patch: { modelProvider: 'lmstudio', modelName: '' }, changed: ['modelProvider', 'modelName'] },
-    'lmstudio needs no key and sets an empty modelName');
+    {
+      key: 'modelProvider', value: 'lmstudio', previous: 'xai', patch: { modelProvider: 'lmstudio', modelName: '' }, changed: ['modelProvider', 'modelName'],
+      coupled: { modelName: { value: '', previous: 'grok-4-1-fast' } }
+    },
+    'lmstudio needs no key and sets an empty modelName (its model is resolved at start)');
+  expectPlanOk(plan('modelProvider', 'lmstudio', { modelName: 'grok-4' }),
+    {
+      key: 'modelProvider', value: 'lmstudio', previous: 'xai', patch: { modelProvider: 'lmstudio', modelName: '' }, changed: ['modelProvider', 'modelName'],
+      coupled: { modelName: { value: '', previous: 'grok-4' } }
+    },
+    'lmstudio still blanks a stored hosted model so the start-time resolver runs');
   expectPlanOk(plan('modelProvider', 'xai', { modelProvider: 'xai' }),
     { key: 'modelProvider', value: 'xai', previous: 'xai', patch: {}, changed: [] },
     'xai when xai is stored needs no API key and is a no-op');
@@ -1087,6 +1113,12 @@ runSection('planWrite: patches only ever hold schema keys', () => {
   check([...patchKeys].every((key) => writable.includes(key)), `every patched key is a writable schema key (${[...patchKeys].join(', ')})`);
   check(planSuccesses.every((result) => Object.keys(result.patch).length <= 2), 'a patch holds at most two keys');
   check(planSuccesses.every((result) => isDeepEqual(result.changed, Object.keys(result.patch))), 'changed always lists the patch keys');
+  check(planSuccesses.every((result) => isDeepEqual(Object.keys(result.coupled || {}), result.changed.filter((key) => key !== result.key))),
+    'coupled lists exactly the patched keys other than the named key (D-18)');
+  check(planSuccesses.every((result) => !('coupled' in result) || Object.keys(result.coupled).length > 0),
+    'coupled is absent rather than empty for a one-key write');
+  check(planSuccesses.every((result) => Object.keys(result.coupled || {}).every((key) => result.coupled[key].value === result.patch[key])),
+    'every coupled value is the value written');
   check(planSuccesses.filter((result) => Object.keys(result.patch).length === 2).every((result) => result.key === 'modelProvider'),
     'only a modelProvider change writes two keys');
 });
