@@ -23,6 +23,20 @@
  * - MCP-edge rules: value coercion, rejected value types, local refusals and
  *   the value-safe write preflight (SC2, RESEARCH Pattern 5)
  *
+ * Part 2, end to end: MCP Client -> built settings tool -> fake bridge -> the
+ * real dispatchMcpMessageRoute and route handlers -> a fake chrome.storage.
+ * The fake bridge stands in for MCPBridgeClient, so the _routeMessage switch
+ * hop is proven in tests/mcp-settings-route.test.js Part B, not here.
+ * - read-all, read-one and write in the D-07 shapes, and a Config instance
+ *   that refreshes on the write (SC1)
+ * - refusals that list what is allowed (hosted model ids, shipped agent ids,
+ *   enum values, integer range) without the submitted value (D-07, D-15)
+ * - a protected key's value never reaches the bridge, storage, the operator
+ *   log, the recorder or console/stderr (SC2, T-66.1-04)
+ * - a delegated agent can read but not write (SC5, D-20)
+ * - a test-only fixture key (fsbFixtureFastMode) is readable and writable
+ *   with no mcp/src change, and settings.ts names no production key (SC4)
+ *
  * console.log/error/warn and process.stderr.write are captured for the whole
  * run and scanned at the end: no submitted SENTINEL value may appear there.
  * check() writes through the original streams, so its own lines are never
@@ -690,6 +704,380 @@ async function partContract() {
 }
 
 // ---------------------------------------------------------------------------
+// Part 2 fakes: chrome.storage.local, automationLogger, fetch and the session
+// recorder (the tests/mcp-settings-route.test.js pattern). Installed only for
+// Part 2 and restored afterwards.
+// ---------------------------------------------------------------------------
+
+const fakeStorage = { store: {}, setCalls: [], listeners: [] };
+const loggerCalls = [];
+const recorderEntries = [];
+let fetchCalls = 0;
+
+function nextTick() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function resetStorage(initial) {
+  fakeStorage.store = clone(initial || {});
+  fakeStorage.setCalls = [];
+}
+
+function pickFromStore(keys) {
+  const store = fakeStorage.store;
+  if (keys === null || keys === undefined) return clone(store);
+  const list = typeof keys === 'string' ? [keys] : keys;
+  if (Array.isArray(list)) {
+    const result = {};
+    for (const key of list) {
+      if (hasOwn(store, key)) result[key] = clone(store[key]);
+    }
+    return result;
+  }
+  if (typeof keys === 'object') {
+    const result = {};
+    for (const key of Object.keys(keys)) {
+      result[key] = hasOwn(store, key) ? clone(store[key]) : keys[key];
+    }
+    return result;
+  }
+  return {};
+}
+
+const FAKE_GLOBAL_NAMES = [
+  'chrome',
+  'automationLogger',
+  'fetch',
+  'fsbMcpSessionRecorder',
+  'FsbSpreadsheetRecordRedaction',
+  'FsbSettingsSchema',
+  'FsbDelegationProviders',
+  'FsbAgentCapRecommendation'
+];
+
+function installExtensionFakes() {
+  const saved = {};
+  for (const name of FAKE_GLOBAL_NAMES) {
+    saved[name] = { had: hasOwn(globalThis, name), value: hasOwn(globalThis, name) ? globalThis[name] : undefined };
+  }
+
+  globalThis.chrome = {
+    storage: {
+      local: {
+        // Callback and promise forms. Both settle on a later macrotask, and a
+        // set fires the onChanged listeners before it resolves, as Chrome does.
+        get(keys, callback) {
+          const promise = nextTick().then(() => pickFromStore(keys));
+          if (typeof callback === 'function') {
+            promise.then((result) => callback(result), () => callback({}));
+            return undefined;
+          }
+          return promise;
+        },
+        set(items, callback) {
+          const snapshot = clone(items);
+          fakeStorage.setCalls.push(snapshot);
+          const promise = nextTick().then(() => {
+            const changes = {};
+            for (const key of Object.keys(snapshot)) {
+              changes[key] = { oldValue: clone(fakeStorage.store[key]), newValue: clone(snapshot[key]) };
+              fakeStorage.store[key] = clone(snapshot[key]);
+            }
+            for (const listener of fakeStorage.listeners.slice()) {
+              try { listener(changes, 'local'); } catch (_e) { /* a listener cannot break the writer */ }
+            }
+          });
+          if (typeof callback === 'function') {
+            promise.then(() => callback(), () => callback());
+            return undefined;
+          }
+          return promise;
+        }
+      },
+      onChanged: {
+        addListener(listener) {
+          fakeStorage.listeners.push(listener);
+        }
+      }
+    },
+    tabs: {
+      create() {
+        throw new Error('the settings path must not open a tab');
+      }
+    }
+  };
+
+  globalThis.automationLogger = {
+    info(message, data) { loggerCalls.push({ level: 'info', message, data: clone(data) }); },
+    warn(message, data) { loggerCalls.push({ level: 'warn', message, data: clone(data) }); },
+    error(message, data) { loggerCalls.push({ level: 'error', message, data: clone(data) }); },
+    debug(message, data) { loggerCalls.push({ level: 'debug', message, data: clone(data) }); }
+  };
+
+  globalThis.fetch = function () {
+    fetchCalls += 1;
+    throw new Error('network access is not allowed on the settings path');
+  };
+
+  // The dispatcher records every message route here. With no spreadsheet
+  // redactor present it calls recordDispatch directly.
+  delete globalThis.FsbSpreadsheetRecordRedaction;
+  globalThis.fsbMcpSessionRecorder = {
+    recordDispatch(entry) {
+      recorderEntries.push(entry);
+    }
+  };
+
+  return function restore() {
+    for (const name of FAKE_GLOBAL_NAMES) {
+      if (saved[name].had) globalThis[name] = saved[name].value;
+      else delete globalThis[name];
+    }
+  };
+}
+
+// The shipped agent registry first (globalThis.FsbDelegationProviders), then
+// the schema and the dispatcher, all against the fakes above.
+function loadExtension() {
+  require(path.join(ROOT, 'extension', 'utils', 'delegation-providers.js'));
+  const configModule = require(path.join(ROOT, 'extension', 'config', 'config.js'));
+  const dispatcher = require(path.join(ROOT, 'extension', 'ws', 'mcp-tool-dispatcher.js'));
+  return {
+    Config: configModule.Config,
+    schema: globalThis.FsbSettingsSchema,
+    dispatcher
+  };
+}
+
+// JSON and util.inspect (which also shows symbol-keyed fields) of a value.
+function sinkText(value) {
+  let json = '';
+  try { json = JSON.stringify(value === undefined ? null : value); } catch (_e) { json = '[unserializable]'; }
+  return json + '\n' + util.inspect(value, { depth: 12, breakLength: Infinity });
+}
+
+function parseLine(text) {
+  try { return JSON.parse(text); } catch (_e) { return null; }
+}
+
+function quotedLiteralPattern(key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('[\'"]' + escaped + '[\'"]');
+}
+
+// ---------------------------------------------------------------------------
+// Part 2: MCP Client -> built settings tool -> fake bridge -> real
+// dispatchMcpMessageRoute -> real route handler -> fake chrome.storage.
+// The fake bridge stands in for MCPBridgeClient, so the _routeMessage switch
+// hop is proven separately (tests/mcp-settings-route.test.js Part B).
+// ---------------------------------------------------------------------------
+
+async function partEndToEnd() {
+  const restore = installExtensionFakes();
+  let ext = null;
+  try {
+    ext = loadExtension();
+  } catch (err) {
+    restore();
+    check(false, 'the extension schema and dispatcher load under the fakes: ' + describeError(err));
+    return;
+  }
+  const PRODUCTION_SCHEMA = ext.schema;
+  const dispatcher = ext.dispatcher;
+
+  try {
+    await section('end-to-end setup', async () => {
+      check(PRODUCTION_SCHEMA && typeof PRODUCTION_SCHEMA.create === 'function', 'config.js installed the production FsbSettingsSchema');
+      check(typeof dispatcher.dispatchMcpMessageRoute === 'function', 'the dispatcher exports dispatchMcpMessageRoute');
+      checkDeep(Array.from(globalThis.FsbDelegationProviders.ids()).filter(globalThis.FsbDelegationProviders.isShippedId),
+        ['claude-code', 'grok-build'], 'the shipped agent ids are claude-code and grok-build');
+    });
+
+    await section('end to end: read all and read one (SC1)', async () => {
+      resetStorage({ apiKey: 'sk-E2E-SENTINEL', maxIterations: 100 });
+      const bridge = makeBridge({ dispatcher });
+      await withSession(bridge, async (client) => {
+        const all = await callSettings(client, {});
+        const parsed = parseLine(all.text);
+        check(!all.isError && !all.text.includes('\n'), 'read-all is one line');
+        checkDeep(parsed && Object.keys(parsed).sort(), ['readOnly', 'settings'], 'read-all parses to {settings, readOnly}');
+        const settings = (parsed && parsed.settings) || {};
+        const productionKeys = PRODUCTION_SCHEMA.keys();
+        check(productionKeys.length === 35 && Object.keys(settings).length === productionKeys.length,
+          'read-all returns every schema key (35 today, got ' + Object.keys(settings).length + ')');
+        checkDeep(Object.keys(settings).sort(), productionKeys.slice().sort(), 'read-all keys are the schema keys');
+        check(settings.apiKey === '[set]', "the stored apiKey reads as '[set]'");
+        check(parsed && Array.isArray(parsed.readOnly) && parsed.readOnly.length === 11, 'read-all lists 11 read-only keys');
+        checkDeep(parsed && parsed.readOnly, PRODUCTION_SCHEMA.readOnlyKeys(), 'readOnly is the schema read-only list');
+        check(!all.text.includes('sk-E2E'), 'the stored secret never appears in read-all');
+
+        const one = await callSettings(client, { key: 'maxIterations' });
+        check(one.text === '{"key":"maxIterations","value":100,"type":"integer","writable":true,"range":{"min":50,"max":500}}',
+          'read-one returns the exact compact line (got ' + one.text + ')');
+        check(fakeStorage.setCalls.length === 0, 'reads write nothing to storage');
+      });
+      checkDeep(bridge.settingsCalls().map((call) => call.type), ['mcp:get-settings', 'mcp:get-settings'],
+        'each read is one mcp:get-settings through the bridge');
+    });
+
+    await section('end to end: write, invalid value and consumer refresh (SC1, D-13)', async () => {
+      resetStorage({ apiKey: 'sk-E2E-SENTINEL', maxIterations: 100 });
+      const bridge = makeBridge({ dispatcher });
+      await withSession(bridge, async (client) => {
+        const consumer = new ext.Config();
+        consumer._cachedConfig = { stale: true };
+        consumer._cacheTimestamp = Date.now();
+
+        const write = await callSettings(client, { key: 'debugMode', value: true });
+        check(write.text === '{"key":"debugMode","value":true,"previous":false,"changed":["debugMode"]}',
+          'a boolean write returns the exact compact line (got ' + write.text + ')');
+        checkDeep(fakeStorage.setCalls, [{ debugMode: true }], 'storage saw exactly one set call {debugMode:true}');
+        check(fakeStorage.store.debugMode === true, 'debugMode is stored as boolean true');
+        check(consumer._cachedConfig === null && consumer._cacheTimestamp === 0, "a Config instance's cache was cleared by onChanged");
+
+        const before = clone(fakeStorage.store);
+        fakeStorage.setCalls = [];
+        const invalid = await callSettings(client, { key: 'maxIterations', value: 600 });
+        check(invalid.isError === true && invalid.text.includes('SETTING_VALUE_INVALID'), 'maxIterations 600 is SETTING_VALUE_INVALID');
+        check(invalid.text.includes('Allowed: 50 to 500'), 'the refusal carries Allowed: 50 to 500');
+        check(fakeStorage.setCalls.length === 0, 'an invalid value makes no storage write');
+        checkDeep(fakeStorage.store, before, 'storage is unchanged after an invalid value');
+      });
+    });
+
+    await section('end to end: refusals say what is allowed, never the value (D-07, D-15)', async () => {
+      resetStorage({ modelProvider: 'xai' });
+      const bridge = makeBridge({ dispatcher });
+      await withSession(bridge, async (client) => {
+        const before = clone(fakeStorage.store);
+        fakeStorage.setCalls = [];
+
+        const model = await callSettings(client, { key: 'modelName', value: 'SENTINEL-MODEL' });
+        check(model.isError === true && model.text.includes('SETTING_VALUE_INVALID'), 'an unknown hosted modelName is SETTING_VALUE_INVALID');
+        check(model.text.includes('Allowed:') && model.text.includes('grok-4-1-fast'), 'the modelName refusal lists the known xai model ids');
+        check(!model.text.includes('SENTINEL-MODEL'), 'the modelName refusal does not echo the value');
+
+        const agent = await callSettings(client, { key: 'agentProviderId', value: 'SENTINEL-AGENT' });
+        check(agent.isError === true && agent.text.includes('claude-code') && agent.text.includes('grok-build'),
+          'the agentProviderId refusal lists the shipped agent ids');
+        check(!agent.text.includes('SENTINEL-AGENT'), 'the agentProviderId refusal does not echo the value');
+
+        const stt = await callSettings(client, { key: 'sttProvider', value: 'SENTINEL-STT' });
+        check(stt.isError === true && stt.text.includes('Allowed: browser, whisper'), 'the enum refusal lists browser, whisper');
+        check(!stt.text.includes('SENTINEL-STT'), 'the enum refusal does not echo the value');
+
+        check(fakeStorage.setCalls.length === 0, 'none of the three refusals writes to storage');
+        checkDeep(fakeStorage.store, before, 'storage is unchanged after the three refusals');
+      });
+      const submitted = bridge.setCalls().map((call) => call.payload.value);
+      checkDeep(submitted, ['SENTINEL-MODEL', 'SENTINEL-AGENT', 'SENTINEL-STT'],
+        'writable keys send their value, so the extension decides and words the refusal');
+    });
+
+    await section('end to end: a protected key value never leaves the MCP process (SC2, T-66.1-04)', async () => {
+      resetStorage({ apiKey: 'sk-E2E-SENTINEL', maxIterations: 100 });
+      const loggerBefore = loggerCalls.length;
+      const recorderBefore = recorderEntries.length;
+      const bridge = makeBridge({ dispatcher });
+      await withSession(bridge, async (client) => {
+        const result = await callSettings(client, { key: 'apiKey', value: 'sk-NEW-SENTINEL' });
+        check(result.isError === true && result.text.includes('SETTING_PROTECTED_KEY'), 'an apiKey write returns SETTING_PROTECTED_KEY');
+        check(!result.text.includes('sk-NEW-SENTINEL'), 'the tool reply does not echo the value');
+      });
+      const sets = bridge.setCalls();
+      check(sets.length === 1 && !hasOwn(sets[0].payload, 'value'), 'the extension is asked to write apiKey without a value');
+      check(!sinkText(bridge.calls).includes('sk-NEW-SENTINEL'), 'no recorded bridge message carries the value');
+      check(fakeStorage.store.apiKey === 'sk-E2E-SENTINEL', 'storage still holds the original apiKey');
+      check(fakeStorage.setCalls.length === 0, 'the refusal makes no storage write');
+      check(!sinkText(fakeStorage.store).includes('sk-NEW-SENTINEL'), 'no storage value carries the submitted value');
+      const newLogs = loggerCalls.slice(loggerBefore);
+      check(newLogs.some((call) => call.level === 'warn' && call.message === 'MCP settings write refused'),
+        'the refusal is logged for the operator (D-18)');
+      check(!sinkText(loggerCalls).includes('sk-NEW-SENTINEL'), 'no automationLogger call carries the value');
+      const newEntries = recorderEntries.slice(recorderBefore);
+      check(newEntries.length > 0, 'the dispatcher recorded the settings calls');
+      check(!sinkText(recorderEntries).includes('sk-NEW-SENTINEL'), 'no recorder entry carries the value');
+      check(!captured.some((line) => line.includes('sk-NEW-SENTINEL')), 'no captured console or stderr text carries the value');
+    });
+
+    await section('end to end: modelProvider writes the provider pair (D-15)', async () => {
+      resetStorage({ geminiApiKey: 'gm-E2E-SENTINEL', modelProvider: 'xai', modelName: 'grok-4-1-fast' });
+      await withSession(makeBridge({ dispatcher }), async (client) => {
+        const result = await callSettings(client, { key: 'modelProvider', value: 'gemini' });
+        const parsed = parseLine(result.text);
+        check(!result.isError, 'modelProvider gemini is accepted with geminiApiKey stored');
+        checkDeep(parsed && parsed.changed, ['modelProvider', 'modelName'], 'the write reports changed [modelProvider, modelName]');
+        check(fakeStorage.store.modelProvider === 'gemini' && fakeStorage.store.modelName === 'gemini-2.5-flash',
+          'storage holds gemini and gemini-2.5-flash');
+        check(fakeStorage.setCalls.length === 1, 'the pair is written in one storage set call');
+        check(!result.text.includes('gm-E2E'), 'the stored provider key never appears in the reply');
+      });
+    });
+
+    await section('end to end: a delegated agent can read but not write (SC5, D-20)', async () => {
+      resetStorage({ debugMode: true });
+      const bridge = makeBridge({ dispatcher, agentId: 'agent_delegated' });
+      await withSession(bridge, async (client) => {
+        const write = await callSettings(client, { key: 'debugMode', value: false });
+        check(write.isError === true && write.text.includes('SETTING_DELEGATED_WRITE_REFUSED'),
+          'a delegated write returns SETTING_DELEGATED_WRITE_REFUSED');
+        check(fakeStorage.setCalls.length === 0 && fakeStorage.store.debugMode === true, 'the delegated write changes nothing');
+        const read = await callSettings(client, { key: 'debugMode' });
+        const parsed = parseLine(read.text);
+        check(!read.isError && parsed && parsed.key === 'debugMode' && parsed.value === true, 'the delegated read still succeeds');
+      });
+      check(bridge.calls.some((call) => call.type === 'agent:register'), 'the session registered as agent_delegated');
+      check(bridge.settingsCalls().every((call) => call.payload.agentId === 'agent_delegated'),
+        'every settings message carried the delegated agentId');
+    });
+
+    await section('SC4: a test-only schema key works with no mcp/src change (D-17)', async () => {
+      const fixture = PRODUCTION_SCHEMA.create(PRODUCTION_SCHEMA.entries.concat([
+        { key: 'fsbFixtureFastMode', type: 'boolean', cls: 'writable', default: false }
+      ]));
+      resetStorage({});
+      try {
+        globalThis.FsbSettingsSchema = fixture;
+        await withSession(makeBridge({ dispatcher }), async (client) => {
+          const all = parseLine((await callSettings(client, {})).text);
+          check(all && all.settings && all.settings.fsbFixtureFastMode === false, 'read-all includes fsbFixtureFastMode false');
+          const write = await callSettings(client, { key: 'fsbFixtureFastMode', value: true });
+          const parsed = parseLine(write.text);
+          check(!write.isError, 'fsbFixtureFastMode is writable through the tool');
+          checkDeep(parsed && parsed.changed, ['fsbFixtureFastMode'], 'the fixture write reports changed [fsbFixtureFastMode]');
+          check(fakeStorage.store.fsbFixtureFastMode === true, 'the fixture value is stored');
+        });
+      } finally {
+        globalThis.FsbSettingsSchema = PRODUCTION_SCHEMA;
+      }
+      check(!PRODUCTION_SCHEMA.keys().includes('fsbFixtureFastMode'), 'the production schema keys lack the fixture key');
+      await withSession(makeBridge({ dispatcher }), async (client) => {
+        const after = await callSettings(client, { key: 'fsbFixtureFastMode' });
+        check(after.isError === true && after.text.includes('SETTING_UNKNOWN_KEY'), 'after restoring, the fixture key is unknown again');
+      });
+
+      const settingsSource = fs.readFileSync(path.join(ROOT, 'mcp', 'src', 'tools', 'settings.ts'), 'utf8');
+      const named = PRODUCTION_SCHEMA.keys().filter((key) => quotedLiteralPattern(key).test(settingsSource));
+      checkDeep(named, [], 'mcp/src/tools/settings.ts names no production setting key in quotes');
+    });
+
+    await section('end-to-end side effects', async () => {
+      check(fetchCalls === 0, 'the settings path made no network call');
+      // Writable values (SENTINEL-MODEL, -AGENT, -STT) do reach the extension,
+      // which refuses them; stored secrets (sk-E2E, gm-E2E) are only ever
+      // masked. Neither kind may reach the recorder or the operator log.
+      check(recorderEntries.length > 0 && !sinkText(recorderEntries).includes('SENTINEL'),
+        'no recorder entry from the whole end-to-end run carries a SENTINEL value');
+      check(loggerCalls.length > 0 && !sinkText(loggerCalls).includes('SENTINEL'),
+        'no automationLogger call from the whole end-to-end run carries a SENTINEL value');
+    });
+  } finally {
+    globalThis.FsbSettingsSchema = PRODUCTION_SCHEMA;
+    restore();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------
 
@@ -698,6 +1086,7 @@ async function run() {
   try {
     mcp = await loadMcp();
     await partContract();
+    await partEndToEnd();
   } finally {
     stopCapture();
     if (mcp) mcp.resetInventory();
