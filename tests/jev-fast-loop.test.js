@@ -1589,6 +1589,33 @@ async function lostStepCase() {
   }
 }
 
+async function metricsRowCase() {
+  section('usage metrics: a fast step\'s dispatch row is labelled Jev, not the session model (WR-06, D-23)');
+  const rows = [];
+  const saved = globalThis.fsbMcpMetricsRecorder;
+  const run = loopRun({ answers: [clickNthItem, catchAll] });
+  globalThis.fsbMcpMetricsRecorder = { recordDispatch(input) { rows.push(JSON.parse(JSON.stringify(input))); return Promise.resolve(); } };
+  try {
+    await runSteps(run, 2);
+    const providerKey = run.h.session.providerConfig.providerKey;
+    const model = run.h.session.providerConfig.model;
+    const llmRows = rows.filter((row) => row.tool === 'get_page_snapshot');
+    const fastRows = rows.filter((row) => row.tool === 'click');
+    check(run.steps[1].fast === 1 && fastRows.length === 1 && llmRows.length >= 1,
+      'usage metrics: one dispatch row for the fast click and one for the LLM turn\'s tool');
+    check(fastRows.length === 1 && fastRows[0].client === 'FSB Autopilot' && fastRows[0].dispatcher_route === 'autopilot'
+      && util.isDeepStrictEqual(fastRows[0].drivingModel, { provider: 'jev', model_id: null, decisionSource: 'jev' }),
+    'usage metrics: the fast click row carries drivingModel {provider:"jev", model_id:null, decisionSource:"jev"}');
+    check(llmRows.length >= 1 && llmRows.every((row) => row.drivingModel && row.drivingModel.provider === providerKey
+      && row.drivingModel.model_id === model && !('decisionSource' in row.drivingModel)),
+    'usage metrics: the LLM tool row still names the session provider and model (' + providerKey + ', ' + model + ')');
+  } finally {
+    if (saved === undefined) delete globalThis.fsbMcpMetricsRecorder;
+    else globalThis.fsbMcpMetricsRecorder = saved;
+    finish(run);
+  }
+}
+
 async function replayRecordCase() {
   section('replay record: a fast step is recorded with the selector its resolver chose (WR-05)');
   const replay = require(path.join(ROOT, 'extension', 'utils', 'lattice-replay.js'));
@@ -1858,6 +1885,7 @@ async function main() {
   await exceptionCases();
   await lostStepCase();
   await replayRecordCase();
+  await metricsRowCase();
   await stopCase();
   await switchOffCase();
   // Plan 68-08 Task 1: recorded-llm capture through the real loop.

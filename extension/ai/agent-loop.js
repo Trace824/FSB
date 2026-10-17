@@ -2865,7 +2865,13 @@ async function runAgentIteration(sessionId, options) {
             },
             success: result.success,
             dispatcher_route: 'autopilot',
-            drivingModel: {
+            // Phase 68 (WR-06, D-23): a fast step was decided by Jev, not by
+            // the session's model, so its row is labelled separately.
+            drivingModel: (_fastStep && _fastStep.toolCall) ? {
+              provider: 'jev',
+              model_id: null,
+              decisionSource: 'jev'
+            } : {
               provider: _phase10ProviderKey,
               model_id: _phase10ModelId,
               reasoning_tokens: _phase10ReasoningTokens
