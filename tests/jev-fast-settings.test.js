@@ -23,7 +23,11 @@
  *   - copy accuracy: the shared disclosure fact list
  *     (tests/fixtures/jev-fast-disclosure-facts.js) checked against the real
  *     request builder (FsbJevState.buildRequest) and the content-side proofs,
- *     so every never-sent claim stays true.
+ *     so every never-sent claim stays true;
+ *   - card: the unchecked switch in Advanced Settings right after Action
+ *     Change Reports, and its disclosure text checked against the same fact
+ *     list (every SHARED_PHRASES and CARD_ONLY_PHRASES entry, no
+ *     FORBIDDEN_PATTERNS match).
  *
  * No network, no ports. Node 20-safe.
  *
@@ -436,6 +440,79 @@ function loadOptionsDefaultSettings() {
   ok(facts.textOf('<p>FSB&#39;s <span translate="no">server</span>&nbsp;keeps &amp; <!-- note -->drops</p>') === "FSB's server keeps & drops"
     && facts.textOf('<b>FSB&rsquo;s</b>\n  <i>server&apos;s</i>') === "FSB's server's",
   'textOf removes tags and comments, decodes the apostrophe, ampersand and nbsp entities and collapses whitespace');
+
+  // -------------------------------------------------------------------------
+  section('card (plan 68-12: the Advanced Settings switch and its D-06 disclosure)');
+  // -------------------------------------------------------------------------
+  const PANEL_HTML = readRepo('extension/ui/control_panel.html');
+  const CARD_START = 'id="fsbJevFastModeCard"';
+  const CARD_END = '<!-- /fsbJevFastModeCard -->';
+  const countOf = (text, needle) => text.split(needle).length - 1;
+  const lineAt = (text, index) => (index < 0 ? -1 : text.slice(0, index).split('\n').length);
+
+  ok(countOf(PANEL_HTML, 'id="fsbJevFastModeEnabled"') === 1, 'control_panel.html holds exactly one id="fsbJevFastModeEnabled"');
+  ok(countOf(PANEL_HTML, CARD_START) === 1 && countOf(PANEL_HTML, CARD_END) === 1,
+    'control_panel.html holds exactly one card start (id="fsbJevFastModeCard") and one closing comment <!-- /fsbJevFastModeCard -->');
+  const cardIdIndex = PANEL_HTML.indexOf(CARD_START);
+  const cardEndIndex = PANEL_HTML.indexOf(CARD_END);
+  const cardRootIndex = cardIdIndex === -1 ? -1 : PANEL_HTML.lastIndexOf('<', cardIdIndex);
+  const cardBlock = cardRootIndex !== -1 && cardEndIndex > cardIdIndex
+    ? PANEL_HTML.slice(cardRootIndex, cardEndIndex + CARD_END.length)
+    : '';
+  ok(cardBlock.startsWith('<div class="settings-card" id="fsbJevFastModeCard">'),
+    'the card root is <div class="settings-card" id="fsbJevFastModeCard">');
+  const checkbox = (cardBlock.match(/<input\b[^>]*\bid="fsbJevFastModeEnabled"[^>]*>/) || [''])[0];
+  ok(checkbox === '<input type="checkbox" id="fsbJevFastModeEnabled">',
+    'the card holds <input type="checkbox" id="fsbJevFastModeEnabled"> (got ' + JSON.stringify(checkbox) + ')');
+  ok(checkbox !== '' && !/\bchecked\b/i.test(checkbox) && !/<input[^>]*id="fsbJevFastModeEnabled"[^>]*checked/i.test(PANEL_HTML),
+    'the checkbox carries no checked attribute (the switch is off by default)');
+  ok(/<label class="modern-toggle">\s*<input type="checkbox" id="fsbJevFastModeEnabled">/.test(cardBlock),
+    'the checkbox sits in a modern-toggle label, like the Action Change Reports card');
+
+  const changeReportsLine = lineAt(PANEL_HTML, PANEL_HTML.indexOf('id="fsbChangeReportsEnabled"'));
+  const replayLine = lineAt(PANEL_HTML, PANEL_HTML.indexOf('id="mcpSessionReplaySettings"'));
+  const cardStartLine = lineAt(PANEL_HTML, cardIdIndex);
+  const cardEndLine = lineAt(PANEL_HTML, cardEndIndex);
+  ok(changeReportsLine > 0 && cardStartLine > changeReportsLine && cardEndLine > cardStartLine && replayLine > cardEndLine,
+    'the card sits after the Action Change Reports card and before #mcpSessionReplaySettings (lines '
+    + changeReportsLine + ' < ' + cardStartLine + '..' + cardEndLine + ' < ' + replayLine + ')');
+  const between = cardRootIndex > 0 ? PANEL_HTML.slice(PANEL_HTML.indexOf('id="fsbChangeReportsEnabled"'), cardRootIndex) : '';
+  ok(between !== '' && countOf(between, 'class="settings-card') === 0 && countOf(between, 'class="adv-sub"') === 0,
+    'no other card or sub-header sits between Action Change Reports and the fast-mode card');
+  const afterCard = cardEndIndex > 0 ? PANEL_HTML.slice(cardEndIndex + CARD_END.length) : '';
+  ok(/^\s*<div class="settings-card full-width" id="mcpSessionReplaySettings">/.test(afterCard),
+    'the MCP Session Replay card follows the closing comment directly');
+
+  ok(/<i class="fas fa-bolt"><\/i>/.test(cardBlock), 'the card icon is fas fa-bolt');
+  ok(/<h3>Jev fast mode \(experimental\)<\/h3>/.test(cardBlock), 'the card title is "Jev fast mode (experimental)"');
+  ok(/<p>Faster simple clicks during autopilot<\/p>/.test(cardBlock), 'the card subtitle is "Faster simple clicks during autopilot"');
+  ok(/<span class="toggle-label">Use Jev for simple steps<\/span>/.test(cardBlock), 'the toggle label is "Use Jev for simple steps"');
+
+  const cardText = facts.textOf(cardBlock);
+  const lowerCardText = cardText.toLowerCase();
+  const missingShared = facts.SHARED_PHRASES.filter((phrase) => !lowerCardText.includes(phrase.toLowerCase()));
+  ok(cardText.length > 0 && missingShared.length === 0,
+    'the card text holds every SHARED_PHRASES entry (' + facts.SHARED_PHRASES.length + '; missing: ' + (missingShared.join(' | ') || 'none') + ')');
+  const missingCardOnly = facts.CARD_ONLY_PHRASES.filter((phrase) => !lowerCardText.includes(phrase.toLowerCase()));
+  ok(missingCardOnly.length === 0, 'the card text holds every CARD_ONLY_PHRASES entry (missing: ' + (missingCardOnly.join(' | ') || 'none') + ')');
+  ok(cardText.includes("Never sent to FSB's server"), 'the never-sent list is headed "Never sent to FSB\'s server"');
+  ok(cardText.includes("Sent to FSB's server"), 'the sent list is headed "Sent to FSB\'s server"');
+  const firedForbidden = facts.FORBIDDEN_PATTERNS.filter((re) => re.test(cardText)).map(String);
+  ok(firedForbidden.length === 0, 'the card text matches no FORBIDDEN_PATTERNS entry (' + (firedForbidden.join(', ') || 'none') + ')');
+  ok(/^Off by default\./.test(facts.textOf((cardBlock.match(/<span class="toggle-desc">[\s\S]*?<\/span>/) || [''])[0])),
+    'the toggle description opens with "Off by default."');
+
+  const toggleLabel = (cardBlock.match(/<label class="modern-toggle">[\s\S]*?<\/label>/) || [''])[0];
+  ok(toggleLabel !== '' && !facts.textOf(toggleLabel).includes("Never sent to FSB's server")
+    && !facts.textOf(toggleLabel).includes("Sent to FSB's server"),
+  'the sent and never-sent lists sit outside the toggle label, so reading or clicking them cannot flip the switch');
+  ok(!/<button\b|<script\b|<a\b|<form\b|<iframe\b|<img\b/i.test(cardBlock), 'the card holds no button, script, link, form, frame or image');
+  ok(!/\bid="(?!fsbJevFastModeCard"|fsbJevFastModeEnabled")[^"]*"/.test(cardBlock),
+    'the card has no element id besides the card root and the checkbox (no status line)');
+  ok(!/class="[^"]*status[^"]*"/i.test(cardBlock) && !/\baria-live\b|\brole="status"/i.test(cardBlock),
+    'the card has no status element or live region (D-06: no live status)');
+  ok(!/[a-z][a-z0-9+.-]*:\/\//i.test(cardBlock), 'the card names no URL, so the panel makes no network call for it');
+  ok(!/[\u{10000}-\u{10FFFF}]/u.test(cardBlock), 'the card holds no emoji');
 
   // -------------------------------------------------------------------------
   section('registration');

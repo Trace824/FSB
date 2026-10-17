@@ -31,9 +31,16 @@
  *      extension/config mentions jev, except the one settings key
  *      fsbJevFastModeEnabled (Phase 68 D-06), allowed as an exact,
  *      word-bounded token in extension/config/config.js,
- *      extension/config/init-config.js and extension/ui/options.js only. Any
- *      other jev text in those files, or the token anywhere else under
- *      extension/ui or extension/config, still fails.
+ *      extension/config/init-config.js and extension/ui/options.js, and the
+ *      fast-mode settings card in extension/ui/control_panel.html (Phase 68
+ *      plan 68-12): there, jev text is allowed only on the lines from the one
+ *      holding id="fsbJevFastModeCard" through the one holding the closing
+ *      comment <!-- /fsbJevFastModeCard -->. Each marker must appear exactly
+ *      once, the end after the start, the range at most 40 lines; the range
+ *      is computed from the file at run time. Any other jev text in those
+ *      files (the token outside the card in control_panel.html included), or
+ *      the token anywhere else under extension/ui or extension/config, still
+ *      fails.
  *   4. Inert load. Each module, alone and all four together, evaluates in a
  *      bare vm context (no chrome, no fetch, no require, no module), makes no
  *      timer call, logs nothing, throws nothing and adds exactly its own
@@ -101,12 +108,27 @@ const UI_TEXT_PATTERN = Object.freeze({ name: 'jev (any substring, text files)',
 // extension/config may contain, and the only files that may contain them.
 // Each token is removed only where it stands as a whole word, and only in
 // those files, before UI_TEXT_PATTERN runs; any other jev text still fails.
+// control_panel.html (plan 68-12) may hold the token too, but only inside the
+// fast-mode card range below: the token is never stripped there, so the token
+// outside the card is still reported.
 const UI_CONFIG_JEV_TOKENS = Object.freeze(['fsbJevFastModeEnabled']);
 const UI_CONFIG_TOKEN_FILES = Object.freeze([
   'extension/config/config.js',
   'extension/config/init-config.js',
-  'extension/ui/options.js'
+  'extension/ui/options.js',
+  'extension/ui/control_panel.html'
 ]);
+
+// Phase 68 D-06 (plan 68-12): the one marker-bounded range of jev text under
+// extension/ui and extension/config, the fast-mode settings card. The range
+// runs from the line holding the start marker through the line holding the
+// end marker; each marker must appear exactly once in the file, the end on a
+// later line than the start, and the range may span at most
+// UI_CARD_MAX_LINES lines.
+const UI_CARD_FILE = 'extension/ui/control_panel.html';
+const UI_CARD_START_MARKER = 'id="fsbJevFastModeCard"';
+const UI_CARD_END_MARKER = '<!-- /fsbJevFastModeCard -->';
+const UI_CARD_MAX_LINES = 40;
 
 // Phase 68 D-06 (plans 68-06 and 68-08): besides its four load lines,
 // background.js may mention jev only inside these exact tokens, each removed
@@ -199,13 +221,47 @@ function stripAllowedTokens(text) {
   return out;
 }
 
+function countOccurrences(text, needle) {
+  return text.split(needle).length - 1;
+}
+
+/**
+ * The fast-mode card's line range in control_panel.html text, computed from
+ * the markers: {start, end} (1-based, inclusive) or {error} when a marker is
+ * missing or repeated, the end does not follow the start, or the range is
+ * wider than UI_CARD_MAX_LINES.
+ */
+function cardRange(text) {
+  const starts = countOccurrences(text, UI_CARD_START_MARKER);
+  const ends = countOccurrences(text, UI_CARD_END_MARKER);
+  if (starts !== 1 || ends !== 1) {
+    return { error: 'fast-mode card markers: ' + starts + ' start and ' + ends + ' end (exactly one of each is required)' };
+  }
+  const start = lineOf(text, text.indexOf(UI_CARD_START_MARKER));
+  const end = lineOf(text, text.indexOf(UI_CARD_END_MARKER));
+  if (end <= start) return { error: 'fast-mode card end marker (line ' + end + ') does not follow its start (line ' + start + ')' };
+  if (end - start + 1 > UI_CARD_MAX_LINES) {
+    return { error: 'fast-mode card range spans ' + (end - start + 1) + ' lines (at most ' + UI_CARD_MAX_LINES + ')' };
+  }
+  return { start, end };
+}
+
 /**
  * The UI_TEXT_PATTERN hits in one text file under extension/ui or
- * extension/config (relPath is repo-relative). The allowed tokens are removed
- * first only in UI_CONFIG_TOKEN_FILES, so the scan stays as strict everywhere
- * else and for every other jev text.
+ * extension/config (relPath is repo-relative). In control_panel.html only the
+ * lines of the fast-mode card are exempt, and only while its markers are
+ * valid (an invalid range is itself reported, with every hit); nothing is
+ * stripped there. Elsewhere the allowed tokens are removed first only in
+ * UI_CONFIG_TOKEN_FILES, so the scan stays as strict everywhere else and for
+ * every other jev text.
  */
 function uiTextHits(text, relPath) {
+  if (relPath === UI_CARD_FILE) {
+    const range = cardRange(text);
+    const hits = findAll(text, UI_TEXT_PATTERN);
+    if (range.error) return hits.concat([{ line: 0, match: range.error, pattern: 'fast-mode card range' }]);
+    return hits.filter((hit) => hit.line < range.start || hit.line > range.end);
+  }
   const scanned = UI_CONFIG_TOKEN_FILES.includes(relPath) ? stripAllowedTokens(text) : text;
   return findAll(scanned, UI_TEXT_PATTERN);
 }
@@ -304,6 +360,57 @@ function scannerSelfTest() {
   const mixed = uiTextHits('  fsbJevFastModeEnabled: false,\n  // Jev decides\n', OPTIONS_REL);
   check(mixed.length === 1 && mixed[0].line === 2 && mixed[0].match === 'Jev',
     'other jev text in an allowed file is still reported, on its own line, next to the allowed token');
+
+  // Phase 68 D-06 (plan 68-12): in control_panel.html jev text is allowed
+  // only on the fast-mode card's lines; options.js, config.js and the rest of
+  // control_panel.html stay exactly as strict.
+  const cardLines = (body) => '            <div class="settings-card" id="fsbJevFastModeCard">\n'
+    + body + '            </div>\n            <!-- /fsbJevFastModeCard -->\n';
+  const CARD_BODY = '              <h3>Jev fast mode (experimental)</h3>\n'
+    + '              <input type="checkbox" id="fsbJevFastModeEnabled">\n'
+    + '              <span class="toggle-label">Use Jev for simple steps</span>\n';
+  const PANEL_BEFORE = '            <div class="settings-card">\n              <h3>Action Change Reports</h3>\n            </div>\n\n';
+  const PANEL_AFTER = '\n            <div class="settings-card full-width" id="mcpSessionReplaySettings">\n            </div>\n';
+  const panelWithCard = PANEL_BEFORE + cardLines(CARD_BODY) + PANEL_AFTER;
+  check(uiTextHits(panelWithCard, PANEL_REL).length === 0,
+    'control_panel.html jev text on the card lines (start marker through the closing comment) is not reported');
+  const probeRange = cardRange(panelWithCard);
+  check(probeRange.start === 5 && probeRange.end === 10,
+    'the card range is computed from the markers at run time (lines ' + probeRange.start + '..' + probeRange.end + ')');
+  const panelReported = [
+    ['a Jev word before the card', PANEL_BEFORE + '            <p>Jev decides</p>\n' + cardLines(CARD_BODY) + PANEL_AFTER, false],
+    ['a jevX identifier after the card', PANEL_BEFORE + cardLines(CARD_BODY) + '            <script>var jevX = 1;</script>\n' + PANEL_AFTER, false],
+    ['the settings token outside the card', PANEL_BEFORE + cardLines(CARD_BODY) + '            <input type="checkbox" id="fsbJevFastModeEnabled">\n' + PANEL_AFTER, false],
+    ['a jev comment on the line just before the start marker', PANEL_BEFORE + '            <!-- jev card -->\n' + cardLines(CARD_BODY) + PANEL_AFTER, false],
+    ['jev text on the line just after the closing comment', PANEL_BEFORE + cardLines(CARD_BODY) + '            <p>Jev</p>\n' + PANEL_AFTER, false],
+    ['a second start marker', PANEL_BEFORE + cardLines(CARD_BODY) + '            <div id="fsbJevFastModeCard"></div>\n' + PANEL_AFTER, true],
+    ['a second closing comment', PANEL_BEFORE + cardLines(CARD_BODY) + '            <!-- /fsbJevFastModeCard -->\n' + PANEL_AFTER, true],
+    ['a card with no closing comment', PANEL_BEFORE + '            <div class="settings-card" id="fsbJevFastModeCard">\n' + CARD_BODY + '            </div>\n' + PANEL_AFTER, true],
+    ['a card with no start marker', PANEL_BEFORE + '            <div class="settings-card">\n' + CARD_BODY + '            </div>\n            <!-- /fsbJevFastModeCard -->\n' + PANEL_AFTER, true],
+    ['a closing comment above the start marker', PANEL_BEFORE + '            <!-- /fsbJevFastModeCard -->\n            <div class="settings-card" id="fsbJevFastModeCard">\n' + CARD_BODY + '            </div>\n' + PANEL_AFTER, true],
+    ['a card range wider than ' + UI_CARD_MAX_LINES + ' lines', PANEL_BEFORE + cardLines(CARD_BODY + '              <p>filler</p>\n'.repeat(UI_CARD_MAX_LINES)) + PANEL_AFTER, true],
+    ['a panel with no card at all (the markers are required)', PANEL_BEFORE + PANEL_AFTER, true]
+  ];
+  for (const [label, text, rangeError] of panelReported) {
+    const hits = uiTextHits(text, PANEL_REL);
+    check(hits.length > 0 && hits.some((h) => h.pattern === 'fast-mode card range') === rangeError,
+      'control_panel.html scan still reports ' + label + (rangeError ? ' (as a card-range error)' : ''));
+  }
+  const strictElsewhere = [
+    [OPTIONS_REL, '  // Jev\n'],
+    [OPTIONS_REL, '  const jevX = 1;\n'],
+    [CONFIG_REL, '  // Jev\n'],
+    [CONFIG_REL, '  jevX: true,\n'],
+    [OPTIONS_REL, cardLines(CARD_BODY)],
+    [CONFIG_REL, cardLines(CARD_BODY)],
+    [INIT_REL, cardLines(CARD_BODY)],
+    ['extension/ui/sidepanel.html', cardLines(CARD_BODY)],
+    ['extension/ui/options.css', '/* ' + cardLines(CARD_BODY) + ' */\n']
+  ];
+  for (const [relPath, text] of strictElsewhere) {
+    check(uiTextHits(text, relPath).length > 0,
+      'outside control_panel.html the card markers exempt nothing: ' + JSON.stringify(text.trim().split('\n')[0]) + ' is still reported in ' + relPath);
+  }
 
   // Phase 68 (68-04): the fast-path module joins the module list; nothing else moves.
   check(ALL_MODULES.length === 4 && ALL_MODULES[3] === FAST_PATH_MODULE && MODULES.length === 3
@@ -466,23 +573,28 @@ function uiConfigScan() {
     if (read.skipped) continue;
     const relPath = rel(file);
     // Text files: any jev substring (catches a jevFastMode-style key too),
-    // after the Phase 68 D-06 token allowlist in its three files only.
+    // after the Phase 68 D-06 token allowlist in its three files only and,
+    // in control_panel.html, outside the fast-mode card's lines only.
     // Binaries: the word only, so random compressed bytes cannot trip it.
     const pattern = read.binary ? UI_WORD_PATTERN : UI_TEXT_PATTERN;
     if (!read.binary) textFiles += 1;
     const hits = read.binary ? findAll(read.text, pattern) : uiTextHits(read.text, relPath);
     for (const hit of hits) {
-      violations.push({ file: relPath, line: hit.line, pattern: pattern.name, match: hit.match });
+      violations.push({ file: relPath, line: hit.line, pattern: hit.pattern || pattern.name, match: hit.match });
     }
     if (UI_CONFIG_JEV_TOKENS.some((token) => read.text.indexOf(token) !== -1)) tokenFiles.push(relPath);
   }
   console.log('  ui/config files scanned: ' + files.length + ' (' + textFiles + ' text)');
   check(files.length > 0, 'extension/ui and extension/config hold files to scan');
+  const panelPath = path.join(ROOT, UI_CARD_FILE);
+  const panelRange = fs.existsSync(panelPath) ? cardRange(fs.readFileSync(panelPath, 'utf8')) : { error: UI_CARD_FILE + ' is missing' };
+  check(!panelRange.error, UI_CARD_FILE + ' holds exactly one fast-mode card range, at most ' + UI_CARD_MAX_LINES + ' lines ('
+    + (panelRange.error || 'lines ' + panelRange.start + '..' + panelRange.end) + ')');
   report(violations, 'ui/config');
-  check(violations.length === 0, 'nothing under extension/ui or extension/config mentions jev apart from the allowed settings key (' + violations.length + ' violation(s))');
+  check(violations.length === 0, 'nothing under extension/ui or extension/config mentions jev apart from the allowed settings key and the fast-mode card (' + violations.length + ' violation(s))');
   console.log('  files holding an allowed token: ' + (tokenFiles.join(', ') || 'none'));
   check(tokenFiles.every((relPath) => UI_CONFIG_TOKEN_FILES.includes(relPath)),
-    'the files under extension/ui and extension/config that hold fsbJevFastModeEnabled are a subset of config.js, init-config.js and options.js');
+    'the files under extension/ui and extension/config that hold fsbJevFastModeEnabled are a subset of config.js, init-config.js, options.js and control_panel.html');
 }
 
 // ---------------------------------------------------------------------------
