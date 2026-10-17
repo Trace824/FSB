@@ -1458,7 +1458,9 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
       for (let i = 0; i < states.length; i++) setUncertain(i, 'tab_closed');
       break;
     }
-    const committed = !commit || (typeof commit.isCommitted === 'function' && commit.isCommitted() === true);
+    // The tab lets the watcher reject a same-document event that came from
+    // the outgoing document while a cross-document navigation is pending.
+    const committed = !commit || (typeof commit.isCommitted === 'function' && commit.isCommitted(tab) === true);
     if (!committed) {
       for (let i = 0; i < states.length; i++) setUncertain(i, 'no_commit');
     } else {
@@ -1579,7 +1581,8 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
  *   executeProbe(tabId, func, args) -> Promise<{ ok, result, documentId, reason }>,
  *   now() -> number, sleep(ms) -> Promise }
  * @param {Object} [args.commit] - navigation tools only:
- *   { required, isCommitted() -> boolean, documentId() -> string|null }
+ *   { required, isCommitted(tab) -> boolean, documentId() -> string|null };
+ *   isCommitted receives the latest tabs.get result for this iteration.
  * @param {boolean} [args.pageUnresponsive]
  * @returns {Promise<Object>} expect_result
  */

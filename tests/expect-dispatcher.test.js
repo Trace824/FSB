@@ -348,6 +348,78 @@ async function runTask1() {
     ok(exec.calls === 1, 'execute() once');
   });
 
+  // 69-REVIEW WR-01: the outgoing document's own pushState / hash updates
+  // during the network phase must not count as the navigation's commit.
+  await section('commit watcher: same-document events count only with no cross-document navigation pending', async () => {
+    const PENDING = { id: 7, url: 'https://example.com/page', status: 'loading', pendingUrl: 'https://example.com/prev' };
+    const SETTLED = { id: 7, url: 'https://example.com/page#top', status: 'complete' };
+
+    const w = dispatcher._watchMainFrameCommit(7, 'go_back');
+    ok(w.isCommitted(SETTLED) === false && w.documentId() === null, 'nothing seen: not committed');
+    nav.onHistoryStateUpdated.fire({ tabId: 7, frameId: 0, documentId: 'doc-old' });
+    ok(w.isCommitted(PENDING) === false, 'a same-document event while a navigation is pending is not the commit');
+    ok(w.isCommitted(SETTLED) === true && w.documentId() === 'doc-old',
+      'with nothing pending the same-document event is the commit (fragment_only / history-state back)');
+    nav.onCommitted.fire({ tabId: 7, frameId: 0, documentId: 'doc-new' });
+    ok(w.isCommitted(PENDING) === true && w.documentId() === 'doc-new', 'the cross-document commit always counts');
+    nav.onReferenceFragmentUpdated.fire({ tabId: 7, frameId: 0, documentId: 'doc-old' });
+    ok(w.documentId() === 'doc-new', 'a later same-document event cannot rename the committed document');
+    w.dispose();
+    ok(liveNavListeners() === 0, 'go_back watcher listeners removed');
+
+    const r = dispatcher._watchMainFrameCommit(7, 'refresh');
+    nav.onReferenceFragmentUpdated.fire({ tabId: 7, frameId: 0, documentId: 'doc-old' });
+    nav.onHistoryStateUpdated.fire({ tabId: 7, frameId: 0, documentId: 'doc-old' });
+    ok(r.isCommitted(SETTLED) === false && r.documentId() === null, 'refresh ignores same-document events entirely');
+    nav.onCommitted.fire({ tabId: 7, frameId: 0, documentId: 'doc-reloaded' });
+    ok(r.isCommitted(SETTLED) === true && r.documentId() === 'doc-reloaded', 'refresh commits on the reload itself');
+    r.dispose();
+
+    const n = dispatcher._watchMainFrameCommit(7, 'navigate');
+    nav.onReferenceFragmentUpdated.fire({ tabId: 7, frameId: 0, documentId: 'doc-same' });
+    ok(n.isCommitted(SETTLED) === true && n.documentId() === 'doc-same', 'navigate to a fragment-only URL commits in place');
+    n.dispose();
+
+    const boot = dispatcher._watchMainFrameCommit(null, 'navigate');
+    nav.onHistoryStateUpdated.fire({ tabId: 9, frameId: 0, documentId: 'doc-9-old' });
+    nav.onCommitted.fire({ tabId: 10, frameId: 0, documentId: 'doc-10' });
+    boot.bindTab(9);
+    ok(boot.isCommitted(Object.assign({}, PENDING, { id: 9 })) === false && boot.isCommitted({ id: 9, status: 'complete' }) === true,
+      'bootstrap: a buffered same-document event keeps the pendingUrl rule after bindTab');
+    ok(boot.documentId() === 'doc-9-old', 'bootstrap: the bound tab entry, not tab 10, is used');
+    boot.dispose();
+    ok(liveNavListeners() === 0, 'every watcher listener removed');
+  });
+
+  await section('go_back / refresh: an outgoing-document history update is never verified as the commit', async () => {
+    dispatcher._setChangeReportsEnabledForTest(false);
+    state.probe = holdingProbe(true, 'doc-old');
+    state.tabs = (id) => ({ id, url: 'https://example.com/page', title: 'Example', status: 'loading', pendingUrl: 'https://example.com/prev' });
+    const exec = counted({ success: true, tool: 'go_back', tabId: 7 }, () => {
+      nav.onHistoryStateUpdated.fire({ tabId: 7, frameId: 0, documentId: 'doc-old' });
+    });
+    const resp = await dispatcher.wrapWithChangeReport({
+      toolName: 'go_back', tabId: 7, params: {}, execute: exec, expect: { text_visible: 'Old page', timeout_ms: 300 }
+    });
+    ok(resp && resp.expect_result && resp.expect_result.status === 'uncertain' && resp.expect_result.reason === 'no_commit',
+      'go_back: pending navigation + same-document event -> uncertain no_commit (got ' + JSON.stringify(resp && resp.expect_result) + ')');
+    ok(probeCalls().length === 0, 'go_back: the outgoing document is never probed');
+    ok(exec.calls === 1, 'go_back: execute() once');
+
+    resetState();
+    state.probe = holdingProbe(true, 'doc-old');
+    const exec2 = counted({ success: true, tool: 'refresh', tabId: 7 }, () => {
+      nav.onReferenceFragmentUpdated.fire({ tabId: 7, frameId: 0, documentId: 'doc-old' });
+    });
+    const resp2 = await dispatcher.wrapWithChangeReport({
+      toolName: 'refresh', tabId: 7, params: {}, execute: exec2, expect: { text_visible: 'Old page', timeout_ms: 300 }
+    });
+    ok(resp2 && resp2.expect_result && resp2.expect_result.status === 'uncertain' && resp2.expect_result.reason === 'no_commit',
+      'refresh: a same-document event is never the reload commit');
+    ok(probeCalls().length === 0 && liveNavListeners() === 0, 'refresh: no probe; listeners removed');
+    ok(exec2.calls === 1, 'refresh: execute() once');
+  });
+
   await section('execute() throwing on a navigation tool', async () => {
     dispatcher._setChangeReportsEnabledForTest(false);
     const boom = new Error('reload exploded');

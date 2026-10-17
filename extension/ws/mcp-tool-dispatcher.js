@@ -1911,7 +1911,7 @@ async function handleBackRoute({ payload = {}, client = null }) {
   // RESEARCH Pitfall 1: the settle below can end (2 s timeout, pageshow or
   // onUpdated leg) before the history navigation commits, so with expect the
   // commit watcher is subscribed before goBack and the checks wait for it.
-  const backCommit = expectCtx ? _watchMainFrameCommit(targetTabId) : null;
+  const backCommit = expectCtx ? _watchMainFrameCommit(targetTabId, 'back') : null;
 
   // 5. Fire goBack. NEVER call the focus-stealing tabs update API here
   //    (D-08 background-tab posture; verification gate excludes the literal
@@ -5017,29 +5017,42 @@ function _resolveExpectSpec(rawExpect, toolNameOrVerb) {
 // the latest committed one is stale. A null tabId buffers commits per tab
 // until bindTab(id) picks one (navigate bootstrap). Same listen and remove
 // pattern as navigateTabAndWaitForCommit.
-function _watchMainFrameCommit(tabId) {
+//
+// Same-document events (fragment or history-state updates) need care: the
+// outgoing document keeps running until the new one commits, so its own
+// pushState / replaceState / hash updates during the network phase are not
+// the commit (69-REVIEW WR-01). A same-document event therefore counts only
+// while no cross-document navigation is pending (isCommitted(tab) sees no
+// tab.pendingUrl), and never for refresh, whose result is always a new
+// document. An onCommitted (new document) always counts.
+function _watchMainFrameCommit(tabId, toolName) {
   const events = (typeof chrome !== 'undefined' && chrome.webNavigation) ? chrome.webNavigation : null;
   if (!events || !events.onCommitted || typeof events.onCommitted.addListener !== 'function') {
     return { required: false, isCommitted: () => true, documentId: () => null, bindTab() {}, dispose() {} };
   }
+  const acceptSameDocument = toolName !== 'refresh';
   let boundTab = Number.isFinite(tabId) ? tabId : null;
-  let committed = false;
-  let committedDoc = null;
-  const pending = new Map();
+  // Per-tab commit state; before bindTab every tab is buffered.
+  const seen = new Map();
   const listeners = [];
   const record = (details, newDocument) => {
     if (!details || details.frameId !== 0 || !Number.isFinite(details.tabId)) return;
+    if (boundTab !== null && details.tabId !== boundTab) return;
+    if (!newDocument && !acceptSameDocument) return;
     const doc = (typeof details.documentId === 'string' && details.documentId) ? details.documentId : null;
-    if (boundTab === null) {
-      const prev = pending.get(details.tabId);
-      pending.set(details.tabId, (newDocument || doc) ? doc : (prev || null));
-      return;
+    let entry = seen.get(details.tabId);
+    if (!entry) { entry = { newDocument: false, sameDocument: false, doc: null }; seen.set(details.tabId, entry); }
+    if (newDocument) {
+      entry.newDocument = true;
+      entry.doc = doc;
+    } else if (!entry.newDocument) {
+      // After a new-document commit, a same-document update happens in that
+      // same document, so only an earlier one may name the document.
+      entry.sameDocument = true;
+      if (doc) entry.doc = doc;
     }
-    if (details.tabId !== boundTab) return;
-    committed = true;
-    // A same-document update (fragment, history state) keeps the document.
-    if (newDocument || doc) committedDoc = doc;
   };
+  const current = () => (boundTab === null ? null : (seen.get(boundTab) || null));
   const listen = (event, listener) => {
     if (!event || typeof event.addListener !== 'function') return;
     try { event.addListener(listener); listeners.push([event, listener]); } catch (_) { /* best-effort */ }
@@ -5049,20 +5062,33 @@ function _watchMainFrameCommit(tabId) {
   listen(events.onHistoryStateUpdated, (details) => record(details, false));
   return {
     required: true,
-    isCommitted: () => committed,
-    documentId: () => committedDoc,
+    // tab: the evaluator's latest chrome.tabs.get result for the bound tab.
+    isCommitted: (tab) => {
+      const entry = current();
+      if (!entry) return false;
+      if (entry.newDocument) return true;
+      if (!entry.sameDocument) return false;
+      return !(tab && typeof tab.pendingUrl === 'string' && tab.pendingUrl.length > 0);
+    },
+    documentId: () => {
+      const entry = current();
+      return entry ? entry.doc : null;
+    },
     bindTab(id) {
       if (boundTab !== null || !Number.isFinite(id)) return;
       boundTab = id;
-      if (pending.has(id)) { committed = true; committedDoc = pending.get(id); }
-      pending.clear();
+      for (const key of Array.from(seen.keys())) {
+        if (key !== id) seen.delete(key);
+      }
     },
     dispose() {
       while (listeners.length > 0) {
         const [event, listener] = listeners.pop();
         try { event.removeListener(listener); } catch (_) { /* best-effort */ }
       }
-      pending.clear();
+      for (const key of Array.from(seen.keys())) {
+        if (key !== boundTab) seen.delete(key);
+      }
     }
   };
 }
@@ -5110,7 +5136,7 @@ async function _attachExpectResult(response, expectCtx, tabId, commit) {
 // before execute(); a throw from execute() disposes it and propagates exactly
 // as the bare return execute() does.
 async function _executeWithExpect(expectCtx, execute, tabId) {
-  const watcher = expectCtx.isNav ? _watchMainFrameCommit(tabId) : null;
+  const watcher = expectCtx.isNav ? _watchMainFrameCommit(tabId, expectCtx.toolName) : null;
   try {
     const response = await execute();
     if (watcher && !Number.isFinite(tabId) && response && Number.isFinite(response.tabId)) {
