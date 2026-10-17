@@ -19,12 +19,17 @@
  *   only to detect an error envelope or an unknown-model message, then
  *   dropped. Nothing here logs, and no error object is ever inspected.
  * - D-23: usage and cost carry provider/estimate/unavailable sources with null,
- *   never 0, for a missing value. The served model is kept verbatim.
+ *   never 0, for a missing value. The served model is kept verbatim, unless
+ *   it carries the credential (or a fragment of it) or any secret shape: an
+ *   upstream that echoes the Authorization value as `model` must not leak it
+ *   into the response, the ledger or the log line. Such a model becomes null,
+ *   and an otherwise valid answer becomes invalid_response.
  * - D-25: an unknown or retired model gives unavailable_model. The configured
  *   pin is always the model sent; an alias is never substituted.
  */
 
 const { CONTRACT } = require('./contract');
+const { matchesSecret } = require('./scrubber');
 
 const ERROR_SLICE_BYTES = 4096;
 const MAX_OK_BODY_BYTES = 1048576;
@@ -60,6 +65,26 @@ function servedModelOf(parsed) {
   if (!isPlainObject(parsed) || !hasOwn(parsed, 'model')) return null;
   const model = parsed.model;
   return typeof model === 'string' && servedModelPattern().test(model) ? model : null;
+}
+
+// The shortest credential loadJevConfig accepts; a shorter served model is
+// never treated as a fragment of the key.
+const MIN_CREDENTIAL_FRAGMENT_CHARS = 8;
+
+/**
+ * The served model when it is safe to return, store and log, else null. A
+ * model that contains the credential, is a fragment of it (for example a
+ * long key echoed only up to the 128-character model cap) or matches any
+ * scrubber secret shape is refused (D-22).
+ */
+function safeServedModel(model, apiKey) {
+  if (typeof model !== 'string' || !servedModelPattern().test(model)) return null;
+  if (typeof apiKey === 'string' && apiKey.length > 0) {
+    if (model.includes(apiKey)) return null;
+    if (model.length >= MIN_CREDENTIAL_FRAGMENT_CHARS && apiKey.includes(model)) return null;
+  }
+  if (matchesSecret(model)) return null;
+  return model;
 }
 
 // ---------------------------------------------------------------------------
@@ -428,16 +453,20 @@ async function callUpstream({ config, body, fetchImpl, now = Date.now } = {}) {
       if (isPlainObject(envelope) && typeof envelope.message === 'string') message = envelope.message.slice(0, ERROR_SLICE_BYTES);
       else if (typeof envelope === 'string') message = envelope.slice(0, ERROR_SLICE_BYTES);
       const reason = Number.isSafeInteger(code) ? classifyStatus(code, message) : 'upstream_error';
-      return fallback(reason, status, servedModelOf(parsed));
+      return fallback(reason, status, safeServedModel(servedModelOf(parsed), config.apiKey));
     }
 
     const validated = validateAnswers(body.questions, parsed);
-    if (!validated.ok) return fallback('invalid_response', status, validated.servedModel);
+    const servedModel = safeServedModel(validated.servedModel, config.apiKey);
+    if (!validated.ok) return fallback('invalid_response', status, servedModel);
+    // A valid answer whose model carries the credential or a secret shape is
+    // still refused: an ok result always names a safe served model.
+    if (servedModel === null) return fallback('invalid_response', status);
 
     const { usage, cost } = computeUsageAndCost(validated.rawUsage, config.inputUsdPerMtok);
     return {
       ok: true,
-      servedModel: validated.servedModel,
+      servedModel,
       answers: validated.answers,
       usage,
       cost,

@@ -932,6 +932,37 @@ async function echoSection(fake) {
   for (const [name, marker] of Object.entries(MARKERS)) {
     check(`no echo result contains the ${name} marker`, !serialized.includes(marker));
   }
+
+  // The upstream echoes the credential as its top-level `model` (CR-01). It
+  // must never come back as servedModel, on the ok path or a fallback path.
+  console.log('\n--- echo mode: the credential as the served model ---');
+  const modelEchoCases = [
+    ['the whole credential as model on an otherwise valid answer', { mode: 'ok-direct', model: KEY }, 'invalid_response'],
+    ['a 20-character fragment of the credential as model', { mode: 'ok-direct', model: KEY.slice(0, 20) }, 'invalid_response'],
+    ['the credential inside a longer model string', { mode: 'ok-direct', model: `typesafe/${KEY}` }, 'invalid_response'],
+    ['a secret-shaped model that is not the credential', { mode: 'ok-direct', model: 'sk-ant-abcdefghijklmnop1234' }, 'invalid_response'],
+    ['the credential as model beside an HTTP 200 error envelope',
+      { mode: 'error-200', errorBody: { model: KEY, error: { code: 502, message: 'Provider returned error' } } }, 'upstream_error'],
+    ['the credential as model on an invalid answer',
+      { mode: 'answersFn', answersFn: () => ({}), model: KEY }, 'invalid_response'],
+  ];
+  const echoedModels = [];
+  for (const [label, mode, expected] of modelEchoCases) {
+    resetFake(fake, mode);
+    const result = await callUpstream({ config, body: makeBody(), fetchImpl: recordingFetch() });
+    noteReason(result);
+    echoedModels.push(result);
+    check(`${label} -> ${expected} with a null servedModel`, result.ok === false && result.reason === expected
+      && result.servedModel === null && isFallbackShape(result), show(result));
+  }
+  const echoedText = show(echoedModels);
+  check('no served-model echo result contains the credential or a fragment of it',
+    !echoedText.includes(KEY) && !echoedText.includes(KEY.slice(0, 20)) && !echoedText.includes('SECRET'));
+
+  resetFake(fake, { mode: 'ok-direct' });
+  const clean = await callUpstream({ config, body: makeBody(), fetchImpl: recordingFetch() });
+  check('a normal model is still served verbatim after the echo cases', clean.ok === true && clean.servedModel === 'jev-1.13.0',
+    show(clean));
 }
 
 // ---------------------------------------------------------------------------

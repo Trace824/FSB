@@ -699,6 +699,42 @@ async function upstreamFallbackSection() {
   db.close();
 }
 
+async function servedModelEchoSection() {
+  console.log('\n--- an upstream echoing the credential as its model: never in a body, a log line or a row (CR-01, D-22) ---');
+  const fake = await startFakeUpstream({ mode: 'ok-direct' });
+  const db = makeDb();
+  const sink = makeLog();
+  const counter = countingFetch();
+  const clock = makeClock();
+  const gw = await startGateway({ db, config: makeConfig(fake.url), fetchImpl: counter.fetchImpl, now: clock.now, log: sink.log });
+
+  fake.setMode(Object.assign({}, RESET, { mode: 'ok-direct', model: CREDENTIAL }));
+  const okEcho = await decide(gw.port, baseRequest());
+  checkTyped('a valid answer whose model is the credential', okEcho, 502, 'invalid_response');
+  check('its servedModel is null', okEcho.body !== null && okEcho.body.servedModel === null, okEcho.text.slice(0, 200));
+
+  fake.setMode(Object.assign({}, RESET, {
+    mode: 'error-200', errorBody: { model: CREDENTIAL, error: { code: 502, message: 'Provider returned error' } },
+  }));
+  const envelopeEcho = await decide(gw.port, baseRequest());
+  checkTyped('an HTTP 200 error envelope whose model is the credential', envelopeEcho, 502, 'upstream_error');
+  check('its servedModel is null', envelopeEcho.body !== null && envelopeEcho.body.servedModel === null);
+
+  const rows = ledgerRows(db);
+  check('one ledger row per attempt, each with a null served_model',
+    rows.length === 2 && counter.calls === 2 && rows.every((row) => row.served_model === null), JSON.stringify(rows));
+  check('no response body holds the credential', [okEcho, envelopeEcho].every((res) => !res.text.includes(CREDENTIAL)));
+  check('no log line holds the credential', sink.lines.every((line) => !line.text.includes(CREDENTIAL)),
+    JSON.stringify(sink.lines.map((line) => line.text)));
+  check('no ledger or aggregate value holds the credential',
+    !JSON.stringify(rows).includes(CREDENTIAL)
+      && !JSON.stringify(db.prepare('SELECT * FROM jev_daily').all()).includes(CREDENTIAL));
+
+  await gw.close();
+  await fake.close();
+  db.close();
+}
+
 async function calibratedSection() {
   console.log('\n--- calibrated and snapshot_changed profiles (D-25, D-28) ---');
   const fake = await startFakeUpstream({ mode: 'ok-openrouter' });
@@ -1006,6 +1042,7 @@ async function main() {
   await concurrencySection();
   await spendSection();
   await upstreamFallbackSection();
+  await servedModelEchoSection();
   await calibratedSection();
   await crashSection();
   await postUpstreamFaultSection();
