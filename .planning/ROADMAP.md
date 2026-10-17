@@ -186,7 +186,19 @@ Plans:
 4. Completion and stuck decisions are checked against observable page evidence; action, request, and wall-clock budgets stop repeated or runaway loops with a truthful outcome.
 5. Ambiguous, changed, or failed decisions escalate once to the existing path or stop as blocked, with no duplicated side effect or weakened confirmation.
 
-**Plans:** Not planned.
+**Plans:** 12 plans
+- [ ] 68-01-PLAN.md — Open Phase 68 safely and land the switch.
+- [ ] 68-02-PLAN.md — Build the content-side half of the element menu: a separate Jev ref registry, vault-fill marks, and a value-free menu extractor with code-derived operations, a union-based risk classifier, an editable-region-free visible-text excerpt and a state-aware page signature.
+- [ ] 68-03-PLAN.md — Wire the content menu into the content message router: a `getJevMenu` case, a strict jev branch that runs before every other target-resolution branch in `executeAction`, and an armed, one-shot capture observation at the VIS-01 target-resolution point.
+- [ ] 68-04-PLAN.md — Create the pure core of `extension/ai/jev-fast-path.js` (global `FsbFastPath`): constants, fallback classification, the menu-to-request mapping, the decision evaluator built only on `FsbJevPolicy.accept`, the static call builder, and the evidence, hand-off text and measurement helpers that plan 68-05's orchestration uses.
+- [ ] 68-05-PLAN.md — Add the orchestration half of FsbFastPath: `beforeTurn` (eligibility, latches, budgets, menu request, request building, one Jev call, decision, hand-off flush, measurement), `afterStep` (evidence after a fast action), `observeTools` (what the LLM did on its own turns), `latchOff` and `abortInFlight`, all against injected dependencies so they are proven without the agent loop.
+- [ ] 68-06-PLAN.md — Wire the fast path into the running extension.
+- [ ] 68-07-PLAN.md — Prove the fast path's safety and truthfulness properties end to end through the real `runAgentIteration`, using the 68-06 harness, the fake gateway and a test-only calibrated result.
+- [ ] 68-08-PLAN.md — Build the network-free `recorded-llm` capture and its exporter so V3 bench runs produce realistic labelled step records: the service worker records what FSB would have offered Jev before each LLM turn and what the LLM actually did, and a bench script turns those records into the 67-10 record format.
+- [ ] 68-09-PLAN.md — Make Jev measurement visible and durable for V4 without changing anything for sessions that never used fast mode: persist the session's `jevMeasurement` block through the history store and expose it, plus a per-action decision-source marker, through `get_session_detail`.
+- [ ] 68-12-PLAN.md — Add the Advanced Settings disclosure card for the fast-mode switch (split out of plan 68-01 for context budget, and placed after the fast path exists so its copy is checked against implemented behaviour).
+- [ ] 68-10-PLAN.md — Disclose the opt-in page-context transfer on the public privacy page in every showcase locale, keeping the Policy History convention: first archive the current September 29, 2026 text, then add the Jev fast mode section, the qualified TLDR, an External Services bullet, a fast-mode Limited Use statement and the new date.
+- [ ] 68-11-PLAN.md — Run the Phase 68 gate: the full chain (tolerant mode if the hub holds 7225), validate:extension, Node 20 runs of every new suite, the pin, compatibility and registration audits, and the final 68-VALIDATION.md results with every human, live, production or spend check left as a tagged Manual-Only deferral.
 
 ### Phase 69: MCP Descriptions and Same-Call Checks
 
@@ -242,7 +254,15 @@ Plans:
 3. Provider failures, uncertain targets, and safety gates exit through typed fallback or escalation without duplicate side effects.
 4. Existing MCP clients continue to parse responses and invoke tools without any new required argument or new tool.
 
-**Plans:** Not planned.
+**Plans:** 8 plans
+- [ ] 70-01-PLAN.md — Open Phase 70 safely.
+- [ ] 70-02-PLAN.md — Let `run_task` join the fast path through the one gate Phase 68 built, with its own named budgets.
+- [ ] 70-03-PLAN.md — Record the evidence the typed outcome will be computed from.
+- [ ] 70-04-PLAN.md — Make the fast path usable on real `run_task` goals without sending more than before.
+- [ ] 70-05-PLAN.md — Compute the typed outcome.
+- [ ] 70-06-PLAN.md — Put the typed outcome on the existing `run_task` result.
+- [ ] 70-07-PLAN.md — Prove the result reaches real MCP callers unchanged except for the one additive key, and let V4 measure it.
+- [ ] 70-08-PLAN.md — Run the Phase 70 gate.
 
 ### Phase 71: Comparative Gate and Release
 
@@ -256,7 +276,19 @@ Plans:
 3. `CHANGELOG.md` has a v1.0.0 entry before `npm run version:set:extension -- 1.0.0` succeeds, and product version checks agree across extension surfaces.
 4. The MCP package receives its planned minor bump for optional `expect` and the approved settings tool, with compatibility checks for existing callers and no unreviewed tool additions.
 
-**Plans:** Not planned.
+**Plans:** 12 plans
+- [ ] 71-01-PLAN.md — Record the sync re-check of every upstream interface Phase 71 depends on, record the pre-edit regression-sweep baseline ($P71_START), and fix F5 in the bench: the fixture run token stops making every bench goal `sensitive_goal`, proven against the real 67-06 scrubber.
+- [ ] 71-02-PLAN.md — Extend the bench's single row contract (scripts/bench/lib/runs.mjs) for the three-arm comparison: a run-condition dimension in the seeded ABBA schedule, the `condition_not_applied` infra code and the `jev_measurement_missing` flag (set by 71-03 only when a switched-on run's fast_mode summary reports Jev attempts but its jevMeasurement never arrived), and an additive, versioned v2 run row with `condition`, `jev`, `safety`, `endLabel` and `fastMode` blocks, while schema-1 rows (the V1 baseline) validate unchanged.
+- [ ] 71-03-PLAN.md — Wire the condition dimension into the live runner (apply and verify the fast-mode switch before t0, gate hash in identity, v2 raw records) and make the campaign report group rows by (arm, condition) with honest method notes.
+- [ ] 71-04-PLAN.md — Add the completion-difference statistic, the shared synthetic-campaign generator, and the power and coverage simulation whose output decides the round counts the gate will freeze.
+- [ ] 71-05-PLAN.md — Write the gate's exact-key validator, then author and freeze `scripts/bench/gate/release-gate-v1.0.0.json` from the 71-04 simulation and the sync re-check, pin its sha256, and make the runner refuse an invalid gate.
+- [ ] 71-06-PLAN.md — Build the pure gate evaluator and prove every verdict branch on synthetic campaigns.
+- [ ] 71-07-PLAN.md — Turn evaluator results into the decision file, the release claims and the gate report, and add the two CLIs V4 will run: the gate evaluator (git and suite checks injected) and the baseline safety sidecar.
+- [ ] 71-08-PLAN.md — Fix the version setter's MCP README compatibility templates so each MCP release states its own declared minimum extension version, and rehearse both release steps (extension 1.0.0, then MCP 0.12.0) in a temp root with every parity phrase checked.
+- [ ] 71-09-PLAN.md — Build the three REL-02 checks that can run now: the reviewed tools/list delta for MCP 0.12.0, the release-diff checker that binds shipped code to the V4-measured SHA, and the count_tokens script V4 will run.
+- [ ] 71-10-PLAN.md — Update the gate-independent documentation: tool counts at 73 in both READMEs with tables that sum to the built tools/list length, the `settings` row and the `expect` reference, the skill decision tree, and count-free onboarding copy, with the parity pins moved in the same commits.
+- [ ] 71-11-PLAN.md — Move the showcase copy, the llms sources and outputs, and all seven xlf catalogs from 68 to 73 tools with digit-only, line-stable edits, recompute the affected allowlist hashes, and extend the parity test's stale-count ban to 68 and 69.
+- [ ] 71-12-PLAN.md — Run the Phase 71 gate: the full chain, Node 20 runs of every new suite, the regression sweep against the 71-01 baseline, the footprint audit, and the final 71-VALIDATION.md statuses and sign-off.
 
 ## Completed Milestones
 
