@@ -669,8 +669,11 @@
   function _sanitizeRequestPayload(payload, result) {
     var clone = _sanitizeReplayValue(payload, {}, false);
     if (!clone || typeof clone !== 'object' || Array.isArray(clone)) clone = {};
-    // Phase 69 D-15: a same-call expect is never replayed or stored; its
-    // value check may hold a secret the caller typed.
+    // Phase 69 D-15: a same-call expect is never replayed, so the request
+    // payload of a replay manifest never carries it. The stored response can
+    // still hold the caller's value string in expect_result.checks[].expected,
+    // but only when the evaluator saw a plain field; sensitive or unobserved
+    // fields are already the redaction marker there.
     delete clone.expect;
     var sourceParams = payload && typeof payload.params === 'object' ? payload.params : {};
     clone.params = cloneParamsForReplay(sourceParams, result);
