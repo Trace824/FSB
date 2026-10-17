@@ -1448,8 +1448,10 @@ async function collapseCase() {
     const last = handoffs.length === 2 ? handoffs[1].content : '';
     check(first.endsWith(SNAPSHOT_HEADER + '\n' + SNAPSHOT_COLLAPSED) && !/\nSNAP-\d+/.test(first),
       'collapse: the earlier hand-off ends with SNAPSHOT_COLLAPSED and keeps no snapshot text');
-    check(/\nSNAP-\d+$/.test(last) && last.indexOf(SNAPSHOT_HEADER + '\nSNAP-') !== -1 && last.indexOf(SNAPSHOT_COLLAPSED) === -1,
-      'collapse: only the latest hand-off carries SNAPSHOT_HEADER followed by the snapshot text');
+    // WR-01: the snapshot is fenced as page data between two marker lines.
+    check(/\n<<<PAGE_SNAPSHOT [^\n]*\nSNAP-\d+\nPAGE_SNAPSHOT>>>$/.test(last) && last.indexOf(SNAPSHOT_HEADER + '\n<<<PAGE_SNAPSHOT ') !== -1
+      && last.indexOf(SNAPSHOT_COLLAPSED) === -1,
+    'collapse: only the latest hand-off carries SNAPSHOT_HEADER followed by the fenced snapshot text');
     const inRequest = handoffsIn(run.steps[4]);
     check(inRequest.length === 2 && inRequest[0].content === first && inRequest[1].content === last,
       'collapse: the iteration-5 LLM request sees the collapsed earlier hand-off and the full latest one');
