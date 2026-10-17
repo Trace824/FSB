@@ -39,12 +39,17 @@ const DEFAULTS = Object.freeze({
 });
 
 // Numeric bounds. Out-of-range or unparsable values fall back to DEFAULTS.
+// upstreamTimeoutMsMax stays at least 500 ms under the extension client's
+// 2,500 ms deadline (FsbJevClient.DEFAULT_TIMEOUT_MS, D-15): an upstream
+// answer the gateway waits for, pays for and ledgers as ok must still reach
+// the client before it gives up with timeout. tests/jev-contract-parity.test.js
+// holds the two bounds together.
 const LIMITS = Object.freeze({
   inputUsdPerMtokMax: 10,
   maxConcurrencyMin: 1,
   maxConcurrencyMax: 256,
   upstreamTimeoutMsMin: 100,
-  upstreamTimeoutMsMax: 10000,
+  upstreamTimeoutMsMax: 2000,
   dailyUsdCapMax: 1000,
 });
 
@@ -235,6 +240,7 @@ module.exports = {
   loadJevConfig,
   ALLOWED_UPSTREAMS,
   DEFAULTS,
+  LIMITS,
   positiveSafeIntegerEnv,
   positiveFiniteEnv,
 };

@@ -474,6 +474,26 @@ function responseBoundSection(sides) {
   }
 }
 
+// The longest upstream wait the server can be configured for must end before
+// the extension client's deadline, with room for the gateway and the network
+// (WR-05, D-15). Otherwise an answer the gateway pays for and ledgers as ok
+// is discarded by the client as timeout.
+function deadlineSection() {
+  console.log('\n--- Server upstream timeout vs client deadline (WR-05, D-15) ---');
+  const NETWORK_MARGIN_MS = 500;
+  const { LIMITS, DEFAULTS, loadJevConfig } = require(path.join(JEV_DIR, 'config.js'));
+  const client = require(path.join(ROOT, 'extension', 'ai', 'jev-client.js'));
+  check(`LIMITS.upstreamTimeoutMsMax (${LIMITS.upstreamTimeoutMsMax}) + ${NETWORK_MARGIN_MS} ms <= the client deadline (${client.DEFAULT_TIMEOUT_MS})`,
+    Number.isSafeInteger(LIMITS.upstreamTimeoutMsMax)
+      && LIMITS.upstreamTimeoutMsMax + NETWORK_MARGIN_MS <= client.DEFAULT_TIMEOUT_MS);
+  check('the default upstream timeout sits within the bounds',
+    DEFAULTS.upstreamTimeoutMs >= LIMITS.upstreamTimeoutMsMin && DEFAULTS.upstreamTimeoutMs <= LIMITS.upstreamTimeoutMsMax);
+  const silent = { log() {}, warn() {} };
+  const over = loadJevConfig({ JEV_UPSTREAM_TIMEOUT_MS: String(client.DEFAULT_TIMEOUT_MS) }, { log: silent });
+  check('an operator timeout at the client deadline falls back to the default',
+    over.upstreamTimeoutMs === DEFAULTS.upstreamTimeoutMs, String(over.upstreamTimeoutMs));
+}
+
 function main() {
   console.log('--- jev-contract-parity (JEV-03, JEV-06, JEV-07) ---');
   const sides = loadSides();
@@ -484,6 +504,7 @@ function main() {
     scrubberSection(sides, extracted);
     validatorSection(sides);
     responseBoundSection(sides);
+    deadlineSection();
   }
   console.log(`\n=== jev-contract-parity results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);

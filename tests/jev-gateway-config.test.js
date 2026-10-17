@@ -346,17 +346,17 @@ function numericSection() {
   const bounds = load(directEnv({
     JEV_INPUT_USD_PER_MTOK: '10',
     JEV_MAX_CONCURRENCY: '256',
-    JEV_UPSTREAM_TIMEOUT_MS: '10000',
+    JEV_UPSTREAM_TIMEOUT_MS: '2000',
     JEV_DAILY_USD_CAP: '1000',
   }));
   check('inclusive upper bounds are accepted',
     bounds.config.inputUsdPerMtok === 10 && bounds.config.maxConcurrency === 256
-      && bounds.config.upstreamTimeoutMs === 10000 && bounds.config.dailyUsdCap === 1000,
+      && bounds.config.upstreamTimeoutMs === 2000 && bounds.config.dailyUsdCap === 1000,
     show(bounds.config));
   const over = load(directEnv({
     JEV_INPUT_USD_PER_MTOK: '10.01',
     JEV_MAX_CONCURRENCY: '257',
-    JEV_UPSTREAM_TIMEOUT_MS: '10001',
+    JEV_UPSTREAM_TIMEOUT_MS: '2001',
     JEV_DAILY_USD_CAP: '1000.5',
   }));
   check('values just over the upper bounds fall back',
