@@ -307,6 +307,8 @@ function createContentContext(options = {}) {
     Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 },
     WeakRef,
     WeakSet,
+    // A content script has the URL parser; the same-origin link rule needs it.
+    URL,
     crypto: kit.cryptoStub(options.seed || [0x5a, 0x11, 0xc3, 0x07]),
   };
   vm.createContext(sandbox);
@@ -615,10 +617,17 @@ check('"on" ARIA state (checked/pressed true or mixed, expanded/selected true) g
   assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'checkbox', 'aria-checked': 'mixed' } })), []);
 });
 
-check('[role=checkbox|switch] with aria-checked="false" gets click; with no state it gets none', () => {
-  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'checkbox', 'aria-checked': 'false' }, text: 'A' })), ['click']);
-  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'switch', 'aria-checked': 'false' }, text: 'A' })), ['click']);
-  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'switch' }, text: 'A' })), []);
+check('ARIA toggle roles get no ops in any state; a native box with a switch role gets none either (CR-01)', () => {
+  for (const role of ['checkbox', 'switch', 'radio', 'menuitemcheckbox', 'menuitemradio']) {
+    for (const state of ['false', null]) {
+      const attrs = state === null ? { role } : { role, 'aria-checked': state };
+      assert.deepEqual(ops(el({ tag: 'div', attrs, text: 'A' })), [], JSON.stringify(attrs));
+    }
+  }
+  for (const role of ['switch', 'menuitemcheckbox', 'menuitemradio']) {
+    assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'checkbox', role } })), [], role);
+  }
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'checkbox', role: 'checkbox' } })), ['check_box']);
 });
 
 check('text entry, textarea, contenteditable and select are listed with click only', () => {
@@ -745,7 +754,7 @@ check('classifyJevRisk(el, {}) computes its own label and purpose', () => {
 });
 
 check('purpose.danger and intent submit/login/signup exclude', () => {
-  const benign = el({ tag: 'button', text: 'Open' });
+  const benign = el({ tag: 'button', text: 'Show details' });
   page([benign]);
   assert.equal(risk(benign, { purpose: { danger: true } }), 'purpose_danger');
   for (const intent of ['submit', 'login', 'signup']) {
@@ -810,7 +819,9 @@ check('dialogs: any control in an alertdialog; affirmatives in a dialog, an aria
   assert.equal(risk(native), 'dialog_affirmative');
   const outside = el({ tag: 'button', attrs: { type: 'button' }, text: 'Continue' });
   el({ tag: 'div', children: [outside] });
-  assert.equal(risk(outside), null, 'Continue outside any dialog is not excluded by the dialog rule');
+  // The dialog rule does not fire outside a dialog; a plain "Continue" button
+  // is still not a structurally safe kind (CR-01).
+  assert.equal(risk(outside), 'unclassified', 'Continue outside any dialog is not excluded by the dialog rule');
 });
 
 check('downloads, javascript: links, logout links and file inputs exclude', () => {
@@ -852,7 +863,7 @@ check('any control in a form holding a password, cc-*, one-time-code or new/curr
 });
 
 check('a vault-filled element is excluded', () => {
-  const button = el({ tag: 'button', attrs: { type: 'button' }, text: 'Open' });
+  const button = el({ tag: 'button', attrs: { type: 'button' }, text: 'Show details' });
   page([button]);
   assert.equal(risk(button), null);
   F.noteVaultFilled(button);
@@ -919,6 +930,89 @@ check('67-10 risk-true targets (confirm-modals Continue and Delete permanently, 
   for (const [name, node] of [['Continue', cont], ['Delete permanently', del], ['Submit', submit], ['Save', save]]) {
     assert.notEqual(risk(node), null, name);
   }
+});
+
+// CR-01 (68-REVIEW): eligibility is opt-in by structure, so a control whose
+// label no English word rule recognises is still never fast-acted.
+const CR01_BUTTON_PROBES = [
+  'Follow', 'Unfollow', 'Following', 'Like', 'Retweet', 'Connect', 'Place bid', 'Bid', 'Leave group', 'Mute',
+  'Start free trial', 'Mark as spam',
+  'Jetzt kaufen', 'Löschen', 'Comprar ahora', 'Eliminar', '購入する', '削除', '送信',
+  '提交订单', '删除', 'Supprimer',
+];
+
+check('CR-01: plain buttons the word lists cannot read (English and other languages) are excluded', () => {
+  page([]);
+  for (const label of CR01_BUTTON_PROBES) {
+    const node = el({ tag: 'button', attrs: { type: 'button' }, text: label });
+    assert.notEqual(risk(node), null, label);
+    assert.notEqual(risk(el({ tag: 'div', attrs: { role: 'button' }, text: label })), null, `role=button ${label}`);
+  }
+  assert.equal(risk(el({ tag: 'button', attrs: { type: 'button' }, text: 'Jetzt kaufen' })), 'unclassified');
+});
+
+check('CR-01: a non-English consent box, a box in a non-English section or page, and an account setting box are excluded', () => {
+  page([]);
+  const consent = el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': '利用規約に同意する' } });
+  assert.deepEqual(ops(consent), ['check_box']);
+  assert.equal(risk(consent), 'unclassified');
+  const german = el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': 'Ich stimme zu' } });
+  el({ tag: 'div', attrs: { lang: 'de' }, children: [german] });
+  assert.equal(risk(german), 'unclassified', 'lang=de on an ancestor');
+  const english = el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': 'Alpha' } });
+  el({ tag: 'div', attrs: { lang: 'en-GB' }, children: [english] });
+  assert.equal(risk(english), null, 'lang=en-GB keeps the English lists in force');
+  const doc = page([]);
+  doc.documentElement.getAttribute = (name) => (name === 'lang' ? 'ja' : null);
+  assert.equal(risk(el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': 'Alpha' } })), 'unclassified', 'page lang=ja');
+  page([]);
+  for (const label of ['Make my profile public', 'Show my activity to others (sharing)', 'Email me about offers', 'Allow tracking cookies']) {
+    assert.notEqual(risk(el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': label } })), null, label);
+  }
+});
+
+check('CR-01: links are eligible only as same-origin navigation', () => {
+  ctx.window.location.href = 'https://example.test/list?x=1';
+  const anchor = el({ tag: 'h2', attrs: { id: 'reviews' }, text: 'Reviews' });
+  page([anchor]);
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/docs' }, text: '設定' })), null, 'relative same-origin link, any language');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: 'https://example.test/p/2' }, text: 'Item 2' })), null, 'absolute same-origin link');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '#reviews' }, text: 'Reviews' })), null, 'in-page anchor to an element that exists');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '#' }, text: 'Open' })), 'unclassified', 'bare # (script-handled)');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '#missing' }, text: 'Open' })), 'unclassified', 'fragment naming nothing');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: 'https://other.test/x' }, text: 'Partner' })), 'unclassified', 'cross-origin');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/posts/1', 'data-method': 'delete' }, text: 'Item 1' })), 'unclassified', 'Rails data-method');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/posts/1', 'data-turbo-method': 'post' }, text: 'Item 1' })), 'unclassified', 'Turbo method');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/posts/1', 'data-confirm': 'Sure?' }, text: 'Item 1' })), 'unclassified', 'confirm prompt');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/posts/1', onclick: 'x()' }, text: 'Item 1' })), 'unclassified', 'inline handler');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/posts/1', role: 'button' }, text: 'Item 1' })), 'unclassified', 'link with a button role');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: 'mailto:a@example.test' }, text: 'Mail' })), 'unclassified', 'non-http scheme');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/follow/42' }, text: 'Follow' })), 'commit_word', 'English word rule still applies to links');
+  assert.equal(risk(el({ tag: 'div', attrs: { role: 'link' }, text: 'Docs' })), 'unclassified', 'role=link without an href');
+  const saved = ctx.sandbox.URL;
+  try {
+    ctx.sandbox.URL = undefined;
+    assert.equal(risk(el({ tag: 'a', attrs: { href: '/docs' }, text: 'Docs' })), 'unclassified', 'no URL parser: fail closed');
+  } finally {
+    ctx.sandbox.URL = saved;
+  }
+});
+
+check('CR-01: tabs, closed summaries, collapsed disclosures and paging names stay eligible', () => {
+  page([]);
+  assert.equal(risk(el({ tag: 'div', attrs: { role: 'tab' }, text: '設定' })), null, 'role=tab in any language');
+  const summary = el({ tag: 'summary', text: 'Versand' });
+  el({ tag: 'details', children: [summary] });
+  assert.equal(risk(summary), null, 'summary of a closed details');
+  assert.equal(risk(el({ tag: 'button', attrs: { type: 'button', 'aria-expanded': 'false' }, text: 'Menü' })), null, 'aria-expanded=false');
+  for (const label of ['Next', 'Previous', 'Load more', 'Show more', 'See all', 'Show details', 'Next ›', '‹ Previous', 'Page 3', '»']) {
+    assert.equal(risk(el({ tag: 'button', attrs: { type: 'button' }, text: label })), null, label);
+  }
+  for (const label of ['Next: pay now', 'More options for deletion', 'Continue', 'Open', 'Go', '3']) {
+    assert.notEqual(risk(el({ tag: 'button', attrs: { type: 'button' }, text: label })), null, label);
+  }
+  const hostile = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Next' }, text: 'Jetzt kaufen' });
+  assert.equal(risk(hostile), 'unclassified', 'every name source must be on the paging list, not only the label');
 });
 
 // ---------------------------------------------------------------------------
@@ -1130,6 +1224,34 @@ check('entry shape and fastEligible: ops, risk null, in viewport, not text entry
     assert.equal(entry.ops.includes('type_text'), false);
     assert.equal(entry.ops.includes('select_option'), false);
   }
+});
+
+check('CR-01: probe buttons in a built menu are listed but never fast-eligible', () => {
+  const nodes = CR01_BUTTON_PROBES.map((label, i) => el({ tag: 'button', attrs: { type: 'button' }, text: label, rect: inView(10 + (i % 30) * 25) }));
+  page(nodes);
+  stubPool(nodes.slice());
+  const menu = build();
+  assert.equal(menu.entries.length, CR01_BUTTON_PROBES.length);
+  for (const entry of menu.entries) {
+    assert.deepEqual(entry.ops, ['click', 'hover'], entry.label);
+    assert.notEqual(entry.risk, null, entry.label);
+    assert.equal(entry.fastEligible, false, entry.label);
+  }
+});
+
+check('CR-01: a role=switch "Make my profile public" and a native box with role=switch are never fast-eligible', () => {
+  const ariaSwitch = el({ tag: 'div', attrs: { role: 'switch', 'aria-checked': 'false', 'aria-label': 'Make my profile public' }, text: 'Public', rect: inView(10) });
+  const nativeSwitch = el({ tag: 'input', attrs: { type: 'checkbox', role: 'switch', 'aria-label': 'Dark theme' }, rect: inView(40) });
+  page([ariaSwitch, nativeSwitch]);
+  stubPool([ariaSwitch, nativeSwitch]);
+  const menu = build();
+  assert.equal(menu.entries.length, 2);
+  for (const entry of menu.entries) {
+    assert.deepEqual(entry.ops, [], entry.label);
+    assert.equal(entry.fastEligible, false, entry.label);
+  }
+  assert.equal(risk(ariaSwitch), 'unclassified');
+  assert.equal(risk(nativeSwitch), 'unclassified');
 });
 
 check('FSB overlay nodes, canvas pseudo-elements and unlabelled candidates are skipped', () => {
@@ -1572,6 +1694,22 @@ check('risk_excluded: a button moved into an alertdialog since the menu', () => 
   assert.equal(refused(params, 'click'), 'risk_excluded');
 });
 
+check('risk_excluded: a control that is not a structurally safe kind is refused at execution (CR-01)', () => {
+  hitTarget = null;
+  const follow = el({ tag: 'button', attrs: { type: 'button', id: 'follow' }, text: 'フォロー', rect: inView(10) });
+  resolverPage([follow]);
+  const menu = menuOver([follow]);
+  assert.equal(entryOf(menu, 'フォロー').fastEligible, false);
+  assert.equal(refused(jevParams(menu, 'フォロー'), 'click'), 'risk_excluded');
+  assert.equal(refused(jevParams(menu, 'フォロー'), 'hover'), 'risk_excluded');
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Next');
+  f.next.childNodes.length = 0;
+  f.next.appendChild(kit.makeText('Next'));
+  f.next.setAttribute('title', 'Jetzt kaufen');
+  assert.equal(refused(params, 'click'), 'risk_excluded', 'a name source changed since the menu');
+});
+
 check('risk_excluded: an element marked vault-filled since the menu', () => {
   const f = freshFixture();
   const params = jevParams(f.menu, 'Nickname');
@@ -1674,19 +1812,19 @@ check('out_of_viewport: a centre below the viewport (occlusion is not checked th
 
 check('selector_not_unique: two elements match every generated selector, or only an XPath is offered', () => {
   hitTarget = null;
-  const one = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Dup' }, rect: inView(10) });
-  const two = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Dup' }, rect: inView(40) });
+  const one = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Load more' }, rect: inView(10) });
+  const two = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Load more' }, rect: inView(40) });
   resolverPage([one, two]);
   const menu = menuOver([one, two]);
   const first = Array.from(menu.entries)[0];
-  const params = { jevHandle: first.handle, jevGeneration: menu.generation, expectedRole: 'button', expectedName: 'Dup' };
+  const params = { jevHandle: first.handle, jevGeneration: menu.generation, expectedRole: 'button', expectedName: 'Load more' };
   assert.equal(refused(params, 'click'), 'selector_not_unique');
   // The XPath candidate would match exactly this element if it were tried.
-  const lone = el({ tag: 'button', attrs: { type: 'button' }, text: 'Lone', rect: inView(10) });
+  const lone = el({ tag: 'button', attrs: { type: 'button' }, text: 'Show more', rect: inView(10) });
   const loneDoc = resolverPage([lone], { '//body/*[1]': [lone] });
   assert.deepEqual(loneDoc.querySelectorAll('//body/*[1]'), [lone]);
   const loneMenu = menuOver([lone]);
-  assert.equal(refused(jevParams(loneMenu, 'Lone'), 'click'), 'selector_not_unique', 'XPath candidates are skipped');
+  assert.equal(refused(jevParams(loneMenu, 'Show more'), 'click'), 'selector_not_unique', 'XPath candidates are skipped');
 });
 
 check('a unique selector that matches a different element is never used', () => {

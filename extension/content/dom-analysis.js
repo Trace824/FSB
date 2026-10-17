@@ -3656,7 +3656,8 @@
     'consent_checkbox',
     'credential_or_payment_form',
     'enter_submits_form',
-    'vault_filled'
+    'vault_filled',
+    'unclassified'
   ]);
   const jevRiskIntents = ['submit', 'login', 'signup', 'download'];
   // D-19: anything that commits, sends, pays, deletes, publishes, authenticates
@@ -3668,14 +3669,30 @@
     'sign\\s*in', 'log\\s*in', 'login', 'sign\\s*up', 'signup', 'register', 'create\\s+account',
     'log\\s*out', 'logout', 'sign\\s*out', 'transfer', 'withdraw', 'donate', 'accept', 'agree',
     'approve', 'authori[sz]e', 'allow', 'install', 'upgrade', 'reset', 'deactivate',
-    'close\\s+account', 'share', 'invite', 'upload', 'book', 'reserve', 'vote', 'report', 'block'
+    'close\\s+account', 'share', 'invite', 'upload', 'book', 'reserve', 'vote', 'report', 'block',
+    'like', 'unlike', 'follow', 'unfollow', 'following', 'retweet', 'repost', 'bid', 'connect',
+    'join', 'leave', 'mute', 'unmute', 'trial', 'spam', 'rate', 'star', 'unstar', 'pin', 'enrol',
+    'enroll', 'claim', 'redeem', 'activate', 'enable', 'disable', 'turn\\s+on', 'turn\\s+off', 'mark\\s+as'
   ]);
   const jevCommitWordPattern = new RegExp('\\b(?:' + jevCommitWords.join('|') + ')\\b', 'i');
   const jevAffirmativePattern = /\b(?:ok|okay|yes|continue|proceed|confirm|sure|got\s+it|i\s+understand|accept|agree|allow|approve)\b/i;
   const jevLogoutPattern = /log[\s_-]*(?:out|off)|sign[\s_-]*(?:out|off)/i;
   const jevConsentPattern = /agree|accept|terms|subscri|consent|newsletter|opt[\s_-]?in|marketing/i;
+  // The word lists above read English only, so they are a floor and never the
+  // gate: a control fast mode acts on must also be a structurally safe kind
+  // (jevStructurallySafe), else it is 'unclassified'. The paging and reveal
+  // names below are matched whole against every name source.
+  const jevSafeActionNamePattern = new RegExp('^(?:[\\u2039\\u00ab\\u2190<]\\s*)?(?:next|next page|previous|previous page|prev'
+    + '|more|show more|load more|see more|view more|read more|show all|see all|view all|show details|view details'
+    + '|more details|details|show less|hide details|expand|expand all|collapse|older|newer|older posts|newer posts'
+    + '|(?:go to )?page \\d{1,4})(?:\\s*[\\u203a\\u00bb\\u2192>])?$|^[\\u2039\\u00ab\\u2190\\u203a\\u00bb\\u2192]$', 'i');
+  // A native checkbox naming one of these may change an account or privacy setting.
+  const jevAccountTogglePattern = /public|private|privacy|visib|profile|notif|e-?mail\s+me|shar(?:e|ing)|track|personali[sz]|cookie/i;
+  const jevReadableNamePattern = /^[\x20-\x7e]*$/;
+  // Toggle roles that stay off-limits even on a native checkbox or radio.
+  const jevSwitchRoles = ['switch', 'menuitemcheckbox', 'menuitemradio'];
   // The press_enter submit-control check evaluates every rule except these.
-  const jevEnterSubmitCheck = Object.freeze({ skip: Object.freeze(['form_submit', 'enter_submits_form']) });
+  const jevEnterSubmitCheck = Object.freeze({ skip: Object.freeze(['form_submit', 'enter_submits_form', 'unclassified']) });
 
   function jevAttr(el, name) {
     if (!el || typeof el.getAttribute !== 'function') return null;
@@ -4041,7 +4058,8 @@
         kind = type;
       } else if (type === 'checkbox' || type === 'radio') {
         kind = 'toggle';
-        baseOps = el.checked === true || el.indeterminate === true ? [] : ['check_box'];
+        // A native box given a switch role is a switch, and switches get no ops.
+        baseOps = el.checked === true || el.indeterminate === true || jevSwitchRoles.includes(role) ? [] : ['check_box'];
       } else if (jevButtonInputTypes.includes(type)) {
         kind = 'action';
         baseOps = ['click', 'hover'];
@@ -4057,8 +4075,12 @@
       kind = 'text_entry';
       baseOps = ['click'];
     } else if (jevToggleRoles.includes(role)) {
+      // ARIA toggles (switch, checkbox, radio, menuitemcheckbox, menuitemradio)
+      // get no operations in any state: a switch usually saves a setting at
+      // once, and script-defined state cannot prove a click only switches
+      // something on (T-68-01). Their steps go to the LLM.
       kind = 'toggle';
-      baseOps = jevLower(jevAttr(el, 'aria-checked') || '') === 'false' ? ['click'] : [];
+      baseOps = [];
     } else if (tag === 'BUTTON' || tag === 'SUMMARY' || (tag === 'A' && jevAttr(el, 'href') !== null)
       || jevClickRoles.includes(role)) {
       kind = 'action';
@@ -4099,6 +4121,76 @@
 
   function jevIsScriptHref(href) {
     return jevLower(String(href).replace(/[\u0000- \u007f]/g, '')).indexOf('javascript:') === 0;
+  }
+
+  // A same-origin http(s) navigation link: no download, no inline click
+  // handler, no Rails/Turbo non-GET method or confirm prompt, and a
+  // fragment-only href only when it names an element on this page (a bare
+  // "#" usually means a script handles the click). Fails closed when the
+  // page address or the URL parser is unavailable.
+  function jevIsSafeLink(el) {
+    if (jevTag(el) !== 'A') return false;
+    const role = jevExplicitRole(el);
+    if (role !== '' && role !== 'link' && role !== 'menuitem') return false;
+    if (typeof el.hasAttribute !== 'function' || el.hasAttribute('download') || el.hasAttribute('onclick')) return false;
+    for (const name of ['data-method', 'data-turbo-method']) {
+      const method = jevAttr(el, name);
+      if (method !== null && jevLower(method.trim()) !== 'get') return false;
+    }
+    if (jevAttr(el, 'data-confirm') !== null || jevAttr(el, 'data-turbo-confirm') !== null) return false;
+    const href = (jevAttr(el, 'href') || '').trim();
+    if (!href) return false;
+    if (href.charAt(0) === '#') return href.length > 1 && jevById(href.slice(1)) !== null;
+    const UrlCtor = typeof URL === 'function' ? URL : null;
+    const page = typeof window !== 'undefined' && window && window.location ? String(window.location.href || '') : '';
+    if (!UrlCtor || !page) return false;
+    try {
+      const base = typeof document !== 'undefined' && document && typeof document.baseURI === 'string' && document.baseURI
+        ? document.baseURI
+        : page;
+      const target = new UrlCtor(href, base);
+      return (target.protocol === 'http:' || target.protocol === 'https:') && target.origin === new UrlCtor(page).origin;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  // The English word lists can judge a name only when it is English: every
+  // name is printable ASCII and the nearest lang (the element's, else the
+  // page's) is empty or English.
+  function jevNamesReadable(el, names) {
+    const holder = jevFindAncestor(el, (node) => jevAttr(node, 'lang') !== null);
+    let lang = holder ? jevAttr(holder, 'lang') : null;
+    if (lang === null && typeof document !== 'undefined' && document) lang = jevAttr(document.documentElement, 'lang');
+    const code = jevLower((lang || '').trim());
+    if (code !== '' && code !== 'en' && code.indexOf('en-') !== 0) return false;
+    return names.every((name) => jevReadableNamePattern.test(name));
+  }
+
+  /**
+   * True when fast mode may act on this kind of control at all (D-19). The
+   * deny lists cannot read every language, so eligibility is opt-in:
+   *   - a native checkbox or radio (check_box) without a switch role, whose
+   *     names the English lists can read and that names no account or
+   *     privacy setting;
+   *   - a same-origin navigation link (jevIsSafeLink), a tab, the summary of
+   *     a details element, or a collapsed disclosure (aria-expanded="false");
+   *   - any other button-like control only when every name is on the short
+   *     paging and reveal list (jevSafeActionNamePattern).
+   * ARIA toggles are never safe. Search fields, text entry and controls with
+   * no operation are judged by their own rules.
+   */
+  function jevStructurallySafe(el, names) {
+    const kind = jevControl(el).kind;
+    if (kind === 'toggle') {
+      if (jevTag(el) !== 'INPUT' || jevSwitchRoles.includes(jevExplicitRole(el))) return false;
+      return jevNamesReadable(el, names) && !names.some((name) => jevAccountTogglePattern.test(name));
+    }
+    if (kind !== 'action') return true;
+    if (jevExplicitRole(el) === 'tab' || jevTag(el) === 'SUMMARY') return true;
+    if (jevLower(jevAttr(el, 'aria-expanded') || '') === 'false') return true;
+    if (jevIsSafeLink(el)) return true;
+    return names.length > 0 && names.every((name) => jevSafeActionNamePattern.test(name));
   }
 
   // Name sources the risk rules test: the menu label, the element's own text
@@ -4160,13 +4252,16 @@
     if (jevIsSensitiveField(el) || (form && jevFormIsSensitive(form, context.formCache))) found.add('credential_or_payment_form');
     if (want('enter_submits_form') && jevIsSearchField(el) && jevSearchEnterBlocked(el)) found.add('enter_submits_form');
     if (jevIsVaultFilled(el)) found.add('vault_filled');
+    if (want('unclassified') && !jevStructurallySafe(el, names)) found.add('unclassified');
 
     return jevRiskReasonOrder.filter((reason) => found.has(reason) && want(reason));
   }
 
   /**
    * Code-only risk exclusion (D-19, F3). Returns a reason code, or null when no
-   * rule matches. ctx {label, purpose} is optional: missing values are computed
+   * rule matches; 'unclassified' means no word rule fired but the control is
+   * not a structurally safe kind (jevStructurallySafe), so it is never fast-
+   * acted either. ctx {label, purpose} is optional: missing values are computed
    * with jevMenuLabel and FSB.inferElementPurpose, so classifyJevRisk(el, {})
    * also works at execution time. Vault-filled state is read from
    * FSB.vaultFilledElements.
