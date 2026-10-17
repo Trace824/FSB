@@ -68,9 +68,10 @@ function servedModelOf(parsed) {
 
 function extractMessage(parsed) {
   if (!isPlainObject(parsed)) return null;
-  const error = parsed.error;
-  if (isPlainObject(error) && typeof error.message === 'string') return error.message;
-  if (typeof error === 'string') return error;
+  // The parsed upstream envelope's `error` field, never a thrown Error.
+  const envelope = parsed.error;
+  if (isPlainObject(envelope) && typeof envelope.message === 'string') return envelope.message;
+  if (typeof envelope === 'string') return envelope;
   if (typeof parsed.message === 'string') return parsed.message;
   if (typeof parsed.detail === 'string') return parsed.detail;
   return null;
@@ -421,11 +422,11 @@ async function callUpstream({ config, body, fetchImpl, now = Date.now } = {}) {
     // OpenRouter can report a provider failure as HTTP 200 with an `error`
     // object. Any error envelope is a failure, classified by its numeric code.
     if (isPlainObject(parsed) && hasOwn(parsed, 'error') && parsed.error !== null && parsed.error !== undefined) {
-      const error = parsed.error;
-      const code = isPlainObject(error) ? error.code : undefined;
+      const envelope = parsed.error;
+      const code = isPlainObject(envelope) ? envelope.code : undefined;
       let message = '';
-      if (isPlainObject(error) && typeof error.message === 'string') message = error.message.slice(0, ERROR_SLICE_BYTES);
-      else if (typeof error === 'string') message = error.slice(0, ERROR_SLICE_BYTES);
+      if (isPlainObject(envelope) && typeof envelope.message === 'string') message = envelope.message.slice(0, ERROR_SLICE_BYTES);
+      else if (typeof envelope === 'string') message = envelope.slice(0, ERROR_SLICE_BYTES);
       const reason = Number.isSafeInteger(code) ? classifyStatus(code, message) : 'upstream_error';
       return fallback(reason, status, servedModelOf(parsed));
     }
