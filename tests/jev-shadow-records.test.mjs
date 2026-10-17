@@ -222,6 +222,24 @@ test('validateRecord requires the request in its sanitized form', () => {
   );
 });
 
+test('validateRecord requires recent-action targets to be current element ids or null, as the builder sends them', () => {
+  assert.deepEqual(
+    validateRecord(withRecord((r) => {
+      r.request.recentActions = [
+        { op: 'click', targetId: null, changed: true },
+        { op: 'check_box', targetId: 'e0', changed: true },
+      ];
+    })),
+    { ok: true, errors: [] },
+  );
+  // The server only shape-checks this id; the extension maps a target that
+  // is no longer listed to null, so a record never carries a stale id.
+  expectErrors(
+    withRecord((r) => { r.request.recentActions = [{ op: 'click', targetId: 'e7', changed: true }]; }),
+    [/^request\.recentActions\[0\]\.targetId must be null or a current element id$/],
+  );
+});
+
 test('validateRecord rejects a request over the extension request byte budget', () => {
   const record = withRecord((r) => {
     r.request.page.text = '字'.repeat(6000);

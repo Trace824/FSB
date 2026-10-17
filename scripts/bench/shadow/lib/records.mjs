@@ -16,8 +16,9 @@
  * - request is a v1 Jev request exactly as the extension would send it: both
  *   the server validator and FsbJevState.validateRequest accept it, its text
  *   fields are already scrubbed and injection-filtered, its origin and path
- *   are what FsbJevState.toOriginPath gives, and it fits the extension's
- *   request byte budget.
+ *   are what FsbJevState.toOriginPath gives, every recent-action target is
+ *   null or a current element id, and it fits the extension's request byte
+ *   budget.
  * - labels has every kind. A kind not in request.kinds is null. Otherwise
  *   operation is an offered op or none_of_the_above, target is a request
  *   element id or none_of_the_above, and completion, stuck and risk are
@@ -117,6 +118,14 @@ function sanitizedFormErrors(request, errors) {
   request.elements.forEach((element, index) => {
     if (!isSanitized(element.role)) errors.push(`request.elements[${index}].role is not in sanitized form`);
     if (!isSanitized(element.label)) errors.push(`request.elements[${index}].label is not in sanitized form`);
+  });
+  // The builder maps a recent action whose target is no longer listed to
+  // null, so a sent request never carries a stale element id.
+  const elementIds = new Set(request.elements.map((element) => element.id));
+  request.recentActions.forEach((action, index) => {
+    if (action.targetId !== null && !elementIds.has(action.targetId)) {
+      errors.push(`request.recentActions[${index}].targetId must be null or a current element id`);
+    }
   });
   const budget = CONTRACT.BUDGETS.requestByteBudget;
   const bytes = FsbJevState.utf8ByteLength(JSON.stringify(request));
