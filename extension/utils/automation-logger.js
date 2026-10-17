@@ -253,6 +253,84 @@ if (globalThis.__FSB_AUTOMATION_LOGGER_LOADED__) {
     }
   }
 
+  // Phase 68 (AUTO-04, D-23): the fast-mode measurement block persists only
+  // when a session has one, as a fresh object built from the keys below. A
+  // string survives only as a code word or a bounded model id, so no label,
+  // URL or page text can be stored; a number that is missing or not finite
+  // stays null, never 0. Jev cost stays in this block: it is never added to
+  // the legacy session cost or the provider measurement. The suite
+  // tests/jev-fast-measurement.test.js holds this allowlist to the 68-04
+  // producers and to the dispatcher's projectJevMeasurement.
+  const persistedJevCodeWord = /^[a-z][a-z0-9_]{0,63}$/;
+  const persistedJevIsObject = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
+  const persistedJevNumber = (value) => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null);
+  const persistedJevCount = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : null);
+  const persistedJevCode = (value) => (typeof value === 'string' && persistedJevCodeWord.test(value) ? value : null);
+  const persistedJevString = (value, max) => (typeof value === 'string' && value.length > 0 && value.length <= max ? value : null);
+  const persistedJevSource = (value, allowed) => (allowed.indexOf(value) !== -1 ? value : 'unavailable');
+
+  const cloneJevAttemptForPersistence = (attempt) => {
+    const usage = persistedJevIsObject(attempt.usage) ? attempt.usage : {};
+    const cost = persistedJevIsObject(attempt.cost) ? attempt.cost : {};
+    return {
+      iteration: persistedJevCount(attempt.iteration),
+      command: persistedJevCount(attempt.command),
+      decisionSource: attempt.decisionSource === 'jev' ? 'jev' : null,
+      jevCalled: attempt.jevCalled === true,
+      servedModel: persistedJevString(attempt.servedModel, 128),
+      instrumentVersion: persistedJevString(attempt.instrumentVersion, 64),
+      calibrationStatus: persistedJevCode(attempt.calibrationStatus),
+      latencyMs: persistedJevNumber(attempt.latencyMs),
+      usage: {
+        inputTokens: persistedJevCount(usage.inputTokens),
+        source: persistedJevSource(usage.source, ['provider', 'unavailable'])
+      },
+      cost: {
+        usd: persistedJevNumber(cost.usd),
+        source: persistedJevSource(cost.source, ['provider', 'estimate', 'unavailable'])
+      },
+      fallback: persistedJevCode(attempt.fallback),
+      outcome: persistedJevCode(attempt.outcome),
+      escalationReason: persistedJevCode(attempt.escalationReason),
+      op: persistedJevCode(attempt.op),
+      stepOutcome: persistedJevCode(attempt.stepOutcome)
+    };
+  };
+
+  const cloneJevCommandForPersistence = (command) => {
+    const usd = persistedJevIsObject(command.usd) ? command.usd : {};
+    const escalations = {};
+    if (persistedJevIsObject(command.escalations)) {
+      for (const reason of Object.keys(command.escalations).slice(0, 100)) {
+        const count = persistedJevCount(command.escalations[reason]);
+        if (persistedJevCodeWord.test(reason) && count !== null) escalations[reason] = count;
+      }
+    }
+    return {
+      command: persistedJevCount(command.command),
+      fastSteps: persistedJevCount(command.fastSteps),
+      jevCalls: persistedJevCount(command.jevCalls),
+      jevMs: persistedJevNumber(command.jevMs),
+      usd: { provider: persistedJevNumber(usd.provider), estimate: persistedJevNumber(usd.estimate) },
+      escalations
+    };
+  };
+
+  function cloneJevMeasurementForPersistence(block) {
+    if (!persistedJevIsObject(block)) return undefined;
+    try {
+      const attempts = Array.isArray(block.attempts) ? block.attempts.filter(persistedJevIsObject).slice(-100) : [];
+      const commands = Array.isArray(block.commands) ? block.commands.filter(persistedJevIsObject).slice(-100) : [];
+      return {
+        v: 1,
+        attempts: attempts.map(cloneJevAttemptForPersistence),
+        commands: commands.map(cloneJevCommandForPersistence)
+      };
+    } catch (_e) {
+      return undefined;
+    }
+  }
+
   // durationMs is always written (null when unmeasured). An MCP call timing
   // is kept only when it passes the v1 contract (safe non-negative integers,
   // completedAt >= receivedAt); fsbMs is recomputed, never trusted.
@@ -1013,7 +1091,8 @@ if (globalThis.__FSB_AUTOMATION_LOGGER_LOADED__) {
                 result: a.result,
                 timestamp: a.timestamp,
                 logicalTab: a.logicalTab || 'primary',
-                ...projectPersistedActionTiming(a)
+                ...projectPersistedActionTiming(a),
+                ...(a.decisionSource === 'jev' ? { decisionSource: 'jev' } : {})
               }));
           }
           if (sessionData.replay) {
@@ -1021,11 +1100,16 @@ if (globalThis.__FSB_AUTOMATION_LOGGER_LOADED__) {
           }
           existing.iterationTiming = cloneIterationTimingForPersistence(sessionData.iterationTiming) || existing.iterationTiming;
           existing.measurementSummary = cloneMeasurementSummaryForPersistence(sessionData.measurementSummary) || existing.measurementSummary;
+          // Phase 68 (D-23): a session without fast-mode activity keeps what is stored.
+          const jevMeasurementClone = cloneJevMeasurementForPersistence(sessionData.jevMeasurement);
+          if (jevMeasurementClone) existing.jevMeasurement = jevMeasurementClone;
           sessionStorage[sessionId] = existing;
         } else {
           // NEW MODE: Create session entry
           const metadata = buildPersistedSessionMetadata(sessionId, sessionData);
           const normalizedOutcome = normalizePersistedOutcomeFields(sessionData);
+          // Phase 68 (D-23): undefined, so no key, without fast-mode activity.
+          const jevMeasurementClone = cloneJevMeasurementForPersistence(sessionData.jevMeasurement);
           const session = {
             id: sessionId,
             task: metadata.commands.length > 1
@@ -1074,10 +1158,12 @@ if (globalThis.__FSB_AUTOMATION_LOGGER_LOADED__) {
                 result: a.result,
                 timestamp: a.timestamp,
                 logicalTab: a.logicalTab || 'primary',
-                ...projectPersistedActionTiming(a)
+                ...projectPersistedActionTiming(a),
+                ...(a.decisionSource === 'jev' ? { decisionSource: 'jev' } : {})
               })),
             iterationTiming: cloneIterationTimingForPersistence(sessionData.iterationTiming),
-            measurementSummary: cloneMeasurementSummaryForPersistence(sessionData.measurementSummary)
+            measurementSummary: cloneMeasurementSummaryForPersistence(sessionData.measurementSummary),
+            ...(jevMeasurementClone ? { jevMeasurement: jevMeasurementClone } : {})
           };
           sessionStorage[sessionId] = session;
         }
