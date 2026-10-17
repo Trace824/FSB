@@ -758,15 +758,15 @@ function sectionC(GATES) {
   let combineOk = true;
   HOSTILE_INPUTS.forEach((input) => {
     const r = noThrow(() => Policy.combineGates(input));
-    if (r.threw || !r.value || r.value.source !== 'combined' || ![0, 2].includes(r.value.level)) combineOk = false;
-    if (Array.isArray(input) && input.length === 0 && r.value.level !== 0) combineOk = false;
-    if (!(Array.isArray(input) && input.length === 0) && r.value.level !== 2) combineOk = false;
+    const emptyArray = !isProxyLike(input) && Array.isArray(input) && input.length === 0;
+    if (r.threw || !r.value || r.value.source !== 'combined') combineOk = false;
+    else if (r.value.level !== (emptyArray ? 0 : 2)) combineOk = false;
   });
   check(combineOk, 'combineGates never throws; anything but an empty array of gates is deny');
   let hookOk = true;
   HOSTILE_INPUTS.concat([{ jevContribution: 'confirm', level: 0 }, { jevContribution: 'none', level: 3 }]).forEach((input) => {
     const r = noThrow(() => Policy.toBeforeToolResult(input));
-    const confirm = input && typeof input === 'object' && !isProxyLike(input) && input.jevContribution === 'confirm';
+    const confirm = Boolean(input && typeof input === 'object' && !isProxyLike(input) && input.jevContribution === 'confirm');
     if (r.threw || r.value.shouldStop !== false || r.value.denied !== confirm) hookOk = false;
   });
   check(hookOk, 'toBeforeToolResult never throws, never stops, and denies only when jevContribution is confirm');
