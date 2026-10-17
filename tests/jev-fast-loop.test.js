@@ -964,15 +964,38 @@ async function fallbackClassCases() {
     finish(sens);
   }
 
+  // WR-04: before any calibrated answer in the session, every fallback class
+  // latches the session, so an uncalibrated or failing gateway is asked once
+  // per session (the disclosure's "one step description").
+  for (const reason of ['timeout', 'busy', 'rate_limited', 'upstream_error']) {
+    const once = loopRun({ answers: [() => ({ body: gateway.fallbackBody(reason) })] });
+    try {
+      await runSteps(once, 4);
+      startFollowUp(once.h, 'Now open the summary');
+      await runSteps(once, 3);
+      check(once.steps[1].decides === 1 && once.steps[1].provider === 1 && total(once, 'decides') === 1 && once.gw.requests.length <= 1
+        && once.steps.slice(2).every((s) => s.menus === 0 && s.decides === 0 && s.provider === 1),
+      'WR-04 one step description: a ' + reason + ' fallback before any calibrated answer leaves one decide in the session, follow-up included');
+      check(fastStateOf(once).off === true && fastStateOf(once).offReason === reason && stillRunning(once),
+        'WR-04: the ' + reason + ' fallback latched the session and the task keeps running on the LLM');
+    } finally {
+      finish(once);
+    }
+  }
+
+  // After a calibrated answer (a catch-all on another page state), a
+  // transient fallback costs that iteration only.
   const timeoutRun = loopRun({
-    content: { signature: 'S-fixed' },
-    answers: [() => ({ body: gateway.fallbackBody('timeout', 504) }), clickNthItem]
+    content: { signature: (state) => (state.menuRequests === 1 ? 'S-first' : 'S-fixed') },
+    answers: [catchAll, () => ({ body: gateway.fallbackBody('timeout', 504) }), clickNthItem]
   });
   try {
-    await runSteps(timeoutRun, 3);
-    check(timeoutRun.steps[1].decides === 1 && timeoutRun.steps[1].provider === 1 && timeoutRun.steps[1].fast === 0,
-      'fallback timeout: iteration 2 escalates that iteration only and runs the LLM');
-    check(timeoutRun.steps[2].menus === 1 && timeoutRun.steps[2].decides === 1 && timeoutRun.steps[2].fast === 1 && timeoutRun.steps[2].provider === 0,
+    await runSteps(timeoutRun, 4);
+    check(timeoutRun.steps[1].decides === 1 && timeoutRun.steps[1].fast === 0 && fastStateOf(timeoutRun).calibratedSeen === true,
+      'fallback timeout: iteration 2 gets a calibrated catch-all answer');
+    check(timeoutRun.steps[2].decides === 1 && timeoutRun.steps[2].provider === 1 && timeoutRun.steps[2].fast === 0,
+      'fallback timeout: iteration 3 escalates that iteration only and runs the LLM');
+    check(timeoutRun.steps[3].menus === 1 && timeoutRun.steps[3].decides === 1 && timeoutRun.steps[3].fast === 1 && timeoutRun.steps[3].provider === 0,
       'fallback timeout: after the next LLM turn fast mode asks again on the same page state and acts (a fallback is not an answer)');
     check(!jevFastOf(timeoutRun).latched && fastStateOf(timeoutRun).off === false && stillRunning(timeoutRun),
       'fallback timeout: no latch is left behind');
@@ -980,13 +1003,13 @@ async function fallbackClassCases() {
     finish(timeoutRun);
   }
 
-  const busy = loopRun({ answers: [() => ({ body: gateway.fallbackBody('busy') })] });
+  const busy = loopRun({ answers: [catchAll, () => ({ body: gateway.fallbackBody('busy') })] });
   try {
     await runSteps(busy, 6);
     check(busy.steps.slice(1, 4).every((s) => s.decides === 1 && s.provider === 1 && s.fast === 0),
-      'escalation latch: iterations 2-4 each make one decide, get a transient fallback and run the LLM');
+      'escalation latch: iterations 2-4 each make one decide (a calibrated catch-all, then transient fallbacks) and run the LLM');
     check(busy.steps.slice(4).every((s) => s.menus === 0 && s.decides === 0 && s.provider === 1) && total(busy, 'decides') === 3,
-      'escalation latch: three consecutive transient fallbacks latch the command; there is no fourth decide');
+      'escalation latch: three consecutive escalations latch the command; there is no fourth decide');
     check(jevFastOf(busy).latched === 'escalation_latch' && fastStateOf(busy).off === false && stillRunning(busy),
       'escalation latch: the command latch reads escalation_latch, the session is not latched and keeps running');
   } finally {

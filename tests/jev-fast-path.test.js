@@ -1357,7 +1357,7 @@ async function orchFirstTurn() {
   check(sameJson(first, { decline: 'first_llm_turn' }), 'the first iteration of a command declines first_llm_turn (' + JSON.stringify(first) + ')');
   check(r.log.readSwitch === 0 && r.log.requestMenu.length === 0 && r.log.requestSnapshot.length === 0 && r.client.calls.length === 0,
     'first_llm_turn makes no readSwitch, requestMenu, requestSnapshot or decide call');
-  check(sameJson(sortedKeys(fp(r.session)), ['docEpoch', 'inFlight', 'lastLlmTools', 'off', 'offCommand', 'offReason', 'pendingSteps', 'recent', 'refEpoch', 'stopReason', 'uncertain']),
+  check(sameJson(sortedKeys(fp(r.session)), ['calibratedSeen', 'docEpoch', 'inFlight', 'lastLlmTools', 'off', 'offCommand', 'offReason', 'pendingSteps', 'recent', 'refEpoch', 'stopReason', 'uncertain']),
     'session._fastPath holds the documented keys');
   check(sameJson(sortedKeys(jf(r.session)), ['answeredStates', 'calls', 'command', 'consecutiveEscalations', 'consecutiveFast', 'firstUrl', 'jevMs',
     'lastStep', 'latched', 'llmTurnSeen', 'previousStep', 'steps', 'vaultFlow', 'yieldToLlm']),
@@ -1462,8 +1462,9 @@ async function orchCalibrationLatch() {
     const r = rig({ responder: (request) => ({ body: bodyFor(request) }) });
     await primed(r);
     const out = await r.turn(2);
-    check(sameJson(out, { decline: 'not_calibrated' }) && fp(r.session).off === true && fp(r.session).offReason === 'not_calibrated',
-      'an ' + name + ' answer escalates and latches the session (' + JSON.stringify(out) + ')');
+    check(sameJson(out, { decline: 'not_calibrated' }) && fp(r.session).off === true && fp(r.session).offReason === 'not_calibrated'
+      && fp(r.session).calibratedSeen === false,
+    'an ' + name + ' answer escalates, latches the session and never marks it calibratedSeen (' + JSON.stringify(out) + ')');
     for (let i = 3; i <= 6; i += 1) {
       jf(r.session).llmTurnSeen = true;
       await r.turn(i);
@@ -1525,12 +1526,38 @@ async function orchFallbacks() {
   out = await r.turn(2);
   check(Boolean(out.toolCall) && r.client.calls.length === 1, 'the next command is eligible again after a local refusal');
 
-  // Transient: one iteration.
+  // Transient, before any calibrated answer in the session (WR-04): the
+  // session latches, so an uncalibrated gateway costs at most one request.
   r = rig({ responder: () => ({ status: 504, body: gateway.fallbackBody('timeout') }) });
   await primed(r);
   out = await r.turn(2);
+  check(out.decline === 'timeout' && fp(r.session).off === true && fp(r.session).offReason === 'timeout' && fp(r.session).calibratedSeen === false,
+    'WR-04: a transient fallback before any calibrated answer latches the session (one step description)');
+  out = await r.turn(3);
+  nextCommand(r.session);
+  await primed(r);
+  const followUp = await r.turn(2);
+  check(out.decline === 'timeout' && followUp.decline === 'timeout' && r.client.calls.length === 1 && r.log.requestMenu.length === 1,
+    'WR-04: neither a later iteration nor a follow-up command asks again: one decide in the session');
+
+  // Transient, after a calibrated answer: one iteration.
+  r = rig({ responder: () => ({ status: 504, body: gateway.fallbackBody('timeout') }) });
+  await primed(r);
+  fp(r.session).calibratedSeen = true;
+  out = await r.turn(2);
   check(out.decline === 'timeout' && fp(r.session).off === false && jf(r.session).latched === null && jf(r.session).consecutiveEscalations === 1,
-    'a transient fallback escalates this iteration only and counts one escalation');
+    'after a calibrated answer, a transient fallback escalates this iteration only and counts one escalation');
+
+  // calibratedSeen: set by a calibrated answer, never by an uncalibrated one.
+  r = rig({ responder: answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } }) });
+  await primed(r);
+  out = await r.turn(2);
+  check(out.decline === 'operation_below_threshold' && fp(r.session).calibratedSeen === true && fp(r.session).off === false,
+    'WR-04: a calibrated answer, even one that escalates, marks the session calibratedSeen');
+  r = rig();
+  await primed(r);
+  out = await r.turn(2);
+  check(Boolean(out.toolCall) && fp(r.session).calibratedSeen === true, 'WR-04: an acting calibrated answer marks the session calibratedSeen');
 
   // Three consecutive escalations latch the command.
   r = rig({
@@ -1675,9 +1702,12 @@ async function orchStop() {
   check(sameJson(out, { decline: 'stopped' }) && r.session.messages.length === before && fp(r.session).inFlight === null,
     'a stop while decide is pending resolves stopped, returns no tool call and adds no message');
 
-  // abortInFlight aborts the signal the client passed to fetch.
+  // abortInFlight aborts the signal the client passed to fetch. (A calibrated
+  // answer was seen earlier in the session, so the abort costs this iteration
+  // only; before one, it would latch the session, WR-04.)
   r = rig({ responder: () => new Promise(() => {}) });
   await primed(r);
+  fp(r.session).calibratedSeen = true;
   pending = r.turn(2);
   await until(() => r.client.calls.length === 1);
   check(fp(r.session).inFlight !== null, 'an in-flight decide is tracked on _fastPath.inFlight');
@@ -1767,9 +1797,11 @@ async function orchNeverReroll() {
     check(first.decline !== 'same_state' && second.decline === 'same_state' && r.client.calls.length === 1,
       'after a ' + name + ' escalation the unchanged page declines same_state (' + first.decline + ', ' + second.decline + ')');
   }
-  // A transient fallback is not remembered.
+  // A transient fallback is not remembered (after a calibrated answer; before
+  // one, it latches the session, WR-04).
   const t = rig({ responder: () => ({ status: 504, body: gateway.fallbackBody('timeout') }) });
   await primed(t);
+  fp(t.session).calibratedSeen = true;
   await t.turn(2);
   const retry = await t.turn(3);
   check(t.client.calls.length === 2 && retry.decline === 'timeout' && jf(t.session).answeredStates.length === 0,

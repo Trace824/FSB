@@ -413,9 +413,9 @@ function loadOptionsDefaultSettings() {
     && typeof textResult.request.page.text === 'string' && textResult.request.page.text.includes('keep it safe'),
   'a secret in the visible-text excerpt is removed before the request is built (the rest of the excerpt stays)');
 
-  ok(Array.isArray(facts.ENFORCEMENT) && facts.ENFORCEMENT.length === 3
-    && sameJson(facts.ENFORCEMENT.map((e) => e.fact), ['typed', 'field value', 'saved']),
-  'ENFORCEMENT ties the typed, field value and saved facts to their proofs');
+  ok(Array.isArray(facts.ENFORCEMENT) && facts.ENFORCEMENT.length === 4
+    && sameJson(facts.ENFORCEMENT.map((e) => e.fact), ['typed', 'field value', 'saved', 'one step description']),
+  'ENFORCEMENT ties the typed, field value, saved and one-step-description facts to their proofs');
   for (const entry of facts.ENFORCEMENT) {
     const abs = path.join(ROOT, entry.file);
     const exists = fs.existsSync(abs);

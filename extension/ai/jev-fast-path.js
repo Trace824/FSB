@@ -1022,7 +1022,8 @@
         recent: [],
         lastLlmTools: [],
         refEpoch: 0,
-        docEpoch: 0
+        docEpoch: 0,
+        calibratedSeen: false
       };
       session._fastPath = state;
     }
@@ -1433,6 +1434,20 @@
             pageUrl: menu.url
           });
           if (call === null) decision = escalate('menu_invalid');
+        }
+      }
+      // WR-04 (D-16): until this session has seen a calibrated answer, a
+      // decide() that returns none (any fallback, transient ones included)
+      // latches fast mode off for the session, like an uncalibrated answer.
+      // An uncalibrated gateway then costs a session at most one request, as
+      // the settings card and the privacy page promise ("one step
+      // description"). Any ok:true answer that is not a session latch was
+      // read as calibrated by FsbJevPolicy.accept.
+      if (decision !== null) {
+        var answered = isObject(result) && result.ok === true;
+        if (answered && !(decision.act !== true && decision.latch === 'session')) state.calibratedSeen = true;
+        if (!answered && state.calibratedSeen !== true && decision.act !== true && decision.latch !== 'session') {
+          decision = escalate(decision.reason, 'session');
         }
       }
       var escalated = decision !== null && decision.act !== true;

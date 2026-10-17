@@ -62,6 +62,9 @@ const SHARED_PHRASES = Object.freeze([
   'off at any time',
   'experimental',
   'calibrated',
+  // WR-04: before calibration a session sends at most one request (one decide
+  // call per session until a calibrated answer; ENFORCEMENT below).
+  'one step description',
   // Scope: every never-sent and excerpt claim is about fast mode's request
   // to FSB's server, and the AI provider is named as a separate recipient.
   "never sent to FSB's server",
@@ -97,7 +100,12 @@ const FORBIDDEN_PATTERNS = Object.freeze([
 const ENFORCEMENT = Object.freeze([
   Object.freeze({ fact: 'typed', file: 'tests/jev-fast-menu.test.js', markers: Object.freeze(['SECRET-DRAFT-1', 'SECRET-DRAFT-2']) }),
   Object.freeze({ fact: 'field value', file: 'tests/jev-fast-menu.test.js', markers: Object.freeze(['SECRET-VAL', 'SECRET-OPT-A']) }),
-  Object.freeze({ fact: 'saved', file: 'extension/content/actions.js', markers: Object.freeze(['noteVaultFilled']) })
+  Object.freeze({ fact: 'saved', file: 'extension/content/actions.js', markers: Object.freeze(['noteVaultFilled']) }),
+  Object.freeze({
+    fact: 'one step description',
+    file: 'tests/jev-fast-loop.test.js',
+    markers: Object.freeze(['WR-04 one step description', "fallbackBody(reason)"])
+  })
 ]);
 
 /**
