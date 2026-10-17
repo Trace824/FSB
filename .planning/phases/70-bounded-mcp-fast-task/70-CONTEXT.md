@@ -174,6 +174,7 @@ Out of scope:
     - (b) a fast (Jev-chosen) step whose effect was not observed: `unconfirmed`, `uncertain` or `no_effect`;
     - (c) a tool known to have been dispatched with no recorded result when the task ended.
   - **An observation** is a later successful tool whose definition has `_readOnly: true` (`tool-definitions.js`, 19 tools), or a delivered hand-off snapshot. A hand-off whose snapshot was unavailable is not an observation.
+    - *Amended 2026-10-16 (PD-70-01; accepted by orchestrator under the owner's deferral direction; owner confirms at V5, M-70-06):* the observation set is narrowed, tighten-only, to a later successful call of one of the 9 page-reading read-only tools (`_readOnly: true` with `_route` 'content' or 'cdp': wait_for_element, wait_for_stable, read_sheet, capture_screenshot, read_page, get_text, get_attribute, get_dom_snapshot and get_page_snapshot) or a delivered hand-off snapshot. `report_progress`, the terminal tools and the other `_readOnly` tools that never read the page are not observations. Reason: under the 19-tool set, `[uncertain click, report_progress, complete_task]` reads as `done`, which is the SC2 failure this decision exists to prevent (RESEARCH F1). The narrowing can only move an outcome from `done` to `ambiguous`, never the reverse, and it changes nothing with the switch off. Plan 70-03 pins the 9-tool list and executes on this amended wording with no further gate; V4 measures the false-`ambiguous` rate it causes (M-70-04). If the owner widens the set at V5, only that pinned list changes.
   - **LLM steps follow baseline rules.** An LLM step that succeeded without verification does not count as uncertain, because the LLM's own success semantics are baseline. Only Jev-chosen steps must show an effect before `done`. This is how SC2's "not from Jev's answer alone" is applied.
   - **The same-turn gap.** `complete_task` returns inside the tool loop (`agent-loop.js:2509-2510`), before the tool-result push and the 68 `observeTools` seam. So an earlier call in the same turn never reaches `observeTools`. `AFTER_TOOL_EXECUTION` is emitted per call with the full result (`:2867-2871`).
     - The recommended capture point is a session-scoped observer, registered with `pipeline.register` (`hook-pipeline.js:78`) in `handleStartAutomation` only when the fast-mode field exists. `createSessionHooks` stays unedited and hash-pinned.
@@ -200,6 +201,7 @@ Out of scope:
     - It is the smallest additive footprint: the key-set diff is exactly `{'fast_mode'}`.
     - It avoids a third meaning of `outcome`, which already names the lifecycle terminal and `sess.outcome`, and appears in `mapFSBError`'s `{"outcome":"unknown"}` trailer (`errors.ts:469`).
     - It follows the snake_case of the existing wire (`partial_outcome`, `sw_evicted`, `expect_result`).
+  - *Amended 2026-10-16 (accepted by orchestrator under the owner's deferral direction; owner confirms the recorded decision at V6, M-70-07):* the switch-on `fast_mode` key is accepted now as an additive result key under MCP-04. It is present only when the Advanced Settings switch was on when the task started; with the switch off the result is byte-identical to the pre-milestone result (D-01, D-20). MCP-03 and SC2 require the result to carry the typed outcome, and the key adds no tool, no argument and no required field. If the owner wants MCP-04's wording in REQUIREMENTS.md to name the key, that edit is made at V6.
 - **D-18: Shape of the `fast_mode` block.** Final key names are the planner's, within these rules.
   - **Top-level keys:**
     - `outcome`: one of the D-13 values;
@@ -529,8 +531,9 @@ Out of scope:
     - a manual-approval page gives `needs_confirmation`;
     - `stop_task` mid-run gives `blocked` or `ambiguous`;
     - one foreground and one background-tab run (the background-tab hazard);
-    - an uncertain target on a re-rendering site escalates once.
-  - **M-70-07 (V6):** release. Phase 70 changes no MCP package file. Its extension changes ride the 1.0.0 version, with nothing pushed before V4's gate and owner approval.
+    - an uncertain target on a re-rendering site escalates once;
+    - the owner confirms the 2026-10-16 D-14 amendment (PD-70-01: the page-reading observation set) or names tools to add.
+  - **M-70-07 (V6):** release. Phase 70 changes no MCP package file. Its extension changes ride the 1.0.0 version, with nothing pushed before V4's gate and owner approval. The owner also confirms the recorded 2026-10-16 D-17 amendment (the switch-on `fast_mode` result key under MCP-04).
   - **M-70-08 (V6):** the MCP-enable consent review (M-68-12 extended with the Chrome Web Store FAQ language, D-07). It is a release blocker for MCP-started transfers, and each remedy needs an owner decision that amends a requirement.
   - **M-70-09 (V6):** a human check that the deployed card and privacy page wording ("FSB's autopilot") reads as covering MCP-started `run_task` tasks (D-23).
 - **Escalation to the MCP caller** (typed early returns with resume state, as jev-browser and jev-ultrafast-mcp do). It needs new arguments or error codes, which are forbidden in this milestone.

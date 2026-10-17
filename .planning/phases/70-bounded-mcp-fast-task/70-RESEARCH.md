@@ -330,8 +330,9 @@
     - a manual-approval page gives `needs_confirmation`;
     - `stop_task` mid-run gives `blocked` or `ambiguous`;
     - one foreground and one background-tab run (the background-tab hazard);
-    - an uncertain target on a re-rendering site escalates once.
-  - **M-70-07 (V6):** release. Phase 70 changes no MCP package file. Its extension changes ride the 1.0.0 version, with nothing pushed before V4's gate and owner approval.
+    - an uncertain target on a re-rendering site escalates once;
+    - the owner confirms the 2026-10-16 D-14 amendment (PD-70-01: the page-reading observation set) or names tools to add.
+  - **M-70-07 (V6):** release. Phase 70 changes no MCP package file. Its extension changes ride the 1.0.0 version, with nothing pushed before V4's gate and owner approval. The owner also confirms the recorded 2026-10-16 D-17 amendment (the switch-on `fast_mode` result key under MCP-04).
   - **M-70-08 (V6):** the MCP-enable consent review (M-68-12 extended with the Chrome Web Store FAQ language, D-07). It is a release blocker for MCP-started transfers, and each remedy needs an owner decision that amends a requirement.
   - **M-70-09 (V6):** a human check that the deployed card and privacy page wording ("FSB's autopilot") reads as covering MCP-started `run_task` tasks (D-23).
 - **Escalation to the MCP caller** (typed early returns with resume state, as jev-browser and jev-ultrafast-mcp do). It needs new arguments or error codes, which are forbidden in this milestone.
@@ -583,7 +584,7 @@ function onAfterIteration(ev) { if (ev) ev.pending = null; }   // denied/skipped
 // unresolved uncertainty at settle:
 //   pending !== null  ||  max(lastUncertainSeq, fastUnobservedSeq) > lastObservationSeq
 ```
-`isObservationTool` is derived in the background helper from the tool registry (`_readOnly === true` and route `content` or `cdp`) and passed in, so the module never loads `tool-definitions.js`. Alternatively, pass a frozen name list in and pin it in a test. `classifyStepEvidence` never reads `hadEffect`, which keeps the 68-04 grep criterion.
+Planning outcome (70-03 Task 1; 70-PATTERNS.md Analog C): `isObservationTool` is the module's own `isPageObservationTool` (`_readOnly === true` and route `content` or `cdp`), resolved through 68-08's lazy `TOOL_REGISTRY` lookup in `jev-fast-path.js` (`68-08-PLAN.md:115`), which reads the service-worker global or requires `tool-definitions.js` only when called, never at load; the 9-tool list is pinned in a test. The first draft of this pattern derived the predicate in the background helper and passed it in. `classifyStepEvidence` never reads `hadEffect`, which keeps the 68-04 grep criterion.
 
 ### Pattern 3: Settle attaches the block in isolation
 
@@ -777,7 +778,7 @@ function fsbRegisterFastRunEvidence(pipeline, session, startUrl) {
   try {
     const api = (typeof globalThis !== 'undefined') ? globalThis.FsbFastPath : null;
     if (!session || !session.fastMode || !api || typeof api.createRunEvidenceHandlers !== 'function') return false;
-    const handlers = api.createRunEvidenceHandlers(session, { startUrl, isObservationTool: fsbIsPageObservationTool });
+    const handlers = api.createRunEvidenceHandlers(session, { startUrl });   // the observation predicate lives in the module (70-03)
     pipeline.register(LIFECYCLE_EVENTS.BEFORE_TOOL_EXECUTION, handlers.beforeTool);
     pipeline.register(LIFECYCLE_EVENTS.AFTER_TOOL_EXECUTION, handlers.afterTool);
     pipeline.register(LIFECYCLE_EVENTS.AFTER_ITERATION, handlers.afterIteration);
@@ -813,24 +814,31 @@ function fsbRegisterFastRunEvidence(pipeline, session, startUrl) {
 | A7 | Content-route fast ops (all except `go_back`, which is background-route; verified) work in background tabs because they are DOM-level | Specifics (background-tab hazard) | V5 M-70-06 runs foreground and background tabs. |
 | A8 | Host timeout facts (Codex 60 s, Cursor CLI/ACP 60 s, Claude Code roughly 28 h and a 30 min stdio idle) | D-09 context | Cited from 70-DISCUSSION-LOG External Research 3 (fetched 2026-10-15) and not re-fetched. They only inform V4/V5 notes. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All five questions were resolved during planning by adopting the recommendation (question 5 takes the fallback location). Each resolution names the plan task that implements it.
 
 1. **Narrowing D-14's observation set (F1).**
    - What we know: the literal 19-tool set includes `report_progress` and other tools that never look at the page.
    - What's unclear: whether the planner may record a tighten-only narrowing of a locked decision's wording.
    - Recommendation: record it as a Drift substitution with this justification: D-14's own SC2 example fails under the literal set, and the narrowing only moves `done` to `ambiguous`. Flag it in the plan's truths.
+   - **RESOLVED:** adopted as an explicit planner decision, PD-70-01 (70-VALIDATION.md "Planner decisions"; stated in 70-03-PLAN.md's context and truths). Observation = a successful call of a `_readOnly === true` tool with `_route` 'content' or 'cdp' (9 tools, pinned by 70-03-01) or a delivered hand-off snapshot. It is tighten-only (it can move `done` to `ambiguous`, never the reverse), it is also listed in 70-SYNC-RECHECK item t, and V4 measures its false-`ambiguous` rate (M-70-04). The orchestrator accepted it on 2026-10-16 under the owner's deferral direction and 70-CONTEXT.md records it as a D-14 amendment; the owner confirms it at V5 (M-70-06) and can widen the set then by naming tools.
 2. **Phase 71 D-09 item 3 (F11).**
    - What we know: 71 expects typed words in `status`, and D-17 forbids changing `status`.
    - Recommendation: Phase 70 keeps D-17, and the 70 SUMMARY includes a "For Phase 71" section naming `fast_mode.outcome` and `runTask.fastMode.outcome`.
+   - **RESOLVED:** adopted. `status` is unchanged (70-06-01 additivity checks); the note is in 70-SYNC-RECHECK item u (70-01-02), the 70-07 SUMMARY and the 70-08 SUMMARY's "For Phase 71" section.
 3. **The disclosure fact "if your task text itself contains one, nothing is sent for that task" under D-22.**
    - What we know: a bench-shaped goal matches the whole-goal high-entropy rule only through its Open URL. After normalisation the request is sent, and the URL travels per segment through FSB's address rule.
    - What's unclear: whether "your task text" in the card means the raw text or the text FSB would send.
    - Recommendation: the D-23 test asserts the precise semantics. Secrets are judged on the normalised goal, the URL by the address rule (per segment plus query/fragment), and a secret anywhere outside a page-matching Open sentence still sends nothing. If the test cannot express the copy truthfully under that reading, D-23's stop-and-raise path applies. Add the wording question to M-70-09.
+   - **RESOLVED:** adopted. 70-04-02's "secret still sends nothing" check asserts this reading, and M-70-09 (V6) carries the wording question.
 4. **Recording evidence for non-MCP fast-mode sessions.**
    - What we know: D-14 says "every fast-mode session". Only `run_task` consumes the block.
    - Recommendation: register for every fast-mode new-session start. It is cheap, source-blind and memory-only. Do not register on the follow-up path (`reactivationHooks`), which `run_task` never uses, and record that the record covers the first command only.
+   - **RESOLVED:** adopted. 70-03-02 adds the one guarded registration line on the new-session path only, and a source check forbids it on `reactivationHooks`. 70-VALIDATION.md "Evidence coverage" records the first-command scope.
 5. **Where the bench key mirror lives.**
    - Recommendation: keep it inside `run-bench.mjs` or `scripts/bench/lib/runs.mjs` after grepping `tests/bench-*.mjs` for file-list or export pins. If neither is safe, use a new `scripts/bench/lib/fast-mode.mjs`.
+   - **RESOLVED:** the fallback, a new `scripts/bench/lib/fast-mode.mjs` (70-07-02). Adding the mirror to `runs.mjs` would put it next to the pinned `RUN_ROW_KEYS`, `toCommittedRow` and committed schema. Adding it to `run-bench.mjs` would make the parity test load the runner. A separate pure module keeps both untouched and lets the parity test import only the lists. 70-07-02 still runs the preflight grep for `scripts/bench/lib/` file-list pins.
 
 ## Environment Availability
 
@@ -900,8 +908,8 @@ function fsbRegisterFastRunEvidence(pipeline, session, startUrl) {
 | M-70-03 | V3 | A calibrated profile makes the `run_task` fast path act on bench fixtures. Revisit the `run_task` profile numbers with M-68-04 | Per 67/68 V3 shadow procedure; then a `run_task` smoke on core fixtures |
 | M-70-04 | V4 | Comparative gate through `run_task`: `sensitive_goal` count (about 0 expected), uncalibrated overhead, budget-exhaustion counts, typed-outcome agreement table from raw `runTask.fastMode` (any `done` on a checker-failed run is a gate input), runs over 60 s per arm, false-`ambiguous` watch (F18), the server-vs-safety-net timeout race (F17) | `node scripts/bench/run-bench.mjs --campaign --arms autopilot --campaign-id core-gate-71-autopilot …` per the Phase 71 gate file; agreement from `scripts/bench/.local/<campaign>/runs/*.json` |
 | M-70-05 | V5 | Real Claude Code CLI `run_task` with the switch on and the gateway uncalibrated or disabled: at most one attempt, nothing acts, `fast_mode` present with a task-state outcome. Codex and Cursor parse the same result | Manual host session |
-| M-70-06 | V5 | Real pages: manual-approval page gives `needs_confirmation`; `stop_task` mid-run gives `blocked`/`ambiguous`; one foreground and one background-tab run; an uncertain target on a re-rendering site escalates once | Manual host session |
-| M-70-07 | V6 | Release. No MCP package file changes. Extension changes ride 1.0.0. Nothing is pushed before V4's gate and owner approval | V6 checklist |
+| M-70-06 | V5 | Real pages: manual-approval page gives `needs_confirmation`; `stop_task` mid-run gives `blocked`/`ambiguous`; one foreground and one background-tab run; an uncertain target on a re-rendering site escalates once; the owner confirms the D-14 amendment (PD-70-01) | Manual host session |
+| M-70-07 | V6 | Release. No MCP package file changes. Extension changes ride 1.0.0. Nothing is pushed before V4's gate and owner approval. The owner confirms the recorded D-17 amendment (switch-on `fast_mode` key) | V6 checklist |
 | M-70-08 | V6 | MCP-enable consent review (M-68-12 extended with the CWS FAQ language). Release blocker for MCP-started transfers | Owner decision among D-07 (a)-(d) |
 | M-70-09 | V6 | Human wording check: "FSB's autopilot" covers MCP-started `run_task`. Includes Open Question 3 (the "nothing is sent for a secret" reading under D-22) | Read the deployed card and privacy page |
 

@@ -10,8 +10,8 @@ All in-tree line numbers were read at `e1e6439c` in `the repository root`. Phase
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |---|---|---|---|---|
-| `extension/background.js` (MODIFY: the helper's MCP branch, `fsbRegisterFastRunEvidence`, `fsbIsPageObservationTool`, one guarded call) | SW controller (start path) | request-response + event-driven (hook registration) | `createSessionHooks` `background.js:4558-4589`; 68-06 `fsbFastModeSessionField` (`68-06-PLAN.md:108,118-119`) | exact (same file, same seam) |
-| `extension/ai/jev-fast-path.js` (MODIFY; created by 68-04/05/08) | pure service module | transform + event-driven (hook handlers) | `extension/ai/hooks/progress-hook.js:47-69` (handler factory); `extension/ai/screenshot-attachments.js:6-7,328-343` (module shape); 68-04/68-05 API | role-match (additions only) |
+| `extension/background.js` (MODIFY: the helper's MCP branch, `fsbRegisterFastRunEvidence`, one guarded call; the page-observation predicate lives in `jev-fast-path.js`, see Analog C) | SW controller (start path) | request-response + event-driven (hook registration) | `createSessionHooks` `background.js:4558-4589`; 68-06 `fsbFastModeSessionField` (`68-06-PLAN.md:108,118-119`) | exact (same file, same seam) |
+| `extension/ai/jev-fast-path.js` (MODIFY; created by 68-04/05/08) | pure service module | transform + event-driven (hook handlers) | `extension/ai/hooks/progress-hook.js:47-69` (handler factory); `extension/ai/screenshot-attachments.js:6-7,328-343` (module shape); 68-04/68-05 API; 68-08's lazy `TOOL_REGISTRY` lookup (`68-08-PLAN.md:115`) for `isPageObservationTool` | role-match (additions only) |
 | `extension/ws/mcp-bridge-client.js` (MODIFY: start capture plus settle block) | bridge controller | event-driven to request-response | the same function `_handleStartAutomation` `:2650-2925` | exact |
 | `scripts/bench/run-bench.mjs` (MODIFY: `runAutopilotArm` raw record) | CLI runner | batch / transform | the same function `:555-590`; `scripts/bench/lib/runs.mjs:35-39` frozen key list | exact |
 | `scripts/bench/lib/fast-mode.mjs` (OPTIONAL; only if pins forbid inline) | bench utility | transform | `scripts/bench/lib/runs.mjs:1-60` | role-match |
@@ -24,7 +24,7 @@ All in-tree line numbers were read at `e1e6439c` in `the repository root`. Phase
 | `tests/jev-run-task-disclosure.test.js` (NEW) | test (fact fixture) | transform | 68-12 `tests/jev-fast-settings.test.js` card section plus `tests/fixtures/jev-fast-disclosure-facts.js` (`68-12-PLAN.md:18,24,120-127`) | role-match (planned) |
 | `tests/jev-fast-start-path.test.js` (EXTEND / invert per D-05) | test | unit + source | itself (`68-06-PLAN.md:108,112`) | exact |
 | `tests/jev-fast-loop.test.js` (EXTEND / invert plus SC2 end to end) | test | event-driven | itself (`68-06-PLAN.md:155-160,190`) | exact |
-| `tests/jev-fast-path.test.js` (EXTEND: profile pins, recorder, normaliser, re-pointed 68-05 `:107` case, 68-08 capture cases) | test | transform | itself (`68-04-PLAN.md:146-150`, `68-05-PLAN.md:100-110`) | exact |
+| `tests/jev-fast-path.test.js` (EXTEND: profile pins, recorder, normaliser, re-pointed 68-05 bench-goal case at `:103`, 68-08 capture cases) | test | transform | itself (`68-04-PLAN.md:146-150`, `68-05-PLAN.md:98-114`) | exact |
 | `tests/fixtures/agent-loop-fast-harness.js` (EXTEND: register-evidence option) | fixture | event-driven | itself (`68-06-PLAN.md:160`) | exact |
 | `package.json`, `tests/delegation-phase-contract.test.js` (registration) | config | n/a | `tests/delegation-phase-contract.test.js:129-161` | exact |
 | `70-SYNC-RECHECK.md`, `70-SWEEP-BASELINE.json`, `70-VALIDATION.md` | planning artifacts | n/a | `68-01-PLAN.md:118-162`; `66-02-SWEEP-BASELINE.json`; `68-VALIDATION.md:160-177` | exact |
@@ -62,11 +62,11 @@ Phase 70 edits only the `source === 'mcp'` branch so that it returns `{enabled:t
 ```
 Copy this into a new top-level `function fsbRegisterFastRunEvidence(pipeline, session, startUrl)`: a typeof-guarded API, a try/catch that skips quietly, and three `pipeline.register(LIFECYCLE_EVENTS.X, handler)` calls (BEFORE_TOOL_EXECUTION, AFTER_TOOL_EXECUTION, AFTER_ITERATION). The permission hook registers first inside `createSessionHooks`, so the evidence handler for BEFORE runs after it. That matches F3, where a denied call still emits BEFORE.
 
-**Analog C: guarded registry lookup for `fsbIsPageObservationTool`** (`background.js:8675`):
+**Analog C: the page-observation predicate `isPageObservationTool` lives in `jev-fast-path.js`, behind 68-08's lazy registry lookup** (`68-08-PLAN.md:115`; plan 70-03 Task 1):
 ```javascript
-  const definition = typeof getToolByName === 'function' ? getToolByName(tool) : null;
+  typeof TOOL_REGISTRY !== 'undefined' ? TOOL_REGISTRY : (typeof require === 'function' ? require('./tool-definitions.js').TOOL_REGISTRY : null)
 ```
-The predicate is `def && def._readOnly === true && (def._route === 'content' || def._route === 'cdp')`. Verified at `e1e6439c`, it gives exactly 9 tools: wait_for_element, wait_for_stable, read_sheet, capture_screenshot, read_page, get_text, get_attribute, get_dom_snapshot and get_page_snapshot. `getToolByName` is defined at `tool-definitions.js:1461-1463`. Pass the predicate in so that `jev-fast-path.js` never loads tool-definitions.
+Reuse the real helper 68-08 built around this expression (its name is recorded in 70-SYNC-RECHECK item e) and never resolve the registry at module load. The predicate is `def && def._readOnly === true && (def._route === 'content' || def._route === 'cdp')`, and it is false for an unknown name or a missing registry. Verified at `e1e6439c`, it gives exactly 9 tools: wait_for_element, wait_for_stable, read_sheet, capture_screenshot, read_page, get_text, get_attribute, get_dom_snapshot and get_page_snapshot. 70-03's test derives the set from `tool-definitions.js` and pins that list, so a registry change fails loudly. An earlier draft of this map put a background-side `fsbIsPageObservationTool` (built on `getToolByName`, `background.js:8675`, `tool-definitions.js:1461-1463`) in `background.js` and passed it into the module; that placement was dropped because 68-08 already gives the module a registry lookup, and keeping the predicate in the module means the loop harness, the unit tests and the service worker run the same code. `background.js` gains no predicate.
 
 **Insertion anchor** (`background.js:14250-14265`; this is the new-session path only):
 ```javascript
@@ -129,7 +129,7 @@ function createToolProgressHook(emitter) {
   return toolProgressHandler;
 }
 ```
-For `createRunEvidenceHandlers(session, {startUrl, isObservationTool})`, return `{beforeTool, afterTool, afterIteration}`.
+For `createRunEvidenceHandlers(session, {startUrl})`, return `{beforeTool, afterTool, afterIteration}`; `afterTool` calls the module's own `isPageObservationTool` (Analog C), so no predicate is passed in.
 - Each handler is synchronous, wrapped in try/catch, and returns `{ shouldStop: false }` (or `undefined`); agent-loop reads only `denied`, `isStuck` and `shouldStop`.
 - Drop the `console.warn` and `Date.now()`; the module has no clock.
 - The factory creates `session._fastRunEvidence` (F13). It never touches `_fastPath` or `jevMeasurement` (F12).
@@ -153,15 +153,15 @@ There is no call object here, so the handlers cannot see `source:'jev'` (F2). Us
 
 **Evidence semantics to reuse, not re-implement** (`68-04-PLAN.md:83,146`): `classifyStepEvidence(op, toolResult)` returns `{outcome:'progress'|'unconfirmed'|'no_effect'|'uncertain'|'stale'|'failed'|'denied', reason, effectObserved}` and reads the nested `toolResult.result`. `uncertain` means `outcome:'unknown'`, `mayHaveExecuted` or `bfCacheDetected`.
 
-**Budget read sites that become profile reads** (`68-05-PLAN.md:133` step g, `:134` step h, `:147` step q, `:150` step t). The constants come from `68-04-PLAN.md:77`: `FAST_MAX_STEPS 12; FAST_MAX_CALLS 16; FAST_WALL_BUDGET_MS 20000; FAST_MAX_CONSECUTIVE 3; FAST_ESCALATION_LATCH 3`.
+**Budget read sites that become profile reads** (`68-05-PLAN.md:125` step g, `:126` step h, `:135` step q, `:138` step t). The constants come from `68-04-PLAN.md:77`: `FAST_MAX_STEPS 12; FAST_MAX_CALLS 16; FAST_WALL_BUDGET_MS 20000; FAST_MAX_CONSECUTIVE 3; FAST_ESCALATION_LATCH 3`.
 - Add a sibling export `BUDGET_PROFILES = Object.freeze({autopilot, run_task})` plus `budgetsFor(session)`, which reads `session.fastMode.budgetProfile`, never `source` (RESEARCH Pattern 1, `70-RESEARCH.md:543-553`).
 - Keep `constants` byte-identical (Assumption A2).
 
 **Two additive markers inside existing 68-05 steps:**
-- Step u (`68-05-PLAN.md:151`), on act: `if (session._fastRunEvidence) session._fastRunEvidence.fastIteration = ctx.iteration;`.
-- Step v flush helper (`68-05-PLAN.md:152`): only when `requestSnapshot` returned `success:true` with a snapshot, `if (session._fastRunEvidence) session._fastRunEvidence.lastObservationSeq = ++session._fastRunEvidence.seq;` (F14). The "Snapshot unavailable" branch writes nothing.
+- Step u (`68-05-PLAN.md:139`), on act: `if (session._fastRunEvidence) session._fastRunEvidence.fastIteration = ctx.iteration;`.
+- Step v flush helper (`68-05-PLAN.md:140`): only when `requestSnapshot` returned `success:true` with a snapshot, `if (session._fastRunEvidence) session._fastRunEvidence.lastObservationSeq = ++session._fastRunEvidence.seq;` (F14). The "Snapshot unavailable" branch writes nothing.
 
-**Goal normaliser call site:** step o (`68-05-PLAN.md:141`) currently passes `goal session.task` to `toBuilderInput`. Replace it with `normaliseGoal(session.task, [menu.url, evidence && evidence.startUrl])`, so the normaliser runs before step p's `buildRequest` secret scan. For the sketch, see RESEARCH Pattern 5 (`70-RESEARCH.md:644-661`).
+**Goal normaliser call site:** step o (`68-05-PLAN.md:133`) currently passes `goal session.task` to `toBuilderInput`. Replace it with `normaliseGoal(session.task, [menu.url, evidence && evidence.startUrl])`, so the normaliser runs before step p's `buildRequest` secret scan. For the sketch, see RESEARCH Pattern 5 (`70-RESEARCH.md:644-661`).
 
 **Classifier inputs: real producer excerpts that define the closed vocabulary.**
 
@@ -201,7 +201,7 @@ Add these F6 reasons too: `session_not_found` and `session_not_running` (`agent-
 **`jev` summary sources** (no new fields on these structures):
 - Per-command totals (`68-04-PLAN.md:150`): `{command, fastSteps, jevCalls, jevMs, usd:{provider, estimate}, escalations:{<reason>:n}}`.
 - Attempts carry `calibrationStatus`.
-- `agentState.jevFast.latched` and `_fastPath.offReason` (`68-05-PLAN.md:79-80`).
+- `agentState.jevFast.latched` and `_fastPath.offReason` (`68-05-PLAN.md:73-74`).
 
 ---
 
@@ -474,7 +474,7 @@ Use "70-SYNC-RECHECK.md" in the drift message.
 |---|---|---|
 | `tests/jev-fast-start-path.test.js` | `(true,'mcp') -> {enabled:false, stored:true, source:'mcp'}` becomes `{enabled:true, stored:true, source:'mcp', budgetProfile:'run_task'}`; the non-MCP cases stay byte-identical | `68-06-PLAN.md:108`; source checks `:112` (the createSessionHooks hash is unchanged) |
 | `tests/jev-fast-loop.test.js` | the "run_task: a session with fastMode {enabled:false, stored:true, source:'mcp'} ... same as the golden" case becomes "a session built by the real helper for source 'mcp' takes an accepted fast step"; add the SC2 end-to-end cases (RESEARCH test map MCP-03-e) | `68-06-PLAN.md:190`; harness `:160` |
-| `tests/jev-fast-path.test.js` | rename the `not_enabled` case so it no longer claims to be run_task (`68-05-PLAN.md:103`); re-point the bench-goal `sensitive_goal` case (`:107`), add the `sk-` and query-token latch cases, and invert the 68-08 `{enabled:false, source:'mcp'}` capture cases | `68-05-PLAN.md:103,107`; `68-08-PLAN.md:104-105` |
+| `tests/jev-fast-path.test.js` | rename the `not_enabled` case so it no longer claims to be run_task (`68-05-PLAN.md:99`); re-point the bench-goal `sensitive_goal` case (`:103`), add the `sk-` and query-token latch cases, and invert the 68-08 `{enabled:false, source:'mcp'}` capture cases | `68-05-PLAN.md:99,103`; `68-08-PLAN.md:103-104` |
 | `tests/fixtures/agent-loop-fast-harness.js` | add one option (for example `registerRunEvidence: true`) that calls the same `FsbFastPath.createRunEvidenceHandlers` API the background helper uses on the harness's real `HookPipeline` | `68-06-PLAN.md:160` (`createHarness({providerKey, loadFastPath, sessionPatch, contentResponder, providerScript, deps, jevClient, permissionDenies})`) |
 
 ---
@@ -483,7 +483,7 @@ Use "70-SYNC-RECHECK.md" in the drift message.
 
 **Analog (planned):** the 68-12 card section of `tests/jev-fast-settings.test.js` against `tests/fixtures/jev-fast-disclosure-facts.js`, which exports `SHARED_PHRASES, CARD_ONLY_PHRASES, PAGE_ONLY_PHRASES, FORBIDDEN_PATTERNS, ENFORCEMENT, textOf(html)` (`68-12-PLAN.md:24`). The card is scoped from `id="fsbJevFastModeCard"` to `<!-- /fsbJevFastModeCard -->` (`:123`).
 
-The "Control" fact names the MCP settings tool (`68-10-PLAN.md:75`). The goal-suffix and at-most-one-decide checks call the real `normaliseGoal` and the 68 harness with the shipped `UNCALIBRATED` fake answer. Edit no copy; if a check fails, stop and raise it (D-23).
+The privacy section's "Control" fact names the MCP settings tool (`68-10-PLAN.md:71`). The 68-12 card copy has no MCP sentence and the fixture exports no Control phrase, so the settings-tool check runs on the privacy section only (70-04-02); the card's lack of an MCP sentence is recorded for M-70-09. The goal-suffix and at-most-one-decide checks call the real `normaliseGoal` and the 68 harness with the shipped `UNCALIBRATED` fake answer. Edit no copy; if a check fails, stop and raise it (D-23).
 
 ---
 
@@ -547,7 +547,7 @@ The "Control" fact names the MCP settings tool (`68-10-PLAN.md:75`). The goal-su
 | File / Part | Role | Data Flow | Reason |
 |---|---|---|---|
 | `classifyRunTaskOutcome` / `buildFastModeBlock` (inside `jev-fast-path.js`) | pure classifier | transform | No typed-outcome classifier exists. The vocabulary sources are quoted above (agent-loop terminal producers, turn-result STUCK_REASONS, background stop broadcasts). Use RESEARCH Pattern 4 (`70-RESEARCH.md:626-640`) with the F6 additions. |
-| `normaliseGoal` (inside `jev-fast-path.js`) | pure text transform | transform | No in-tree goal rewriting exists. The rule matches 68-08's exporter (`68-08-PLAN.md:28,145`: "goal equals the core task instruction with the leading 'Open {startUrl}.' removed and trimmed"). Use RESEARCH Pattern 5 (`70-RESEARCH.md:644-661`). Bench rendering is `renderInstruction` (`scripts/bench/lib/tasks.mjs:461-471`), and all 12 core instructions start `Open {startUrl}. `. |
+| `normaliseGoal` (inside `jev-fast-path.js`) | pure text transform | transform | No in-tree goal rewriting exists. The rule matches 68-08's exporter (`68-08-PLAN.md:28,144`: "goal equals the core task instruction with the leading 'Open {startUrl}.' removed and trimmed"). Use RESEARCH Pattern 5 (`70-RESEARCH.md:644-661`). Bench rendering is `renderInstruction` (`scripts/bench/lib/tasks.mjs:461-471`), and all 12 core instructions start `Open {startUrl}. `. |
 | Upstream-owned interfaces (`FsbFastPath` base API, `FsbJevState`, the 68 harness and fake gateway, the 69 in-process helper, the 68-12 fact fixture) | various | various | Not in this worktree. They are quoted from the 67, 68 and 69 PLANs above, and 70-01 re-checks them (D-24). |
 
 ## Metadata
