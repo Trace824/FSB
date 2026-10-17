@@ -178,6 +178,7 @@ Plans:
 **Goal:** Add opt-in, bounded Jev decisions for simple autopilot steps while the LLM handles planning, text, reading, and uncertain work.
 **Depends on:** Phase 67 (safe provider and calibrated thresholds).
 **Requirements:** AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05.
+**Status:** Code-complete 2026-10-17; human/live checks deferred to the Validation Block (V3 capture campaigns, calibration and the CR-01 eligibility decision; V4 comparative gate; V5 panel card, live fast steps, the WR-05/IN-04/WR-03 paths and the privacy translation review; V6 deployed privacy page, Web Store form, the WR-04/D-16 and IN-05 owner decisions and release; see `68-HUMAN-UAT.md`).
 **Success Criteria:**
 
 1. A user can enable or disable fast mode in control-panel Advanced Settings or through the Phase 66.1 settings tool, which changes the same stored value; the default is off, the setting explains the bounded FSB-to-Jev page-context transfer, and an ordinary task with it off follows the existing autopilot path.
@@ -187,18 +188,18 @@ Plans:
 5. Ambiguous, changed, or failed decisions escalate once to the existing path or stop as blocked, with no duplicated side effect or weakened confirmation.
 
 **Plans:** 12 plans
-- [ ] 68-01-PLAN.md — Open Phase 68 safely and land the switch.
-- [ ] 68-02-PLAN.md — Build the content-side half of the element menu: a separate Jev ref registry, vault-fill marks, and a value-free menu extractor with code-derived operations, a union-based risk classifier, an editable-region-free visible-text excerpt and a state-aware page signature.
-- [ ] 68-03-PLAN.md — Wire the content menu into the content message router: a `getJevMenu` case, a strict jev branch that runs before every other target-resolution branch in `executeAction`, and an armed, one-shot capture observation at the VIS-01 target-resolution point.
-- [ ] 68-04-PLAN.md — Create the pure core of `extension/ai/jev-fast-path.js` (global `FsbFastPath`): constants, fallback classification, the menu-to-request mapping, the decision evaluator built only on `FsbJevPolicy.accept`, the static call builder, and the evidence, hand-off text and measurement helpers that plan 68-05's orchestration uses.
-- [ ] 68-05-PLAN.md — Add the orchestration half of FsbFastPath: `beforeTurn` (eligibility, latches, budgets, menu request, request building, one Jev call, decision, hand-off flush, measurement), `afterStep` (evidence after a fast action), `observeTools` (what the LLM did on its own turns), `latchOff` and `abortInFlight`, all against injected dependencies so they are proven without the agent loop.
-- [ ] 68-06-PLAN.md — Wire the fast path into the running extension.
-- [ ] 68-07-PLAN.md — Prove the fast path's safety and truthfulness properties end to end through the real `runAgentIteration`, using the 68-06 harness, the fake gateway and a test-only calibrated result.
-- [ ] 68-08-PLAN.md — Build the network-free `recorded-llm` capture and its exporter so V3 bench runs produce realistic labelled step records: the service worker records what FSB would have offered Jev before each LLM turn and what the LLM actually did, and a bench script turns those records into the 67-10 record format.
-- [ ] 68-09-PLAN.md — Make Jev measurement visible and durable for V4 without changing anything for sessions that never used fast mode: persist the session's `jevMeasurement` block through the history store and expose it, plus a per-action decision-source marker, through `get_session_detail`.
-- [ ] 68-12-PLAN.md — Add the Advanced Settings disclosure card for the fast-mode switch (split out of plan 68-01 for context budget, and placed after the fast path exists so its copy is checked against implemented behaviour).
-- [ ] 68-10-PLAN.md — Disclose the opt-in page-context transfer on the public privacy page in every showcase locale, keeping the Policy History convention: first archive the current September 29, 2026 text, then add the Jev fast mode section, the qualified TLDR, an External Services bullet, a fast-mode Limited Use statement and the new date.
-- [ ] 68-11-PLAN.md — Run the Phase 68 gate: the full chain (tolerant mode if the hub holds 7225), validate:extension, Node 20 runs of every new suite, the pin, compatibility and registration audits, and the final 68-VALIDATION.md results with every human, live, production or spend check left as a tagged Manual-Only deferral.
+- [x] 68-01-PLAN.md — Open Phase 68 safely and land the switch.
+- [x] 68-02-PLAN.md — Build the content-side half of the element menu: a separate Jev ref registry, vault-fill marks, and a value-free menu extractor with code-derived operations, a union-based risk classifier, an editable-region-free visible-text excerpt and a state-aware page signature.
+- [x] 68-03-PLAN.md — Wire the content menu into the content message router: a `getJevMenu` case, a strict jev branch that runs before every other target-resolution branch in `executeAction`, and an armed, one-shot capture observation at the VIS-01 target-resolution point.
+- [x] 68-04-PLAN.md — Create the pure core of `extension/ai/jev-fast-path.js` (global `FsbFastPath`): constants, fallback classification, the menu-to-request mapping, the decision evaluator built only on `FsbJevPolicy.accept`, the static call builder, and the evidence, hand-off text and measurement helpers that plan 68-05's orchestration uses.
+- [x] 68-05-PLAN.md — Add the orchestration half of FsbFastPath: `beforeTurn` (eligibility, latches, budgets, menu request, request building, one Jev call, decision, hand-off flush, measurement), `afterStep` (evidence after a fast action), `observeTools` (what the LLM did on its own turns), `latchOff` and `abortInFlight`, all against injected dependencies so they are proven without the agent loop.
+- [x] 68-06-PLAN.md — Wire the fast path into the running extension.
+- [x] 68-07-PLAN.md — Prove the fast path's safety and truthfulness properties end to end through the real `runAgentIteration`, using the 68-06 harness, the fake gateway and a test-only calibrated result.
+- [x] 68-08-PLAN.md — Build the network-free `recorded-llm` capture and its exporter so V3 bench runs produce realistic labelled step records: the service worker records what FSB would have offered Jev before each LLM turn and what the LLM actually did, and a bench script turns those records into the 67-10 record format.
+- [x] 68-09-PLAN.md — Make Jev measurement visible and durable for V4 without changing anything for sessions that never used fast mode: persist the session's `jevMeasurement` block through the history store and expose it, plus a per-action decision-source marker, through `get_session_detail`.
+- [x] 68-12-PLAN.md — Add the Advanced Settings disclosure card for the fast-mode switch (split out of plan 68-01 for context budget, and placed after the fast path exists so its copy is checked against implemented behaviour).
+- [x] 68-10-PLAN.md — Disclose the opt-in page-context transfer on the public privacy page in every showcase locale, keeping the Policy History convention: first archive the current September 29, 2026 text, then add the Jev fast mode section, the qualified TLDR, an External Services bullet, a fast-mode Limited Use statement and the new date.
+- [x] 68-11-PLAN.md — Run the Phase 68 gate: the full chain (tolerant mode if the hub holds 7225), validate:extension, Node 20 runs of every new suite, the pin, compatibility and registration audits, and the final 68-VALIDATION.md results with every human, live, production or spend check left as a tagged Manual-Only deferral.
 
 ### Phase 69: MCP Descriptions and Same-Call Checks
 

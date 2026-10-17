@@ -20,16 +20,16 @@
 - [x] **JEV-03:** The extension and server omit secrets, credential values, password, file, and hidden inputs, and unnecessary page content from Jev requests; page text is treated as untrusted data rather than instructions. (met by automated evidence in Phase 67)
 - [ ] **JEV-04:** An operator can inspect the actual returned model version, token usage, FSB-borne cost when available, and typed fallback reason for each Jev decision without exposing request bodies or credentials in logs. (code-complete; live proof deferred to V2)
 - [ ] **JEV-05:** Jev can evaluate labelled tasks in shadow mode without acting, so operation, target, completion, stuck, and risk thresholds are calibrated on a pinned model before live use. (code-complete; live proof deferred to V3)
-- [x] **JEV-06:** Jev can add a confirmation requirement but cannot remove an existing confirmation, bypass an execution safety breaker, or authorize an action on its own. (met by automated evidence in Phase 67; the Phase 68 verifier re-checks that every Jev-accepted action still passes the existing consent, permission and breaker gates)
+- [x] **JEV-06:** Jev can add a confirmation requirement but cannot remove an existing confirmation, bypass an execution safety breaker, or authorize an action on its own. (met by automated evidence in Phase 67; the Phase 68 verifier re-checked and confirmed that every Jev-accepted action still passes the existing consent, permission and breaker gates)
 - [ ] **JEV-07:** The FSB server validates a fixed bounded decision schema, limits request size and concurrent upstream work, records aggregate usage and FSB-borne cost, and supports an operator-wide disable switch; malformed, unavailable, and disabled calls return typed fallbacks. (code-complete; live proof deferred to V2)
 
 ### AUTO — Autopilot Fast Mode
 
-- [ ] **AUTO-01:** A user can enable or disable Jev fast mode in the control panel's Advanced Settings, or through the MCP settings tool (SET-01), which changes the same stored setting; it is off by default, explains that bounded page context is sent through FSB to Jev, and existing autopilot behavior remains available when off.
-- [ ] **AUTO-02:** For a supported simple step, Jev can choose only an offered operation and element from FSB's filtered current snapshot; FSB validates target freshness and executes the action through its existing mechanics.
-- [ ] **AUTO-03:** The LLM retains planning, generated text, page reading, unsupported actions, and decisions below calibrated thresholds.
-- [ ] **AUTO-04:** The fast loop uses observable page evidence for completion and stuck checks, enforces task time, action, and Jev-call budgets, and reports the actual terminal state.
-- [ ] **AUTO-05:** Ambiguous targets, changed page state, provider errors, and missing evidence fall back to the existing LLM path or a truthful blocked outcome without repeating an unsafe action.
+- [ ] **AUTO-01:** A user can enable or disable Jev fast mode in the control panel's Advanced Settings, or through the MCP settings tool (SET-01), which changes the same stored setting; it is off by default, explains that bounded page context is sent through FSB to Jev, and existing autopilot behavior remains available when off. (code-complete; live proof deferred to V5 and V6)
+- [ ] **AUTO-02:** For a supported simple step, Jev can choose only an offered operation and element from FSB's filtered current snapshot; FSB validates target freshness and executes the action through its existing mechanics. (code-complete; live proof deferred to V3 and V5)
+- [x] **AUTO-03:** The LLM retains planning, generated text, page reading, unsupported actions, and decisions below calibrated thresholds. (met by automated evidence in Phase 68)
+- [ ] **AUTO-04:** The fast loop uses observable page evidence for completion and stuck checks, enforces task time, action, and Jev-call budgets, and reports the actual terminal state. (code-complete; live proof deferred to V4)
+- [ ] **AUTO-05:** Ambiguous targets, changed page state, provider errors, and missing evidence fall back to the existing LLM path or a truthful blocked outcome without repeating an unsafe action. (code-complete; live proof deferred to V5)
 
 ### MCP — Faster Existing Tool Surface
 
@@ -83,7 +83,7 @@
 | 66 — Baseline and Session Timing | MEAS-01, MEAS-02, MEAS-03 | 3 |
 | 66.1 — MCP Settings Tool (inserted; code-complete 2026-10-15, live proof deferred to V5) | SET-01, SET-02 | 2 |
 | 67 — Hosted Jev Gateway, Policy, and Shadow Mode (code-complete 2026-10-15; JEV-03/JEV-06 met, JEV-01/JEV-02/JEV-04/JEV-07 live proof deferred to V2, JEV-05 calibration deferred to V3) | JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07 | 7 |
-| 68 — Autopilot Fast Mode | AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05 | 5 |
+| 68 — Autopilot Fast Mode (code-complete 2026-10-17; AUTO-03 met, AUTO-01 live proof deferred to V5 and V6, AUTO-02 to V3 and V5, AUTO-04 to V4, AUTO-05 to V5) | AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05 | 5 |
 | 69 — MCP Descriptions and Same-Call Checks (code-complete 2026-10-15; MCP-04 met, MCP-01/MCP-02 live proof deferred to V4 and V5) | MCP-01, MCP-02, MCP-04 | 3 |
 | 70 — Bounded MCP Fast Task | MCP-03 | 1 |
 | 71 — Comparative Gate and Release | EVAL-01, EVAL-02, REL-01, REL-02 | 4 |
