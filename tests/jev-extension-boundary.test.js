@@ -15,24 +15,30 @@
  *   2. One fixed endpoint, no storage. extension/ai/jev-*.js contain no
  *      chrome.storage, localStorage, serverUrl or importScripts, and the only
  *      URL in them is https://full-selfbrowsing.com/api/jev/decide, exactly
- *      once, in jev-client.js.
+ *      once, in jev-client.js. extension/ai holds exactly the enumerated
+ *      modules: the three Phase 67 modules and, since Phase 68 plan 68-04,
+ *      the fast-mode core jev-fast-path.js (global FsbFastPath), which meets
+ *      every one of these bans as written.
  *   3. No caller, no setting, no UI. Nothing outside extension/ai/jev-*.js
- *      names FsbJevState, FsbJevClient or FsbJevPolicy; background.js names
- *      only the three file names, in its three load lines; nothing under
- *      extension/ui or extension/config mentions jev, except the one settings
- *      key fsbJevFastModeEnabled (Phase 68 D-06), allowed as an exact,
+ *      names FsbJevState, FsbJevClient or FsbJevPolicy (FsbFastPath does not
+ *      carry the FsbJev prefix, so it needs no exemption anywhere);
+ *      background.js names only the three Phase 67 file names, in its three
+ *      load lines (the fast-path load line arrives in plan 68-06, which moves
+ *      this check to the four modules); nothing under extension/ui or
+ *      extension/config mentions jev, except the one settings key
+ *      fsbJevFastModeEnabled (Phase 68 D-06), allowed as an exact,
  *      word-bounded token in extension/config/config.js,
  *      extension/config/init-config.js and extension/ui/options.js only. Any
  *      other jev text in those files, or the token anywhere else under
  *      extension/ui or extension/config, still fails.
- *   4. Inert load. Each module, alone and all three together, evaluates in a
+ *   4. Inert load. Each module, alone and all four together, evaluates in a
  *      bare vm context (no chrome, no fetch, no require, no module), makes no
  *      timer call, logs nothing, throws nothing and adds exactly its own
  *      Fsb* global. In that context a client is created and an invalid
  *      request is answered invalid_request without fetch.
  *
- * A violation is a defect in the module's owning plan (67-06, 67-07 or
- * 67-08). Fix the module; never weaken this suite.
+ * A violation is a defect in the module's owning plan (67-06, 67-07, 67-08
+ * or 68-04). Fix the module; never weaken this suite.
  *
  * Run: node tests/jev-extension-boundary.test.js
  */
@@ -50,14 +56,21 @@ const AI_DIR = path.join(EXT_DIR, 'ai');
 const MAX_SCAN_BYTES = 5 * 1024 * 1024;
 const ENDPOINT = 'https://full-selfbrowsing.com/api/jev/decide';
 
-// Load order matches extension/background.js: state, client, policy.
+// Load order matches extension/background.js: state, client, policy. The
+// background.js load-line check below uses this three-module list until plan
+// 68-06 adds the fast-path load line and switches it to ALL_MODULES.
 const MODULES = Object.freeze([
   Object.freeze({ file: 'jev-state.js', global: 'FsbJevState' }),
   Object.freeze({ file: 'jev-client.js', global: 'FsbJevClient' }),
   Object.freeze({ file: 'jev-policy.js', global: 'FsbJevPolicy' })
 ]);
-const JEV_GLOBALS = MODULES.map((m) => m.global);
-const JEV_REL_PATHS = MODULES.map((m) => 'extension/ai/' + m.file);
+// Phase 68 (68-04): the fast-mode core is a fourth enumerated module for the
+// jev-*.js bans, the one-URL scan, the exact file set, the caller-scan
+// exemption, the inert loads and the exact-globals check.
+const FAST_PATH_MODULE = Object.freeze({ file: 'jev-fast-path.js', global: 'FsbFastPath' });
+const ALL_MODULES = Object.freeze(MODULES.concat([FAST_PATH_MODULE]));
+const JEV_GLOBALS = ALL_MODULES.map((m) => m.global);
+const JEV_REL_PATHS = ALL_MODULES.map((m) => 'extension/ai/' + m.file);
 
 // D-01, D-09, D-22: patterns forbidden anywhere in extension/.
 const TREE_PATTERNS = Object.freeze([
@@ -247,6 +260,18 @@ function scannerSelfTest() {
   const mixed = uiTextHits('  fsbJevFastModeEnabled: false,\n  // Jev decides\n', OPTIONS_REL);
   check(mixed.length === 1 && mixed[0].line === 2 && mixed[0].match === 'Jev',
     'other jev text in an allowed file is still reported, on its own line, next to the allowed token');
+
+  // Phase 68 (68-04): the fast-path module joins the module list; nothing else moves.
+  check(ALL_MODULES.length === 4 && ALL_MODULES[3] === FAST_PATH_MODULE && MODULES.length === 3
+    && JSON.stringify(ALL_MODULES.slice(0, 3)) === JSON.stringify(MODULES),
+  'ALL_MODULES is the three Phase 67 modules plus jev-fast-path.js, and the background.js list keeps three');
+  check(findAll('root.FsbFastPath = api; FsbFastPath.toBuilderInput(menu)', CALLER_PATTERN).length === 0
+    && findAll('var policy = root.FsbJevPolicy;', CALLER_PATTERN).length === 1,
+  'the caller pattern ignores FsbFastPath and still fires on an FsbJev* name');
+  const plantedModuleLines = ['chrome.storage.local.get(k)', 'localStorage.getItem(k)', 'cfg.SERVERURL', 'self.importScripts(x)'];
+  check(MODULE_PATTERNS.every((p, i) => findAll(plantedModuleLines[i], p).length === 1)
+    && findAll("var example = 'https://example.test/x'; // see ws://h:1/", { re: URL_PATTERN }).length === 2,
+  'every module ban and the URL scan fire on planted lines, as they do for jev-fast-path.js');
 }
 
 function treeScan(files) {
@@ -272,7 +297,7 @@ function treeScan(files) {
   check(files.length > 100, 'scanned more than 100 files under extension/ (' + files.length + ')');
   const relFiles = files.map(rel);
   check(relFiles.includes('extension/background.js') && JEV_REL_PATHS.every((p) => relFiles.includes(p)),
-    'the walk covers extension/background.js and all three jev modules');
+    'the walk covers extension/background.js and all four jev modules');
   report(violations, 'tree');
   check(violations.length === 0, 'no systemone, api.typesafe.ai or JEV_* name anywhere under extension/ (' + violations.length + ' violation(s))');
 }
@@ -280,12 +305,12 @@ function treeScan(files) {
 function moduleScan() {
   console.log('\n--- extension/ai/jev-*.js: no storage, no serverUrl, one fixed endpoint (D-01, D-09) ---');
   const present = fs.readdirSync(AI_DIR).filter((name) => /^jev-.*\.js$/.test(name)).sort();
-  check(JSON.stringify(present) === JSON.stringify(MODULES.map((m) => m.file).slice().sort()),
-    'extension/ai holds exactly jev-client.js, jev-policy.js and jev-state.js (' + present.join(', ') + ')');
+  check(JSON.stringify(present) === JSON.stringify(ALL_MODULES.map((m) => m.file).slice().sort()),
+    'extension/ai holds exactly jev-client.js, jev-fast-path.js, jev-policy.js and jev-state.js (' + present.join(', ') + ')');
 
   const violations = [];
   const urls = [];
-  for (const mod of MODULES) {
+  for (const mod of ALL_MODULES) {
     const file = path.join(AI_DIR, mod.file);
     const text = fs.readFileSync(file, 'utf8');
     for (const pattern of MODULE_PATTERNS) {
@@ -425,7 +450,7 @@ function removed(before, after) {
 
 function inertAlone() {
   console.log('\n--- each module alone in a bare vm context: one global, no timer, no log, no throw (D-17) ---');
-  for (const mod of MODULES) {
+  for (const mod of ALL_MODULES) {
     const { context, timerCalls, logCalls } = bareContext();
     const keysBefore = Object.keys(context);
     const innerBefore = innerGlobalNames(context);
@@ -445,7 +470,7 @@ function inertAlone() {
 
 function inertTrapped() {
   console.log('\n--- each module alone with read traps on browser, network and storage globals (D-17) ---');
-  for (const mod of MODULES) {
+  for (const mod of ALL_MODULES) {
     const { context, timerCalls, reads } = trappedContext();
     const keysBefore = Object.keys(context);
     const error = load(context, mod);
@@ -462,24 +487,24 @@ function sharedContext() {
   const ctx = bareContext();
   const keysBefore = Object.keys(ctx.context);
   const innerBefore = innerGlobalNames(ctx.context);
-  const errors = MODULES.map((mod) => load(ctx.context, mod));
+  const errors = ALL_MODULES.map((mod) => load(ctx.context, mod));
   return Object.assign(ctx, { keysBefore, innerBefore, errors });
 }
 
 function inertTogether() {
-  console.log('\n--- all three in load order in one shared context: exactly the three Fsb* globals (D-17) ---');
+  console.log('\n--- all four in load order in one shared context: exactly the four Fsb* globals (D-17) ---');
   const { context, timerCalls, logCalls, keysBefore, innerBefore, errors } = sharedContext();
-  check(errors.every((e) => e === null), 'state, client and policy evaluate in order without throwing'
+  check(errors.every((e) => e === null), 'state, client, policy and the fast path evaluate in order without throwing'
     + (errors.some(Boolean) ? ' (' + errors.filter(Boolean).map((e) => e.message).join('; ') + ')' : ''));
   const keysAdded = added(keysBefore, Object.keys(context));
   check(JSON.stringify(keysAdded) === JSON.stringify(JEV_GLOBALS.slice().sort()),
-    'the shared context gains exactly FsbJevClient, FsbJevPolicy and FsbJevState (added: ' + keysAdded.join(', ') + ')');
+    'the shared context gains exactly FsbFastPath, FsbJevClient, FsbJevPolicy and FsbJevState (added: ' + keysAdded.join(', ') + ')');
   check(removed(keysBefore, Object.keys(context)).length === 0, 'no context key is removed or replaced away');
   const innerAdded = added(innerBefore, innerGlobalNames(context));
   check(JSON.stringify(innerAdded) === JSON.stringify(JEV_GLOBALS.slice().sort()),
-    'the inner global object gains exactly the three Fsb* names and nothing else (added: ' + innerAdded.join(', ') + ')');
-  check(timerCalls.length === 0, 'loading all three makes zero timer calls');
-  check(logCalls.length === 0, 'loading all three logs nothing');
+    'the inner global object gains exactly the four Fsb* names and nothing else (added: ' + innerAdded.join(', ') + ')');
+  check(timerCalls.length === 0, 'loading all four makes zero timer calls');
+  check(logCalls.length === 0, 'loading all four logs nothing');
   for (const name of ['TextEncoder', 'URL', 'setTimeout', 'setInterval', 'console']) {
     check(vm.runInContext('typeof ' + name, context) !== 'undefined', 'the shared context still has its own ' + name);
   }

@@ -189,6 +189,7 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node tests/jev-fast-upstream-contract.test.js',
   'node tests/jev-fast-settings.test.js',
   'node tests/jev-fast-menu.test.js',
+  'node tests/jev-fast-path.test.js',
 ]);
 
 const PHASE64_RETAINED_ROOT_COMMANDS = Object.freeze([
