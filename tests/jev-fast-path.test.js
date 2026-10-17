@@ -1357,7 +1357,7 @@ async function orchFirstTurn() {
   check(sameJson(first, { decline: 'first_llm_turn' }), 'the first iteration of a command declines first_llm_turn (' + JSON.stringify(first) + ')');
   check(r.log.readSwitch === 0 && r.log.requestMenu.length === 0 && r.log.requestSnapshot.length === 0 && r.client.calls.length === 0,
     'first_llm_turn makes no readSwitch, requestMenu, requestSnapshot or decide call');
-  check(sameJson(sortedKeys(fp(r.session)), ['calibratedSeen', 'docEpoch', 'inFlight', 'lastLlmTools', 'off', 'offCommand', 'offReason', 'pendingSteps', 'recent', 'refEpoch', 'stopReason', 'uncertain']),
+  check(sameJson(sortedKeys(fp(r.session)), ['calibratedSeen', 'docEpoch', 'inFlight', 'off', 'offCommand', 'offReason', 'pendingSteps', 'recent', 'refEpoch', 'stopReason', 'uncertain']),
     'session._fastPath holds the documented keys');
   check(sameJson(sortedKeys(jf(r.session)), ['answeredStates', 'calls', 'command', 'consecutiveEscalations', 'consecutiveFast', 'firstUrl', 'jevMs',
     'lastStep', 'latched', 'llmTurnSeen', 'previousStep', 'steps', 'vaultFlow', 'yieldToLlm']),
@@ -2337,8 +2337,8 @@ async function observe() {
   ]), 'recent actions: contract ops only, in call order, e-refs as refs, changed from evidence only (' + JSON.stringify(fp(r.session).recent) + ')');
   check(fp(r.session).refEpoch === 2 && fp(r.session).docEpoch === 1, 'the snapshot moved refEpoch once and the navigation moved both epochs');
   check(!JSON.stringify(r.session._fastPath).includes('SECRET-TYPED-TEXT'), 'typed text is never recorded');
-  check(sameJson(fp(r.session).lastLlmTools, ['click', 'get_page_snapshot', 'click', 'navigate', 'report_progress', 'type_text', 'hover']),
-    'the LLM\'s tool names are stored for capture');
+  check(!Object.prototype.hasOwnProperty.call(fp(r.session), 'lastLlmTools'),
+    'no dead per-session copy of the LLM\'s tool names is kept (IN-01); capture reads them from capturePending');
 
   // At most 10, newest last; long selectors are dropped, never cut.
   const many = [];

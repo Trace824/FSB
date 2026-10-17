@@ -514,7 +514,6 @@ async function main() {
         stopReason: null,
         uncertain: false,
         recent: [],
-        lastLlmTools: [],
         refEpoch: 0,
         docEpoch: 0
       }

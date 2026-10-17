@@ -1020,7 +1020,6 @@
         stopReason: null,
         uncertain: false,
         recent: [],
-        lastLlmTools: [],
         refEpoch: 0,
         docEpoch: 0,
         calibratedSeen: false
@@ -1029,7 +1028,6 @@
     }
     if (!Array.isArray(state.pendingSteps)) state.pendingSteps = [];
     if (!Array.isArray(state.recent)) state.recent = [];
-    if (!Array.isArray(state.lastLlmTools)) state.lastLlmTools = [];
     if (indexOrNull(state.refEpoch) === null) state.refEpoch = 0;
     if (indexOrNull(state.docEpoch) === null) state.docEpoch = 0;
     return state;
@@ -1767,7 +1765,6 @@
         }
       }
       trimRecent(state);
-      state.lastLlmTools = names;
       if (isObject(state.capturePending)) state.capturePending.llmTools = names.slice();
     } catch (_e) {
       latchOff(session, 'exception');
