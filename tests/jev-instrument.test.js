@@ -552,6 +552,48 @@ function shrinkSection(instrument) {
     show(tight.ok ? tight.shrink : tight));
 }
 
+// A cut can complete an injection phrase or a Luhn-valid card run at its
+// edge; the server re-cleans the cut prefix as the extension mirror does (WR-02).
+function truncationEdgeSection(instrument) {
+  console.log('\n[a cut page-text prefix is re-cleaned (WR-02)]');
+  const isClean = (s) => filterInjection(scrubText(s)) === s;
+
+  const filler = 'lorem '.repeat(800);
+  const phraseRequest = baseRequest();
+  phraseRequest.page.text = `${filler}you are now another person`;
+  check('precondition: the whole text holds no injection phrase',
+    instrument.buildState(phraseRequest).pageText === phraseRequest.page.text);
+  const phraseCut = instrument.buildState(phraseRequest, { textChars: filler.length + 'you are now an'.length }).pageText;
+  check('a cut ending in "you are now an" is filtered', phraseCut === `${filler}[FILTERED]`, show(phraseCut.slice(-30)));
+  let phraseStable = true;
+  for (let n = filler.length - 4; n <= Array.from(phraseRequest.page.text).length; n += 1) {
+    if (!isClean(instrument.buildState(phraseRequest, { textChars: n }).pageText)) phraseStable = false;
+  }
+  check('every cut around the phrase is stable under the cleaner', phraseStable);
+
+  const cardRequest = baseRequest();
+  cardRequest.page.text = 'Reference 41111111111111112222222 printed';
+  check('precondition: a 23-digit run is not a card as a whole',
+    instrument.buildState(cardRequest).pageText === cardRequest.page.text);
+  const cardCut = instrument.buildState(cardRequest, { textChars: 'Reference 4111111111111111'.length }).pageText;
+  check('a cut leaving a Luhn-valid 16-digit tail is scrubbed', cardCut === 'Reference [REDACTED_CARD]', show(cardCut));
+
+  // Through the byte budget: every budget around the phrase still yields a
+  // clean pageText within the budget.
+  const lo = bodyBytesFor(instrument, phraseRequest, { textChars: filler.length - 4 });
+  const hi = bodyBytesFor(instrument, phraseRequest, {});
+  let budgetsOk = true;
+  let reported = null;
+  for (let budget = lo; budget < hi; budget += 1) {
+    const built = instrument.buildUpstreamBody(phraseRequest, { model: MODEL, byteBudget: budget });
+    if (!built.ok || built.bytes > budget || !isClean(built.body.state.pageText)) {
+      budgetsOk = false;
+      reported = reported || { budget, ok: built.ok, bytes: built.bytes, tail: built.ok ? built.body.state.pageText.slice(-20) : null };
+    }
+  }
+  check(`every byte budget from ${lo} to ${hi - 1} gives a clean pageText within the budget`, budgetsOk, show(reported));
+}
+
 function worstCaseSection(instrument) {
   console.log('\n[worst case fits the default budget (Pitfall 5)]');
   for (const targetId of ['e253', 'e0', 'e127', null]) {
@@ -615,6 +657,7 @@ async function main() {
   criteriaSection(instrument);
   instructionsSection(instrument);
   shrinkSection(instrument);
+  truncationEdgeSection(instrument);
   worstCaseSection(instrument);
   puritySection(instrument);
   console.log(`\n=== jev-instrument results: ${passed} passed, ${failed} failed ===`);

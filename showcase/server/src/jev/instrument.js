@@ -197,7 +197,12 @@ function assembleState(prepared, options) {
   state.page = { origin: prepared.page.origin, path: prepared.page.path, title: prepared.page.title };
   state.elements = keptElements(prepared.elements, prepared.protectedId, keepElements)
     .map((e) => ({ id: e.id, role: e.role, label: e.label, ops: e.ops.slice() }));
-  state.pageText = prepared.text.slice(0, textChars).join('');
+  // Re-clean a cut prefix, as the extension mirror does: a cut can complete an
+  // injection phrase ("you are now an") or a Luhn-valid card run at its edge.
+  // The byte budget measures this re-cleaned text, so the shrink loop still
+  // only returns a body that fits.
+  const cut = prepared.text.slice(0, textChars).join('');
+  state.pageText = textChars < prepared.text.length ? clean(cut) : cut;
   return state;
 }
 
@@ -265,7 +270,9 @@ function upstreamBodyBytes(body) {
 
 /**
  * Largest n in [lo, hi] with fits(n), given fits(lo) is true and fits is
- * monotone (true up to some n, false after it).
+ * monotone (true up to some n, false after it). A re-cleaned text cut can
+ * make fits slightly non-monotone; the result then still fits (good only
+ * ever takes a passing probe), it just may not be the largest such n.
  */
 function largestFitting(lo, hi, fits) {
   let good = lo;
