@@ -192,6 +192,7 @@ Plans:
 **Goal:** Cut MCP tool-list context and avoid follow-up verification calls through additive optional expectations.
 **Depends on:** Phase 66 (tool-call measurement baseline) and Phase 66.1 (the settings tool, `mcp/src/tools/settings.ts` and its 8a058bdf tools/list freeze, which this phase migrates).
 **Requirements:** MCP-01, MCP-02, MCP-04.
+**Status:** Code-complete 2026-10-15; human/live checks deferred to the Validation Block (V4 exact token counts and expect calibration, V5 UAT incl. the WR-04/WR-05 owner decisions and the CR-02 acknowledgement, V1 digest cross-check, V6 release; see `69-HUMAN-UAT.md`).
 **Success Criteria:**
 
 1. All existing tool descriptions (the 72 tools at `8a058bdf`, 73 with the Phase 66.1 settings tool) are shortened and a repeatable token-count check shows the aggregate tool-list reduction against the Phase 66 baseline while preserving action and safety guidance.
@@ -204,29 +205,29 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 69-01-PLAN.md — Record $P69_START and the sweep baseline; freeze the 8a058bdf tools/list fixture with its git-free listing library and --write/--check generator; fixture-integrity, shape-freeze and report-only budget suites (wave 1)
+- [x] 69-01-PLAN.md — Record $P69_START and the sweep baseline; freeze the 8a058bdf tools/list fixture with its git-free listing library and --write/--check generator; fixture-integrity, shape-freeze and report-only budget suites (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 69-02-PLAN.md — MCP-only description module, jsonSchemaToZod text override, short text for the 37 manual action tools, per-tool 2,048 cap on, Phase 66.1 freeze migration (wave 2)
-- [ ] 69-03-PLAN.md — Extension expect contract: constants, spec normalization, read-only page probe and bounded evaluation loop in action-verification.js; sensitive values redacted in change_report.inputs_changed (D-25, the recorded MCP-04 security exception) (wave 2)
+- [x] 69-02-PLAN.md — MCP-only description module, jsonSchemaToZod text override, short text for the 37 manual action tools, per-tool 2,048 cap on, Phase 66.1 freeze migration (wave 2)
+- [x] 69-03-PLAN.md — Extension expect contract: constants, spec normalization, read-only page probe and bounded evaluation loop in action-verification.js; sensitive values redacted in change_report.inputs_changed (D-25, the recorded MCP-04 security exception) (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 69-04-PLAN.md — Remaining descriptions (read-only, trigger, screenshot, vault, capability, back, observability, autopilot, visual-session, settings), then a gate-only commit: full coverage, must-keep table, D-06 budget floors on (wave 3)
-- [ ] 69-05-PLAN.md — Dispatcher wiring: ISOLATED probes, commit-gated navigation (back included), back-route hook, bridge-client forwarding, expect stripped from journal and replay payloads (wave 3)
+- [x] 69-04-PLAN.md — Remaining descriptions (read-only, trigger, screenshot, vault, capability, back, observability, autopilot, visual-session, settings), then a gate-only commit: full coverage, must-keep table, D-06 budget floors on (wave 3)
+- [x] 69-05-PLAN.md — Dispatcher wiring: ISOLATED probes, commit-gated navigation (back included), back-route hook, bridge-client forwarding, expect stripped from journal and replay payloads (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 69-06-PLAN.md — Optional expect on the 29 tools: zod shape, top-level sidecar, back timeout, version-skew fill, unknown-outcome text; byte-identity goldens without expect (wave 4)
+- [x] 69-06-PLAN.md — Optional expect on the 29 tools: zod shape, top-level sidecar, back timeout, version-skew fill, unknown-outcome text; byte-identity goldens without expect (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 69-07-PLAN.md — expect contract parity test, SC4 in-process caller test (one tools/call), headless Chrome fixture probe test (wave 5)
+- [x] 69-07-PLAN.md — expect contract parity test, SC4 in-process caller test (one tools/call), headless Chrome fixture probe test (wave 5)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 69-08-PLAN.md — Tool-count wording fix (72 at 8a058bdf, 73 with settings) and the phase gate: footprint, full chain, Node 20, fixture --check, VALIDATION sign-off (wave 6)
+- [x] 69-08-PLAN.md — Tool-count wording fix (72 at 8a058bdf, 73 with settings) and the phase gate: footprint, full chain, Node 20, fixture --check, VALIDATION sign-off (wave 6)
 
 ### Phase 70: Bounded MCP Fast Task
 

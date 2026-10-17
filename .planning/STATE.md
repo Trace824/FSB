@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: executing
-stopped_at: Phase 66.1 code-complete; next: Phase 69
-last_updated: "2026-10-15T12:49:12.000Z"
-last_activity: 2026-10-15 -- Phase 66.1 executed
+stopped_at: "Phase 69 code-complete; next: Phase 67"
+last_updated: "2026-10-17T03:16:25.000Z"
+last_activity: 2026-10-15 -- Phase 69 executed
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 40
-  completed_plans: 17
+  completed_plans: 25
   percent: 0
 ---
 
@@ -31,14 +31,14 @@ See: .planning/milestones/v0.9.91-ROADMAP.md, .planning/milestones/v0.9.91-REQUI
 See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIREMENTS.md, .planning/v1.2.0-MILESTONE-AUDIT.md (archived Showcase i18n Completeness milestone)
 
 **Core value:** Reliable single-attempt execution — the AI decides correctly, the mechanics execute precisely.
-**Current focus:** Phase 69 — MCP Descriptions and Same-Call Checks (next after Phase 66.1)
+**Current focus:** Phase 67 — Hosted Jev Gateway, Policy, and Shadow Mode (next after Phase 69)
 
 ## Current Position
 
-Phase: 66.1 (MCP Settings Tool, inserted) — CODE-COMPLETE
-Plan: 8 of 8 complete (66.1-01..66.1-08), plus 10 code-review fix commits (125079b3..25735565); verification `human_needed` at 25735565 (62/63 must-haves, 1 owner decision, 0 failed)
-Status: Phase 66.1 code-complete; its 10 human/live items are deferred to the milestone-end Validation Block (V5 UAT incl. the WR-02/WR-04 D-15 owner decision, V1 digest cross-check, V6 release; see `66.1-HUMAN-UAT.md`). Phase 66 remains code-complete with 66-10/66-11 in V1. Next: execute Phase 69, then 67, then plan 68 (then 70, 71)
-Last activity: 2026-10-15 -- Phase 66.1 executed
+Phase: 69 (MCP Descriptions and Same-Call Checks) — CODE-COMPLETE
+Plan: 8 of 8 complete (69-01..69-08), plus 7 code-review fix commits (3a9d7df1..f2ddd231); verification `human_needed` at f2ddd231 (12/12 must-haves for the automated portion, 0 failed; 2 owner decisions and 1 owner acknowledgement from the review)
+Status: Phase 69 code-complete; its 10 human/live items are deferred to the milestone-end Validation Block (V4 exact token counts and expect calibration, V5 UAT incl. the WR-04/WR-05 owner decisions and the CR-02 acknowledgement, V1 digest cross-check, V6 release; see `69-HUMAN-UAT.md`). MCP-04 is ticked; MCP-01/MCP-02 stay unticked until V4/V5. Phases 66 and 66.1 remain code-complete (66-10/66-11 in V1; 66.1 items in V5). Next: execute Phase 67, then plan 68 (then 70, 71)
+Last activity: 2026-10-15 -- Phase 69 executed
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
@@ -48,7 +48,7 @@ Last activity: 2026-10-15 -- Phase 66.1 executed
 | 66.1 | MCP Settings Tool (inserted) | SET-01..02 | Code-complete (8/8; human/live checks in Validation Block V5, V1 cross-check, V6 release) |
 | 67 | Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01..07 | Not started |
 | 68 | Autopilot Fast Mode | AUTO-01..05 | Not started |
-| 69 | MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | Not started |
+| 69 | MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | Code-complete (8/8; human/live checks in Validation Block V4, V5, V1 cross-check, V6 release) |
 | 70 | Bounded MCP Fast Task | MCP-03 | Not started |
 | 71 | Comparative Gate and Release | EVAL-01..02, REL-01..02 | Not started |
 
@@ -106,6 +106,7 @@ v1.0.0-specific decisions:
   - **V6, release:** the version commits can be prepared in code, but publishing and merging to `main` wait for V4's gate and the owner's approval.
 - [Phase 66, 2026-10-15]: Phase 66 is code-complete (9/11). 66-10 and 66-11 are deferred to Validation Block V1, and later phases treat the pinned commit `8a058bdf` as "the Phase 66 baseline" (for example, Phase 69's tool-list token count is measured against the tool list at `8a058bdf`).
 - [Phase 66.1, 2026-10-15]: Phase 66.1 is code-complete (8/8 plans plus 10 review-fix commits; verification `human_needed`, 62/63, 0 failed). SET-01/SET-02 stay unticked until their live proof runs in V5. One owner decision is pending in V5: accept or revert the review fixes WR-02 (a switch to `custom` keeps a stored model name) and WR-04 (`providerKind=api` needs a ready provider), which depart from the letter of D-15. Open non-blocking follow-up IN-02: add a parity test for the settings literals hand-mirrored in `mcp-tool-dispatcher.js` before Phase 68 extends the schema.
+- [Phase 69, 2026-10-15]: Phase 69 is code-complete (8/8 plans plus 7 review-fix commits; verification `human_needed`, 12/12 automated must-haves, 0 failed). MCP-04 is ticked on automated evidence (a 192-call pre/post wire diff against `f978e989` with 0 diffs; the D-25 redaction of sensitive `inputs_changed`/`value` records is its one recorded exception). MCP-01/MCP-02 stay unticked until V4 (exact `count_tokens` ratio; the ceil(chars/4) estimate is a 55.2% cut on description text but 30.4% on whole-list bytes, so the PROJECT.md "more than half" target is unconfirmed) and V5 (description read-through, real-site verdicts, live SC4). The `expect` timing constants ship uncalibrated until V4. Pending in V5: owner decisions WR-04 (an already-true predicate reports `verified`, then "Do not repeat the action" on an unknown outcome) and WR-05 (keep or widen the D-25 sensitive-name list), and the CR-02 acknowledgement (the recorder now sanitizes http(s) URLs under `observed`/`expected`/`before`/`after`, a storage-only change). Non-blocking follow-ups: review IN-01, IN-02, IN-04 (see `69-HUMAN-UAT.md` Gaps).
 
 v0.9.91-specific decisions so far:
 

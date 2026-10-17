@@ -33,10 +33,10 @@
 
 ### MCP — Faster Existing Tool Surface
 
-- [ ] **MCP-01:** MCP clients receive shorter descriptions for all existing tools (the 72 tools at `8a058bdf`, 73 with the Phase 66.1 settings tool) while retaining enough argument and safety guidance to use them correctly.
-- [ ] **MCP-02:** Action tools accept an optional `expect` value and return a bounded outcome check in the same call, so the caller can distinguish verified effect from uncertainty.
+- [ ] **MCP-01:** MCP clients receive shorter descriptions for all existing tools (the 72 tools at `8a058bdf`, 73 with the Phase 66.1 settings tool) while retaining enough argument and safety guidance to use them correctly. (code-complete; live proof deferred to V4 and V5)
+- [ ] **MCP-02:** Action tools accept an optional `expect` value and return a bounded outcome check in the same call, so the caller can distinguish verified effect from uncertainty. (code-complete; live proof deferred to V4 and V5)
 - [ ] **MCP-03:** Existing `run_task` honors the extension's Advanced Settings fast-mode toggle, applies bounded Jev decisions when enabled, and reports done, ambiguous, blocked, or needs-confirmation outcomes without claiming success from Jev's answer alone.
-- [ ] **MCP-04:** Existing MCP tool names, required arguments, and wire contracts remain byte-stable; this milestone adds only the optional `expect` parameter on action tools and the settings tool approved on 2026-09-29 (SET-01, SET-02).
+- [x] **MCP-04:** Existing MCP tool names, required arguments, and wire contracts remain byte-stable; this milestone adds only the optional `expect` parameter on action tools and the settings tool approved on 2026-09-29 (SET-01, SET-02). (met by automated evidence in Phase 69, with the recorded D-25 redaction exception; owner items WR-05 and CR-02 in V5)
 
 ### SET — Settings Control
 
@@ -84,7 +84,7 @@
 | 66.1 — MCP Settings Tool (inserted; code-complete 2026-10-15, live proof deferred to V5) | SET-01, SET-02 | 2 |
 | 67 — Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07 | 7 |
 | 68 — Autopilot Fast Mode | AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05 | 5 |
-| 69 — MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | 3 |
+| 69 — MCP Descriptions and Same-Call Checks (code-complete 2026-10-15; MCP-04 met, MCP-01/MCP-02 live proof deferred to V4 and V5) | MCP-01, MCP-02, MCP-04 | 3 |
 | 70 — Bounded MCP Fast Task | MCP-03 | 1 |
 | 71 — Comparative Gate and Release | EVAL-01, EVAL-02, REL-01, REL-02 | 4 |
 
