@@ -5951,6 +5951,7 @@ const tools = {
       usernameField.dispatchEvent(new Event('input', { bubbles: true }));
       usernameField.dispatchEvent(new Event('change', { bubbles: true }));
       filled.push('username');
+      if (typeof FSB.noteVaultFilled === 'function') FSB.noteVaultFilled(usernameField);
     }
 
     if (passwordField && password) {
@@ -5959,6 +5960,7 @@ const tools = {
       passwordField.dispatchEvent(new Event('input', { bubbles: true }));
       passwordField.dispatchEvent(new Event('change', { bubbles: true }));
       filled.push('password');
+      if (typeof FSB.noteVaultFilled === 'function') FSB.noteVaultFilled(passwordField);
     }
 
     if (filled.length === 0) {
@@ -6003,6 +6005,7 @@ const tools = {
         if (match) {
           element.value = match.value;
           element.dispatchEvent(new Event('change', { bubbles: true }));
+          if (typeof FSB.noteVaultFilled === 'function') FSB.noteVaultFilled(element);
           return true;
         }
         return false;
@@ -6010,6 +6013,7 @@ const tools = {
       element.value = value;
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
+      if (typeof FSB.noteVaultFilled === 'function') FSB.noteVaultFilled(element);
       return true;
     }
 
