@@ -25,8 +25,10 @@
  *      background.js names the four module files only in its four load lines
  *      (state, client, policy, fast path), adjacent and directly after
  *      ai/model-discovery.js, and otherwise mentions jev only inside the
- *      exact, word-bounded tokens fsbJevFastModeEnabled and getJevMenu (Phase
- *      68 plan 68-06); any other jev text there, a comment included, still
+ *      exact, word-bounded tokens of BACKGROUND_JEV_TOKENS:
+ *      fsbJevFastModeEnabled and getJevMenu (Phase 68 plan 68-06), and
+ *      fsbJevCaptureArmed, fsbJevCaptureRing and jevCaptureObservation
+ *      (plan 68-08); any other jev text there, a comment included, still
  *      fails; nothing under extension/ui or
  *      extension/config mentions jev, except the one settings key
  *      fsbJevFastModeEnabled (Phase 68 D-06), allowed as an exact,
