@@ -146,9 +146,14 @@ function createJevRouter({
   const semaphore = createSemaphore(servable ? config.maxConcurrency : 1);
   const bodyParser = express.json({ limit: CONTRACT.BUDGETS.bodyLimitBytes, strict: true });
 
-  // The fleet-wide daily spend accumulator (D-06, Pitfall 9). Seeded once per
-  // UTC day from the ledger's cap accrual, then moved by every upstream attempt.
-  let spend = { dayUtc: null, usd: 0 };
+  // The fleet-wide daily spend accumulator (D-06, Pitfall 9). Seeded per UTC
+  // day from the ledger's cap accrual, then moved by every upstream attempt.
+  // A failed seed is never cached as final: the day keeps counting its own
+  // accruals in memory and every later request retries the seed, so a
+  // transient ledger fault after a restart cannot forget what the previous
+  // process already spent that day. A ledger failure still never fails a
+  // decision (67-09).
+  let spend = { dayUtc: null, usd: 0, seeded: false };
 
   function clock() {
     try {
@@ -174,15 +179,22 @@ function createJevRouter({
   }
 
   function spendFor(dayUtc) {
-    if (spend.dayUtc !== dayUtc) {
-      let seeded = 0;
+    if (spend.dayUtc !== dayUtc) spend = { dayUtc, usd: 0, seeded: false };
+    if (!spend.seeded) {
+      let seeded;
       try {
         seeded = todaySpendUsd(db, dayUtc);
       } catch (_ignored) {
-        seeded = 0;
+        // Not cached: the next request retries the seed.
         safeLog('warn', LOG_SPEND_SEED_FAILED);
+        return spend;
       }
-      spend = { dayUtc, usd: isFiniteNumber(seeded) && seeded > 0 ? seeded : 0 };
+      // spend.usd holds only accruals made while the seed was unreadable; they
+      // are added, not max()ed, so an accrual whose ledger write also failed is
+      // never lost (one that was written is at worst counted twice, which only
+      // reaches the ceiling sooner).
+      if (isFiniteNumber(seeded) && seeded > 0) spend.usd += seeded;
+      spend.seeded = true;
     }
     return spend;
   }

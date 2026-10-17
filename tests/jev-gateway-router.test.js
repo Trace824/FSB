@@ -636,6 +636,47 @@ async function spendSection() {
   db3.close();
 }
 
+async function spendSeedRetrySection() {
+  console.log('\n--- a failed spend seed is retried, never cached as 0 (WR-06, D-06, Pitfall 9) ---');
+  const fake = await startFakeUpstream({ mode: 'ok-direct' });
+  const real = makeDb();
+  // A previous process already accrued past today's cap before a restart.
+  real.prepare('INSERT INTO jev_daily (day_utc, outcome, requests, cap_accrued_usd) VALUES (?, ?, 1, ?)').run(DAY, 'ok', 0.001);
+  // The ledger is briefly unreadable (a locked db, a migration) right after the restart.
+  let failing = true;
+  const fault = () => { throw new Error('database is locked'); };
+  const flaky = {
+    prepare(sql) { if (failing) fault(); return real.prepare(sql); },
+    transaction(fn) { if (failing) fault(); return real.transaction(fn); },
+    exec(sql) { if (failing) fault(); return real.exec(sql); },
+  };
+  const sink = makeLog();
+  const counter = countingFetch();
+  const clock = makeClock();
+  // One request's own accrual (392 tokens at the estimate price) stays well
+  // under this cap, so only the retried seed can reach it.
+  const config = makeConfig(fake.url, { JEV_DAILY_USD_CAP: '0.0001' });
+  const gw = await startGateway({ db: flaky, config, fetchImpl: counter.fetchImpl, now: clock.now, log: sink.log });
+
+  checkTyped('a request while the seed is unreadable is still served (a ledger failure never fails a decision)',
+    await decide(gw.port, baseRequest()), 200, 'ok');
+  check('precondition: that request alone accrued less than the cap',
+    392 * config.inputUsdPerMtok / 1e6 < config.dailyUsdCap);
+  check('the failed seed logged its fixed line', sink.lines.some((line) => line.text === '[jev] spend seed failed'),
+    JSON.stringify(sink.lines.map((line) => line.text)));
+  failing = false;
+  checkTyped('once the ledger is readable the seed is retried and the earlier accrual caps the day',
+    await decide(gw.port, baseRequest()), 503, 'spend_cap_reached');
+  checkTyped('and the day stays capped', await decide(gw.port, baseRequest()), 503, 'spend_cap_reached');
+  check('only the first request reached the upstream', counter.calls === 1 && fake.requests.length === 1,
+    `${counter.calls} calls, ${fake.requests.length} upstream requests`);
+  check('no log line holds the fault text', sink.lines.every((line) => !line.text.includes('database is locked')));
+
+  await gw.close();
+  await fake.close();
+  real.close();
+}
+
 const UPSTREAM_CASES = [
   { name: 'HTTP 400', set: { mode: 'status', status: 400, errorBody: { error: { message: 'max_tokens_exceeded' } } }, reason: 'upstream_rejected', upstreamStatus: 400 },
   { name: 'HTTP 400 unknown model', set: { mode: 'status', status: 400, errorBody: { error: { message: 'The model jev-0.0.1 does not exist' } } }, reason: 'unavailable_model', upstreamStatus: 400 },
@@ -1053,6 +1094,7 @@ async function main() {
   await budgetSection();
   await concurrencySection();
   await spendSection();
+  await spendSeedRetrySection();
   await upstreamFallbackSection();
   await servedModelEchoSection();
   await calibratedSection();
