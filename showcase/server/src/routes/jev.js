@@ -126,7 +126,8 @@ function isServable(config) {
  * @param {Function} [options.now] clock in ms (default Date.now)
  * @param {object} [options.log] logger with log/warn (default console)
  * @param {Array} [options.profiles] calibration profiles (default loadProfiles()),
- *   read per request after the upstream attempt and never at factory time
+ *   loaded once at factory time (a new profile file needs a restart, which a
+ *   Fly deploy does) and selected per request after the upstream attempt
  * @param {Function} [options.randomUUID] decisionId source
  * @param {number} [options.upstreamByteBudget] instrument byte budget
  * @returns {express.Router}
