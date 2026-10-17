@@ -816,6 +816,9 @@ importScripts('ai/screenshot-attachments.js');
 importScripts('ai/tool-executor.js');
 importScripts('ai/agent-loop.js');
 importScripts('ai/model-discovery.js');
+importScripts('ai/jev-state.js');
+importScripts('ai/jev-client.js');
+importScripts('ai/jev-policy.js');
 
 // Memory layer modules
 importScripts('lib/memory/memory-schemas.js');
