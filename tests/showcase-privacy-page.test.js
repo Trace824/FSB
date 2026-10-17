@@ -215,6 +215,41 @@ for (const id of REQUIRED_IDS) {
     'marker missing; build with i18nMissingTranslation: error will fail');
 }
 
+// =============================================================================
+// 7. Phase 68 (68-10, D-07, F7): the September 29, 2026 policy is archived as
+//    the first Policy History entry before the fast-mode update changes the
+//    page. The september id is taken (it archives the September 28 text), so
+//    the new entry uses september29.
+// =============================================================================
+const SEP29_SUMMARY = '@@privacy.archive.september29.summary';
+const SEP29_BODY = '@@privacy.archive.september29.body';
+const SEP28_SUMMARY = '@@privacy.archive.september.summary';
+check('archive has the September 29 summary unit',
+  archiveHtml.includes(SEP29_SUMMARY),
+  `${SEP29_SUMMARY} missing from the archive`);
+check('archive has the September 29 body unit',
+  archiveHtml.includes(SEP29_BODY),
+  `${SEP29_BODY} missing from the archive`);
+check('the September 29 entry is the first Policy History entry',
+  archiveHtml.indexOf(SEP29_SUMMARY) >= 0 &&
+    archiveHtml.indexOf(SEP28_SUMMARY) > archiveHtml.indexOf(SEP29_SUMMARY) &&
+    archiveHtml.indexOf('<details class="policy-version">') < archiveHtml.indexOf(SEP29_SUMMARY) &&
+    archiveHtml.indexOf('<details class="policy-version">', archiveHtml.indexOf('<details class="policy-version">') + 1) >
+      archiveHtml.indexOf(SEP29_BODY),
+  'the september29 entry must precede the september entry and open the archive');
+const sep29Start = archiveHtml.indexOf(SEP29_BODY);
+const sep29End = archiveHtml.indexOf('</details>', sep29Start);
+const sep29Body = sep29Start >= 0 && sep29End > sep29Start ? archiveHtml.slice(sep29Start, sep29End) : '';
+check('the September 29 archive note names September 29, 2026',
+  /<p class="archive-note">[^<]*September 29, 2026[^<]*<\/p>/.test(sep29Body),
+  'archive note must say the text stood from September 29, 2026');
+check('the September 29 archive keeps the pre-fast-mode TLDR sentence',
+  sep29Body.includes('no browsing data is collected by'),
+  'the archived body must hold the old TLDR text');
+check('the September 29 archive carries no nested i18n markers',
+  !/\si18n="/.test(sep29Body.slice(sep29Body.indexOf('>') + 1)),
+  'archive bodies are one unit; nested i18n attributes break extraction');
+
 console.log(`\n=== showcase-privacy-page.test results: ${passed} passed, ${failed} failed ===`);
 if (failed > 0) process.exit(1);
 process.exit(0);
