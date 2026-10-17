@@ -22,9 +22,12 @@
  *   3. No caller, no setting, no UI. Nothing outside extension/ai/jev-*.js
  *      names FsbJevState, FsbJevClient or FsbJevPolicy (FsbFastPath does not
  *      carry the FsbJev prefix, so it needs no exemption anywhere);
- *      background.js names only the three Phase 67 file names, in its three
- *      load lines (the fast-path load line arrives in plan 68-06, which moves
- *      this check to the four modules); nothing under extension/ui or
+ *      background.js names the four module files only in its four load lines
+ *      (state, client, policy, fast path), adjacent and directly after
+ *      ai/model-discovery.js, and otherwise mentions jev only inside the
+ *      exact, word-bounded tokens fsbJevFastModeEnabled and getJevMenu (Phase
+ *      68 plan 68-06); any other jev text there, a comment included, still
+ *      fails; nothing under extension/ui or
  *      extension/config mentions jev, except the one settings key
  *      fsbJevFastModeEnabled (Phase 68 D-06), allowed as an exact,
  *      word-bounded token in extension/config/config.js,
@@ -56,9 +59,9 @@ const AI_DIR = path.join(EXT_DIR, 'ai');
 const MAX_SCAN_BYTES = 5 * 1024 * 1024;
 const ENDPOINT = 'https://full-selfbrowsing.com/api/jev/decide';
 
-// Load order matches extension/background.js: state, client, policy. The
-// background.js load-line check below uses this three-module list until plan
-// 68-06 adds the fast-path load line and switches it to ALL_MODULES.
+// Load order matches extension/background.js: state, client, policy. Since
+// plan 68-06 the background.js load-line check uses ALL_MODULES (these three
+// plus the fast-path module, in that load order).
 const MODULES = Object.freeze([
   Object.freeze({ file: 'jev-state.js', global: 'FsbJevState' }),
   Object.freeze({ file: 'jev-client.js', global: 'FsbJevClient' }),
@@ -104,6 +107,13 @@ const UI_CONFIG_TOKEN_FILES = Object.freeze([
   'extension/config/init-config.js',
   'extension/ui/options.js'
 ]);
+
+// Phase 68 D-06 (plan 68-06): besides its four load lines, background.js may
+// mention jev only inside these exact tokens, each removed only where it
+// stands as a whole word; any other jev text on any background.js line fails.
+const BACKGROUND_JEV_TOKENS = Object.freeze(['fsbJevFastModeEnabled', 'getJevMenu']);
+const BACKGROUND_DISCOVERY_LINE = "importScripts('ai/model-discovery.js');";
+const BACKGROUND_LOAD_LINES = Object.freeze(ALL_MODULES.map((m) => "importScripts('ai/" + m.file + "');"));
 
 // Any scheme://... literal (https, http, ws, wss, chrome-extension, ...).
 const URL_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`)<>\]]*/gi;
@@ -192,6 +202,32 @@ function uiTextHits(text, relPath) {
   return findAll(scanned, UI_TEXT_PATTERN);
 }
 
+/** line with every whole-word BACKGROUND_JEV_TOKENS occurrence removed. */
+function stripBackgroundTokens(line) {
+  let out = line;
+  for (const token of BACKGROUND_JEV_TOKENS) out = out.replace(new RegExp('\\b' + token + '\\b', 'g'), '');
+  return out;
+}
+
+/** background.js lines whose jev text survives the token strip, as {index, text}. */
+function backgroundJevLines(lines) {
+  const out = [];
+  lines.forEach((line, i) => { if (/jev/i.test(stripBackgroundTokens(line))) out.push({ index: i, text: line }); });
+  return out;
+}
+
+/**
+ * True when the only surviving jev lines are the four load lines, in load
+ * order, directly after the model-discovery load with no line between.
+ */
+function backgroundJevClean(lines) {
+  const jevLines = backgroundJevLines(lines);
+  const discovery = lines.indexOf(BACKGROUND_DISCOVERY_LINE);
+  return JSON.stringify(jevLines.map((l) => l.text)) === JSON.stringify(BACKGROUND_LOAD_LINES)
+    && discovery >= 0
+    && jevLines.every((l, k) => l.index === discovery + 1 + k);
+}
+
 // ---------------------------------------------------------------------------
 // Static scans
 // ---------------------------------------------------------------------------
@@ -264,7 +300,7 @@ function scannerSelfTest() {
   // Phase 68 (68-04): the fast-path module joins the module list; nothing else moves.
   check(ALL_MODULES.length === 4 && ALL_MODULES[3] === FAST_PATH_MODULE && MODULES.length === 3
     && JSON.stringify(ALL_MODULES.slice(0, 3)) === JSON.stringify(MODULES),
-  'ALL_MODULES is the three Phase 67 modules plus jev-fast-path.js, and the background.js list keeps three');
+  'ALL_MODULES is the three Phase 67 modules plus jev-fast-path.js, and MODULES keeps the three Phase 67 modules');
   check(findAll('root.FsbFastPath = api; FsbFastPath.toBuilderInput(menu)', CALLER_PATTERN).length === 0
     && findAll('var policy = root.FsbJevPolicy;', CALLER_PATTERN).length === 1,
   'the caller pattern ignores FsbFastPath and still fires on an FsbJev* name');
@@ -272,6 +308,47 @@ function scannerSelfTest() {
   check(MODULE_PATTERNS.every((p, i) => findAll(plantedModuleLines[i], p).length === 1)
     && findAll("var example = 'https://example.test/x'; // see ws://h:1/", { re: URL_PATTERN }).length === 2,
   'every module ban and the URL scan fire on planted lines, as they do for jev-fast-path.js');
+
+  // Phase 68 D-06 (plan 68-06): the background.js check expects four load
+  // lines and allows only the exact, word-bounded tokens elsewhere.
+  check(JSON.stringify(BACKGROUND_LOAD_LINES) === JSON.stringify([
+    "importScripts('ai/jev-state.js');",
+    "importScripts('ai/jev-client.js');",
+    "importScripts('ai/jev-policy.js');",
+    "importScripts('ai/jev-fast-path.js');"
+  ]), 'the background.js check expects the four load lines state, client, policy, fast path');
+  const bgBase = ["importScripts('ai/agent-loop.js');", BACKGROUND_DISCOVERY_LINE].concat(BACKGROUND_LOAD_LINES, ['', 'function x() {}']);
+  check(backgroundJevClean(bgBase), 'a background.js with exactly the four adjacent load lines passes');
+  const bgAllowed = [
+    "    const stored = await chrome.storage.local.get(['fsbJevFastModeEnabled']);",
+    "    requestMenu: (tabId, options, deadlineMs) => send(tabId, { action: 'getJevMenu', options }, deadlineMs),",
+    "    const field = fsbFastModeSessionField(storedSettings.fsbJevFastModeEnabled, source);",
+    "      { maxIterations: 100, fsbJevFastModeEnabled: false, other: 'getJevMenu' }"
+  ];
+  for (const line of bgAllowed) {
+    check(backgroundJevClean(bgBase.concat([line])), 'background.js line passes: ' + JSON.stringify(line.trim()));
+  }
+  const bgReported = [
+    '// Jev fast mode',
+    '  fsbJevOther: true,',
+    "  sendMessage(tabId, { action: 'getJevMenuX' });",
+    "  sendMessage(tabId, { action: 'xgetJevMenu' });",
+    "  const k = 'fsbJevFastModeEnabledX';",
+    "  chrome.storage.local.get(['fsbJevFastModeEnabled']); // jev switch",
+    '  const jevFast = true;',
+    "importScripts('ai/jev-extra.js');"
+  ];
+  for (const line of bgReported) {
+    check(!backgroundJevClean(bgBase.concat([line])), 'background.js line is still reported: ' + JSON.stringify(line.trim()));
+  }
+  const fifthLoad = ["importScripts('ai/agent-loop.js');", BACKGROUND_DISCOVERY_LINE].concat(BACKGROUND_LOAD_LINES, ["importScripts('ai/jev-extra.js');"]);
+  check(!backgroundJevClean(fifthLoad), 'a fifth adjacent jev load line is still reported');
+  const threeLoads = ["importScripts('ai/agent-loop.js');", BACKGROUND_DISCOVERY_LINE].concat(BACKGROUND_LOAD_LINES.slice(0, 3));
+  check(!backgroundJevClean(threeLoads), 'a background.js missing the fast-path load line is reported');
+  const gap = ["importScripts('ai/agent-loop.js');", BACKGROUND_DISCOVERY_LINE, ''].concat(BACKGROUND_LOAD_LINES);
+  check(!backgroundJevClean(gap), 'a line between ai/model-discovery.js and the loads is reported');
+  const reordered = [BACKGROUND_DISCOVERY_LINE].concat([BACKGROUND_LOAD_LINES[0], BACKGROUND_LOAD_LINES[1], BACKGROUND_LOAD_LINES[3], BACKGROUND_LOAD_LINES[2]]);
+  check(!backgroundJevClean(reordered), 'the four loads out of order are reported');
 }
 
 function treeScan(files) {
@@ -343,16 +420,20 @@ function callerScan(files) {
   report(violations, 'caller');
   check(violations.length === 0, 'no file outside extension/ai/jev-*.js names FsbJevState, FsbJevClient or FsbJevPolicy (' + violations.length + ' violation(s))');
 
-  // background.js names only the three file names, in its three load lines.
+  // background.js names the four file names only in its four load lines;
+  // every other jev mention must sit inside an exact BACKGROUND_JEV_TOKENS
+  // token (Phase 68 D-06, plan 68-06).
   const bgLines = fs.readFileSync(path.join(EXT_DIR, 'background.js'), 'utf8').split('\n');
-  const jevLines = [];
-  bgLines.forEach((line, i) => { if (/jev/i.test(line)) jevLines.push({ index: i, text: line }); });
-  const expected = MODULES.map((m) => "importScripts('ai/" + m.file + "');");
-  check(JSON.stringify(jevLines.map((l) => l.text)) === JSON.stringify(expected),
-    'background.js mentions jev only in the three load lines, in the order state, client, policy');
-  const discovery = bgLines.indexOf("importScripts('ai/model-discovery.js');");
-  check(discovery >= 0 && jevLines.length === 3 && jevLines.every((l, k) => l.index === discovery + 1 + k),
-    'the three loads sit directly after ai/model-discovery.js with no line between them');
+  const jevLines = backgroundJevLines(bgLines);
+  for (const l of jevLines) {
+    if (BACKGROUND_LOAD_LINES.indexOf(l.text) === -1) console.error('    - extension/background.js:' + (l.index + 1) + ' -- ' + JSON.stringify(l.text.trim()));
+  }
+  check(JSON.stringify(jevLines.map((l) => l.text)) === JSON.stringify(BACKGROUND_LOAD_LINES),
+    'background.js mentions jev only in the four load lines (state, client, policy, fast path) and inside the exact tokens fsbJevFastModeEnabled and getJevMenu');
+  const discovery = bgLines.indexOf(BACKGROUND_DISCOVERY_LINE);
+  check(discovery >= 0 && jevLines.length === 4 && jevLines.every((l, k) => l.index === discovery + 1 + k),
+    'the four loads sit directly after ai/model-discovery.js with no line between them');
+  check(backgroundJevClean(bgLines), 'background.js passes the combined load-line and token check');
 }
 
 function uiConfigScan() {

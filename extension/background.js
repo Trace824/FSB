@@ -819,6 +819,7 @@ importScripts('ai/model-discovery.js');
 importScripts('ai/jev-state.js');
 importScripts('ai/jev-client.js');
 importScripts('ai/jev-policy.js');
+importScripts('ai/jev-fast-path.js');
 
 // Memory layer modules
 importScripts('lib/memory/memory-schemas.js');
@@ -3992,6 +3993,124 @@ async function getStorageWithTimeout(keys, timeout = 3000, defaults = {}) {
     });
     return defaults;
   }
+}
+
+// Fast mode (Phase 68, D-05): the session field, the dependencies the
+// fast-path module reads from globalThis.fsbFastPathDeps, and the follow-up
+// recompute. The agent loop reads only session.fastMode; with the switch off
+// the field is absent and the loop runs exactly as before.
+
+/**
+ * session.fastMode for a start or a follow-up command. Only a stored boolean
+ * true yields a field; a run_task start (source 'mcp') carries enabled:false
+ * and never takes a fast step (D-03).
+ * @param {*} storedValue - The stored switch value
+ * @param {string|undefined} source - The start request's source
+ * @returns {{enabled: boolean, stored: boolean, source: (string|null)}|null}
+ */
+function fsbFastModeSessionField(storedValue, source) {
+  if (storedValue !== true) return null;
+  const from = typeof source === 'string' && source ? source : null;
+  return { enabled: from !== 'mcp', stored: true, source: from };
+}
+
+/**
+ * Resolve a promise's value, or null when it rejects or the deadline passes
+ * first. The timer is cleared as soon as either settles.
+ * @param {Promise} promise - The pending work
+ * @param {number} ms - Deadline in milliseconds
+ * @returns {Promise<*>} The value, or null
+ */
+function fsbFastPathWithDeadline(promise, ms) {
+  return new Promise((resolve) => {
+    let done = false;
+    let timer = null;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    timer = setTimeout(() => finish(null), ms);
+    Promise.resolve(promise).then(finish, () => finish(null));
+  });
+}
+
+/**
+ * The dependencies of the fast-path module: now, readSwitch, requestMenu,
+ * requestSnapshot and getTabUrl. Creating the object calls nothing. The menu
+ * and snapshot requests are content-script messages to the main frame (not
+ * in-worker dispatch); every member resolves null or false on failure or at
+ * its deadline and never rejects.
+ * @returns {Object} The dependency object
+ */
+function fsbCreateFastPathDeps() {
+  const sendToMainFrame = (tabId, message, deadlineMs) => {
+    let sent;
+    try {
+      sent = chrome.tabs.sendMessage(tabId, message, { frameId: 0 });
+    } catch (_e) {
+      return Promise.resolve(null);
+    }
+    return fsbFastPathWithDeadline(sent, deadlineMs);
+  };
+  return {
+    now: () => Date.now(),
+    readSwitch: async () => {
+      let read;
+      try {
+        read = chrome.storage.local.get(['fsbJevFastModeEnabled']);
+      } catch (_e) {
+        return false;
+      }
+      const stored = await fsbFastPathWithDeadline(read, 3000);
+      return !!stored && stored.fsbJevFastModeEnabled === true;
+    },
+    requestMenu: (tabId, options, deadlineMs) => sendToMainFrame(tabId, { action: 'getJevMenu', options }, deadlineMs),
+    requestSnapshot: (tabId, deadlineMs) => sendToMainFrame(tabId, {
+      action: 'getMarkdownSnapshot',
+      options: { charBudget: 12000, maxElements: 80 }
+    }, deadlineMs),
+    getTabUrl: async (tabId) => {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        return tab && typeof tab.url === 'string' && tab.url ? tab.url : null;
+      } catch (_e) {
+        return null;
+      }
+    }
+  };
+}
+
+globalThis.fsbFastPathDeps = fsbCreateFastPathDeps();
+
+/**
+ * Follow-up commands (D-05, D-10, F8). First deliver any fast steps the
+ * previous command left unflushed, so a switch turned off between commands
+ * never drops a hand-off; then read the switch once and assign or delete
+ * session.fastMode for the new command. Writes no storage and never rejects.
+ * @param {Object} existingSession - The idle session being reactivated
+ * @param {string|undefined} source - The follow-up request's source
+ */
+async function fsbRecomputeFastModeForFollowUp(existingSession, source) {
+  if (!existingSession) return;
+  if (existingSession._fastPath && typeof globalThis !== 'undefined' && globalThis.FsbFastPath
+      && typeof globalThis.FsbFastPath.flushHandoff === 'function') {
+    try {
+      await globalThis.FsbFastPath.flushHandoff(existingSession);
+    } catch (_e) {
+      // The module latches itself off.
+    }
+  }
+  let stored = null;
+  try {
+    stored = await getStorageWithTimeout(['fsbJevFastModeEnabled'], 3000, { fsbJevFastModeEnabled: false });
+  } catch (_e) {
+    stored = null;
+  }
+  const field = fsbFastModeSessionField(stored ? stored.fsbJevFastModeEnabled : undefined, source);
+  if (field) existingSession.fastMode = field;
+  else delete existingSession.fastMode;
 }
 
 // PART 3: Helper function to format duration for session elapsed timer
@@ -13844,6 +13963,8 @@ async function handleStartAutomation(request, sender, sendResponse) {
           automationLogger.debug('Could not reset DOM state for follow-up', { sessionId, error: e.message });
         }
 
+        // Fast mode: deliver any pending hand-off, then recompute the field.
+        await fsbRecomputeFastModeForFollowUp(existingSession, source);
         const reactivationHooks = createSessionHooks(sessionId);
         runAgentLoop(sessionId, {
           activeSessions,
@@ -13956,9 +14077,9 @@ async function handleStartAutomation(request, sender, sendResponse) {
 
     // Read settings from storage before creating session
     const storedSettings = await getStorageWithTimeout(
-      ['maxIterations', 'animatedActionHighlights', 'domOptimization', 'maxDOMElements', 'prioritizeViewport'],
+      ['maxIterations', 'animatedActionHighlights', 'domOptimization', 'maxDOMElements', 'prioritizeViewport', 'fsbJevFastModeEnabled'],
       3000,
-      { maxIterations: 100, animatedActionHighlights: true, domOptimization: true, maxDOMElements: 2000, prioritizeViewport: true }
+      { maxIterations: 100, animatedActionHighlights: true, domOptimization: true, maxDOMElements: 2000, prioritizeViewport: true, fsbJevFastModeEnabled: false }
     );
     const userMaxIterations = parseInt(storedSettings.maxIterations) || 100;
 
@@ -13988,6 +14109,9 @@ async function handleStartAutomation(request, sender, sendResponse) {
       initialAllowedTabs.push(targetTabId);
     }
 
+    // Fast mode (D-05): the field exists only when the stored switch is on.
+    const fastModeField = fsbFastModeSessionField(storedSettings.fsbJevFastModeEnabled, source);
+
     // Create new session with enhanced tracking
     const sessionId = `session_${Date.now()}`;
     const sessionData = {
@@ -14012,6 +14136,7 @@ async function handleStartAutomation(request, sender, sendResponse) {
       sequenceRepeatCount: {},  // Count how many times each sequence repeats
       allowedTabs: initialAllowedTabs,
       ...(requestAgentId ? { agentId: requestAgentId } : {}),
+      ...(fastModeField ? { fastMode: fastModeField } : {}),
       tabHistory: [],             // Track tab switches for debugging
       navigationMessage,        // Store navigation message for UI
       animatedActionHighlights: storedSettings.animatedActionHighlights ?? true,
@@ -14469,6 +14594,9 @@ async function handleStopAutomation(request, sender, sendResponse) {
 
   if (session) {
     automationLogger.debug('Found session to stop', { sessionId, status: session.status });
+    if (session._fastPath && typeof globalThis !== 'undefined' && globalThis.FsbFastPath && typeof globalThis.FsbFastPath.abortInFlight === 'function') {
+      try { globalThis.FsbFastPath.abortInFlight(session); } catch (_e) { /* best effort */ }
+    }
 
     if (session.isReplay === true) {
       session.isTerminating = true;

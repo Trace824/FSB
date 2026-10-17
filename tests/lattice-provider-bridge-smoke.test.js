@@ -633,8 +633,9 @@ async function loadOffscreenHandlerSource(chromeMock) {
   // (side-panel active tab handed to the delegated agent) adds one -> 333.
   // The retained debugger session manager adds one shared load -> 334.
   // Phase 67 adds three inert Jev decision modules (state, client, policy) -> 337.
+  // Phase 68 adds the fast-path decision module -> 338.
   const importScriptsCount = (bgSource.match(/importScripts/g) || []).length;
-  passAssertEqual(importScriptsCount, 337, 'background.js importScripts count includes the retained debugger session manager and the three inert Jev modules (jev-state, jev-client, jev-policy)');
+  passAssertEqual(importScriptsCount, 338, 'background.js importScripts count includes the retained debugger session manager, the three inert Jev modules (jev-state, jev-client, jev-policy) and the fast-path module (jev-fast-path)');
   // Companion call-site-only count (regex requires open paren): Phase 5 baseline
   // was 150 actual importScripts() calls; Phase 6 adds 1 -> 151; Phase 8 adds 1 -> 152;
   // Phase 14 adds 2 (trigger-store + trigger-lifecycle) -> 154; Phase 15 adds 2
@@ -682,8 +683,9 @@ async function loadOffscreenHandlerSource(chromeMock) {
   // shared model discovery add two more call sites -> 328. The delegation tab
   // seed is call site 329. The debugger session manager is call site 330.
   // Phase 67's three Jev modules are call sites 331..333.
+  // Phase 68's fast-path module is call site 334.
   const importScriptsCallSites = (bgSource.match(/importScripts\(/g) || []).length;
-  passAssertEqual(importScriptsCallSites, 333, 'background.js importScripts() call sites include the retained debugger session manager and the three inert Jev modules (jev-state, jev-client, jev-policy)');
+  passAssertEqual(importScriptsCallSites, 334, 'background.js importScripts() call sites include the retained debugger session manager, the three inert Jev modules (jev-state, jev-client, jev-policy) and the fast-path module (jev-fast-path)');
   passAssertEqual((bgSource.match(/importScripts\(['"]utils\/debugger-sessions\.js['"]\)/g) || []).length, 1,
     'debugger session manager is loaded exactly once');
   const lineLease = bgLines.findIndex(line => /importScripts\(['"]utils\/cdp-lease\.js['"]\)/.test(line));
