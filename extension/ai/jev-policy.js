@@ -80,7 +80,7 @@
     RESERVED_OPTION_KEY: 'none_of_the_above'
   });
 
-  var JEV_DENIAL_REASON = 'jev_requires_confirmation';
+  var CONFIRM_DENIAL_REASON = 'jev_requires_confirmation';
 
   function isObjectLike(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -402,7 +402,7 @@
       confirm = false;
     }
     if (confirm) {
-      return { shouldStop: false, denied: true, denial: { reason: JEV_DENIAL_REASON, source: 'jev' } };
+      return { shouldStop: false, denied: true, denial: { reason: CONFIRM_DENIAL_REASON, source: 'jev' } };
     }
     return { shouldStop: false, denied: false };
   }
