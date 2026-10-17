@@ -42,7 +42,7 @@ const { scrubText, filterInjection } = require(path.join(JEV_DIR, 'scrubber.js')
 // commit. Never edit or remove an existing entry.
 // ---------------------------------------------------------------------------
 const INSTRUMENT_PINS = Object.freeze({
-  'fsb-jev-instrument-1': 'PENDING_PIN',
+  'fsb-jev-instrument-1': '5f62ba09adbed95dce41df83b0ff02e602a63bc0c4134a67899b6f032dd6385b',
 });
 
 const MODEL = 'jev-1.13.0';
