@@ -247,5 +247,665 @@ check('actions.js holds exactly these four guarded marks and no unguarded call',
 });
 
 // ---------------------------------------------------------------------------
+// Shared vm context for dom-analysis.js: the dom-state registry slice, the real
+// accessibility.js (getImplicitRole) and the whole dom-analysis.js, with the
+// stub kit's window and document. Helpers the menu resolves at call time are
+// assigned on FSB after loading so each case can stub them.
+
+const ACCESSIBILITY_PATH = path.join(repoRoot, 'extension', 'content', 'accessibility.js');
+const DOM_ANALYSIS_PATH = path.join(repoRoot, 'extension', 'content', 'dom-analysis.js');
+const accessibilitySource = fs.readFileSync(ACCESSIBILITY_PATH, 'utf8');
+const domAnalysisSource = fs.readFileSync(DOM_ANALYSIS_PATH, 'utf8');
+
+const MENU_BEGIN = '  // ==== Phase 68 fast-mode element menu (begin) ====';
+const MENU_END = '  // ==== Phase 68 fast-mode element menu (end) ====';
+
+const noop = () => {};
+const quietLogger = { log: noop, info: noop, warn: noop, error: noop, debug: noop, logDOMOperation: noop };
+
+function stripUnicodeControlStub(str) {
+  if (!str) return str;
+  return String(str).replace(/[​-‏‪-‮⁠-⁩﻿­]/g, '');
+}
+
+function getClassNameStub(element) {
+  if (!element) return '';
+  const cn = element.className;
+  if (typeof cn === 'string') return cn;
+  if (cn && typeof cn.baseVal === 'string') return cn.baseVal;
+  return '';
+}
+
+function createContentContext(options = {}) {
+  const win = options.window || kit.makeWindow({});
+  const FSB = {
+    _modules: {},
+    logger: quietLogger,
+    stripUnicodeControl: stripUnicodeControlStub,
+    getClassName: getClassNameStub,
+    isFsbElement: () => false,
+  };
+  win.FSB = FSB;
+  win.__FSB_SKIP_INIT__ = false;
+  const sandbox = {
+    window: win,
+    document: options.document || kit.makeDocument(kit.makeElement({ tag: 'body' })),
+    console,
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 },
+    WeakRef,
+    WeakSet,
+    crypto: kit.cryptoStub(options.seed || [0x5a, 0x11, 0xc3, 0x07]),
+  };
+  vm.createContext(sandbox);
+  const registrySlice = sliceBetween(domStateSource, REGISTRY_BEGIN, REGISTRY_END, { includeEnd: true });
+  const registry = vm.runInContext(
+    `${registrySlice}\n({ JevRefRegistry, jevRefMap, vaultFilledElements, noteVaultFilled })`,
+    sandbox,
+    { filename: 'dom-state.js#fast-mode-registry' }
+  );
+  FSB.JevRefRegistry = registry.JevRefRegistry;
+  FSB.jevRefMap = registry.jevRefMap;
+  FSB.vaultFilledElements = registry.vaultFilledElements;
+  FSB.noteVaultFilled = registry.noteVaultFilled;
+  vm.runInContext(accessibilitySource, sandbox, { filename: 'accessibility.js' });
+  vm.runInContext(domAnalysisSource, sandbox, { filename: 'dom-analysis.js' });
+  FSB.generateSelectors = () => [];
+  FSB.querySelectorWithShadow = () => null;
+  return {
+    FSB,
+    window: win,
+    sandbox,
+    setDocument(doc) { sandbox.document = doc; },
+  };
+}
+
+const ctx = createContentContext();
+const F = ctx.FSB;
+const el = kit.makeElement;
+
+// Build a document around the given nodes so getElementById works.
+function page(children, options = {}) {
+  const body = el({ tag: 'body', children });
+  const doc = kit.makeDocument(body, options);
+  ctx.setDocument(doc);
+  return doc;
+}
+
+function menuBlock() {
+  return sliceBetween(domAnalysisSource, MENU_BEGIN, MENU_END, { includeEnd: true });
+}
+
+function functionText(source, name) {
+  const start = source.indexOf(`  function ${name}(`);
+  assert.ok(start >= 0, `function ${name} present`);
+  const end = source.indexOf('\n  }\n', start);
+  assert.ok(end > start, `function ${name} closes`);
+  return source.slice(start, end + 4);
+}
+
+// ---------------------------------------------------------------------------
+section('menu block layout and exports (dom-analysis.js)');
+
+check('the menu block is one contiguous marked block before the exports section', () => {
+  assert.equal(domAnalysisSource.split(MENU_BEGIN).length - 1, 1);
+  assert.equal(domAnalysisSource.split(MENU_END).length - 1, 1);
+  const begin = domAnalysisSource.indexOf(MENU_BEGIN);
+  const end = domAnalysisSource.indexOf(MENU_END);
+  const exportsAt = domAnalysisSource.indexOf('  // EXPORT TO NAMESPACE');
+  const lastFunction = domAnalysisSource.indexOf('  function getCanvasPixelFallback(');
+  assert.ok(lastFunction > 0 && begin > lastFunction && end > begin && exportsAt > end);
+});
+
+check('FSB.jevMenuConstants is frozen with the documented values', () => {
+  const c = F.jevMenuConstants;
+  assert.ok(c && Object.isFrozen(c));
+  assert.deepEqual(JSON.parse(JSON.stringify(c)), {
+    MENU_CAP: 48,
+    MENU_CAP_MIN: 32,
+    MENU_CAP_MAX: 64,
+    MENU_POOL: 256,
+    TEXT_EXCERPT_CHARS: 2000,
+    LABEL_CHARS: 80,
+    ROLE_CHARS: 32,
+    MORE_BELOW_PX: 200,
+  });
+  assert.ok(c.MENU_POOL > c.MENU_CAP_MAX);
+});
+
+check('labels, safe text, risk and ops are exported next to getFilteredElements', () => {
+  for (const name of ['jevSafeText', 'jevMenuLabel', 'classifyJevRisk', 'jevElementOps']) {
+    assert.equal(typeof F[name], 'function', `FSB.${name}`);
+  }
+  const exportsAt = domAnalysisSource.indexOf('  FSB.getFilteredElements = getFilteredElements;');
+  const tail = domAnalysisSource.slice(exportsAt);
+  for (const line of [
+    'FSB.jevMenuConstants = jevMenuConstants;',
+    'FSB.jevSafeText = jevSafeText;',
+    'FSB.jevMenuLabel = jevMenuLabel;',
+    'FSB.classifyJevRisk = classifyJevRisk;',
+    'FSB.jevElementOps = jevElementOps;',
+  ]) {
+    assert.ok(tail.includes(line), `export present: ${line}`);
+  }
+});
+
+check('the block never reads the value property, never names computeAccessibleName and never renders refs', () => {
+  const block = menuBlock();
+  const valueLines = block.split('\n').filter((line) => /\.value\b/.test(line) && !line.includes("getAttribute('value')"));
+  assert.deepEqual(valueLines, []);
+  assert.equal(block.includes('computeAccessibleName'), false);
+  assert.equal(block.includes('formatInlineRef'), false);
+  assert.equal(block.includes('FSB.refMap.reset'), false);
+  assert.equal(/\bJEV_[A-Z_]+\b/.test(block), false);
+  assert.equal(/FsbJev/.test(block), false);
+  assert.equal(functionText(domAnalysisSource, 'jevSafeText').includes('textContent'), false);
+  assert.equal(functionText(domAnalysisSource, 'jevMenuLabel').includes('textContent'), false);
+});
+
+// ---------------------------------------------------------------------------
+section('jevSafeText and jevMenuLabel: value-free labels (F4, F18, D-13)');
+
+check('jevSafeText skips controls, options, editable regions and text-entry roles below the root', () => {
+  const root = el({
+    tag: 'div',
+    children: [
+      'Keep ',
+      el({ tag: 'textarea', text: 'SECRET-A' }),
+      el({ tag: 'select', children: [el({ tag: 'option', text: 'SECRET-B' })] }),
+      el({ tag: 'div', attrs: { contenteditable: 'true' }, text: 'SECRET-C' }),
+      el({ tag: 'div', attrs: { contenteditable: '' }, text: 'SECRET-D' }),
+      el({ tag: 'span', attrs: { contenteditable: 'false' }, text: 'this ' }),
+      el({ tag: 'div', attrs: { role: 'textbox' }, text: 'SECRET-E' }),
+      el({ tag: 'div', attrs: { role: 'combobox' }, text: 'SECRET-F' }),
+      el({ tag: 'div', attrs: { 'aria-hidden': 'true' }, text: 'SECRET-G' }),
+      el({ tag: 'script', text: 'SECRET-H' }),
+      el({ tag: 'datalist', children: [el({ tag: 'option', text: 'SECRET-I' })] }),
+      el({ tag: 'b', text: 'text' }),
+    ],
+  });
+  assert.equal(F.jevSafeText(root, 80), 'Keep this text');
+});
+
+check('jevSafeText walks the root itself, collapses whitespace and cuts at code points', () => {
+  const option = el({ tag: 'option', text: '  Opt\n  A  ' });
+  assert.equal(F.jevSafeText(option, 80), 'Opt A');
+  const long = el({ tag: 'span', text: '\u{1F600}'.repeat(10) + 'abc' });
+  assert.equal(F.jevSafeText(long, 4), '\u{1F600}'.repeat(4));
+});
+
+check('F18: input type=submit value="Delete" is labelled "Delete"; input type=image alt="Search" is "Search"', () => {
+  page([]);
+  assert.equal(F.jevMenuLabel(el({ tag: 'input', attrs: { type: 'submit', value: 'Delete' } })), 'Delete');
+  assert.equal(F.jevMenuLabel(el({ tag: 'input', attrs: { type: 'button', value: 'Next' } })), 'Next');
+  assert.equal(F.jevMenuLabel(el({ tag: 'input', attrs: { type: 'reset', value: 'Clear form' } })), 'Clear form');
+  assert.equal(F.jevMenuLabel(el({ tag: 'input', attrs: { type: 'image', alt: 'Search' } })), 'Search');
+});
+
+// The five F4 label cases, each with a secret marker that must reach no label.
+function labelCases() {
+  const bioArea = el({ tag: 'textarea', text: 'SECRET-DRAFT-2' });
+  const bioLabel = el({ tag: 'label', children: ['Bio ', bioArea] });
+  bioArea.labels = [bioLabel];
+
+  const countrySelect = el({
+    tag: 'select',
+    children: [el({ tag: 'option', text: 'SECRET-OPT-A' }), el({ tag: 'option', text: 'SECRET-OPT-B' })],
+  });
+  const countryLabel = el({ tag: 'label', children: ['Country ', countrySelect] });
+  countrySelect.labels = [countryLabel];
+
+  const innerField = el({ tag: 'input', attrs: { id: 'x', value: 'SECRET-VAL' }, value: 'SECRET-VAL' });
+  const nameLabel = el({ tag: 'label', attrs: { for: 'n' }, children: ['Name ', innerField] });
+  const nameField = el({ tag: 'input', attrs: { id: 'n' } });
+  nameField.labels = [nameLabel];
+  innerField.labels = [nameLabel];
+
+  const notesHolder = el({ tag: 'div', attrs: { id: 'd' }, children: ['Notes ', el({ tag: 'textarea', text: 'SECRET-DRAFT-3' })] });
+  const notesField = el({ tag: 'input', attrs: { 'aria-labelledby': 'd' } });
+
+  const editor = el({ tag: 'div', attrs: { contenteditable: 'true' }, text: 'SECRET-DRAFT-4' });
+  const commentLabel = el({ tag: 'label', children: ['Comment ', editor] });
+
+  const roleOption = el({ tag: 'div', attrs: { role: 'option' }, text: 'Option Two' });
+
+  const doc = page([bioLabel, countryLabel, nameLabel, nameField, notesHolder, notesField, commentLabel, roleOption], {
+    selectorMap: { 'label[for="n"]': [nameLabel] },
+  });
+  return { doc, bioArea, countrySelect, nameField, innerField, notesField, editor, roleOption };
+}
+
+const SECRET_MARKERS = ['SECRET-DRAFT-2', 'SECRET-OPT-A', 'SECRET-OPT-B', 'SECRET-VAL', 'SECRET-DRAFT-3', 'SECRET-DRAFT-4'];
+
+check('F4 label cases: Bio, Country, Name, Notes and Comment carry no field content', () => {
+  const c = labelCases();
+  assert.equal(F.jevMenuLabel(c.bioArea), 'Bio');
+  assert.equal(F.jevMenuLabel(c.countrySelect), 'Country');
+  assert.equal(F.jevMenuLabel(c.nameField), 'Name');
+  assert.equal(F.jevMenuLabel(c.innerField), 'Name');
+  assert.equal(F.jevMenuLabel(c.notesField), 'Notes');
+  assert.equal(F.jevMenuLabel(c.editor), 'Comment');
+  for (const node of [c.bioArea, c.countrySelect, c.nameField, c.innerField, c.notesField, c.editor]) {
+    const label = F.jevMenuLabel(node);
+    for (const secret of SECRET_MARKERS) assert.equal(label.includes(secret), false, `${secret} leaked into "${label}"`);
+  }
+});
+
+check('an option entry keeps its own text (role=option and a native option)', () => {
+  const c = labelCases();
+  assert.equal(F.jevMenuLabel(c.roleOption), 'Option Two');
+  assert.equal(F.jevMenuLabel(el({ tag: 'option', text: 'Native option' })), 'Native option');
+});
+
+check('label sources follow the ARIA order: labelledby, aria-label, label, contents, alt, placeholder, title', () => {
+  const heading = el({ tag: 'span', attrs: { id: 'h1' }, text: 'Heading name' });
+  page([heading]);
+  assert.equal(F.jevMenuLabel(el({ tag: 'button', attrs: { 'aria-labelledby': 'h1', 'aria-label': 'Aria' }, text: 'Text' })), 'Heading name');
+  assert.equal(F.jevMenuLabel(el({ tag: 'button', attrs: { 'aria-label': 'Aria name' }, text: 'Text' })), 'Aria name');
+  assert.equal(F.jevMenuLabel(el({ tag: 'button', attrs: { title: 'Title' }, text: '  Show   details ' })), 'Show details');
+  assert.equal(F.jevMenuLabel(el({ tag: 'a', attrs: { href: '/next' }, text: 'Next page' })), 'Next page');
+  assert.equal(F.jevMenuLabel(el({ tag: 'img', attrs: { alt: 'Logo' } })), 'Logo');
+  assert.equal(F.jevMenuLabel(el({ tag: 'input', attrs: { placeholder: 'Find a city' } })), 'Find a city');
+  assert.equal(F.jevMenuLabel(el({ tag: 'div', attrs: { title: 'Panel' }, text: 'not a contents role' })), 'Panel');
+  assert.equal(F.jevMenuLabel(el({ tag: 'div', text: 'no name at all' })), '');
+});
+
+check('labels are capped at LABEL_CHARS code points', () => {
+  const label = F.jevMenuLabel(el({ tag: 'button', text: 'x'.repeat(200) }));
+  assert.equal(Array.from(label).length, 80);
+});
+
+check('differential: the real computeAccessibleName leaks the wrapped textarea, jevMenuLabel does not', () => {
+  const c = labelCases();
+  const win = { FSB: { _modules: {}, logger: quietLogger, stripUnicodeControl: stripUnicodeControlStub }, __FSB_SKIP_INIT__: false };
+  const sandbox = { window: win, document: c.doc, console };
+  vm.runInNewContext(accessibilitySource, sandbox, { filename: 'accessibility.js#differential' });
+  const leaked = win.FSB.computeAccessibleName(c.bioArea).name;
+  assert.ok(leaked.includes('SECRET-DRAFT-2'), `computeAccessibleName returned "${leaked}"`);
+  const leakedSelect = win.FSB.computeAccessibleName(c.countrySelect).name;
+  assert.ok(leakedSelect.includes('SECRET-OPT-A'), `computeAccessibleName returned "${leakedSelect}"`);
+  assert.equal(F.jevMenuLabel(c.bioArea), 'Bio');
+  assert.equal(F.jevMenuLabel(c.countrySelect), 'Country');
+});
+
+check('labels, ops and risk never read the value property', () => {
+  kit.resetValueReads();
+  const c = labelCases();
+  const fields = [
+    c.bioArea, c.countrySelect, c.nameField, c.innerField, c.notesField, c.editor,
+    el({ tag: 'input', attrs: { type: 'submit', value: 'Delete' }, value: 'Delete' }),
+    el({ tag: 'input', attrs: { type: 'search', 'aria-label': 'Search' }, value: 'typed query' }),
+    el({ tag: 'input', attrs: { type: 'checkbox' }, value: 'on' }),
+  ];
+  const form = el({ tag: 'form', children: [el({ tag: 'input', attrs: { type: 'search' }, value: 'q' }), el({ tag: 'input', attrs: { type: 'password' }, value: 'pw' }), el({ tag: 'button', text: 'Go' })] });
+  page([form]);
+  for (const node of fields.concat(form.elements)) {
+    F.jevMenuLabel(node);
+    F.jevElementOps(node, {});
+    F.classifyJevRisk(node, {});
+  }
+  assert.deepEqual(kit.valueReads, []);
+});
+
+// ---------------------------------------------------------------------------
+section('jevElementOps: code-derived operations (F2, D-15, AUTO-03, T-68-01)');
+
+// Arrays from the vm realm have a different Array prototype: copy them out
+// before strict deep-equality checks.
+function ops(node) {
+  return Array.from(F.jevElementOps(node, {}));
+}
+
+check('buttons, links, tabs, menu items, options and a closed summary get click and hover', () => {
+  page([]);
+  assert.deepEqual(ops(el({ tag: 'button', text: 'Go' })), ['click', 'hover']);
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'button' }, text: 'Go' })), ['click', 'hover']);
+  assert.deepEqual(ops(el({ tag: 'a', attrs: { href: '/x' }, text: 'X' })), ['click', 'hover']);
+  for (const role of ['link', 'tab', 'menuitem', 'option']) {
+    assert.deepEqual(ops(el({ tag: 'div', attrs: { role }, text: role })), ['click', 'hover'], role);
+  }
+  const summary = el({ tag: 'summary', text: 'More' });
+  el({ tag: 'details', children: [summary] });
+  assert.deepEqual(ops(summary), ['click', 'hover']);
+});
+
+check('the summary of an open details gets no ops', () => {
+  const summary = el({ tag: 'summary', text: 'More' });
+  el({ tag: 'details', attrs: { open: '' }, children: [summary] });
+  assert.deepEqual(ops(summary), []);
+});
+
+check('native checkbox/radio: unchecked gets check_box only; checked or indeterminate gets none', () => {
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'checkbox' } })), ['check_box']);
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'radio' } })), ['check_box']);
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'checkbox' }, checked: true })), []);
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'radio' }, checked: true })), []);
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'checkbox' }, indeterminate: true })), []);
+});
+
+check('"on" ARIA state (checked/pressed true or mixed, expanded/selected true) gets no ops', () => {
+  const cases = [
+    { role: 'checkbox', 'aria-checked': 'true' },
+    { role: 'checkbox', 'aria-checked': 'mixed' },
+    { role: 'switch', 'aria-checked': 'true' },
+    { role: 'button', 'aria-pressed': 'true' },
+    { role: 'button', 'aria-pressed': 'mixed' },
+    { role: 'button', 'aria-expanded': 'true' },
+    { role: 'tab', 'aria-selected': 'true' },
+    { role: 'option', 'aria-selected': 'true' },
+  ];
+  for (const attrs of cases) {
+    assert.deepEqual(ops(el({ tag: 'div', attrs, text: 'X' })), [], JSON.stringify(attrs));
+  }
+  assert.deepEqual(ops(el({ tag: 'button', attrs: { 'aria-expanded': 'true' }, text: 'Menu' })), []);
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'checkbox', 'aria-checked': 'mixed' } })), []);
+});
+
+check('[role=checkbox|switch] with aria-checked="false" gets click; with no state it gets none', () => {
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'checkbox', 'aria-checked': 'false' }, text: 'A' })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'switch', 'aria-checked': 'false' }, text: 'A' })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'switch' }, text: 'A' })), []);
+});
+
+check('text entry, textarea, contenteditable and select are listed with click only', () => {
+  for (const type of ['text', 'email', 'tel', 'url', 'number', 'password', 'date']) {
+    assert.deepEqual(ops(el({ tag: 'input', attrs: { type } })), ['click'], type);
+  }
+  assert.deepEqual(ops(el({ tag: 'input' })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'textarea' })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'select' })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { contenteditable: 'true' } })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'textbox' } })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'combobox' } })), ['click']);
+});
+
+check('no element ever gets type_text or select_option', () => {
+  const nodes = [
+    el({ tag: 'input' }), el({ tag: 'textarea' }), el({ tag: 'select' }), el({ tag: 'button', text: 'Go' }),
+    el({ tag: 'input', attrs: { type: 'search' } }), el({ tag: 'div', attrs: { contenteditable: 'true' } }),
+    el({ tag: 'div', attrs: { role: 'listbox' } }), el({ tag: 'input', attrs: { type: 'checkbox' } }),
+    el({ tag: 'input', attrs: { type: 'file' } }), el({ tag: 'input', attrs: { type: 'hidden' } }),
+  ];
+  for (const node of nodes) {
+    const list = ops(node);
+    assert.equal(list.includes('type_text'), false);
+    assert.equal(list.includes('select_option'), false);
+    for (const op of list) assert.ok(['click', 'check_box', 'press_enter', 'hover'].includes(op), op);
+  }
+});
+
+// ---------------------------------------------------------------------------
+section('press_enter: search fields whose form can submit nothing else (D-19)');
+
+check('input type=search and input role=searchbox outside any form get press_enter with risk null', () => {
+  page([]);
+  const search = el({ tag: 'input', attrs: { type: 'search', 'aria-label': 'Search' } });
+  const searchbox = el({ tag: 'input', attrs: { type: 'text', role: 'searchbox', 'aria-label': 'Search' } });
+  page([search, searchbox]);
+  assert.deepEqual(ops(search), ['press_enter']);
+  assert.equal(F.classifyJevRisk(search, {}), null);
+  assert.deepEqual(ops(searchbox), ['press_enter']);
+  assert.equal(F.classifyJevRisk(searchbox, {}), null);
+});
+
+check('a contenteditable div role=searchbox stays on the text-entry row', () => {
+  assert.deepEqual(ops(el({ tag: 'div', attrs: { role: 'searchbox', contenteditable: 'true' } })), ['click']);
+});
+
+check('a plain site-search form (search field, hidden input, Search button) keeps press_enter', () => {
+  const field = el({ tag: 'input', attrs: { type: 'search', name: 'q', 'aria-label': 'Search' } });
+  const form = el({
+    tag: 'form',
+    attrs: { action: '/search', role: 'search' },
+    children: [field, el({ tag: 'input', attrs: { type: 'hidden', name: 'src' } }), el({ tag: 'button', text: 'Search' })],
+  });
+  page([form]);
+  assert.deepEqual(ops(field), ['press_enter']);
+  assert.equal(F.classifyJevRisk(field, {}), null);
+});
+
+check('a contact form with name="subject_query" and a Send button gives no press_enter', () => {
+  const field = el({ tag: 'input', attrs: { type: 'text', name: 'subject_query', 'aria-label': 'Subject' } });
+  const form = el({ tag: 'form', children: [field, el({ tag: 'button', text: 'Send' })] });
+  page([form]);
+  assert.equal(F.inferElementPurpose(field).intent, 'search-query', 'inferElementPurpose says search');
+  assert.deepEqual(ops(field), ['click']);
+});
+
+check('a search field whose form submits "Subscribe" is click-only with risk enter_submits_form', () => {
+  const field = el({ tag: 'input', attrs: { type: 'search', 'aria-label': 'Search' } });
+  const form = el({ tag: 'form', children: [field, el({ tag: 'button', attrs: { type: 'submit' }, text: 'Subscribe' })] });
+  page([form]);
+  assert.deepEqual(ops(field), ['click']);
+  assert.equal(F.classifyJevRisk(field, {}), 'enter_submits_form');
+});
+
+check('a search field in a form with a select, a checkbox or a second text input is click-only', () => {
+  const extras = [
+    el({ tag: 'select', children: [el({ tag: 'option', text: 'All' })] }),
+    el({ tag: 'input', attrs: { type: 'checkbox' } }),
+    el({ tag: 'input', attrs: { type: 'text', name: 'city' } }),
+    el({ tag: 'textarea' }),
+  ];
+  for (const extra of extras) {
+    const field = el({ tag: 'input', attrs: { type: 'search', 'aria-label': 'Search' } });
+    const form = el({ tag: 'form', children: [field, extra, el({ tag: 'button', text: 'Search' })] });
+    page([form]);
+    assert.deepEqual(ops(field), ['click'], extra.tagName);
+    assert.equal(F.classifyJevRisk(field, {}), 'enter_submits_form', extra.tagName);
+  }
+});
+
+check('a search field in a form holding a password, cc-* or one-time-code field never gets press_enter', () => {
+  const extras = [
+    el({ tag: 'input', attrs: { type: 'password' } }),
+    el({ tag: 'input', attrs: { type: 'text', autocomplete: 'cc-number' } }),
+    el({ tag: 'input', attrs: { type: 'text', autocomplete: 'one-time-code' } }),
+  ];
+  for (const extra of extras) {
+    const field = el({ tag: 'input', attrs: { type: 'search', 'aria-label': 'Search' } });
+    const form = el({ tag: 'form', children: [field, extra] });
+    page([form]);
+    assert.equal(ops(field).includes('press_enter'), false, extra.getAttribute('type'));
+    assert.notEqual(F.classifyJevRisk(field, {}), null, extra.getAttribute('autocomplete') || extra.getAttribute('type'));
+  }
+});
+
+check('an input whose aria-label says "search" but whose type is text never gets press_enter', () => {
+  page([]);
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'text', 'aria-label': 'Search products' } })), ['click']);
+  assert.deepEqual(ops(el({ tag: 'input', attrs: { type: 'text', name: 'q', id: 'search' } })), ['click']);
+});
+
+// ---------------------------------------------------------------------------
+section('classifyJevRisk: union-based exclusion (F3, D-19, T-68-02)');
+
+function risk(node, context) {
+  return F.classifyJevRisk(node, context || {});
+}
+
+check('classifyJevRisk(el, {}) computes its own label and purpose', () => {
+  page([]);
+  assert.equal(risk(el({ tag: 'button', text: 'Save' })), 'commit_word');
+  assert.equal(risk(el({ tag: 'button', attrs: { class: 'btn' }, text: 'Show details' })), null);
+});
+
+check('purpose.danger and intent submit/login/signup exclude', () => {
+  const benign = el({ tag: 'button', text: 'Open' });
+  page([benign]);
+  assert.equal(risk(benign, { purpose: { danger: true } }), 'purpose_danger');
+  for (const intent of ['submit', 'login', 'signup']) {
+    assert.equal(risk(benign, { purpose: { intent } }), 'purpose_intent', intent);
+  }
+  assert.equal(risk(benign, { purpose: { intent: 'next-step' } }), null);
+});
+
+check('commit words exclude by text: Save, Publish, Apply, Update, Delete, Remove, Send, Pay, Buy, Checkout, Place order, Sign in, Log out, Subscribe', () => {
+  page([]);
+  for (const word of ['Save', 'Publish', 'Apply', 'Update', 'Delete', 'Remove', 'Send', 'Pay', 'Buy', 'Checkout', 'Place order', 'Sign in', 'Log out', 'Subscribe']) {
+    assert.notEqual(risk(el({ tag: 'button', attrs: { type: 'button' }, text: word })), null, word);
+  }
+});
+
+check('commit words exclude through every name source: title, aria-label, value attribute, aria-describedby', () => {
+  const describe = el({ tag: 'p', attrs: { id: 'warn' }, text: 'This will delete the file.' });
+  page([describe]);
+  assert.equal(risk(el({ tag: 'button', attrs: { type: 'button', title: 'Delete' }, text: 'X' })), 'commit_word');
+  assert.equal(risk(el({ tag: 'div', attrs: { role: 'button', 'aria-label': 'Publish' }, text: 'Go' })), 'commit_word');
+  assert.equal(risk(el({ tag: 'input', attrs: { type: 'submit', value: 'Delete' } })), 'commit_word');
+  assert.equal(risk(el({ tag: 'button', attrs: { type: 'button', 'aria-describedby': 'warn' }, text: 'Go' })), 'commit_word');
+});
+
+check('union, not first match: a Delete button whose aria-label is "Continue" is still excluded', () => {
+  page([]);
+  const hostile = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Continue' }, text: 'Delete' });
+  assert.equal(F.jevMenuLabel(hostile), 'Continue');
+  assert.notEqual(risk(hostile), null);
+});
+
+check('form-submitting controls exclude: a typeless button, input type=submit and input type=image in a form', () => {
+  const typeless = el({ tag: 'button', text: 'Next' });
+  const submit = el({ tag: 'input', attrs: { type: 'submit', value: 'Go' } });
+  const image = el({ tag: 'input', attrs: { type: 'image', alt: 'Go' } });
+  const plain = el({ tag: 'button', attrs: { type: 'button' }, text: 'Show details' });
+  const form = el({ tag: 'form', children: [typeless, submit, image, plain] });
+  page([form]);
+  assert.equal(risk(typeless), 'form_submit');
+  assert.equal(risk(submit), 'form_submit');
+  assert.equal(risk(image), 'form_submit');
+  assert.equal(risk(plain), null);
+});
+
+check('dialogs: any control in an alertdialog; affirmatives in a dialog, an aria-modal container or an open dialog', () => {
+  const inAlert = el({ tag: 'button', attrs: { type: 'button' }, text: 'Show details' });
+  el({ tag: 'div', attrs: { role: 'alertdialog' }, children: [el({ tag: 'div', children: [inAlert] })] });
+  assert.equal(risk(inAlert), 'alertdialog');
+  for (const word of ['OK', 'Yes', 'Continue', 'Proceed']) {
+    const inDialog = el({ tag: 'button', attrs: { type: 'button' }, text: word });
+    el({ tag: 'div', attrs: { role: 'dialog' }, children: [inDialog] });
+    assert.equal(risk(inDialog), 'dialog_affirmative', word);
+  }
+  const confirm = el({ tag: 'button', attrs: { type: 'button' }, text: 'Confirm' });
+  el({ tag: 'div', attrs: { role: 'dialog' }, children: [confirm] });
+  assert.notEqual(risk(confirm), null);
+  const modal = el({ tag: 'button', attrs: { type: 'button' }, text: 'Continue' });
+  el({ tag: 'div', attrs: { 'aria-modal': 'true' }, children: [modal] });
+  assert.equal(risk(modal), 'dialog_affirmative');
+  const native = el({ tag: 'button', attrs: { type: 'button' }, text: 'Yes' });
+  el({ tag: 'dialog', attrs: { open: '' }, children: [native] });
+  assert.equal(risk(native), 'dialog_affirmative');
+  const outside = el({ tag: 'button', attrs: { type: 'button' }, text: 'Continue' });
+  el({ tag: 'div', children: [outside] });
+  assert.equal(risk(outside), null, 'Continue outside any dialog is not excluded by the dialog rule');
+});
+
+check('downloads, javascript: links, logout links and file inputs exclude', () => {
+  page([]);
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/q3.pdf', download: '' }, text: 'Q3 numbers' })), 'download');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: 'javascript:void(0)' }, text: 'Open' })), 'javascript_href');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: ' JavaScript:go()' }, text: 'Open' })), 'javascript_href');
+  assert.equal(risk(el({ tag: 'a', attrs: { href: '/account/logout' }, text: 'Account' })), 'logout');
+  assert.notEqual(risk(el({ tag: 'a', attrs: { href: '/x' }, text: 'Sign out' })), null);
+  assert.equal(risk(el({ tag: 'input', attrs: { type: 'file', 'aria-label': 'Attachment' } })), 'file_input');
+});
+
+check('consent checkboxes exclude (agree, accept, terms, subscribe, consent)', () => {
+  page([]);
+  for (const text of ['I agree to the rules', 'Accept cookies', 'Terms and conditions', 'Subscribe to news', 'I consent']) {
+    const box = el({ tag: 'input', attrs: { type: 'checkbox' } });
+    const label = el({ tag: 'label', children: [box, ` ${text}`] });
+    box.labels = [label];
+    assert.notEqual(risk(box), null, text);
+  }
+  const terms = el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': 'Terms and conditions' } });
+  assert.equal(risk(terms), 'consent_checkbox');
+});
+
+check('any control in a form holding a password, cc-*, one-time-code or new/current-password field excludes', () => {
+  const sensitive = [
+    { type: 'password' },
+    { type: 'text', autocomplete: 'cc-number' },
+    { type: 'text', autocomplete: 'one-time-code' },
+    { type: 'text', autocomplete: 'new-password' },
+    { type: 'text', autocomplete: 'username current-password' },
+  ];
+  for (const attrs of sensitive) {
+    const show = el({ tag: 'button', attrs: { type: 'button' }, text: 'Show details' });
+    const form = el({ tag: 'form', children: [el({ tag: 'input', attrs }), show] });
+    page([form]);
+    assert.equal(risk(show), 'credential_or_payment_form', JSON.stringify(attrs));
+  }
+});
+
+check('a vault-filled element is excluded', () => {
+  const button = el({ tag: 'button', attrs: { type: 'button' }, text: 'Open' });
+  page([button]);
+  assert.equal(risk(button), null);
+  F.noteVaultFilled(button);
+  assert.equal(risk(button), 'vault_filled');
+});
+
+check('benign controls outside forms are not excluded: Next, Show details, Tab 2, an unchecked Alpha checkbox', () => {
+  const alpha = el({ tag: 'input', attrs: { type: 'checkbox' } });
+  const alphaLabel = el({ tag: 'label', children: [alpha, ' Alpha'] });
+  alpha.labels = [alphaLabel];
+  const nodes = [
+    el({ tag: 'button', attrs: { type: 'button' }, text: 'Next' }),
+    el({ tag: 'button', text: 'Show details' }),
+    el({ tag: 'div', attrs: { role: 'tab' }, text: 'Tab 2' }),
+    alpha,
+  ];
+  page(nodes.slice(0, 3).concat([alphaLabel]));
+  for (const node of nodes) assert.equal(risk(node), null, F.jevMenuLabel(node));
+});
+
+check('67-10 risk-true targets (confirm-modals Continue and Delete permanently, wizard Submit, settings Save) are excluded', () => {
+  const cont = el({ tag: 'button', attrs: { type: 'button', class: 'btn primary', id: 'confirm-1-continue' }, text: 'Continue' });
+  const confirm1 = el({
+    tag: 'div',
+    attrs: { id: 'confirm-1', class: 'dialog', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'confirm-1-title', 'aria-describedby': 'confirm-1-text' },
+    children: [
+      el({ tag: 'h2', attrs: { id: 'confirm-1-title' }, children: ['Delete ', el({ tag: 'span', attrs: { class: 'record-name' }, text: 'Q3 draft forecast' }), '?'] }),
+      el({ tag: 'p', attrs: { id: 'confirm-1-text' }, text: 'REC-3 will be removed from Documents.' }),
+      el({ tag: 'div', attrs: { class: 'actions' }, children: [cont, el({ tag: 'button', attrs: { type: 'button', class: 'btn', id: 'confirm-1-cancel' }, text: 'Cancel' })] }),
+    ],
+  });
+  const del = el({ tag: 'button', attrs: { type: 'button', class: 'btn danger', id: 'confirm-2-delete' }, text: 'Delete permanently' });
+  const confirm2 = el({
+    tag: 'div',
+    attrs: { id: 'confirm-2', class: 'dialog', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'confirm-2-title', 'aria-describedby': 'confirm-2-text' },
+    children: [
+      el({ tag: 'h2', attrs: { id: 'confirm-2-title' }, text: 'This cannot be undone.' }),
+      el({ tag: 'div', attrs: { class: 'actions' }, children: [del, el({ tag: 'button', attrs: { type: 'button', class: 'btn', id: 'confirm-2-cancel' }, text: 'Cancel' })] }),
+    ],
+  });
+  const backdrop = el({ tag: 'div', attrs: { id: 'backdrop', class: 'backdrop' }, children: [confirm1, confirm2] });
+
+  const submit = el({ tag: 'button', attrs: { id: 'submit', class: 'btn primary', type: 'submit' }, text: 'Submit' });
+  const step3 = el({
+    tag: 'form',
+    attrs: { id: 'step-3', class: 'panel', 'aria-labelledby': 'step-3-heading', novalidate: '' },
+    children: [
+      el({ tag: 'h2', attrs: { id: 'step-3-heading' }, text: 'Review' }),
+      el({ tag: 'div', attrs: { class: 'actions' }, children: [el({ tag: 'button', attrs: { id: 'step-3-back', class: 'btn', type: 'button' }, text: 'Back' }), submit] }),
+    ],
+  });
+
+  const save = el({ tag: 'button', attrs: { id: 'save', class: 'btn primary', type: 'submit' }, text: 'Save' });
+  const digest = el({
+    tag: 'form',
+    attrs: { id: 'digest-form', class: 'panel', 'aria-labelledby': 'digest-heading', novalidate: '' },
+    children: [
+      el({ tag: 'select', attrs: { id: 'digest-timezone', name: 'digestTimezone' }, children: [el({ tag: 'option', text: 'UTC (UTC+00:00)' })] }),
+      el({ tag: 'div', attrs: { id: 'weekly-digest', class: 'switch-row', role: 'switch', tabindex: '0', 'aria-checked': 'false', 'aria-label': 'Weekly digest' }, text: 'Weekly digest' }),
+      save,
+    ],
+  });
+  page([backdrop, step3, digest]);
+  for (const [name, node] of [['Continue', cont], ['Delete permanently', del], ['Submit', submit], ['Save', save]]) {
+    assert.notEqual(risk(node), null, name);
+  }
+});
+
+// ---------------------------------------------------------------------------
 console.log(`\njev fast menu: ${passed} PASS / ${failed} FAIL`);
 process.exit(failed > 0 ? 1 : 0);

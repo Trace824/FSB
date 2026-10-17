@@ -22,6 +22,8 @@ function makeText(value) {
     parentElement: null,
     parentNode: null,
     childNodes: [],
+    nodeValue: text,
+    data: text,
     _order: ++creationOrder,
     get textContent() { return text; },
   };
@@ -56,7 +58,9 @@ function makeElement(spec = {}) {
     dataset: Object.assign({}, spec.dataset || {}),
     style,
     checked: !!spec.checked,
+    indeterminate: !!spec.indeterminate,
     disabled: !!spec.disabled,
+    labels: Array.isArray(spec.labels) ? spec.labels.slice() : undefined,
     _order: ++creationOrder,
     _formOverride: spec.form === undefined ? undefined : spec.form,
 
@@ -97,6 +101,13 @@ function makeElement(spec = {}) {
       attach(el, child);
       return child;
     },
+    // closest() supports a bare tag name, '#id', '[attr]' and '[attr="v"]'.
+    closest(selector) {
+      for (let node = el; node; node = node.parentElement) {
+        if (matchesSimple(node, selector)) return node;
+      }
+      return null;
+    },
     focus() {},
     dispatchEvent() { return true; },
 
@@ -134,11 +145,21 @@ function makeElement(spec = {}) {
     },
     get form() {
       if (el._formOverride !== undefined) return el._formOverride;
-      if (!['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'FIELDSET', 'OUTPUT', 'OBJECT'].includes(tag)) return undefined;
+      if (!FORM_ASSOCIATED.includes(tag)) return undefined;
       for (let node = el.parentElement; node; node = node.parentElement) {
         if (node.tagName === 'FORM') return node;
       }
       return null;
+    },
+    get elements() {
+      if (tag !== 'FORM') return undefined;
+      const out = [];
+      for (const child of el.childNodes) {
+        walk(child, (node) => {
+          if (node.nodeType === 1 && FORM_ASSOCIATED.includes(node.tagName) && node.form === el) out.push(node);
+        });
+      }
+      return out;
     },
     get value() {
       valueReads.push({ tag, id: attrs.id || null, name: attrs.name || null });
@@ -154,6 +175,20 @@ function makeElement(spec = {}) {
     attach(el, typeof child === 'string' ? makeText(child) : child);
   }
   return el;
+}
+
+const FORM_ASSOCIATED = ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'FIELDSET', 'OUTPUT', 'OBJECT'];
+
+function matchesSimple(node, selector) {
+  if (!node || node.nodeType !== 1 || typeof selector !== 'string') return false;
+  const sel = selector.trim();
+  if (sel.startsWith('#')) return node.getAttribute('id') === sel.slice(1);
+  const attr = sel.match(/^\[([\w-]+)(?:="([^"]*)")?\]$/);
+  if (attr) {
+    if (!node.hasAttribute(attr[1])) return false;
+    return attr[2] === undefined || node.getAttribute(attr[1]) === attr[2];
+  }
+  return node.tagName === sel.toUpperCase();
 }
 
 function attach(parent, child) {
@@ -188,6 +223,10 @@ function makeDocument(body, options = {}) {
     },
     querySelectorAll(selector) {
       return (selectorMap[selector] || []).slice();
+    },
+    querySelector(selector) {
+      const list = selectorMap[selector] || [];
+      return list.length ? list[0] : null;
     },
     renumber() {
       let next = 0;
