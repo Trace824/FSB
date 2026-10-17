@@ -415,7 +415,8 @@
    * (F2: a fast tick never unticks); scroll is {direction:'down',
    * visual_reason}; go_back is {visual_reason}. pagePath (the menu URL's
    * path) lives on the call object, never in args: only the meta-attempt
-   * key reads it (68-06), and nothing sends it anywhere.
+   * key reads it (68-06), and that key holds a hash of the path, role and
+   * label, never the text itself (WR-02).
    * ctx: {generation, callId, pageUrl}. Returns null for anything else.
    * @returns {{id:string, name:string, args:Object, source:'jev', pagePath:string}|null}
    */

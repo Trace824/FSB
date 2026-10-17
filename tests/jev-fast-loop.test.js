@@ -83,6 +83,17 @@ const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'jev-
 const agentLoopSource = fs.readFileSync(path.join(ROOT, 'extension', 'ai', 'agent-loop.js'), 'utf8');
 const backgroundSource = fs.readFileSync(path.join(ROOT, 'extension', 'background.js'), 'utf8');
 
+/** The meta-attempt key of a fast call (WR-02): jev:<role>:<FNV-1a of "<pagePath>\n<role>\n<name>">. */
+function metaKey(pagePath, role, name) {
+  const text = pagePath + '\n' + role + '\n' + name;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return 'jev:' + role + ':' + hash.toString(16).padStart(8, '0');
+}
+
 // 68-SYNC-RECHECK.md item h, copied as literals (this suite never reads .planning).
 const SLICE_HASHES = Object.freeze({
   buildSystemPrompt: 'f6d32b22c09f2461c51deae48470b87ae00024d7af9bce8908931b60cb94a7e0',
@@ -468,8 +479,8 @@ async function acceptedStepCases() {
       'accepted step: session.messages gains no tool message and no other entry for the fast step');
     check(ofType(it2, 'schedule').length === 1 && ofType(it2, 'schedule')[0].delayMs === 100, 'accepted step: iteration 2 schedules the next iteration normally');
     check(h.session.agentState.iterationCount === 2 && h.session.iterationCount === 2, 'the fast iteration counts toward the existing iteration count');
-    check(h.session._metaAttempts && Object.keys(h.session._metaAttempts).indexOf('jev:/wizard/step-2:button:Next') !== -1,
-      'the meta-attempt counter saw the fast click under jev:/wizard/step-2:button:Next');
+    check(h.session._metaAttempts && Object.keys(h.session._metaAttempts).indexOf(metaKey('/wizard/step-2', 'button', 'Next')) !== -1,
+      'the meta-attempt counter saw the fast click under the hashed key of /wizard/step-2, button, Next');
 
     await h.step();
     const it3 = stepEvents(h.events, 3);
@@ -1243,9 +1254,18 @@ async function breakerCases() {
     const llmDetails = llmMeta.h.session.outcomeDetails || {};
     check(util.isDeepStrictEqual(iterationsWhere(meta, 'fast'), [2, 3, 4, 6, 7, 8]) && meta.steps[7].schedules === 0,
       'meta_cognitive_loop_break: six effective fast clicks on "Next" on one page path ran in iterations 2-4 and 6-8');
+    const startKey = metaKey('/start', 'button', 'Next');
     check(meta.h.session.status === 'stopped' && metaDetails.reason === 'meta_cognitive_loop_break'
-      && /6 attempts on `jev:\/start:button:Next`/.test(String(metaDetails.summary)),
-    'meta_cognitive_loop_break: the sixth fast click ends the run through the meta-attempt breaker under jev:/start:button:Next');
+      && String(metaDetails.summary).indexOf('6 attempts on `' + startKey + '`') !== -1,
+    'meta_cognitive_loop_break: the sixth fast click ends the run through the meta-attempt breaker under the hashed /start Next key');
+    // WR-02: the page path and the label reach neither the summary nor the
+    // role:'user' attempt-log message injected at the fourth attempt.
+    const attemptLogs = (meta.h.session.messages || []).filter((m) => m && m.role === 'user' && typeof m.content === 'string'
+      && m.content.indexOf('SYSTEM ATTEMPT-LOG') === 0);
+    check(attemptLogs.length >= 1 && attemptLogs.every((m) => m.content.indexOf('`' + startKey + '`') !== -1
+      && m.content.indexOf('/start') === -1 && m.content.indexOf('Next') === -1)
+      && String(metaDetails.summary).indexOf('/start') === -1 && String(metaDetails.summary).indexOf('Next') === -1,
+    'WR-02: the attempt-log message and the terminal summary name the hashed key, never the page path or the label');
     check(llmMeta.h.session.status === 'stopped' && llmDetails.reason === 'meta_cognitive_loop_break'
       && /6 attempts on `sel:#next`/.test(String(llmDetails.summary)) && llmMeta.h.session.iterationCount === 6,
     'meta_cognitive_loop_break: exactly as six LLM clicks on one selector do');
@@ -1261,7 +1281,7 @@ async function breakerCases() {
     await runSteps(pages, 10);
     const keys = Object.keys(pages.h.session._metaAttempts || {}).filter((k) => k.indexOf('jev:') === 0);
     const expectedKeys = [];
-    for (let n = 1; n <= 7; n += 1) expectedKeys.push('jev:/wizard/step-' + n + ':button:Next');
+    for (let n = 1; n <= 7; n += 1) expectedKeys.push(metaKey('/wizard/step-' + n, 'button', 'Next'));
     check(total(pages, 'fast') === 7 && stillRunning(pages),
       'per-page meta key: seven effective "Next" clicks, one wizard page each, do not end the run');
     check(util.isDeepStrictEqual(keys.slice().sort(), expectedKeys.slice().sort())

@@ -199,11 +199,27 @@ var _META_WARN_THRESHOLD = 4;
 var _META_FORCE_STOP_THRESHOLD = 6;
 var _META_WINDOW_ITERATIONS = 12;
 
+// Phase 68 fast path (F1, WR-02): one key per control per page path. The page
+// path and the label are page data, and the key reaches the attempt-log
+// message, the logs and the terminal summary, so it holds only the role word
+// and an FNV-1a hash of path, role and label.
+function _metaJevKey(call) {
+  var a = call.args;
+  var role = String(a.expectedRole || '').toLowerCase();
+  if (!/^[a-z]{1,20}$/.test(role)) role = 'control';
+  var text = String(call.pagePath || '') + '\n' + String(a.expectedRole || '') + '\n' + String(a.expectedName || '');
+  var hash = 0x811c9dc5;
+  for (var i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return 'jev:' + role + ':' + hash.toString(16).padStart(8, '0');
+}
+
 function _extractMetaTargetKey(call) {
   if (!call || !call.args) return null;
   var a = call.args;
-  // Phase 68 fast path (F1): one key per control per page path.
-  if (a.jevHandle) return 'jev:' + String(call.pagePath || '').slice(0, 60) + ':' + String(a.expectedRole || '').slice(0, 20) + ':' + String(a.expectedName || '').slice(0, 60);
+  if (a.jevHandle) return _metaJevKey(call);
   if (a.selector) return 'sel:' + String(a.selector).slice(0, 80);
   if (a.elementId) return 'id:' + String(a.elementId).slice(0, 40);
   if (a.element_id) return 'id:' + String(a.element_id).slice(0, 40);
