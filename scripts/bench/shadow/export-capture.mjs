@@ -35,12 +35,19 @@
  * Captures that cannot become a valid record are dropped and counted by
  * reason; the ring's own drop counters are carried into the summary.
  *
+ * The ring is never cleared, so each export sees every capture still in it
+ * (WR-07). A capture equal to one already exported in this run (same
+ * capturedAt, command, iteration and url) is dropped as 'duplicate', and
+ * --since <capturedAt> exports only captures taken after that time ('not_after_since').
+ * The summary ends with the newest capturedAt in the ring: pass it as --since
+ * next time so a later bench run exports only its own captures.
+ *
  * --arm on|off sets or removes the internal arm key over the same pairing
  * (the only key it touches) and writes no file.
  *
  * Run:
- *   node scripts/bench/shadow/export-capture.mjs --input <ring.json> [--out <dir>] [--run <id>]
- *   node scripts/bench/shadow/export-capture.mjs --port <n> --extension-id <id> [--out <dir>] [--run <id>]
+ *   node scripts/bench/shadow/export-capture.mjs --input <ring.json> [--out <dir>] [--run <id>] [--since <capturedAt>]
+ *   node scripts/bench/shadow/export-capture.mjs --port <n> --extension-id <id> [--out <dir>] [--run <id>] [--since <capturedAt>]
  *   node scripts/bench/shadow/export-capture.mjs --port <n> --extension-id <id> --arm on|off
  */
 
@@ -142,6 +149,20 @@ function goalOf(task) {
   return goal.length > 0 && goal.indexOf('{startUrl}') === -1 ? goal : null;
 }
 
+function capturedAtOf(capture) {
+  return typeof capture.capturedAt === 'number' && Number.isFinite(capture.capturedAt) ? capture.capturedAt : null;
+}
+
+/** The newest capturedAt among the ring's captures, or null. */
+function newestCapturedAt(captures) {
+  let newest = null;
+  for (const capture of captures) {
+    const at = isPlainObject(capture) ? capturedAtOf(capture) : null;
+    if (at !== null && (newest === null || at > newest)) newest = at;
+  }
+  return newest;
+}
+
 /** The builder input of one capture, copied key by key (nothing else in the capture is used). */
 function builderInputOf(capture, goal, pathname) {
   const b = capture.builderInput;
@@ -170,17 +191,22 @@ function elementIdFor(idMap, handle) {
  * Turn a capture ring into 67-10 recorded-llm records. Pure: it reads no
  * file and writes none. options: {tasks (core tasks, from loadTasks), lock
  * (the parsed core lock or its tasks array), run (the id discriminator,
- * [a-z0-9]{1,16})}.
- * @returns {{records: Object[], drops: Object, ringDrops: Object, captures: number}}
+ * [a-z0-9]{1,16}), since (optional: export only captures whose capturedAt
+ * is later than this)}.
+ * @returns {{records: Object[], drops: Object, ringDrops: Object, captures: number, newestCapturedAt: (number|null)}}
  */
-export function deriveRecords(ring, { tasks, lock, run } = {}) {
+export function deriveRecords(ring, { tasks, lock, run, since } = {}) {
   if (typeof run !== 'string' || !RUN_PATTERN.test(run)) throw new Error('run must match [a-z0-9]{1,16}');
+  if (since !== undefined && since !== null && !(Number.isSafeInteger(since) && since >= 0)) {
+    throw new Error('since must be a non-negative integer capturedAt');
+  }
   const captures = isPlainObject(ring) && Array.isArray(ring.records) ? ring.records : null;
   if (captures === null) throw new Error('input is not a capture ring ({v:1, records:[...], drops:{...}})');
   const bySlug = tasksBySlug(tasks);
   const entries = lockEntries(lock);
   const lockById = new Map(entries.filter(isPlainObject).map((entry) => [entry.id, entry]));
   const perSlug = new Map();
+  const exported = new Set();
   const records = [];
   const drops = {};
 
@@ -188,6 +214,10 @@ export function deriveRecords(ring, { tasks, lock, run } = {}) {
     if (!isPlainObject(capture) || capture.v !== 1 || !isPlainObject(capture.builderInput) || !isPlainObject(capture.label)
       || !Number.isSafeInteger(capture.iteration) || capture.iteration < 1) {
       bump(drops, 'malformed');
+      continue;
+    }
+    if (since !== undefined && since !== null && !(capturedAtOf(capture) !== null && capturedAtOf(capture) > since)) {
+      bump(drops, 'not_after_since');
       continue;
     }
     const where = fixtureLocation(capture.url);
@@ -224,6 +254,13 @@ export function deriveRecords(ring, { tasks, lock, run } = {}) {
       bump(drops, 'build_' + (built && typeof built.reason === 'string' && REASON_PATTERN.test(built.reason) ? built.reason : 'failed'));
       continue;
     }
+    // The same capture seen twice (a ring that repeats a record) is exported once.
+    const identity = JSON.stringify([capturedAtOf(capture), Number.isSafeInteger(capture.command) ? capture.command : null,
+      capture.iteration, capture.url]);
+    if (exported.has(identity)) {
+      bump(drops, 'duplicate');
+      continue;
+    }
     const nn = (perSlug.get(where.slug) || 0) + 1;
     if (nn > MAX_PER_SLUG) {
       bump(drops, 'slug_limit');
@@ -256,16 +293,17 @@ export function deriveRecords(ring, { tasks, lock, run } = {}) {
       continue;
     }
     perSlug.set(where.slug, nn);
+    exported.add(identity);
     records.push(record);
   }
-  return { records, drops, ringDrops: ringDropsOf(ring), captures: captures.length };
+  return { records, drops, ringDrops: ringDropsOf(ring), captures: captures.length, newestCapturedAt: newestCapturedAt(captures) };
 }
 
 // ---- CLI -------------------------------------------------------------------
 
 const USAGE = 'usage: node scripts/bench/shadow/export-capture.mjs (--input <ring.json> | --port <n> --extension-id <id>) '
-  + '[--out <dir>] [--run <id>] | --port <n> --extension-id <id> --arm on|off';
-const FLAGS = Object.freeze(['input', 'port', 'extension-id', 'out', 'run', 'arm']);
+  + '[--out <dir>] [--run <id>] [--since <capturedAt>] | --port <n> --extension-id <id> --arm on|off';
+const FLAGS = Object.freeze(['input', 'port', 'extension-id', 'out', 'run', 'arm', 'since']);
 
 class UsageError extends Error {}
 
@@ -273,7 +311,7 @@ class UsageError extends Error {}
  * Parses the CLI flags. Every flag takes a value (--flag value or
  * --flag=value). Throws a UsageError for an unknown flag, a missing value,
  * a malformed value or a combination that does not fit one mode.
- * @returns {{input, port, extensionId, out, run, arm}}
+ * @returns {{input, port, extensionId, out, run, arm, since}}
  */
 export function parseArgs(argv) {
   const values = {};
@@ -300,8 +338,14 @@ export function parseArgs(argv) {
     extensionId: values['extension-id'] || null,
     out: values.out || null,
     run: values.run || null,
-    arm: values.arm || null
+    arm: values.arm || null,
+    since: null
   };
+  if (hasOwn(values, 'since')) {
+    const since = Number(values.since);
+    if (!/^\d+$/.test(values.since) || !Number.isSafeInteger(since)) throw new UsageError(USAGE);
+    args.since = since;
+  }
   if (hasOwn(values, 'port')) {
     const port = Number(values.port);
     if (!/^\d+$/.test(values.port) || !Number.isSafeInteger(port) || port < 1 || port > 65535) throw new UsageError(USAGE);
@@ -313,7 +357,7 @@ export function parseArgs(argv) {
   const cdp = args.port !== null || args.extensionId !== null;
   if (cdp && (args.port === null || args.extensionId === null)) throw new UsageError(USAGE);
   if (args.arm !== null) {
-    if (!cdp || args.input !== null || args.out !== null || args.run !== null) throw new UsageError(USAGE);
+    if (!cdp || args.input !== null || args.out !== null || args.run !== null || args.since !== null) throw new UsageError(USAGE);
   } else if ((args.input !== null) === cdp) {
     throw new UsageError(USAGE);
   }
@@ -391,7 +435,7 @@ export async function main(argv, overrides = {}) {
     const run = args.run || Math.floor((overrides.now ? overrides.now() : Date.now())).toString(36);
     const tasks = overrides.tasks || loadTasks({ set: 'core' });
     const lock = overrides.lock || readCoreLock();
-    const result = deriveRecords(ring, { tasks, lock, run });
+    const result = deriveRecords(ring, { tasks, lock, run, since: args.since });
 
     const cwd = overrides.cwd || process.cwd();
     const outDir = path.resolve(args.out !== null ? path.resolve(cwd, args.out) : path.resolve(REPO_ROOT, DEFAULT_OUT_DIR));
@@ -407,7 +451,8 @@ export async function main(argv, overrides = {}) {
     });
     const dropped = Object.values(result.drops).reduce((sum, n) => sum + n, 0);
     log(`export-capture: ${result.records.length} written, ${dropped} dropped (${countsText(result.drops)}) of ${result.captures} captures `
-      + `-> ${outDir}; ring drops: ${countsText(result.ringDrops)}`);
+      + `-> ${outDir}; ring drops: ${countsText(result.ringDrops)}; newest capturedAt: `
+      + `${result.newestCapturedAt === null ? 'none' : result.newestCapturedAt}`);
     return 0;
   } catch (err) {
     const message = err && err.message ? err.message : String(err);

@@ -328,7 +328,8 @@ test('deriveRecords: captures that cannot become a truthful record are dropped a
 test('deriveRecords: at most 99 records per slug, numbered in capture order', async () => {
   const { checklist } = await rings();
   const records = [];
-  for (let i = 0; i < 101; i += 1) records.push(Object.assign(copy(checklist.records[i % 5]), { iteration: (i % 5) + 1 }));
+  // Distinct capturedAt values: these are 101 different captures, not one repeated (WR-07 dedupe).
+  for (let i = 0; i < 101; i += 1) records.push(Object.assign(copy(checklist.records[i % 5]), { iteration: (i % 5) + 1, capturedAt: 1789639200000 + i }));
   const out = deriveRecords({ v: 1, records, drops: {} }, { tasks: TASKS, lock: LOCK, run: 'lim' });
   assert.equal(out.records.length, 99);
   assert.deepEqual(out.drops, { slug_limit: 2 });
@@ -337,12 +338,52 @@ test('deriveRecords: at most 99 records per slug, numbered in capture order', as
   assert.ok(out.records.every((r, i) => r.id.endsWith('-' + String(i + 1).padStart(2, '0'))));
 });
 
+test('deriveRecords: a ring that repeats its captures exports each once (WR-07)', async () => {
+  const { ring } = await rings();
+  const repeated = { v: 1, records: copy(ring.records).concat(copy(ring.records)), drops: copy(ring.drops) };
+  const once = deriveRecords(ring, { tasks: TASKS, lock: LOCK, run: 'w7a' });
+  const twice = deriveRecords(repeated, { tasks: TASKS, lock: LOCK, run: 'w7a' });
+  assert.equal(twice.captures, 14);
+  assert.deepEqual(twice.drops, { duplicate: 7 });
+  assert.deepEqual(twice.records, once.records, 'the same records, ids and numbering as one copy of the ring');
+  // A capture that differs only in its time is a different capture.
+  const later = copy(ring.records[0]);
+  later.capturedAt = Math.max(...ring.records.map((r) => r.capturedAt)) + 1;
+  const distinct = deriveRecords({ v: 1, records: [copy(ring.records[0]), later], drops: {} }, { tasks: TASKS, lock: LOCK, run: 'w7b' });
+  assert.deepEqual([distinct.records.length, distinct.drops], [2, {}]);
+});
+
+test('deriveRecords: since exports only captures taken after it, and reports the newest capturedAt (WR-07)', async () => {
+  const { ring } = await rings();
+  const times = ring.records.map((r) => r.capturedAt);
+  assert.ok(times.every((t) => Number.isSafeInteger(t)), 'module captures carry capturedAt');
+  const newest = Math.max(...times);
+  const all = deriveRecords(ring, { tasks: TASKS, lock: LOCK, run: 's0' });
+  assert.equal(all.newestCapturedAt, newest);
+  const cut = times.slice().sort((a, b) => a - b)[2];
+  const after = deriveRecords(ring, { tasks: TASKS, lock: LOCK, run: 's1', since: cut });
+  const expected = times.filter((t) => t > cut).length;
+  assert.equal(after.records.length, expected);
+  assert.deepEqual(after.drops, { not_after_since: times.length - expected });
+  assert.equal(after.newestCapturedAt, newest, 'the cursor is the newest capture in the ring, exported or not');
+  const none = deriveRecords(ring, { tasks: TASKS, lock: LOCK, run: 's2', since: newest });
+  assert.deepEqual([none.records.length, none.drops], [0, { not_after_since: times.length }], 'since = the last cursor exports nothing new');
+  const untimed = Object.assign(copy(ring.records[0]), { capturedAt: null });
+  assert.deepEqual(deriveRecords({ v: 1, records: [untimed], drops: {} }, { tasks: TASKS, lock: LOCK, run: 's3', since: 0 }).drops,
+    { not_after_since: 1 }, 'a capture with no capturedAt is never shown to be new');
+  assert.equal(deriveRecords({ v: 1, records: [untimed], drops: {} }, { tasks: TASKS, lock: LOCK, run: 's4' }).records.length, 1,
+    'without since, an untimed capture still exports');
+  assert.throws(() => deriveRecords(ring, { tasks: TASKS, lock: LOCK, run: 's5', since: -1 }), /since must be/);
+});
+
 test('parseArgs: the three modes, and usage errors', () => {
-  assert.deepEqual(parseArgs(['--input', 'ring.json']), { input: 'ring.json', port: null, extensionId: null, out: null, run: null, arm: null });
+  assert.deepEqual(parseArgs(['--input', 'ring.json']), { input: 'ring.json', port: null, extensionId: null, out: null, run: null, arm: null, since: null });
   assert.deepEqual(parseArgs(['--port=9222', '--extension-id', EXTENSION_ID, '--out', 'x', '--run', 'r1']),
-    { input: null, port: 9222, extensionId: EXTENSION_ID, out: 'x', run: 'r1', arm: null });
+    { input: null, port: 9222, extensionId: EXTENSION_ID, out: 'x', run: 'r1', arm: null, since: null });
   assert.deepEqual(parseArgs(['--port', '9222', '--extension-id', EXTENSION_ID, '--arm', 'off']),
-    { input: null, port: 9222, extensionId: EXTENSION_ID, out: null, run: null, arm: 'off' });
+    { input: null, port: 9222, extensionId: EXTENSION_ID, out: null, run: null, arm: 'off', since: null });
+  assert.deepEqual(parseArgs(['--input', 'ring.json', '--since', '1789639200000']),
+    { input: 'ring.json', port: null, extensionId: null, out: null, run: null, arm: null, since: 1789639200000 });
   const bad = [
     [],
     ['--bogus', 'x'],
@@ -357,7 +398,12 @@ test('parseArgs: the three modes, and usage errors', () => {
     ['--arm', 'on'],
     ['--port', '9222', '--extension-id', EXTENSION_ID, '--arm', 'maybe'],
     ['--port', '9222', '--extension-id', EXTENSION_ID, '--arm', 'on', '--out', 'x'],
-    ['--input', 'a', '--run', 'Not_OK']
+    ['--input', 'a', '--run', 'Not_OK'],
+    ['--input', 'a', '--since', 'yesterday'],
+    ['--input', 'a', '--since', '-5'],
+    ['--input', 'a', '--since', '1.5'],
+    ['--input', 'a', '--since', '99999999999999999999'],
+    ['--port', '9222', '--extension-id', EXTENSION_ID, '--arm', 'on', '--since', '5']
   ];
   for (const argv of bad) assert.throws(() => parseArgs(argv), /usage:/, JSON.stringify(argv));
 });
@@ -379,7 +425,10 @@ test('CLI --input: writes only into --out, one file per record, and prints a one
     assert.equal(run.status, 0, run.stderr);
     const lines = run.stdout.trim().split('\n');
     assert.equal(lines.length, 1);
-    assert.match(lines[0], /^export-capture: 7 written, 0 dropped \(none\) of 7 captures -> .*; ring drops: stale_command=1, target_unknown=2$/);
+    const newest = Math.max(...ring.records.map((r) => r.capturedAt));
+    assert.ok(Number.isSafeInteger(newest));
+    assert.match(lines[0], new RegExp('^export-capture: 7 written, 0 dropped \\(none\\) of 7 captures -> .*; ring drops: stale_command=1, '
+      + 'target_unknown=2; newest capturedAt: ' + newest + '$'));
     assert.deepEqual(fs.readdirSync(dir).sort(), ['out', 'ring.json'], 'nothing else is written next to --out');
     const files = fs.readdirSync(out).sort();
     assert.equal(files.length, 7);
@@ -395,6 +444,14 @@ test('CLI --input: writes only into --out, one file per record, and prints a one
     assert.equal(again.status, 1, 'an existing output file is never overwritten');
     assert.match(again.stderr, /already exist/);
     assert.equal(fs.readdirSync(out).length, 7);
+    // WR-07: the printed cursor, passed back as --since, exports nothing already exported.
+    const sinceOut = path.join(dir, 'since-out');
+    const next = spawnSync(process.execPath, [CLI_PATH, '--input', input, '--out', sinceOut, '--run', 'cli2', '--since', String(newest)],
+      { cwd: ROOT, encoding: 'utf8' });
+    assert.equal(next.status, 0, next.stderr);
+    assert.match(next.stdout.trim(), new RegExp('^export-capture: 0 written, 7 dropped \\(not_after_since=7\\) of 7 captures -> .*; '
+      + 'newest capturedAt: ' + newest + '$'));
+    assert.equal(fs.existsSync(sinceOut), false, 'no output directory when nothing is written');
 
     for (const argv of [[], ['--bogus', '1'], ['--input'], ['--arm', 'on']]) {
       const usage = spawnSync(process.execPath, [CLI_PATH].concat(argv), { cwd: ROOT, encoding: 'utf8' });
