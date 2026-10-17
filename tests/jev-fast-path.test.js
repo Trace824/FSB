@@ -20,7 +20,10 @@
  *   - 68-05 orchestration over fake deps and the fake-gateway client:
  *     beforeTurn (eligibility, latches, budgets, one menu, one decide, the
  *     decision and the hand-off flush), flushHandoff, latchOff and
- *     abortInFlight.
+ *     abortInFlight;
+ *   - 68-08 capture: the gate (arm once per command, loopback fixture url,
+ *     stored switch, LLM path), its cost, one menu per LLM-path iteration,
+ *     labels and drops, the record shape and noteCaptureObservation.
  *
  * No network, no ports, no real timers. Node 20-safe.
  *
@@ -2329,6 +2332,422 @@ async function observeDrivesTask1Cases() {
 }
 
 // ---------------------------------------------------------------------------
+// Plan 68-08 Task 1: recorded-llm capture (D-22, RESEARCH Open Question 2)
+// over fake deps with a ring recorder and a drop recorder. Capture runs only
+// on armed loopback bench fixture pages, on LLM-path iterations, and never
+// asks Jev.
+// ---------------------------------------------------------------------------
+
+const FIXTURE_URL = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
+const RUN_TASK_FIELD = Object.freeze({ enabled: false, stored: true, source: 'mcp' });
+const NONE = CONTRACT.RESERVED_OPTION_KEY;
+const UNCHECKED = Object.freeze({ checked: false, expanded: null, selected: null, pressed: null });
+const RECORD_KEYS = ['builderInput', 'capturedAt', 'command', 'entryCount', 'iteration', 'label', 'menuCap', 'url', 'v'];
+const BUILDER_KEYS = ['elements', 'offeredOps', 'recentActions', 'title', 'vaultFilledIds', 'visibleText'];
+const ELEMENT_KEYS = ['autocomplete', 'hidden', 'id', 'inputType', 'label', 'ops', 'purpose', 'role'];
+
+/** A checklist menu on the fixture page: Alpha and Bravo boxes, Save, and a Name field fast mode never acts on. */
+function captureMenu(n, over) {
+  return menuOf([
+    entry(1, { role: 'checkbox', label: 'Alpha', ops: ['check_box', 'click'], inputType: 'checkbox', state: Object.assign({}, UNCHECKED) }),
+    entry(2, { role: 'checkbox', label: 'Bravo', ops: ['check_box', 'click'], inputType: 'checkbox', state: Object.assign({}, UNCHECKED) }),
+    entry(3, { label: 'Save' }),
+    entry(4, { role: 'textbox', label: 'Name', ops: ['click'], inputType: 'text', fastEligible: false })
+  ], Object.assign({ url: FIXTURE_URL + '?view=edit#top', generation: 'cafe0001-' + n, signature: 'cap-sig-' + n }, over || {}));
+}
+
+/** Menus with a new generation and signature per request, one null per recent descriptor. */
+function menuSequence(over) {
+  let n = 0;
+  return (options) => {
+    n += 1;
+    const menu = captureMenu(n, over);
+    menu.recentHandles = (options && Array.isArray(options.recent) ? options.recent : []).map(() => null);
+    return Promise.resolve(menu);
+  };
+}
+
+/**
+ * A fast-path rig whose deps also capture: readCaptureArm, appendCaptureRecord
+ * and noteCaptureDrop record every call; getTabUrl answers opts.tabUrl. The
+ * gateway answers uncalibrated unless opts.responder says otherwise.
+ * opts: {armed, tabUrl, switchOn, menu, responder, session}; armed, tabUrl and
+ * switchOn may be functions.
+ */
+function captureRig(o) {
+  const opts = Object.assign({ armed: true, tabUrl: FIXTURE_URL, switchOn: true }, o || {});
+  const order = [];
+  const value = (v) => (typeof v === 'function' ? v() : Promise.resolve(v));
+  const r = rig({
+    menu: hasOwn(opts, 'menu') ? opts.menu : menuSequence(),
+    readSwitch: () => { order.push('switch'); return value(opts.switchOn); },
+    responder: opts.responder || ((request) => ({ body: gateway.uncalibratedBody(request) })),
+    session: opts.session
+  });
+  const ring = [];
+  const drops = [];
+  r.log.readCaptureArm = 0;
+  const requestMenu = r.deps.requestMenu;
+  r.deps.requestMenu = function recordOrder(tabId, options, deadlineMs) {
+    order.push('menu');
+    return requestMenu(tabId, options, deadlineMs);
+  };
+  r.deps.readCaptureArm = () => { r.log.readCaptureArm += 1; order.push('arm'); return value(opts.armed); };
+  r.deps.getTabUrl = (tabId) => { r.log.getTabUrl += 1; order.push('url:' + tabId); return value(opts.tabUrl); };
+  r.deps.appendCaptureRecord = (record) => { ring.push(copyJson(record)); return Promise.resolve(); };
+  r.deps.noteCaptureDrop = (reason) => { drops.push(reason); return Promise.resolve(); };
+  return Object.assign(r, { ring, drops, order, opts });
+}
+
+/** The pending capture, or null. */
+function pendingOf(session) {
+  const state = session._fastPath;
+  return state && state.capturePending ? state.capturePending : null;
+}
+
+/** One observation exactly as the background case forwards it. */
+function observation(generation, handle, resolved, tool) {
+  return { generation, handle, resolved, tool };
+}
+
+let llmSeq = 0;
+/** The LLM's turn: an optional content observation, then observeTools over `calls` ([name, args] pairs). */
+function llmTurn(r, calls, seen) {
+  if (seen) FsbFastPath.noteCaptureObservation(r.session, seen);
+  const toolCalls = [];
+  const results = [];
+  for (const [name, args] of calls) {
+    llmSeq += 1;
+    const id = 'cap_' + llmSeq;
+    toolCalls.push(llmCall(id, name, args));
+    results.push(loopResult(id, name, OK_RESULT()));
+  }
+  FsbFastPath.observeTools(r.session, toolCalls, results);
+}
+
+/**
+ * The label one run_task LLM turn gets: turn 1 captures, the LLM runs `calls`
+ * (with an optional observation built from the pending generation), turn 2
+ * labels. Returns {ring, drops, r}.
+ */
+async function labelOf(calls, seen, rigOptions) {
+  const r = captureRig(Object.assign({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } }, rigOptions || {}));
+  await r.turn(1);
+  const pending = pendingOf(r.session);
+  const generation = pending ? pending.generation : null;
+  if (calls !== null) llmTurn(r, calls, seen ? Object.assign({ generation }, seen) : null);
+  await r.turn(2);
+  return { ring: r.ring, drops: r.drops, r };
+}
+
+async function captureNoCaptureDeps() {
+  const r = rig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const out = await r.turn(1);
+  check(sameJson(out, { decline: 'not_enabled' }) && r.log.now === 0 && r.log.readSwitch === 0 && r.log.requestMenu.length === 0
+    && r.log.getTabUrl === 0 && r.log.requestSnapshot.length === 0 && r.client.calls.length === 0,
+  'capture: deps without readCaptureArm, appendCaptureRecord and noteCaptureDrop make no call for a run_task session (68-05 deps unchanged)');
+  check(!hasOwn(fp(r.session), 'capturePending'), 'capture: no pending capture key without the capture deps');
+  const partial = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  delete partial.deps.noteCaptureDrop;
+  await partial.turn(1);
+  check(partial.log.readCaptureArm === 0 && partial.log.requestMenu.length === 0, 'capture: a deps object missing one capture member disables capture');
+}
+
+async function captureRunTask() {
+  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const out = await r.turn(1);
+  check(sameJson(out, { decline: 'not_enabled' }), 'capture: a run_task session still declines not_enabled (' + JSON.stringify(out) + ')');
+  check(sameJson(r.order, ['arm', 'url:7', 'switch', 'menu']), 'capture: gate order is the arm, the tab url, the stored switch, then one menu (' + r.order.join(', ') + ')');
+  check(r.log.requestMenu.length === 1 && sameJson(r.log.requestMenu[0].options, { cap: 48, recent: [], capture: true })
+    && r.log.requestMenu[0].deadlineMs === 1500 && r.log.requestMenu[0].tabId === 7,
+  'capture: the capture menu is one getJevMenu request with capture:true, the menu cap and the menu deadline');
+  check(r.log.requestSnapshot.length === 0 && r.client.calls.length === 0, 'capture: a run_task capture never asks Jev and takes no snapshot');
+  const pending = pendingOf(r.session);
+  check(pending !== null && pending.generation === 'cafe0001-1' && pending.observation === null, 'capture: the pending capture holds the menu generation');
+  check(r.ring.length === 0 && r.drops.length === 0, 'capture: nothing is written before the LLM turn is labelled');
+
+  llmTurn(r, [['check_box', { selector: 'e1' }]], observation('cafe0001-1', 'j1', true, 'toggleCheckbox'));
+  await r.turn(2);
+  check(r.ring.length === 1 && sameJson(r.ring[0].label, { op: 'check_box', target: 'j1' }),
+    'capture: the next turn labels the record with the LLM tool and the observed handle (' + JSON.stringify(r.ring[0] && r.ring[0].label) + ')');
+  check(r.ring.length === 1 && r.ring[0].command === 1 && r.ring[0].iteration === 1, 'capture: the record names its command and iteration');
+  check(pendingOf(r.session) !== null && pendingOf(r.session).generation === 'cafe0001-2', 'capture: iteration 2 holds its own pending capture');
+  check(r.client.calls.length === 0, 'capture: a captured run_task session never calls decide');
+}
+
+async function captureGateCost() {
+  // An unarmed run_task command: one arm read, nothing else, for every iteration.
+  const r = captureRig({ armed: false, tabUrl: 'https://shop.example/cart', session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  for (let i = 1; i <= 5; i += 1) {
+    await r.turn(i);
+    llmTurn(r, [['click', { selector: 'e2' }]], null);
+  }
+  check(r.log.readCaptureArm === 1 && r.log.getTabUrl === 0 && r.log.readSwitch === 0 && r.log.requestMenu.length === 0
+    && r.log.requestSnapshot.length === 0 && r.client.calls.length === 0,
+  'capture gate cost: an unarmed run_task command reads the arm once over 5 iterations and makes no tab, switch, menu, snapshot or decide call');
+  nextCommand(r.session);
+  for (let i = 1; i <= 5; i += 1) {
+    await r.turn(i);
+    llmTurn(r, [['click', { selector: 'e2' }]], null);
+  }
+  check(r.log.readCaptureArm === 2 && r.log.getTabUrl === 0 && r.log.readSwitch === 0 && r.log.requestMenu.length === 0,
+    'capture gate cost: a second command reads the arm once more (2 reads over two commands)');
+  check(r.ring.length === 0 && r.drops.length === 0, 'capture gate cost: an unarmed command writes nothing');
+
+  // An armed command on a page that is not a fixture: the url is rechecked each LLM-path iteration, nothing more.
+  const a = captureRig({ tabUrl: 'https://shop.example/cart', session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  for (let i = 1; i <= 3; i += 1) {
+    await a.turn(i);
+    llmTurn(a, [['click', { selector: 'e2' }]], null);
+  }
+  check(a.log.readCaptureArm === 1 && a.log.getTabUrl === 3 && a.log.readSwitch === 0 && a.log.requestMenu.length === 0,
+    'capture gate cost: an armed command on a non-fixture page reads the tab url once per iteration and never the switch or a menu');
+
+  // The bench task opens its fixture page with its first action: the url is read again next iteration.
+  let url = 'about:blank';
+  const b = captureRig({ tabUrl: () => Promise.resolve(url), session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  await b.turn(1);
+  llmTurn(b, [['navigate', { url: FIXTURE_URL }]], null);
+  url = FIXTURE_URL;
+  await b.turn(2);
+  check(b.log.requestMenu.length === 1 && b.log.getTabUrl === 2 && b.log.readCaptureArm === 1,
+    'capture gate cost: once the task has opened its fixture page the next iteration is captured');
+}
+
+async function captureGateRules() {
+  const notCaptured = [
+    'https://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html',
+    'http://127.0.0.2:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html',
+    'http://example.test:8080/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html',
+    'http://127.0.0.1/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html',
+    'http://127.0.0.1:53211/fixtures/checklist/index.html',
+    'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/pages/checklist/index.html',
+    'http://127.0.0.1:53211@evil.test/r/x/fixtures/checklist/index.html',
+    'chrome://newtab/',
+    null
+  ];
+  for (const tabUrl of notCaptured) {
+    const r = captureRig({ tabUrl, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+    await r.turn(1);
+    check(r.log.requestMenu.length === 0 && r.log.readSwitch === 0 && pendingOf(r.session) === null,
+      'capture gate: ' + JSON.stringify(tabUrl) + ' is not a loopback bench fixture page (no switch read, no menu)');
+  }
+  const local = captureRig({ tabUrl: 'http://localhost:4173/r/tok/fixtures/wizard-submit/step-2.html', session: { fastMode: Object.assign({}, RUN_TASK_FIELD) },
+    menu: menuSequence({ url: 'http://localhost:4173/r/tok/fixtures/wizard-submit/step-2.html' }) });
+  await local.turn(1);
+  check(local.log.requestMenu.length === 1 && pendingOf(local.session) !== null, 'capture gate: a localhost fixture page is captured');
+
+  const off = captureRig({ switchOn: false, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  await off.turn(1);
+  check(off.log.readSwitch === 1 && off.log.requestMenu.length === 0 && pendingOf(off.session) === null,
+    'capture gate: with the stored switch off nothing is captured');
+
+  const unstored = captureRig({ session: { fastMode: { enabled: false, stored: false, source: 'mcp' } } });
+  await unstored.turn(1);
+  check(unstored.log.readCaptureArm === 0 && unstored.log.getTabUrl === 0 && unstored.log.requestMenu.length === 0,
+    'capture gate: a session whose fastMode.stored is not true reads nothing for capture');
+  const absent = captureRig({ session: { fastMode: undefined } });
+  delete absent.session.fastMode;
+  const absentOut = await absent.turn(1);
+  check(absentOut.decline === 'not_enabled' && absent.log.readCaptureArm === 0 && absent.log.getTabUrl === 0 && absent.log.readSwitch === 0,
+    'capture gate: a switch-off session (no fastMode field) never requests a capture menu');
+
+  for (const [label, armed] of [['throws', () => { throw new Error('arm read'); }], ['rejects', () => Promise.reject(new Error('arm read'))],
+    ['answers the string "true"', 'true'], ['answers 1', 1]]) {
+    const r = captureRig({ armed, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+    const first = await r.turn(1);
+    await r.turn(2);
+    check(first.decline === 'not_enabled' && r.log.readCaptureArm === 1 && r.log.getTabUrl === 0 && r.log.requestMenu.length === 0,
+      'capture gate: an arm read that ' + label + ' counts as unarmed for the whole command (one read)');
+  }
+
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  const stopping = captureRig({ tabUrl: () => held, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const pendingTurn = stopping.turn(1);
+  await until(() => stopping.log.getTabUrl === 1);
+  stopping.session.status = 'stopped';
+  release(FIXTURE_URL);
+  const stoppedOut = await pendingTurn;
+  check(stoppedOut.decline === 'not_enabled' && stopping.log.readSwitch === 0 && stopping.log.requestMenu.length === 0 && pendingOf(stopping.session) === null,
+    'capture gate: a stop during the gate requests no menu and holds nothing (F21)');
+}
+
+async function captureFastSession() {
+  const r = captureRig();
+  const first = await r.turn(1);
+  check(first.decline === 'first_llm_turn', 'capture: a fast-mode session still declines first_llm_turn');
+  check(sameJson(r.order, ['arm', 'url:7', 'switch', 'menu']) && r.log.requestMenu.length === 1 && r.log.requestMenu[0].options.capture === true
+    && r.client.calls.length === 0, 'capture: the first LLM turn of a fast-mode command is captured (one capture menu, no decide)');
+  llmTurn(r, [['click', { selector: 'e3' }]], observation('cafe0001-1', 'j3', true, 'click'));
+
+  const second = await r.turn(2);
+  check(second.decline === 'not_calibrated', 'capture: the uncalibrated answer still latches fast mode off (' + JSON.stringify(second) + ')');
+  check(r.log.requestMenu.length === 2 && r.log.requestMenu[1].options.capture === true,
+    'capture: the fast attempt requests its one menu with capture:true and the declined iteration reuses it (2 menus over 2 iterations)');
+  check(r.log.readSwitch === 2 && r.log.getTabUrl === 2 && r.log.readCaptureArm === 1,
+    'capture: the fast attempt\'s own switch read serves the gate (no second switch read), and the arm is read once per command');
+  check(r.client.calls.length === 1, 'capture: one decide in two iterations (the fast attempt only)');
+  check(r.ring.length === 1 && sameJson(r.ring[0].label, { op: 'click', target: 'j3' }), 'capture: iteration 1 is labelled at iteration 2');
+  check(pendingOf(r.session) !== null && pendingOf(r.session).generation === 'cafe0001-2', 'capture: the reused menu\'s generation is pending');
+
+  llmTurn(r, [['get_page_snapshot', {}]], null);
+  const third = await r.turn(3);
+  check(third.decline === 'not_calibrated' && r.client.calls.length === 1, 'capture: after the latch Jev is never asked again (still one decide)');
+  check(r.log.requestMenu.length === 3 && r.log.readSwitch === 3 && r.log.getTabUrl === 3,
+    'capture: a latched iteration runs the capture gate itself (one tab url, one switch read, one capture menu)');
+  check(r.ring.length === 2 && sameJson(r.ring[1].label, { op: NONE, target: NONE }), 'capture: a snapshot turn is labelled none_of_the_above for both');
+}
+
+async function captureActedStep() {
+  const r = captureRig({ responder: answer('click', 'Save') });
+  await r.turn(1);
+  llmTurn(r, [['check_box', { selector: 'e1' }]], observation('cafe0001-1', 'j1', true, 'toggleCheckbox'));
+  const acted = await r.turn(2);
+  check(Boolean(acted.toolCall) && acted.toolCall.name === 'click' && acted.toolCall.args.jevHandle === 'j3',
+    'capture: a calibrated fast step still acts (' + JSON.stringify(acted.toolCall || acted) + ')');
+  check(r.log.requestMenu.length === 2 && r.log.requestMenu[1].options.capture === true, 'capture: the acting attempt asked for its menu with capture:true');
+  check(pendingOf(r.session) === null, 'capture: an acted fast step creates no pending capture');
+  check(r.ring.length === 1, 'capture: only the LLM turn before it was recorded');
+  const ignored = FsbFastPath.noteCaptureObservation(r.session, observation('cafe0001-2', 'j3', true, 'click'));
+  check(ignored === false && pendingOf(r.session) === null, 'capture: the fast step\'s own observation is ignored');
+  FsbFastPath.afterStep(r.session, acted.step, resultsFor(acted.step, OK_RESULT({ result: { success: true, verification: { verified: true } } })));
+  await r.turn(3);
+  check(r.ring.length === 1 && r.drops.length === 0, 'capture: nothing is written for the fast iteration');
+}
+
+async function captureLabels() {
+  const cases = [
+    ['check_box on an offered box', [['check_box', { selector: 'e1' }]], { handle: 'j1', resolved: true, tool: 'toggleCheckbox' }, { op: 'check_box', target: 'j1' }],
+    ['click on an element outside the menu', [['click', { selector: '#footer-link' }]], { handle: null, resolved: true, tool: 'click' }, { op: 'click', target: NONE }],
+    ['type_text (never offered) into the Name field', [['type_text', { selector: 'e4', text: 'Ada' }]], { handle: 'j4', resolved: true, tool: 'type' }, { op: NONE, target: 'j4' }],
+    ['navigate (no element target)', [['navigate', { url: FIXTURE_URL }]], null, { op: NONE, target: NONE }],
+    ['navigate with a stray observation', [['navigate', { url: FIXTURE_URL }]], { handle: 'j2', resolved: true, tool: 'click' }, { op: NONE, target: NONE }],
+    ['get_page_snapshot', [['get_page_snapshot', {}]], null, { op: NONE, target: NONE }],
+    ['go_back on the first page (not offered)', [['go_back', {}]], null, { op: NONE, target: NONE }],
+    ['report_progress first, then a click', [['report_progress', { message: 'working' }], ['click', { selector: 'e2' }]], { handle: 'j2', resolved: true, tool: 'click' }, { op: 'click', target: 'j2' }],
+    ['hover on Save', [['hover', { selector: 'e3' }]], { handle: 'j3', resolved: true, tool: 'hover' }, { op: 'hover', target: 'j3' }]
+  ];
+  for (const [name, calls, seen, label] of cases) {
+    const out = await labelOf(calls, seen);
+    check(out.ring.length === 1 && out.drops.length === 0 && sameJson(out.ring[0].label, label),
+      'capture label: ' + name + ' -> ' + JSON.stringify(label) + ' (' + JSON.stringify(out.ring[0] && out.ring[0].label) + ', drops ' + out.drops.join(',') + ')');
+  }
+  const scroll = await labelOf([['scroll', { direction: 'down' }]], null, { menu: menuSequence({ moreBelow: true }) });
+  check(scroll.ring.length === 1 && sameJson(scroll.ring[0].label, { op: 'scroll', target: NONE }), 'capture label: scroll when more content is below -> {scroll, none_of_the_above}');
+
+  const drops = [
+    ['an element tool with no observation', [['click', { selector: 'e3' }]], null, 'target_unknown'],
+    ['a text-based click (the observation did not resolve)', [['click', { text: 'Save' }]], { handle: null, resolved: false, tool: 'click' }, 'target_unknown'],
+    ['an observation from another verb', [['click', { selector: 'e3' }]], { handle: 'j3', resolved: true, tool: 'hover' }, 'target_unknown'],
+    ['a turn of report_progress only', [['report_progress', { message: 'thinking' }]], null, 'progress_only'],
+    ['a tool the registry does not know', [['teleport', { selector: 'e3' }]], { handle: 'j3', resolved: true, tool: 'click' }, 'unknown_tool']
+  ];
+  for (const [name, calls, seen, reason] of drops) {
+    const out = await labelOf(calls, seen);
+    check(out.ring.length === 0 && sameJson(out.drops, [reason]), 'capture drop: ' + name + ' is dropped as ' + reason + ' (' + out.drops.join(',') + ')');
+  }
+  const noTools = await labelOf(null, null);
+  check(noTools.ring.length === 0 && sameJson(noTools.drops, ['no_tool_call']), 'capture drop: an LLM turn that ran no tool is dropped as no_tool_call');
+
+  const stale = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  await stale.turn(1);
+  llmTurn(stale, [['click', { selector: 'e3' }]], observation('cafe0001-1', 'j3', true, 'click'));
+  nextCommand(stale.session);
+  await stale.turn(1);
+  check(stale.ring.length === 0 && sameJson(stale.drops, ['stale_command']), 'capture drop: a capture still pending when the command changes is dropped as stale_command');
+}
+
+async function captureRecordShape() {
+  const SENTINEL_TASK = 'SENTINEL_TASK_TEXT_77 tick Alpha';
+  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD), task: SENTINEL_TASK } });
+  await r.turn(4);
+  llmTurn(r, [['check_box', { selector: 'e1' }]], observation('cafe0001-1', 'j1', true, 'toggleCheckbox'));
+  await r.turn(5);
+  const record = r.ring[0];
+  check(Boolean(record) && sameJson(sortedKeys(record), RECORD_KEYS), 'capture record: exactly v, capturedAt, command, iteration, url, menuCap, entryCount, builderInput and label');
+  if (!record) return;
+  check(record.v === 1 && record.command === 1 && record.iteration === 4 && record.menuCap === 48 && record.entryCount === 4 && typeof record.capturedAt === 'number',
+    'capture record: v 1, the command, the iteration, the menu cap, the entry count and a capture time');
+  check(record.url === FIXTURE_URL, 'capture record: the url keeps origin and path only (no query, no fragment)');
+  check(sameJson(sortedKeys(record.builderInput), BUILDER_KEYS), 'capture record: builderInput holds title, visibleText, elements, vaultFilledIds, recentActions and offeredOps only (no goal, no kinds)');
+  check(record.builderInput.elements.length === 4 && record.builderInput.elements.every((e) => sameJson(sortedKeys(e), ELEMENT_KEYS) && sameJson(sortedKeys(e.purpose), ['sensitive'])),
+    'capture record: every element carries only the documented keys');
+  check(sameJson(record.builderInput.offeredOps, ['click', 'check_box', 'hover']), 'capture record: offeredOps are what fast mode would offer (' + JSON.stringify(record.builderInput.offeredOps) + ')');
+  const text = JSON.stringify(r.ring);
+  check(text.indexOf('SENTINEL_TASK_TEXT_77') === -1 && text.indexOf(GOAL) === -1 && !/"goal"/.test(text) && !/hashkey/i.test(text),
+    'capture record: no goal, no task text and no hash key');
+  check(text.indexOf('?view=edit') === -1 && text.indexOf('#top') === -1, 'capture record: no query string or fragment anywhere');
+}
+
+async function captureMenuDrops() {
+  const hiddenEntries = captureMenu(1);
+  hiddenEntries.entries = hiddenEntries.entries.map((e) => Object.assign({}, e, { hidden: true }));
+  const cases = [
+    ['no menu answer', () => Promise.resolve(null), 'menu_unavailable'],
+    ['a failed menu', () => Promise.resolve({ success: false, reason: 'menu_error' }), 'menu_unavailable'],
+    ['a menu with no generation', () => Promise.resolve(Object.assign(captureMenu(1), { generation: undefined })), 'menu_invalid'],
+    ['a menu whose page is no longer a fixture page', () => Promise.resolve(captureMenu(1, { url: 'https://shop.example/cart' })), 'url_changed'],
+    ['a menu with nothing fast mode could offer', () => Promise.resolve(hiddenEntries), 'nothing_offerable'],
+    ['a rejecting menu request', () => Promise.reject(new Error('menu')), 'menu_unavailable']
+  ];
+  for (const [name, menu, reason] of cases) {
+    const r = captureRig({ menu, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+    const out = await r.turn(1);
+    check(out.decline === 'not_enabled' && pendingOf(r.session) === null && sameJson(r.drops, [reason]) && r.ring.length === 0,
+      'capture drop: ' + name + ' is dropped as ' + reason + ' (' + r.drops.join(',') + ')');
+  }
+}
+
+async function captureObservationShape() {
+  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  await r.turn(1);
+  const generation = pendingOf(r.session).generation;
+  const good = observation(generation, 'j2', true, 'click');
+  const refused = [
+    ['the content message itself (action key)', Object.assign({ action: 'jevCaptureObservation' }, good)],
+    ['an extra key', Object.assign({ selector: '#bravo' }, good)],
+    ['a missing key', { generation, handle: 'j2', resolved: true }],
+    ['another generation', observation('cafe0001-9', 'j2', true, 'click')],
+    ['a non-boolean resolved', observation(generation, 'j2', 'yes', 'click')],
+    ['a handle that is not a menu handle', observation(generation, 'e2', true, 'click')],
+    ['a numeric handle', observation(generation, 2, true, 'click')],
+    ['a numeric tool', observation(generation, 'j2', true, 7)],
+    ['a string payload', 'j2'],
+    ['null', null]
+  ];
+  for (const [name, payload] of refused) {
+    const accepted = FsbFastPath.noteCaptureObservation(r.session, payload);
+    check(accepted === false && pendingOf(r.session).observation === null, 'noteCaptureObservation ignores ' + name);
+  }
+  let threw = null;
+  try {
+    check(FsbFastPath.noteCaptureObservation(null, good) === false && FsbFastPath.noteCaptureObservation({}, good) === false,
+      'noteCaptureObservation ignores a missing session and a session with no fast-path state');
+  } catch (e) { threw = e; }
+  check(threw === null, 'noteCaptureObservation never throws');
+  check(FsbFastPath.noteCaptureObservation(r.session, good) === true && sameJson(pendingOf(r.session).observation, { handle: 'j2', resolved: true, tool: 'click' }),
+    'noteCaptureObservation accepts exactly {generation, handle, resolved, tool} for the pending generation');
+  check(FsbFastPath.noteCaptureObservation(r.session, observation(generation, 'j1', true, 'click')) === false
+    && pendingOf(r.session).observation.handle === 'j2', 'noteCaptureObservation ignores a second observation');
+  check(good.handle === 'j2' && Object.keys(good).length === 4, 'noteCaptureObservation does not change the payload');
+}
+
+async function captureNeverRejects() {
+  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  r.deps.appendCaptureRecord = () => { throw new Error('ring write'); };
+  r.deps.noteCaptureDrop = () => Promise.reject(new Error('drop write'));
+  await r.turn(1);
+  llmTurn(r, [['click', { selector: 'e3' }]], observation('cafe0001-1', 'j3', true, 'click'));
+  let outcome = 'unset';
+  await r.turn(2).then((v) => { outcome = v; }, () => { outcome = 'rejected'; });
+  check(outcome && outcome.decline === 'not_enabled', 'capture: a throwing ring write never rejects beforeTurn');
+  outcome = 'unset';
+  await r.turn(3).then((v) => { outcome = v; }, () => { outcome = 'rejected'; });
+  check(outcome && outcome.decline === 'not_enabled' && !fp(r.session).off, 'capture: a rejecting drop write never rejects beforeTurn and latches nothing');
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -2378,6 +2797,17 @@ async function main() {
     await section('68-05 afterStep: navigation epochs and page-level steps (D-11)', afterNavigation);
     await section('68-05 observeTools: what the LLM did on its own turn (D-09, D-11)', observe);
     await section('68-05 first turn, never re-roll and recent descriptors through the real observeTools', observeDrivesTask1Cases);
+    await section('68-08 capture: deps without the capture members (D-22)', captureNoCaptureDeps);
+    await section('68-08 capture: a run_task bench session (D-22, D-03)', captureRunTask);
+    await section('68-08 capture gate cost (D-03, D-22)', captureGateCost);
+    await section('68-08 capture gate: URL, switch, stored flag and arm (D-22, T-68-11)', captureGateRules);
+    await section('68-08 capture on a fast-mode session: one menu per LLM-path iteration', captureFastSession);
+    await section('68-08 capture: an acted fast step is never captured', captureActedStep);
+    await section('68-08 capture labels and drops (D-22, T-68-17)', captureLabels);
+    await section('68-08 capture record shape (T-68-11)', captureRecordShape);
+    await section('68-08 capture drops at the menu', captureMenuDrops);
+    await section('68-08 noteCaptureObservation', captureObservationShape);
+    await section('68-08 capture never affects the session (F13)', captureNeverRejects);
   }
 
   console.log('\n--- Summary ---');

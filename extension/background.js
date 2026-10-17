@@ -4037,11 +4037,45 @@ function fsbFastPathWithDeadline(promise, ms) {
 }
 
 /**
+ * Apply one change to the fast-mode capture ring (Phase 68, D-22) after every
+ * earlier change: all ring writes go through one promise chain kept on this
+ * function, so concurrent records and drop counts never overwrite each
+ * other. The ring is {v:1, records:[...], drops:{<reason>: n}} under an
+ * internal storage key that is not a setting and is never sent anywhere; it
+ * keeps the newest 200 records. A failed or late read skips the change
+ * rather than overwrite the ring. Resolves undefined and never rejects.
+ * @param {function(Object): void} change - Mutates the ring in place
+ * @returns {Promise<void>}
+ */
+function fsbFastPathCaptureWrite(change) {
+  const apply = async () => {
+    const stored = await fsbFastPathWithDeadline(chrome.storage.local.get(['fsbJevCaptureRing']), 3000);
+    if (!stored || typeof stored !== 'object') return;
+    const current = stored.fsbJevCaptureRing;
+    const valid = current && typeof current === 'object' && current.v === 1 && Array.isArray(current.records)
+      && current.drops && typeof current.drops === 'object' && !Array.isArray(current.drops);
+    const ring = valid
+      ? { v: 1, records: current.records.slice(), drops: Object.assign({}, current.drops) }
+      : { v: 1, records: [], drops: {} };
+    change(ring);
+    if (ring.records.length > 200) ring.records.splice(0, ring.records.length - 200);
+    await fsbFastPathWithDeadline(chrome.storage.local.set({ fsbJevCaptureRing: ring }), 3000);
+  };
+  const previous = fsbFastPathCaptureWrite.tail || Promise.resolve();
+  const next = previous.then(apply).catch(() => {});
+  fsbFastPathCaptureWrite.tail = next;
+  return next;
+}
+
+/**
  * The dependencies of the fast-path module: now, readSwitch, requestMenu,
- * requestSnapshot and getTabUrl. Creating the object calls nothing. The menu
- * and snapshot requests are content-script messages to the main frame (not
- * in-worker dispatch); every member resolves null or false on failure or at
- * its deadline and never rejects.
+ * requestSnapshot and getTabUrl, plus the capture members readCaptureArm,
+ * appendCaptureRecord and noteCaptureDrop (D-22: the arm is an internal
+ * storage key written only by the bench capture tooling, never a setting).
+ * Creating the object calls nothing. The menu and snapshot requests are
+ * content-script messages to the main frame (not in-worker dispatch); every
+ * member resolves null or false on failure or at its deadline and never
+ * rejects.
  * @returns {Object} The dependency object
  */
 function fsbCreateFastPathDeps() {
@@ -4078,7 +4112,25 @@ function fsbCreateFastPathDeps() {
       } catch (_e) {
         return null;
       }
-    }
+    },
+    readCaptureArm: async () => {
+      let read;
+      try {
+        read = chrome.storage.local.get(['fsbJevCaptureArmed']);
+      } catch (_e) {
+        return false;
+      }
+      const stored = await fsbFastPathWithDeadline(read, 3000);
+      return !!stored && stored.fsbJevCaptureArmed === true;
+    },
+    appendCaptureRecord: (record) => fsbFastPathCaptureWrite((ring) => {
+      if (record && typeof record === 'object' && !Array.isArray(record)) ring.records.push(record);
+    }),
+    noteCaptureDrop: (reason) => fsbFastPathCaptureWrite((ring) => {
+      const key = typeof reason === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(reason) ? reason : 'other';
+      const count = Object.prototype.hasOwnProperty.call(ring.drops, key) ? ring.drops[key] : 0;
+      ring.drops[key] = (Number.isSafeInteger(count) && count >= 0 ? count : 0) + 1;
+    })
   };
 }
 
@@ -12577,6 +12629,38 @@ const fsbHandleRuntimeMessage = (request, sender, sendResponse) => {
     case 'monacoEditorInsert':
       handleMonacoEditorInsert(request, sender, sendResponse);
       return true; // Will respond asynchronously
+
+    case 'jevCaptureObservation': {
+      // Fast-mode capture (Phase 68, D-22): a main-frame content script
+      // reports which menu control an armed action targeted. Only a message
+      // with exactly its five keys is used; a new object holding the four
+      // payload keys (never the message itself) goes to each session running
+      // on that tab that has fast-path state.
+      const captureTabId = sender && sender.tab ? sender.tab.id : undefined;
+      const captureKeys = request && typeof request === 'object' ? Object.keys(request).sort().join(',') : '';
+      if (sender && sender.frameId === 0 && typeof captureTabId === 'number'
+          && captureKeys === 'action,generation,handle,resolved,tool'
+          && typeof globalThis !== 'undefined' && globalThis.FsbFastPath
+          && typeof globalThis.FsbFastPath.noteCaptureObservation === 'function') {
+        const capturePayload = {
+          generation: request.generation,
+          handle: request.handle,
+          resolved: request.resolved,
+          tool: request.tool
+        };
+        for (const captureSession of activeSessions.values()) {
+          if (captureSession && captureSession.tabId === captureTabId && captureSession._fastPath) {
+            try {
+              globalThis.FsbFastPath.noteCaptureObservation(captureSession, capturePayload);
+            } catch (_e) {
+              // Capture never affects a session.
+            }
+          }
+        }
+      }
+      sendResponse({ success: true });
+      break;
+    }
 
     case 'contentScriptReady':
       // Content script signals it's ready and message listener is registered

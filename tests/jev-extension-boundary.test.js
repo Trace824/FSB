@@ -108,10 +108,18 @@ const UI_CONFIG_TOKEN_FILES = Object.freeze([
   'extension/ui/options.js'
 ]);
 
-// Phase 68 D-06 (plan 68-06): besides its four load lines, background.js may
-// mention jev only inside these exact tokens, each removed only where it
-// stands as a whole word; any other jev text on any background.js line fails.
-const BACKGROUND_JEV_TOKENS = Object.freeze(['fsbJevFastModeEnabled', 'getJevMenu']);
+// Phase 68 D-06 (plans 68-06 and 68-08): besides its four load lines,
+// background.js may mention jev only inside these exact tokens, each removed
+// only where it stands as a whole word; any other jev text on any
+// background.js line fails. 68-08 adds the internal capture arm and ring
+// storage keys and the capture observation message name.
+const BACKGROUND_JEV_TOKENS = Object.freeze([
+  'fsbJevFastModeEnabled',
+  'getJevMenu',
+  'fsbJevCaptureArmed',
+  'fsbJevCaptureRing',
+  'jevCaptureObservation'
+]);
 const BACKGROUND_DISCOVERY_LINE = "importScripts('ai/model-discovery.js');";
 const BACKGROUND_LOAD_LINES = Object.freeze(ALL_MODULES.map((m) => "importScripts('ai/" + m.file + "');"));
 
@@ -319,11 +327,16 @@ function scannerSelfTest() {
   ]), 'the background.js check expects the four load lines state, client, policy, fast path');
   const bgBase = ["importScripts('ai/agent-loop.js');", BACKGROUND_DISCOVERY_LINE].concat(BACKGROUND_LOAD_LINES, ['', 'function x() {}']);
   check(backgroundJevClean(bgBase), 'a background.js with exactly the four adjacent load lines passes');
+  check(JSON.stringify(BACKGROUND_JEV_TOKENS) === JSON.stringify(['fsbJevFastModeEnabled', 'getJevMenu', 'fsbJevCaptureArmed', 'fsbJevCaptureRing', 'jevCaptureObservation']),
+    'the background.js token allowlist is exactly fsbJevFastModeEnabled, getJevMenu, fsbJevCaptureArmed, fsbJevCaptureRing and jevCaptureObservation');
   const bgAllowed = [
     "    const stored = await chrome.storage.local.get(['fsbJevFastModeEnabled']);",
     "    requestMenu: (tabId, options, deadlineMs) => send(tabId, { action: 'getJevMenu', options }, deadlineMs),",
     "    const field = fsbFastModeSessionField(storedSettings.fsbJevFastModeEnabled, source);",
-    "      { maxIterations: 100, fsbJevFastModeEnabled: false, other: 'getJevMenu' }"
+    "      { maxIterations: 100, fsbJevFastModeEnabled: false, other: 'getJevMenu' }",
+    "        read = chrome.storage.local.get(['fsbJevCaptureArmed']);",
+    "    await fsbFastPathWithDeadline(chrome.storage.local.set({ fsbJevCaptureRing: ring }), 3000);",
+    "    case 'jevCaptureObservation': {"
   ];
   for (const line of bgAllowed) {
     check(backgroundJevClean(bgBase.concat([line])), 'background.js line passes: ' + JSON.stringify(line.trim()));
@@ -336,7 +349,13 @@ function scannerSelfTest() {
     "  const k = 'fsbJevFastModeEnabledX';",
     "  chrome.storage.local.get(['fsbJevFastModeEnabled']); // jev switch",
     '  const jevFast = true;',
-    "importScripts('ai/jev-extra.js');"
+    "importScripts('ai/jev-extra.js');",
+    "  const k = 'fsbJevCaptureOther';",
+    "  chrome.storage.local.get(['fsbJevCaptureArmedX']);",
+    "  case 'xjevCaptureObservation': {",
+    '  // jev capture',
+    "  const ring = await chrome.storage.local.get(['fsbJevCaptureRing']); // jev capture ring",
+    '  const captureJev = null;'
   ];
   for (const line of bgReported) {
     check(!backgroundJevClean(bgBase.concat([line])), 'background.js line is still reported: ' + JSON.stringify(line.trim()));
@@ -429,7 +448,7 @@ function callerScan(files) {
     if (BACKGROUND_LOAD_LINES.indexOf(l.text) === -1) console.error('    - extension/background.js:' + (l.index + 1) + ' -- ' + JSON.stringify(l.text.trim()));
   }
   check(JSON.stringify(jevLines.map((l) => l.text)) === JSON.stringify(BACKGROUND_LOAD_LINES),
-    'background.js mentions jev only in the four load lines (state, client, policy, fast path) and inside the exact tokens fsbJevFastModeEnabled and getJevMenu');
+    'background.js mentions jev only in the four load lines (state, client, policy, fast path) and inside the exact tokens ' + BACKGROUND_JEV_TOKENS.join(', '));
   const discovery = bgLines.indexOf(BACKGROUND_DISCOVERY_LINE);
   check(discovery >= 0 && jevLines.length === 4 && jevLines.every((l, k) => l.index === discovery + 1 + k),
     'the four loads sit directly after ai/model-discovery.js with no line between them');

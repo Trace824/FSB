@@ -19,6 +19,12 @@
  *     previous command's unflushed fast steps first, then reads the switch and
  *     assigns or deletes session.fastMode, so a hand-off is never lost.
  *
+ * Plan 68-08 adds fsbFastPathCaptureWrite (the capture ring's one write
+ * chain), the deps members readCaptureArm, appendCaptureRecord and
+ * noteCaptureDrop, and case 'jevCaptureObservation'; "capture end to end"
+ * drives the real content observation through the real case into the real
+ * module and the ring.
+ *
  * The helpers are extracted by name and evaluated in a vm context with a stub
  * chrome, a stub storage reader and held timers (nothing fires on its own).
  * The call sites are checked on the source, and createSessionHooks must stay
@@ -170,12 +176,13 @@ function makeChrome(handlers) {
 const HELPER_NAMES = [
   'fsbFastModeSessionField',
   'fsbFastPathWithDeadline',
+  'fsbFastPathCaptureWrite',
   'fsbCreateFastPathDeps',
   'fsbRecomputeFastModeForFollowUp'
 ];
 const helperSources = HELPER_NAMES.map((name) => sliceFunction(bgSource, name));
 
-/** A vm context holding the four helpers and the given globals. */
+/** A vm context holding the helpers and the given globals. */
 function makeContext(globals) {
   const ctx = vm.createContext(Object.assign({ console }, globals || {}));
   for (let k = 0; k < HELPER_NAMES.length; k += 1) {
@@ -199,8 +206,8 @@ async function main() {
     'fsbRecomputeFastModeForFollowUp(existingSession, source) is async');
   check(HELPER_NAMES.every((name) => countOf(bgSource, 'function ' + name + '(') === 1),
     'each helper is declared exactly once');
-  check(helperSources.every((s) => !/jev/i.test(s.replace(/\bfsbJevFastModeEnabled\b/g, '').replace(/\bgetJevMenu\b/g, ''))),
-    'no helper source contains jev text outside the allowlisted tokens fsbJevFastModeEnabled and getJevMenu');
+  check(helperSources.every((s) => !/jev/i.test(s.replace(/\b(fsbJevFastModeEnabled|getJevMenu|fsbJevCaptureArmed|fsbJevCaptureRing)\b/g, ''))),
+    'no helper source contains jev text outside the allowlisted tokens fsbJevFastModeEnabled, getJevMenu, fsbJevCaptureArmed and fsbJevCaptureRing');
 
   // -------------------------------------------------------------------------
   section('fsbFastModeSessionField (D-01, D-03, D-05)');
@@ -264,8 +271,9 @@ async function main() {
     const ctx = makeContext({ chrome, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout });
     const deps = ctx.fsbCreateFastPathDeps();
     check(calls.length === 0 && timers.set.length === 0, 'creating the deps object makes no chrome call and arms no timer');
-    check(json(Object.keys(deps).sort()) === json(['getTabUrl', 'now', 'readSwitch', 'requestMenu', 'requestSnapshot']),
-      'the deps object holds exactly now, readSwitch, requestMenu, requestSnapshot and getTabUrl');
+    check(json(Object.keys(deps).sort()) === json(['appendCaptureRecord', 'getTabUrl', 'noteCaptureDrop', 'now', 'readCaptureArm',
+      'readSwitch', 'requestMenu', 'requestSnapshot']),
+    'the deps object holds exactly now, readSwitch, requestMenu, requestSnapshot, getTabUrl and the capture members readCaptureArm, appendCaptureRecord and noteCaptureDrop');
     check(Object.keys(deps).every((k) => typeof deps[k] === 'function'), 'every member is a function');
     const before = Date.now();
     const t = deps.now();
@@ -601,8 +609,403 @@ async function main() {
     check(hash === CREATE_SESSION_HOOKS_SHA256, 'createSessionHooks is byte-identical to P68_START (' + hash.slice(0, 12) + ')');
   }
 
+  await captureSections();
+
   console.log('\nResults: ' + passed + ' passed, ' + failed + ' failed');
   process.exitCode = failed === 0 ? 0 : 1;
+}
+
+// ---------------------------------------------------------------------------
+// Plan 68-08 Task 1: the service-worker side of recorded-llm capture (D-22).
+//
+//   - fsbCreateFastPathDeps gains readCaptureArm, appendCaptureRecord and
+//     noteCaptureDrop; ring writes go through fsbFastPathCaptureWrite's one
+//     promise chain into {v:1, records:[...], drops:{}} (newest 200 records);
+//   - case 'jevCaptureObservation' forwards a new {generation, handle,
+//     resolved, tool} object from an exact five-key main-frame message to the
+//     sessions on that tab;
+//   - capture end to end: the real content observation (dom-analysis.js),
+//     the real background case and the real module label one record.
+// ---------------------------------------------------------------------------
+
+const DOM_STATE_PATH = path.join(ROOT, 'extension', 'content', 'dom-state.js');
+const ACCESSIBILITY_PATH = path.join(ROOT, 'extension', 'content', 'accessibility.js');
+const DOM_ANALYSIS_PATH = path.join(ROOT, 'extension', 'content', 'dom-analysis.js');
+const TOOL_DEFINITIONS_PATH = path.join(ROOT, 'extension', 'ai', 'tool-definitions.js');
+const CONFIG_PATH = path.join(ROOT, 'extension', 'config', 'config.js');
+const CAPTURE_FIXTURE_URL = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
+const CASE_LABEL = "case 'jevCaptureObservation': {";
+
+/** An in-memory chrome.storage.local whose get and set settle on a later macrotask (so unserialized writes would race). */
+function makeStore(initial, opts) {
+  const o = opts || {};
+  const data = JSON.parse(JSON.stringify(initial || {}));
+  const calls = [];
+  const later = (fn) => new Promise((resolve, reject) => setImmediate(() => {
+    try { resolve(fn()); } catch (e) { reject(e); }
+  }));
+  const local = {
+    get(keys) {
+      calls.push({ api: 'get', keys: json(keys) });
+      if (o.get) return o.get(keys);
+      return later(() => {
+        const out = {};
+        for (const k of [].concat(keys)) if (Object.prototype.hasOwnProperty.call(data, k)) out[k] = JSON.parse(JSON.stringify(data[k]));
+        return out;
+      });
+    },
+    set(items) {
+      calls.push({ api: 'set', keys: json(Object.keys(items)) });
+      return later(() => { Object.assign(data, JSON.parse(JSON.stringify(items))); });
+    }
+  };
+  return { local, data, calls };
+}
+
+async function settleUntil(predicate, max) {
+  for (let i = 0; i < (max || 3000) && !predicate(); i += 1) await flush();
+  return predicate();
+}
+
+/** The braced case body for 'jevCaptureObservation', from its label through its closing brace. */
+function sliceCaptureCase(source) {
+  const start = source.indexOf(CASE_LABEL);
+  if (start < 0) return null;
+  let j = start + CASE_LABEL.length - 1;
+  for (let depth = 0; j < source.length; j += 1) {
+    if (source[j] === '{') depth += 1;
+    else if (source[j] === '}' && --depth === 0) break;
+  }
+  return source.slice(start, j + 1);
+}
+
+/** The case compiled in a vm context as fn(request, sender, sendResponse) inside its own switch. */
+function compileCaptureCase(ctx) {
+  const body = sliceCaptureCase(bgSource);
+  if (!body) throw new Error('case jevCaptureObservation not found in background.js');
+  return vm.runInContext('(function runCaptureCase(request, sender, sendResponse) {\n  switch (request.action) {\n'
+    + body + '\n  }\n})', ctx, { filename: 'background.js#jevCaptureObservation' });
+}
+
+function quietLogger() {
+  const noop = () => {};
+  return { log: noop, info: noop, warn: noop, error: noop, debug: noop, logDOMOperation: noop };
+}
+
+/** The real dom-analysis.js in a vm content context with the dom-state registry slice and the stub kit. */
+function makeContentContext() {
+  const kit = require('./fixtures/jev-content-dom-kit.js');
+  const domStateSource = fs.readFileSync(DOM_STATE_PATH, 'utf8');
+  const sent = [];
+  const win = kit.makeWindow({});
+  const FSB = {
+    _modules: {},
+    logger: quietLogger(),
+    stripUnicodeControl: (s) => s,
+    getClassName: () => '',
+    isFsbElement: () => false
+  };
+  win.FSB = FSB;
+  win.__FSB_SKIP_INIT__ = false;
+  const sandbox = {
+    window: win,
+    document: kit.makeDocument(kit.makeElement({ tag: 'body' })),
+    console,
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 },
+    WeakRef,
+    WeakSet,
+    crypto: kit.cryptoStub([0x5a, 0x11, 0xc3, 0x07]),
+    chrome: { runtime: { sendMessage(message) { sent.push(message); return Promise.resolve({ success: true }); } } }
+  };
+  vm.createContext(sandbox);
+  const begin = domStateSource.indexOf('  class RefMap {');
+  const endMarker = '  // ---- Phase 68 fast-mode registry (end) ----';
+  const end = domStateSource.indexOf(endMarker);
+  if (begin < 0 || end < begin) throw new Error('dom-state.js registry slice not found');
+  const registry = vm.runInContext(domStateSource.slice(begin, end + endMarker.length)
+    + '\n({ RefMap, refMap, JevRefRegistry, jevRefMap, vaultFilledElements, noteVaultFilled })', sandbox, { filename: 'dom-state.js#registry' });
+  FSB.RefMap = registry.RefMap;
+  FSB.refMap = registry.refMap;
+  FSB.JevRefRegistry = registry.JevRefRegistry;
+  FSB.jevRefMap = registry.jevRefMap;
+  FSB.vaultFilledElements = registry.vaultFilledElements;
+  FSB.noteVaultFilled = registry.noteVaultFilled;
+  vm.runInContext(fs.readFileSync(ACCESSIBILITY_PATH, 'utf8'), sandbox, { filename: 'accessibility.js' });
+  vm.runInContext(fs.readFileSync(DOM_ANALYSIS_PATH, 'utf8'), sandbox, { filename: 'dom-analysis.js' });
+  return { FSB, sent, kit };
+}
+
+async function captureSections() {
+  // -------------------------------------------------------------------------
+  section('fsbCreateFastPathDeps: the capture arm reader (D-22)');
+  {
+    const timers = makeTimers();
+    let storageAnswer = () => Promise.resolve({ fsbJevCaptureArmed: true });
+    const { chrome, calls } = makeChrome({ storageGet: (keys) => storageAnswer(keys) });
+    const ctx = makeContext({ chrome, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout });
+    const deps = ctx.fsbCreateFastPathDeps();
+    check(calls.length === 0 && timers.set.length === 0, 'creating the deps with the capture members still calls nothing');
+    const cases = [
+      [() => Promise.resolve({ fsbJevCaptureArmed: true }), true, 'a stored boolean true'],
+      [() => Promise.resolve({ fsbJevCaptureArmed: false }), false, 'a stored false'],
+      [() => Promise.resolve({}), false, 'an absent key'],
+      [() => Promise.resolve({ fsbJevCaptureArmed: 'true' }), false, 'the string "true"'],
+      [() => Promise.reject(new Error('storage down')), false, 'a storage rejection'],
+      [() => { throw new Error('storage sync throw'); }, false, 'a storage call that throws']
+    ];
+    for (const [answer, expected, label] of cases) {
+      storageAnswer = answer;
+      calls.length = 0;
+      let out = 'unset';
+      deps.readCaptureArm().then((v) => { out = v; }, () => { out = 'rejected'; });
+      await settle();
+      check(out === expected, 'readCaptureArm resolves ' + expected + ' for ' + label);
+      check(calls.length === 1 && calls[0].keys === json(['fsbJevCaptureArmed']), 'readCaptureArm reads only fsbJevCaptureArmed (' + label + ')');
+    }
+    storageAnswer = () => new Promise(() => {});
+    let hung = 'unset';
+    deps.readCaptureArm().then((v) => { hung = v; });
+    await settle();
+    timers.fireAll();
+    await settle();
+    check(hung === false, 'a hanging arm read resolves false at its deadline');
+  }
+
+  // -------------------------------------------------------------------------
+  section('fsbCreateFastPathDeps: the capture ring (bounded, serialized, local)');
+  {
+    const timers = makeTimers();
+    const store = makeStore({});
+    const ctx = makeContext({ chrome: { storage: { local: store.local } }, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout });
+    const deps = ctx.fsbCreateFastPathDeps();
+    const writes = [];
+    for (let i = 0; i < 30; i += 1) writes.push(deps.appendCaptureRecord({ v: 1, n: i }));
+    for (let i = 0; i < 10; i += 1) writes.push(deps.noteCaptureDrop(i % 2 === 0 ? 'target_unknown' : 'stale_command'));
+    let settled = 0;
+    let rejected = 0;
+    writes.forEach((w) => w.then(() => { settled += 1; }, () => { rejected += 1; }));
+    check(await settleUntil(() => settled === 40), 'forty concurrent ring writes all resolve');
+    const ring = store.data.fsbJevCaptureRing;
+    check(rejected === 0 && ring && ring.v === 1 && Array.isArray(ring.records) && ring.records.length === 30
+      && ring.records.every((r, i) => r.n === i), 'concurrent writes are serialized: 30 records in order, none lost');
+    check(ring && json(ring.drops) === json({ target_unknown: 5, stale_command: 5 }), 'drops are counted by reason ({target_unknown:5, stale_command:5})');
+    check(store.calls.filter((c) => c.api === 'set').every((c) => c.keys === json(['fsbJevCaptureRing']))
+      && store.calls.filter((c) => c.api === 'get').every((c) => c.keys === json(['fsbJevCaptureRing'])),
+    'the ring writer reads and writes only fsbJevCaptureRing');
+    check(timers.pendingCount() === 0, 'every ring read and write deadline is cleared');
+
+    const full = makeStore({ fsbJevCaptureRing: { v: 1, records: Array.from({ length: 199 }, (_, n) => ({ n })), drops: { menu_invalid: 2 } } });
+    const fullCtx = makeContext({ chrome: { storage: { local: full.local } }, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout });
+    const fullDeps = fullCtx.fsbCreateFastPathDeps();
+    let done = 0;
+    for (const n of [199, 200, 201]) fullDeps.appendCaptureRecord({ n }).then(() => { done += 1; });
+    await settleUntil(() => done === 3);
+    const capped = full.data.fsbJevCaptureRing;
+    check(capped.records.length === 200 && capped.records[0].n === 2 && capped.records[199].n === 201 && capped.drops.menu_invalid === 2,
+      'the ring keeps the newest 200 records (oldest dropped) and keeps its drop counts');
+
+    const odd = makeStore({ fsbJevCaptureRing: { v: 2, records: 'x' } });
+    const oddDeps = makeContext({ chrome: { storage: { local: odd.local } }, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout }).fsbCreateFastPathDeps();
+    let oddDone = false;
+    oddDeps.noteCaptureDrop('__proto__').then(() => { oddDone = true; });
+    await settleUntil(() => oddDone);
+    check(json(odd.data.fsbJevCaptureRing) === json({ v: 1, records: [], drops: { other: 1 } }),
+      'a malformed ring is replaced, and a reason outside the code pattern counts as "other"');
+
+    const failing = makeStore({ fsbJevCaptureRing: { v: 1, records: [{ n: 'kept' }], drops: {} } }, { get: () => Promise.reject(new Error('storage down')) });
+    const failingDeps = makeContext({ chrome: { storage: { local: failing.local } }, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout }).fsbCreateFastPathDeps();
+    let outcome = 'unset';
+    failingDeps.appendCaptureRecord({ n: 'new' }).then(() => { outcome = 'resolved'; }, () => { outcome = 'rejected'; });
+    await settle();
+    check(outcome === 'resolved' && json(failing.data.fsbJevCaptureRing.records) === json([{ n: 'kept' }]) && !failing.calls.some((c) => c.api === 'set'),
+      'a failed ring read skips the write (the ring is never overwritten) and the writer still resolves');
+    const after = [];
+    failingDeps.noteCaptureDrop('target_unknown').then(() => after.push('next'));
+    await settle();
+    check(after.length === 1, 'a failed write never blocks the chain for later writes');
+  }
+
+  // -------------------------------------------------------------------------
+  section('case jevCaptureObservation: exact five-key main-frame messages only');
+  {
+    const body = sliceCaptureCase(bgSource);
+    check(countOf(bgSource, "case 'jevCaptureObservation'") === 1 && typeof body === 'string', 'background.js has exactly one jevCaptureObservation case, and it is braced');
+    const nextCase = bgSource.indexOf("case 'contentScriptReady':");
+    check(body !== null && bgSource.indexOf(body) + body.length < nextCase && bgSource.slice(bgSource.indexOf(body) + body.length, nextCase).trim() === '',
+      'the case sits right before the contentScriptReady case');
+    check(body !== null && countOf(body, 'noteCaptureObservation(captureSession, capturePayload)') === 1 && body.indexOf('noteCaptureObservation(captureSession, request') === -1,
+      'the case forwards the rebuilt payload, never the incoming message');
+    check(body !== null && !/importScripts/i.test(body) && !/jev/i.test(body.replace(/\bjevCaptureObservation\b/g, '')),
+      'the case holds no other jev text and no importScripts word');
+
+    const seen = [];
+    const activeSessions = new Map([
+      ['s1', { sessionId: 's1', tabId: 7, _fastPath: {} }],
+      ['s2', { sessionId: 's2', tabId: 7 }],
+      ['s3', { sessionId: 's3', tabId: 8, _fastPath: {} }],
+      ['s4', { sessionId: 's4', tabId: 7, _fastPath: {} }]
+    ]);
+    const ctx = vm.createContext({
+      activeSessions,
+      FsbFastPath: {
+        noteCaptureObservation(session, payload) {
+          seen.push({ id: session.sessionId, payload });
+          if (session.sessionId === 's1') throw new Error('observer failed');
+          return true;
+        }
+      }
+    });
+    const run = compileCaptureCase(ctx);
+    const message = { action: 'jevCaptureObservation', generation: 'cafe0001-3', handle: 'j2', resolved: true, tool: 'click' };
+    const responses = [];
+    const respond = (r) => responses.push(r);
+    run(message, { tab: { id: 7 }, frameId: 0 }, respond);
+    check(seen.length === 2 && seen[0].id === 's1' && seen[1].id === 's4',
+      'a main-frame message reaches every session on that tab that has fast-path state, even after one observer throws');
+    check(seen.length === 2 && json(Object.keys(seen[0].payload).sort()) === json(['generation', 'handle', 'resolved', 'tool'])
+      && json(seen[0].payload) === json({ generation: 'cafe0001-3', handle: 'j2', resolved: true, tool: 'click' }) && seen[0].payload !== message,
+    'the forwarded payload is a new object with exactly generation, handle, resolved and tool (action stripped)');
+    check(responses.length === 1 && json(responses[0]) === json({ success: true }), 'the case responds {success:true}');
+
+    const refused = [
+      ['an iframe sender (frameId 2)', message, { tab: { id: 7 }, frameId: 2 }],
+      ['a sender with no tab', message, { frameId: 0 }],
+      ['a message with an extra key', Object.assign({ selector: '#save' }, message), { tab: { id: 7 }, frameId: 0 }],
+      ['a message missing a key', { action: 'jevCaptureObservation', generation: 'cafe0001-3', handle: 'j2', resolved: true }, { tab: { id: 7 }, frameId: 0 }]
+    ];
+    for (const [name, msg, sender] of refused) {
+      seen.length = 0;
+      responses.length = 0;
+      run(msg, sender, respond);
+      check(seen.length === 0 && responses.length === 1 && responses[0].success === true, 'the case ignores ' + name + ' and still responds');
+    }
+    const bare = vm.createContext({ activeSessions });
+    seen.length = 0;
+    responses.length = 0;
+    compileCaptureCase(bare)(message, { tab: { id: 7 }, frameId: 0 }, respond);
+    check(seen.length === 0 && responses.length === 1, 'without the fast-path module the case only responds');
+  }
+
+  // -------------------------------------------------------------------------
+  section('capture end to end: content observation -> background case -> module -> ring (Pitfall 10)');
+  {
+    const content = makeContentContext();
+    const F = content.FSB;
+    const button = content.kit.makeElement({ tag: 'button', attrs: { id: 'save', type: 'button' }, text: 'Save' });
+    F.querySelectorWithShadow = (selector) => (selector === '#save' ? button : null);
+    check(typeof F.noteJevCaptureObservation === 'function', 'the real FSB.noteJevCaptureObservation is loaded');
+
+    // The service worker: real jev-state.js, jev-fast-path.js and background helpers over a stub chrome.
+    const store = makeStore({ fsbJevFastModeEnabled: true, fsbJevCaptureArmed: true });
+    const menuRequests = [];
+    const swChrome = {
+      storage: { local: store.local },
+      tabs: {
+        get: (tabId) => Promise.resolve({ id: tabId, url: CAPTURE_FIXTURE_URL }),
+        sendMessage(tabId, message, options) {
+          menuRequests.push({ tabId, message: JSON.parse(JSON.stringify(message)), options });
+          if (message.action !== 'getJevMenu') return Promise.resolve(null);
+          // What the real getJevMenu case does: rebuild the registry, arm on capture:true, answer the menu.
+          F.jevRefMap.reset();
+          const handle = F.jevRefMap.register(button, 'button', 'Save');
+          F._jevCaptureArm = message.options && message.options.capture === true ? { generation: F.jevRefMap.generation } : null;
+          return Promise.resolve({
+            success: true,
+            generation: F.jevRefMap.generation,
+            url: CAPTURE_FIXTURE_URL,
+            title: 'Checklist',
+            visibleText: 'Checklist Save',
+            moreBelow: false,
+            signature: 'sig-' + F.jevRefMap.generation,
+            count: 1,
+            truncated: false,
+            entries: [{
+              handle, role: 'button', label: 'Save', ops: ['click', 'hover'], inputType: null, autocomplete: null,
+              purpose: { sensitive: false, danger: false, intent: null }, hidden: false, risk: null, fastEligible: true,
+              vaultFilled: false, state: { checked: null, expanded: null, selected: null, pressed: null }, inViewport: true
+            }],
+            recentHandles: (message.options && Array.isArray(message.options.recent) ? message.options.recent : []).map(() => null)
+          });
+        }
+      }
+    };
+    const activeSessions = new Map();
+    const sw = makeContext({
+      chrome: swChrome,
+      setTimeout,
+      clearTimeout,
+      URL,
+      AbortController,
+      activeSessions,
+      TOOL_REGISTRY: require(TOOL_DEFINITIONS_PATH).TOOL_REGISTRY
+    });
+    vm.runInContext(fs.readFileSync(STATE_PATH, 'utf8'), sw, { filename: 'jev-state.js' });
+    vm.runInContext(fs.readFileSync(FAST_PATH_PATH, 'utf8'), sw, { filename: 'jev-fast-path.js' });
+    sw.fsbFastPathDeps = sw.fsbCreateFastPathDeps();
+    const runCase = compileCaptureCase(sw);
+
+    const session = {
+      sessionId: 's-e2e',
+      status: 'running',
+      tabId: 7,
+      commandCount: 1,
+      task: 'Open the checklist and press Save.',
+      messages: [],
+      fastMode: { enabled: false, stored: true, source: 'mcp' },
+      agentState: { iterationCount: 0 }
+    };
+    activeSessions.set(session.sessionId, session);
+
+    const first = await sw.FsbFastPath.beforeTurn(session, { sessionId: session.sessionId, iteration: 1 });
+    const pending = session._fastPath && session._fastPath.capturePending;
+    check(first.decline === 'not_enabled' && pending && pending.generation === F.jevRefMap.generation,
+      'capture end to end: the run_task iteration holds a capture for the armed menu generation');
+    check(menuRequests.length === 1 && menuRequests[0].message.options.capture === true && json(menuRequests[0].options) === json({ frameId: 0 }),
+      'capture end to end: one getJevMenu with capture:true to frame 0');
+
+    // The LLM clicks Save: the content script observes the target once.
+    F.noteJevCaptureObservation('click', { selector: '#save' });
+    check(content.sent.length === 1 && json(Object.keys(content.sent[0]).sort()) === json(['action', 'generation', 'handle', 'resolved', 'tool']),
+      'capture end to end: the content script sends one five-key observation');
+    const responses = [];
+    runCase(content.sent[0], { tab: { id: 7 }, frameId: 0 }, (r) => responses.push(r));
+    check(pending.observation && pending.observation.handle === 'j1' && pending.observation.resolved === true && pending.observation.tool === 'click',
+      'capture end to end: the background case delivers the content message and the pending capture carries handle j1');
+    sw.FsbFastPath.observeTools(session, [{ id: 'c1', name: 'click', args: { selector: 'e1' } }],
+      [{ callId: 'c1', name: 'click', result: { success: true, hadEffect: true, navigationTriggered: false, result: { success: true } } }]);
+    await sw.FsbFastPath.beforeTurn(session, { sessionId: session.sessionId, iteration: 2 });
+    check(await settleUntil(() => store.data.fsbJevCaptureRing && store.data.fsbJevCaptureRing.records.length === 1),
+      'capture end to end: the next turn writes one ring record');
+    const ring = store.data.fsbJevCaptureRing;
+    const record = ring && ring.records[0];
+    check(record && json(record.label) === json({ op: 'click', target: 'j1' }) && record.url === CAPTURE_FIXTURE_URL && record.iteration === 1,
+      'capture end to end: the record is labelled {click, j1} on the fixture path');
+    check(record && JSON.stringify(ring).indexOf(session.task) === -1, 'capture end to end: the ring holds no task text');
+
+    // Iteration 2 holds its own capture: a tampered message or an iframe sender leaves it unlabelled.
+    const second = session._fastPath.capturePending;
+    content.sent.length = 0;
+    F.noteJevCaptureObservation('click', { selector: '#save' });
+    const exact = content.sent[0];
+    runCase(Object.assign({}, exact, { label: 'Save' }), { tab: { id: 7 }, frameId: 0 }, () => {});
+    runCase(exact, { tab: { id: 7 }, frameId: 2 }, () => {});
+    check(second && second.generation === exact.generation && second.observation === null,
+      'capture end to end: the same message with an extra key, or from frame 2, leaves the pending capture unlabelled');
+    runCase(exact, { tab: { id: 7 }, frameId: 0 }, () => {});
+    check(second && second.observation && second.observation.handle === 'j1', 'capture end to end: the exact message from frame 0 still labels it');
+    check(menuRequests.every((m) => m.message.action === 'getJevMenu'), 'capture end to end: capture sent no request other than getJevMenu');
+  }
+
+  // -------------------------------------------------------------------------
+  section('the capture keys are internal storage keys, not settings (D-22)');
+  {
+    const { FsbSettingsSchema } = require(CONFIG_PATH);
+    check(!FsbSettingsSchema.get('fsbJevCaptureArmed') && !FsbSettingsSchema.get('fsbJevCaptureRing')
+      && FsbSettingsSchema.keys().every((k) => !/capture/i.test(k)),
+    'fsbJevCaptureArmed and fsbJevCaptureRing are not FsbSettingsSchema keys');
+    const fastPathSource = fs.readFileSync(FAST_PATH_PATH, 'utf8');
+    check(fastPathSource.indexOf('fsbJevCapture') === -1, 'the module never names the storage keys (the deps own them)');
+  }
 }
 
 main().catch((error) => {

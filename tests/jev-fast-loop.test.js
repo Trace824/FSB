@@ -54,6 +54,13 @@
  *     during an in-flight decision aborts it and dispatches nothing; turning
  *     the switch off mid-run latches fast mode off.
  *
+ * Plan 68-08 adds recorded-llm capture through the same harness: on an armed
+ * loopback fixture page with an uncalibrated gateway, one capture menu per
+ * LLM-path iteration, labels from the LLM's own tool and the target the
+ * content script observed (through the real background case), drops counted
+ * by reason, and never a second decide; unarmed, no menu after the latch.
+ * The run_task case now allows exactly one read of the internal arm key.
+ *
  * Only one harness is live at a time: createHarness installs its own chrome
  * and timer globals, and dispose() restores them.
  *
@@ -242,6 +249,7 @@ const HANDOFF_PREFIX = 'FAST MODE HAND-OFF';
 /** fsbCreateFastPathDeps from background.js, evaluated in this realm so chrome and the timers resolve to the harness's. */
 function backgroundDepsFactory() {
   const code = '(function () {\n' + sliceFunction(backgroundSource, 'fsbFastPathWithDeadline') + '\n'
+    + sliceFunction(backgroundSource, 'fsbFastPathCaptureWrite') + '\n'
     + sliceFunction(backgroundSource, 'fsbCreateFastPathDeps') + '\nreturn fsbCreateFastPathDeps;\n})()';
   return vm.runInThisContext(code, { filename: 'background.js#fsbCreateFastPathDeps' });
 }
@@ -577,17 +585,29 @@ async function permissionDenialCase() {
 }
 
 async function runTaskCase() {
-  section('run_task: fastMode {enabled:false, source:"mcp"} stays on the golden path (D-03)');
+  section('run_task: fastMode {enabled:false, source:"mcp"} stays on the golden path apart from one capture arm read (D-03, D-22)');
   const decides = [];
+  let tabReads = 0;
+  const deps = createBackgroundDeps();
+  const getTabUrl = deps.getTabUrl;
+  deps.getTabUrl = (tabId) => { tabReads += 1; return getTabUrl(tabId); };
   const { record, harness } = await H.runGoldenScenario({
     loadFastPath: true,
     storage: { fsbJevFastModeEnabled: true },
-    deps: createBackgroundDeps(),
+    deps,
     jevResponder: (request) => { decides.push(request); return catchAll(request); },
     sessionPatch: { fastMode: { enabled: false, stored: true, source: 'mcp' } }
   });
   check(harness.session.fastMode && harness.session.fastMode.enabled === false, 'the run_task session carries enabled:false');
-  check(matchesGolden(record, 'run_task'), 'run_task: content messages, provider requests, tool calls and session.messages equal the golden');
+  // 68-08: a run_task command with the switch on reads the internal capture
+  // arm once (D-22 capture keys on the page, not the source); unarmed, it
+  // reads nothing else and the run is otherwise the golden.
+  const isArmRead = (e) => e.type === 'storage-get' && util.isDeepStrictEqual(e.keys, ['fsbJevCaptureArmed']);
+  const armReads = record.events.filter(isArmRead);
+  check(armReads.length === 1 && tabReads === 0, 'run_task: the command reads the capture arm exactly once and never the tab url (unarmed)');
+  check(!record.events.some((e) => e.type === 'storage-set'), 'run_task: nothing is written to storage');
+  check(matchesGolden({ events: record.events.filter((e) => !isArmRead(e)), final: record.final }, 'run_task'),
+    'run_task: apart from that one read, content messages, provider requests, tool calls and session.messages equal the golden');
   check(decides.length === 0 && !harness.contentMessages.some((m) => m.message && m.message.action === 'getJevMenu'),
     'run_task: no menu request and no decide call');
 }
@@ -1531,6 +1551,166 @@ async function switchOffCase() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Plan 68-08 Task 1: recorded-llm capture through the real loop (D-22)
+// ---------------------------------------------------------------------------
+
+const CAPTURE_PAGE = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
+const CAPTURE_CASE_LABEL = "case 'jevCaptureObservation': {";
+
+/** background.js's case 'jevCaptureObservation', compiled in this realm over `activeSessions`. */
+function captureCaseRunner(activeSessions) {
+  const start = backgroundSource.indexOf(CAPTURE_CASE_LABEL);
+  if (start < 0) throw new Error('case jevCaptureObservation not found in background.js');
+  let j = start + CAPTURE_CASE_LABEL.length - 1;
+  for (let depth = 0; j < backgroundSource.length; j += 1) {
+    if (backgroundSource[j] === '{') depth += 1;
+    else if (backgroundSource[j] === '}' && --depth === 0) break;
+  }
+  const body = backgroundSource.slice(start, j + 1);
+  const factory = vm.runInThisContext('(function (activeSessions) {\nreturn function runCaptureCase(request, sender, sendResponse) {\nswitch (request.action) {\n'
+    + body + '\n}\n};\n})', { filename: 'background.js#jevCaptureObservation' });
+  return factory(activeSessions);
+}
+
+/**
+ * The checklist fixture page: an Alpha box (j1) and Save (j2). A getJevMenu
+ * with capture:true arms one observation, which the next executeAction
+ * reports through the real background case, as the 68-03 content script
+ * does: '#alpha' and '#save' resolve to their handles, '#other' resolves
+ * outside the menu, and a text click resolves nothing.
+ */
+function captureContent(state) {
+  return function respond(message) {
+    if (message && message.action === 'getJevMenu') {
+      state.menus += 1;
+      const n = state.menus;
+      const options = message.options || {};
+      const generation = 'cafe' + n + 'abc-' + n;
+      state.armed = options.capture === true ? generation : null;
+      return {
+        success: true,
+        generation,
+        url: CAPTURE_PAGE,
+        title: 'Checklist',
+        visibleText: 'Checklist Alpha Save',
+        moreBelow: false,
+        signature: 'capsig-' + n,
+        count: 2,
+        truncated: false,
+        entries: [
+          entry('j1', { role: 'checkbox', label: 'Alpha', ops: ['check_box', 'click'], inputType: 'checkbox',
+            state: { checked: false, expanded: null, selected: null, pressed: null } }),
+          entry('j2', { label: 'Save' })
+        ],
+        recentHandles: (Array.isArray(options.recent) ? options.recent : []).map(() => null)
+      };
+    }
+    if (message && message.action === 'executeAction') {
+      if (state.armed !== null) {
+        const generation = state.armed;
+        state.armed = null;
+        const selector = message.params && typeof message.params.selector === 'string' ? message.params.selector : '';
+        const handle = selector === '#alpha' ? 'j1' : (selector === '#save' ? 'j2' : null);
+        state.observations.push({ tool: message.tool, handle });
+        state.runCase({ action: 'jevCaptureObservation', generation, handle, resolved: handle !== null || selector === '#other', tool: message.tool },
+          { tab: { id: state.tabId }, frameId: 0 }, () => {});
+      }
+      return { success: true };
+    }
+    return H.defaultContentResponder(message);
+  };
+}
+
+/** A fast-mode run on the checklist fixture page with an uncalibrated gateway; armed sets the internal capture arm. */
+function captureLoop(armed) {
+  const state = { menus: 0, armed: null, observations: [], tabId: null, runCase: null };
+  const decides = [];
+  const storage = { fsbJevFastModeEnabled: true };
+  if (armed) storage.fsbJevCaptureArmed = true;
+  const turn = (n, name, args) => H.openAiToolResponse('resp_cap_' + n, [{ id: 'call_cap_' + n, name, args }]);
+  const h = H.createHarness({
+    loadFastPath: true,
+    pageUrl: CAPTURE_PAGE,
+    storage,
+    sessionPatch: { fastMode: Object.assign({}, FAST_FIELD) },
+    deps: createBackgroundDeps(),
+    jevResponder: (request) => { decides.push(request); return { body: gateway.uncalibratedBody(request) }; },
+    contentResponder: captureContent(state),
+    providerScript: [
+      turn(1, 'check_box', { selector: '#alpha' }),
+      turn(2, 'click', { selector: '#save' }),
+      turn(3, 'get_page_snapshot', {}),
+      turn(4, 'click', { text: 'Save' }),
+      turn(5, 'click', { selector: '#other' }),
+      turn(6, 'get_page_snapshot', {})
+    ]
+  });
+  state.tabId = h.session.tabId;
+  state.runCase = captureCaseRunner(new Map([[h.sessionId, h.session]]));
+  return { h, state, decides };
+}
+
+async function captureLoopCases() {
+  section('capture through the loop: armed fixture page, uncalibrated gateway (D-22, T-68-11, T-68-17)');
+  {
+    const run = captureLoop(true);
+    const menusPerStep = [];
+    for (let i = 1; i <= 6; i += 1) {
+      await run.h.step();
+      menusPerStep.push(contentActions(stepEvents(run.h.events, i), 'getJevMenu'));
+    }
+    for (let i = 0; i < 40; i += 1) await new Promise((resolve) => setImmediate(resolve));
+    const ring = run.h.storage.local.fsbJevCaptureRing;
+    const NONE = gateway.CATCH_ALL;
+    check(run.decides.length === 1, 'capture loop: Jev is asked once (iteration 2), and never again after the uncalibrated latch');
+    check(menusPerStep.every((list) => list.length === 1 && list[0].message.options.capture === true && list[0].options && list[0].options.frameId === 0),
+      'capture loop: exactly one getJevMenu per LLM-path iteration, each with capture:true to frame 0');
+    check(run.state.observations.length === 4 && JSON.stringify(run.state.observations.map((o) => o.tool)) === JSON.stringify(['toggleCheckbox', 'click', 'click', 'click']),
+      'capture loop: each LLM action on an armed menu is observed once (iterations 1, 2, 4 and 5; the snapshot turns send none)');
+    check(ring && ring.v === 1 && Array.isArray(ring.records) && ring.records.length === 4,
+      'capture loop: one ring record per labelled LLM-path iteration (iterations 1, 2, 3 and 5; ' + (ring && ring.records ? ring.records.length : 'no ring') + ')');
+    const labels = ring && Array.isArray(ring.records) ? ring.records.map((r) => [r.iteration, r.label]) : [];
+    check(JSON.stringify(labels) === JSON.stringify([
+      [1, { op: 'check_box', target: 'j1' }],
+      [2, { op: 'click', target: 'j2' }],
+      [3, { op: NONE, target: NONE }],
+      [5, { op: 'click', target: NONE }]
+    ]), 'capture loop: labels follow the LLM\'s own tool and target (' + JSON.stringify(labels) + ')');
+    check(ring && JSON.stringify(ring.drops) === JSON.stringify({ target_unknown: 1 }), 'capture loop: the text-based click is dropped as target_unknown, never labelled');
+    const armReads = run.h.events.filter((e) => e.type === 'storage-get' && util.isDeepStrictEqual(e.keys, ['fsbJevCaptureArmed']));
+    check(armReads.length === 1, 'capture loop: the arm is read once for the command');
+    const pending = run.h.session._fastPath && run.h.session._fastPath.capturePending;
+    check(pending && pending.record && pending.record.iteration === 6, 'capture loop: the last LLM turn waits for the next iteration to be labelled');
+    const written = JSON.stringify(ring || {});
+    check(written.indexOf(run.h.session.task) === -1 && written.indexOf('?') === -1, 'capture loop: no task text and no query string in the ring');
+    check(run.h.session.status === 'running' && !run.h.session.messages.some((m) => typeof m.content === 'string' && m.content.indexOf(HANDOFF_PREFIX) === 0),
+      'capture loop: capture adds no session message and never ends the session');
+    run.h.dispose();
+  }
+
+  section('capture through the loop: unarmed, nothing is captured');
+  {
+    const run = captureLoop(false);
+    const menusPerStep = [];
+    for (let i = 1; i <= 6; i += 1) {
+      await run.h.step();
+      menusPerStep.push(contentActions(stepEvents(run.h.events, i), 'getJevMenu'));
+    }
+    for (let i = 0; i < 40; i += 1) await new Promise((resolve) => setImmediate(resolve));
+    check(run.decides.length === 1, 'capture loop (unarmed): one decide, in iteration 2');
+    check(menusPerStep[0].length === 0 && menusPerStep[1].length === 1 && menusPerStep[1][0].message.options.capture === false,
+      'capture loop (unarmed): the only menu is the fast attempt\'s, with capture:false');
+    check(menusPerStep.slice(2).every((list) => list.length === 0), 'capture loop (unarmed): no getJevMenu after the uncalibrated latch');
+    check(!('fsbJevCaptureRing' in run.h.storage.local) && !run.h.events.some((e) => e.type === 'storage-set'),
+      'capture loop (unarmed): no ring and no storage write');
+    check(run.state.observations.length === 0, 'capture loop (unarmed): no observation is ever sent');
+    const armReads = run.h.events.filter((e) => e.type === 'storage-get' && util.isDeepStrictEqual(e.keys, ['fsbJevCaptureArmed']));
+    check(armReads.length === 1, 'capture loop (unarmed): the arm is read once for the command');
+    run.h.dispose();
+  }
+}
+
 async function main() {
   await offGoldenCases();
   await offThreeWayCases();
@@ -1556,6 +1736,8 @@ async function main() {
   await exceptionCases();
   await stopCase();
   await switchOffCase();
+  // Plan 68-08 Task 1: recorded-llm capture through the real loop.
+  await captureLoopCases();
   terminalToolChecks();
   // The Task 2 golden cases again, after every fast-mode run in this process.
   section('off golden again after the fast-mode runs (no state leaks between harnesses)');

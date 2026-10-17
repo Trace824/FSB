@@ -1242,10 +1242,43 @@
    * bounded by the time left; the decision. After every await the attempt
    * stops when the session is no longer running (F21).
    *
+   * Capture (68-08, D-22) wraps the attempt and never changes it: the
+   * previous iteration's capture is labelled first, and an iteration that
+   * runs on the LLM path may hold one capture of its own (see the capture
+   * section below). Without the capture deps nothing here differs from 68-05.
+   *
    * ctx: {sessionId, iteration, deps?}.
    * @returns {Promise<{toolCall:Object, step:Object}|{decline:string}>}
    */
   async function beforeTurn(session, ctx) {
+    if (!isObject(session)) return { decline: 'exception' };
+    var c = isObject(ctx) ? ctx : {};
+    var capture = null;
+    try {
+      capture = captureContextOf(session, c);
+      if (capture !== null) finalizeCapture(capture);
+    } catch (_e) {
+      capture = null;
+    }
+    var result = await attemptStep(session, c, capture);
+    if (capture !== null && isObject(result) && typeof result.decline === 'string'
+      && result.decline !== 'stopped' && result.decline !== 'exception') {
+      try {
+        await captureLlmTurn(capture);
+      } catch (_e) {
+        /* capture never affects the iteration */
+      }
+    }
+    return result;
+  }
+
+  /**
+   * The fast attempt itself (68-05). `capture` is null unless capture may
+   * run for this session; when it is set, the attempt asks for its one menu
+   * with capture:true on an armed fixture page, so a declined iteration can
+   * reuse that menu instead of requesting a second one.
+   */
+  async function attemptStep(session, ctx, capture) {
     if (!isObject(session)) return { decline: 'exception' };
     var deps = null;
     try {
@@ -1272,6 +1305,7 @@
       if (jevFast.vaultFlow === true) return await declineWith(session, deps, latchCommand(jevFast, 'vault_flow'));
 
       var switchOn = await deps.readSwitch();
+      if (capture !== null) capture.switchOn = switchOn === true;
       if (isStopped(session)) return stoppedDecline();
       if (switchOn !== true) {
         latchOff(session, 'switch_off');
@@ -1280,10 +1314,20 @@
 
       var recent = state.recent.slice(Math.max(0, state.recent.length - constants.RECENT_ACTIONS_MAX));
       var descriptors = recent.map(function describe(item) { return recentDescriptor(item, state); });
+      var captureMenu = false;
+      if (capture !== null) {
+        captureMenu = await captureGate(capture, true);
+        if (isStopped(session)) return stoppedDecline();
+      }
       var menuStarted = deps.now();
-      var menu = await deps.requestMenu(session.tabId, { cap: constants.MENU_CAP, recent: descriptors, capture: false },
+      var menu = await deps.requestMenu(session.tabId, { cap: constants.MENU_CAP, recent: descriptors, capture: captureMenu },
         constants.MENU_DEADLINE_MS);
       jevFast.jevMs += elapsedSince(deps, menuStarted);
+      if (captureMenu) {
+        capture.menuFetched = true;
+        capture.menu = menu;
+        capture.recent = recent;
+      }
       if (isStopped(session)) return stoppedDecline();
       if (!isObject(menu) || menu.success !== true) return await declineWith(session, deps, 'menu_unavailable');
       if (typeof menu.url !== 'string' || typeof menu.signature !== 'string' || menu.signature.length === 0) {
@@ -1660,8 +1704,332 @@
       }
       trimRecent(state);
       state.lastLlmTools = names;
+      if (isObject(state.capturePending)) state.capturePending.llmTools = names.slice();
     } catch (_e) {
       latchOff(session, 'exception');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Capture (68-08, D-22): recorded-llm labels on armed loopback bench pages
+  // ---------------------------------------------------------------------------
+  //
+  // Capture records what fast mode would have offered before an LLM turn and
+  // what the LLM then did, so V3 can calibrate on realistic labels. It never
+  // asks Jev and never acts. It runs only when all of these hold:
+  //   - session.fastMode.stored is true (also on run_task sessions, whose
+  //     fastMode.enabled is false: capture keys on the page, not the source);
+  //   - the iteration runs on the LLM path;
+  //   - the internal arm key is set (deps.readCaptureArm, read at most once
+  //     per command and cached on the command state);
+  //   - the tab is a loopback bench fixture page (127.0.0.1 or localhost
+  //     with a port, then /r/<token>/fixtures/<slug>/), read every armed
+  //     iteration because a bench task opens its page with its first action;
+  //   - the stored switch is on.
+  // Before the LLM turn it holds the goal-free builder input of one menu and
+  // the menu generation; the next beforeTurn labels it from the LLM's first
+  // tool and the target the content script observed for that call, then
+  // hands the record to deps.appendCaptureRecord. A record that cannot be
+  // labelled truthfully is dropped and counted through deps.noteCaptureDrop.
+  // Writes are never awaited and never affect the session. A deps object
+  // without readCaptureArm, appendCaptureRecord and noteCaptureDrop disables
+  // capture.
+
+  var CAPTURE_DEPS = ['now', 'readSwitch', 'requestMenu', 'getTabUrl', 'readCaptureArm', 'appendCaptureRecord', 'noteCaptureDrop'];
+  var CAPTURE_URL_RE = /^http:\/\/(127\.0\.0\.1|localhost):\d+\/r\/[^\/]+\/fixtures\/[a-z0-9-]+\//;
+  var CAPTURE_OBSERVATION_KEYS = ['generation', 'handle', 'resolved', 'tool'];
+  var CAPTURE_SKIPPED_TOOL = 'report_progress';
+  var CAPTURE_NONE_FALLBACK = 'none_of_the_above';
+
+  function hasCaptureDeps(deps) {
+    if (!isObject(deps)) return false;
+    for (var i = 0; i < CAPTURE_DEPS.length; i += 1) {
+      if (typeof deps[CAPTURE_DEPS[i]] !== 'function') return false;
+    }
+    return true;
+  }
+
+  function isCaptureUrl(url) {
+    return typeof url === 'string' && CAPTURE_URL_RE.test(url);
+  }
+
+  /** The contract's reserved option key (none_of_the_above). */
+  function captureNone() {
+    var state = resolveState();
+    var key = state && isObject(state.CONTRACT) ? state.CONTRACT.RESERVED_OPTION_KEY : null;
+    return typeof key === 'string' && key.length > 0 ? key : CAPTURE_NONE_FALLBACK;
+  }
+
+  /** Hand one value to a capture writer without waiting; a throw or a rejection is ignored. */
+  function captureWrite(deps, name, value) {
+    try {
+      var written = deps[name](value);
+      if (written && typeof written.then === 'function') written.then(null, function ignoreCaptureError() {});
+    } catch (_e) {
+      /* capture is diagnostic only */
+    }
+  }
+
+  function captureDrop(deps, reason) {
+    captureWrite(deps, 'noteCaptureDrop', reason);
+  }
+
+  function captureTime(deps) {
+    try {
+      return countOrNull(deps.now());
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  /**
+   * The capture context for this iteration, or null when capture cannot run
+   * for this session: fastMode.stored is not true or the deps lack a capture
+   * member. Creating it calls no dependency.
+   */
+  function captureContextOf(session, c) {
+    if (!isObject(session.fastMode) || session.fastMode.stored !== true) return null;
+    var deps = resolveDeps(c);
+    if (!hasCaptureDeps(deps)) return null;
+    var state = fastPathOf(session);
+    return {
+      session: session,
+      deps: deps,
+      state: state,
+      jevFast: commandStateOf(session, state),
+      iteration: indexOrNull(c.iteration),
+      switchOn: null,
+      gate: null,
+      menuFetched: false,
+      menu: null,
+      recent: null
+    };
+  }
+
+  /**
+   * True when this iteration may be captured, computed once per iteration.
+   * In order: the arm (one read per command; a failed read counts as
+   * unarmed), the tab url, then the stored switch unless the caller has
+   * already read it as on. The session-level checks were made by
+   * captureContextOf and the LLM-path check by the caller.
+   */
+  async function captureGate(capture, switchKnownOn) {
+    if (typeof capture.gate === 'boolean') return capture.gate;
+    capture.gate = false;
+    var session = capture.session;
+    var deps = capture.deps;
+    var jevFast = capture.jevFast;
+    if (typeof jevFast.captureArmed !== 'boolean') {
+      var armed = false;
+      try {
+        armed = (await deps.readCaptureArm()) === true;
+      } catch (_e) {
+        armed = false;
+      }
+      jevFast.captureArmed = armed;
+    }
+    if (jevFast.captureArmed !== true || isStopped(session)) return false;
+    var url = null;
+    try {
+      url = await deps.getTabUrl(session.tabId);
+    } catch (_e) {
+      url = null;
+    }
+    if (isStopped(session) || !isCaptureUrl(url)) return false;
+    if (switchKnownOn !== true) {
+      var switchOn = false;
+      try {
+        switchOn = (await deps.readSwitch()) === true;
+      } catch (_e) {
+        switchOn = false;
+      }
+      if (switchOn !== true || isStopped(session)) return false;
+    }
+    capture.gate = true;
+    return true;
+  }
+
+  /**
+   * Hold this iteration's capture: the goal-free builder input of `menu`,
+   * its generation and the record shell. A menu that cannot become a
+   * builder input is dropped with a reason and nothing is held.
+   */
+  function holdCapture(capture, menu, recent) {
+    var deps = capture.deps;
+    var jevFast = capture.jevFast;
+    if (!isObject(menu) || menu.success !== true) return captureDrop(deps, 'menu_unavailable');
+    if (typeof menu.generation !== 'string' || menu.generation.length === 0) return captureDrop(deps, 'menu_invalid');
+    if (!isCaptureUrl(menu.url)) return captureDrop(deps, 'url_changed');
+    if (typeof jevFast.captureFirstUrl !== 'string') jevFast.captureFirstUrl = menu.url;
+    var firstPath = originPathOf(jevFast.captureFirstUrl);
+    var menuPath = originPathOf(menu.url);
+    var mapped = toBuilderInput(menu, {
+      recentActions: recentActionsFor(Array.isArray(recent) ? recent : [], menu.recentHandles),
+      navigatedInCommand: firstPath !== null && menuPath !== null && firstPath !== menuPath
+    });
+    if (!mapped.ok) return captureDrop(deps, mapped.reason);
+    var input = mapped.input;
+    capture.state.capturePending = {
+      command: jevFast.command,
+      generation: menu.generation,
+      observation: null,
+      llmTools: null,
+      record: {
+        v: 1,
+        capturedAt: captureTime(deps),
+        command: jevFast.command,
+        iteration: capture.iteration,
+        url: menuPath,
+        menuCap: constants.MENU_CAP,
+        entryCount: menu.entries.length,
+        builderInput: {
+          title: input.title,
+          visibleText: input.visibleText,
+          elements: input.elements,
+          vaultFilledIds: input.vaultFilledIds,
+          recentActions: input.recentActions,
+          offeredOps: input.offeredOps
+        },
+        label: { op: null, target: null }
+      }
+    };
+  }
+
+  /**
+   * Capture an iteration that runs on the LLM path. A menu the fast attempt
+   * asked for with capture:true is reused; otherwise the gate runs (unless
+   * the attempt already ran it) and one capture menu is requested. Nothing
+   * runs when the attempt read the switch as off or the session stopped.
+   */
+  async function captureLlmTurn(capture) {
+    var session = capture.session;
+    if (isStopped(session) || capture.switchOn === false) return;
+    if (capture.menuFetched) {
+      holdCapture(capture, capture.menu, capture.recent);
+      return;
+    }
+    if (!(await captureGate(capture, capture.switchOn === true))) return;
+    var state = capture.state;
+    var recent = state.recent.slice(Math.max(0, state.recent.length - constants.RECENT_ACTIONS_MAX));
+    var descriptors = recent.map(function describe(item) { return recentDescriptor(item, state); });
+    var menu = null;
+    try {
+      menu = await capture.deps.requestMenu(session.tabId, { cap: constants.MENU_CAP, recent: descriptors, capture: true },
+        constants.MENU_DEADLINE_MS);
+    } catch (_e) {
+      menu = null;
+    }
+    if (isStopped(session)) return;
+    holdCapture(capture, menu, recent);
+  }
+
+  /** TOOL_REGISTRY, resolved at call time: the worker's global, else tool-definitions.js under Node. */
+  function toolRegistry() {
+    try {
+      if (typeof TOOL_REGISTRY !== 'undefined') return Array.isArray(TOOL_REGISTRY) ? TOOL_REGISTRY : null;
+      if (typeof require === 'function') {
+        var loaded = require('./tool-definitions.js');
+        return isObject(loaded) && Array.isArray(loaded.TOOL_REGISTRY) ? loaded.TOOL_REGISTRY : null;
+      }
+    } catch (_e) {
+      return null;
+    }
+    return null;
+  }
+
+  function toolDefinitionOf(name) {
+    var registry = toolRegistry();
+    if (registry === null) return null;
+    for (var i = 0; i < registry.length; i += 1) {
+      if (isObject(registry[i]) && registry[i].name === name) return registry[i];
+    }
+    return null;
+  }
+
+  /** True when the tool's input schema declares a selector (an element target). */
+  function takesSelector(definition) {
+    var schema = isObject(definition.inputSchema) ? definition.inputSchema : null;
+    return schema !== null && isObject(schema.properties) && hasOwn(schema.properties, 'selector');
+  }
+
+  /**
+   * The label of a held capture, or the drop reason (a string). The
+   * operation is the LLM's first tool other than report_progress when fast
+   * mode offered it, else none_of_the_above. The target is none_of_the_above
+   * for a tool with no element target; for an element tool it is the handle
+   * the content script observed for that call (same content verb), or
+   * none_of_the_above when the call resolved an element outside the menu. A
+   * missing, unresolved or mismatched observation drops the record as
+   * target_unknown rather than guess.
+   */
+  function captureLabel(pending) {
+    var tools = pending.llmTools;
+    if (!Array.isArray(tools)) return 'no_tool_call';
+    var name = null;
+    for (var i = 0; i < tools.length; i += 1) {
+      if (typeof tools[i] === 'string' && tools[i] !== CAPTURE_SKIPPED_TOOL) {
+        name = tools[i];
+        break;
+      }
+    }
+    if (name === null) return 'progress_only';
+    var definition = toolDefinitionOf(name);
+    if (definition === null) return 'unknown_tool';
+    var none = captureNone();
+    var input = pending.record.builderInput;
+    var op = contains(input.offeredOps, name) ? name : none;
+    if (!takesSelector(definition)) return { op: op, target: none };
+    var seen = pending.observation;
+    if (!isObject(seen) || seen.resolved !== true || typeof definition._contentVerb !== 'string'
+      || seen.tool !== definition._contentVerb) return 'target_unknown';
+    var inMenu = typeof seen.handle === 'string' && input.elements.some(function isSeen(element) { return element.id === seen.handle; });
+    return { op: op, target: inMenu ? seen.handle : none };
+  }
+
+  /**
+   * Label the capture held by the previous iteration and hand it to the
+   * ring, or count its drop. A capture from an earlier command is dropped
+   * as stale_command.
+   */
+  function finalizeCapture(capture) {
+    var state = capture.state;
+    if (!hasOwn(state, 'capturePending')) return;
+    var pending = state.capturePending;
+    state.capturePending = null;
+    if (!isObject(pending)) return;
+    if (pending.command !== capture.jevFast.command) return captureDrop(capture.deps, 'stale_command');
+    var label = captureLabel(pending);
+    if (typeof label === 'string') return captureDrop(capture.deps, label);
+    pending.record.label = label;
+    captureWrite(capture.deps, 'appendCaptureRecord', pending.record);
+  }
+
+  /**
+   * The content script's report of which menu handle the LLM's action
+   * targeted (68-03), forwarded by the service worker. The payload's keys
+   * must be exactly {generation, handle, resolved, tool} and its generation
+   * must be the held capture's; the first valid observation is kept and any
+   * other is ignored. Returns true when it was kept. Never throws.
+   */
+  function noteCaptureObservation(session, payload) {
+    try {
+      if (!isObject(session) || !isObject(payload)) return false;
+      var keys = Object.keys(payload).sort();
+      if (keys.length !== CAPTURE_OBSERVATION_KEYS.length) return false;
+      for (var i = 0; i < keys.length; i += 1) {
+        if (keys[i] !== CAPTURE_OBSERVATION_KEYS[i]) return false;
+      }
+      var state = session._fastPath;
+      var pending = isObject(state) ? state.capturePending : null;
+      if (!isObject(pending) || pending.observation !== null) return false;
+      if (typeof payload.generation !== 'string' || payload.generation !== pending.generation) return false;
+      if (typeof payload.resolved !== 'boolean') return false;
+      if (payload.handle !== null && (typeof payload.handle !== 'string' || !HANDLE_RE.test(payload.handle))) return false;
+      if (payload.tool !== null && typeof payload.tool !== 'string') return false;
+      pending.observation = { handle: payload.handle, resolved: payload.resolved, tool: payload.tool };
+      return true;
+    } catch (_e) {
+      return false;
     }
   }
 
@@ -1685,7 +2053,8 @@
     observeTools: observeTools,
     flushHandoff: flushHandoff,
     latchOff: latchOff,
-    abortInFlight: abortInFlight
+    abortInFlight: abortInFlight,
+    noteCaptureObservation: noteCaptureObservation
   };
   root.FsbFastPath = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
