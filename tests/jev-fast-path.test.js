@@ -1999,6 +1999,336 @@ async function orchMeasurement() {
 }
 
 // ---------------------------------------------------------------------------
+// Plan 68-05 Task 2: afterStep and observeTools
+// ---------------------------------------------------------------------------
+
+const { ActionHistory } = require(path.join(ROOT, 'extension', 'ai', 'action-history.js'));
+
+const CHANNEL_CLOSED_RESULT = Object.freeze({
+  success: false,
+  error: 'Content tool click failed: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received',
+  navigationTriggered: false,
+  result: null
+});
+const DENIAL_RESULT = Object.freeze({ success: false, error: 'Tool "click" is not permitted for this origin', result: null });
+
+const reply = (response) => async () => response;
+const refuse = (message) => async () => { throw new Error(message); };
+
+/**
+ * A rig whose second iteration acted (a click on Next, or `op` on `label`),
+ * with a real ActionHistory holding the loop's event for that iteration.
+ */
+async function acted(o) {
+  const opts = o || {};
+  const r = rig(Object.assign({ responder: answer(opts.op || 'click', opts.label === undefined ? 'Next' : opts.label) }, opts));
+  await primed(r);
+  const out = await r.turn(2);
+  if (!out.toolCall) throw new Error('the rig did not act: ' + out.decline);
+  const history = new ActionHistory();
+  history.push({ tool: 'click', params: {}, result: { success: true }, timestamp: 1, iteration: 1 });
+  history.push({ tool: out.step.name, params: out.toolCall.args, result: { success: true }, timestamp: 2, iteration: out.step.iteration });
+  r.session._actionHistory = history;
+  r.session.actionHistory = history.events;
+  return { r, out, step: out.step };
+}
+
+/** toolResults as the loop builds them for one call. */
+function resultsFor(step, result) {
+  return [{ callId: step.callId, name: step.name, result }];
+}
+
+/** An LLM tool call and its loop result. */
+function llmCall(id, name, args) {
+  return { id, name, args: args || {} };
+}
+
+function loopResult(id, name, result) {
+  return { callId: id, name, result };
+}
+
+const OK_RESULT = (over) => Object.assign({ success: true, hadEffect: true, error: null, navigationTriggered: false, result: { success: true } }, over || {});
+
+async function afterProgress() {
+  check(typeof FsbFastPath.afterStep === 'function' && typeof FsbFastPath.observeTools === 'function', 'afterStep and observeTools are functions');
+  const { r, step } = await acted();
+  jf(r.session).consecutiveEscalations = 2;
+  const result = await realResult('click', reply({ success: true, hadEffect: true, verification: { verified: true, changes: ['dom'] } }));
+  const returned = FsbFastPath.afterStep(r.session, step, resultsFor(step, result));
+  check(returned === undefined, 'afterStep returns nothing (it never produces a tool call)');
+  check(sameJson(jf(r.session).lastStep, { op: 'click', role: 'button', label: 'Next', url: MENU_URL, signature: 'sig-1', outcome: 'progress', effectObserved: true }),
+    'a verified click is progress and becomes lastStep (' + JSON.stringify(jf(r.session).lastStep) + ')');
+  check(jf(r.session).consecutiveEscalations === 0 && jf(r.session).yieldToLlm === false && jf(r.session).latched === null,
+    'progress resets consecutiveEscalations and forces no LLM turn');
+  check(sameJson(fp(r.session).pendingSteps, [{ op: 'click', role: 'button', label: 'Next', effect: 'progress' }]), 'one pending hand-off step "page changed"');
+  check(sameJson(fp(r.session).recent, [{ op: 'click', role: 'button', name: 'Next', changed: true, source: 'jev', refEpoch: 0, docEpoch: 0 }]),
+    'the fast step is a recent action with its role/name descriptor and changed from the evidence');
+  const events = r.session._actionHistory.events;
+  check(events[1].decisionSource === 'jev' && !hasOwn(events[0], 'decisionSource'), 'the actionHistory event with the step\'s iteration and tool is tagged decisionSource jev');
+  const attempt = r.session.jevMeasurement.attempts[r.session.jevMeasurement.attempts.length - 1];
+  check(attempt.outcome === 'acted' && attempt.stepOutcome === 'progress', 'the acting attempt records stepOutcome progress');
+  check(r.session.jevMeasurement.commands[0].fastSteps === 1, 'the command totals count one fast step');
+
+  // The raw actionHistory array is used when no ActionHistory instance exists.
+  const plain = await acted();
+  delete plain.r.session._actionHistory;
+  plain.r.session.actionHistory = [{ tool: plain.step.name, iteration: plain.step.iteration, timestamp: 3 }];
+  FsbFastPath.afterStep(plain.r.session, plain.step, resultsFor(plain.step, result));
+  check(plain.r.session.actionHistory[0].decisionSource === 'jev', 'without _actionHistory the session.actionHistory event is tagged');
+}
+
+async function afterEscalations() {
+  const MAY = 'may have executed; inspect the page before retrying';
+  const cases = [
+    ['an unknown outcome (mayHaveExecuted)', 'click', () => realResult('click', reply({ success: false, outcome: 'unknown', mayHaveExecuted: true,
+      error: 'Click may have executed before verification failed. Inspect the page before retrying.' })), 'uncertain', 'uncertain', true],
+    ['a bfCache answer', 'click', () => realResult('click', refuse('Could not establish connection. Receiving end does not exist.')), 'uncertain', 'uncertain', true],
+    ['a dispatch failure with no content response', 'click', async () => CHANNEL_CLOSED_RESULT, 'uncertain', 'dispatch_unconfirmed', true],
+    ['the real channel-closed shape', 'click', () => realResult('click', refuse('A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received')),
+      'uncertain', 'dispatch_unconfirmed', true],
+    ['refStale', 'click', () => realResult('click', reply({ success: false, error: 'Fast-mode target is no longer current (name_changed).', tool: 'click', refStale: true, reason: 'name_changed' })),
+      'stale', 'stale', false],
+    ['a permission denial', 'click', async () => DENIAL_RESULT, 'denied', 'denied', false],
+    ['a content-reported failure', 'click', () => realResult('click', reply({ success: false, error: 'Element not found' })), 'failed', 'failed', false]
+  ];
+  for (const [name, op, produce, outcome, reason, uncertain] of cases) {
+    const { r, step } = await acted({ op, menus: [decisionMenu(), decisionMenu({ signature: 'sig-after' })] });
+    const result = await produce();
+    FsbFastPath.afterStep(r.session, step, resultsFor(step, result));
+    check(jf(r.session).lastStep.outcome === outcome && jf(r.session).yieldToLlm === true && fp(r.session).stopReason === reason
+      && fp(r.session).uncertain === uncertain && jf(r.session).consecutiveEscalations === 1,
+    name + ': ' + outcome + ' (' + reason + ') forces one LLM turn (' + JSON.stringify([jf(r.session).lastStep.outcome, fp(r.session).stopReason]) + ')');
+    const out = await r.turn(3);
+    const pushed = handoffs(r.session);
+    const text = pushed.length === 1 ? pushed[0].content : '';
+    check(out.decline === reason && !out.toolCall && r.log.requestMenu.length === 1 && r.client.calls.length === 1 && pushed.length === 1,
+      name + ': the next beforeTurn declines, asks Jev nothing and flushes one hand-off (' + JSON.stringify(out) + ')');
+    if (uncertain) {
+      check(text.includes(MAY) && !/not permitted/i.test(text), name + ': the hand-off says "' + MAY + '" and never "not permitted"');
+    } else if (outcome === 'denied') {
+      check(/not permitted/.test(text) && /nothing ran/.test(text) && !text.includes(MAY), name + ': the hand-off says the step was not permitted and nothing ran');
+    } else if (outcome === 'stale') {
+      check(text.includes('not run: the target changed') && text.includes(FsbFastPath.describeEscalation('stale')) && !/not permitted/i.test(text),
+        name + ': the hand-off says the target changed and nothing was done');
+    } else {
+      check(text.includes('reported a failure') && !/not permitted/i.test(text), name + ': the hand-off says the step reported a failure');
+    }
+    check(jf(r.session).yieldToLlm === false, name + ': the forced turn is consumed');
+    FsbFastPath.observeTools(r.session, [llmCall('c1', 'get_page_snapshot')], [loopResult('c1', 'get_page_snapshot', OK_RESULT())]);
+    const later = await r.turn(4);
+    check(r.client.calls.length === 2 && Boolean(later.toolCall || later.decline), name + ': after the LLM turn fast mode may ask again on a changed page (exactly one escalation)');
+  }
+}
+
+async function afterNoEffect() {
+  const { r, step } = await acted({ responder: answer('check_box', 'Alpha') });
+  check(step.op === 'check_box' && step.label === 'Alpha', 'the rig ticked Alpha');
+  const result = await realResult('check_box', reply({ success: true, alreadyInState: true, checked: true }));
+  FsbFastPath.afterStep(r.session, step, resultsFor(step, result));
+  check(jf(r.session).lastStep.outcome === 'no_effect' && jf(r.session).latched === 'no_progress' && jf(r.session).yieldToLlm === true,
+    'check_box already in state is no_effect: command latch no_progress and a forced LLM turn');
+  const out = await r.turn(3);
+  check(out.decline === 'no_progress' && r.log.requestMenu.length === 1 && handoffs(r.session).length === 1
+    && handoffs(r.session)[0].content.includes(FsbFastPath.describeEscalation('no_effect')), 'the next call declines and the hand-off says nothing changed');
+}
+
+async function afterUnconfirmed() {
+  const same = await acted({ menus: [decisionMenu(), decisionMenu()] });
+  const result = await realResult('click', reply({ success: true, hadEffect: true }));
+  FsbFastPath.afterStep(same.r.session, same.step, resultsFor(same.step, result));
+  check(jf(same.r.session).lastStep.outcome === 'unconfirmed' && jf(same.r.session).yieldToLlm === false && jf(same.r.session).latched === null,
+    'a success without verification or navigation is unconfirmed and forces nothing yet');
+  const out = await same.r.turn(3);
+  check(out.decline === 'no_progress' && jf(same.r.session).latched === 'no_progress' && same.r.client.calls.length === 1,
+    'the next menu with the same url and signature latches no_progress before any decide');
+  const changed = await acted({ menus: [decisionMenu(), decisionMenu({ signature: 'sig-2' })] });
+  FsbFastPath.afterStep(changed.r.session, changed.step, resultsFor(changed.step, result));
+  const next = await changed.r.turn(3);
+  check(Boolean(next.toolCall) && changed.r.client.calls.length === 2, 'a changed signature lets the next step be asked');
+}
+
+async function afterBroken() {
+  const missing = await acted();
+  let threw = null;
+  try {
+    FsbFastPath.afterStep(missing.r.session, missing.step, [{ callId: 'another-call', name: 'click', result: OK_RESULT() }]);
+  } catch (error) { threw = error; }
+  check(threw === null && fp(missing.r.session).off === true && fp(missing.r.session).offReason === 'exception',
+    'toolResults without the step\'s call id do not throw and latch the session exception');
+  check(fp(missing.r.session).pendingSteps.length === 1 && fp(missing.r.session).uncertain === true,
+    'the missing result is reported as a step that may have executed');
+  const out = await missing.r.turn(3);
+  check(out.decline === 'exception' && handoffs(missing.r.session).length === 1
+    && handoffs(missing.r.session)[0].content.includes('may have executed; inspect the page before retrying'), 'the next call hands off with the uncertainty sentence');
+
+  const hostile = await acted();
+  const trap = [Object.defineProperty({}, 'callId', { enumerable: true, get() { throw new Error('trap'); } })];
+  threw = null;
+  try {
+    FsbFastPath.afterStep(hostile.r.session, hostile.step, trap);
+  } catch (error) { threw = error; }
+  check(threw === null && fp(hostile.r.session).off === true && fp(hostile.r.session).offReason === 'exception'
+    && fp(hostile.r.session).pendingSteps.length === 1 && fp(hostile.r.session).uncertain === true,
+  'a throwing accessor does not throw, latches the session and still reports the step as uncertain');
+  threw = null;
+  try {
+    FsbFastPath.afterStep(null, hostile.step, []);
+    FsbFastPath.afterStep(hostile.r.session, null, null);
+    FsbFastPath.afterStep(undefined);
+  } catch (error) { threw = error; }
+  check(threw === null, 'afterStep never throws on missing arguments');
+}
+
+async function afterNavigation() {
+  for (const [name, produce] of [
+    ['a navigating click', () => realResult('click', reply({ success: true, navigationTriggered: true }))],
+    ['a bfCache answer', () => realResult('click', refuse('Could not establish connection. Receiving end does not exist.'))]
+  ]) {
+    const { r, step } = await acted();
+    fp(r.session).refEpoch = 4;
+    fp(r.session).docEpoch = 2;
+    const result = await produce();
+    FsbFastPath.afterStep(r.session, step, resultsFor(step, result));
+    const recorded = fp(r.session).recent[fp(r.session).recent.length - 1];
+    check(recorded.source === 'jev' && recorded.refEpoch === 4 && recorded.docEpoch === 2 && fp(r.session).refEpoch === 5 && fp(r.session).docEpoch === 3,
+      name + ': the fast entry is recorded at the epochs before the navigation, then both epochs move');
+  }
+  const page = await acted({ responder: answer('scroll', null) });
+  check(page.step.op === 'scroll' && page.step.role === null && page.step.label === null, 'a page-level step carries no role or label');
+  FsbFastPath.afterStep(page.r.session, page.step, resultsFor(page.step, await realResult('scroll', reply({ success: true }))));
+  const text = FsbFastPath.buildHandoffMessage({ steps: fp(page.r.session).pendingSteps, stopReason: null, uncertain: false, snapshot: null });
+  check(text.includes('1. scroll (page): no visible change') && !text.includes('""'), 'a page-level step reads "scroll (page)" in the hand-off, with no empty label');
+}
+
+async function observe() {
+  const r = rig();
+  await r.turn(1);
+  jf(r.session).consecutiveFast = 2;
+  jf(r.session).lastStep = { op: 'click', role: 'button', label: 'Next', url: MENU_URL, signature: 'sig-1', outcome: 'progress', effectObserved: true };
+  jf(r.session).previousStep = jf(r.session).lastStep;
+  const calls = [
+    llmCall('c1', 'click', { selector: 'e5' }),
+    llmCall('c2', 'get_page_snapshot'),
+    llmCall('c3', 'click', { selector: '#go' }),
+    llmCall('c4', 'navigate', { url: 'https://example.test/next' }),
+    llmCall('c5', 'report_progress', { message: 'x' }),
+    llmCall('c6', 'type_text', { selector: 'e7', text: 'SECRET-TYPED-TEXT' }),
+    llmCall('c7', 'hover', { ref: 'e9' })
+  ];
+  const results = [
+    loopResult('c7', 'hover', OK_RESULT({ hadEffect: true })),
+    loopResult('c1', 'click', OK_RESULT({ hadEffect: true, result: { verification: { verified: false } } })),
+    loopResult('c2', 'get_page_snapshot', OK_RESULT({ hadEffect: false, result: { snapshot: 'S' } })),
+    loopResult('c3', 'click', OK_RESULT({ result: { verification: { verified: true } } })),
+    loopResult('c4', 'navigate', OK_RESULT({ navigationTriggered: true })),
+    loopResult('c5', 'report_progress', OK_RESULT()),
+    loopResult('c6', 'type_text', OK_RESULT({ hadEffect: true }))
+  ];
+  const deepFreeze = (node) => { if (node && typeof node === 'object') { Object.values(node).forEach(deepFreeze); Object.freeze(node); } return node; };
+  const callsBefore = JSON.stringify(calls);
+  const resultsBefore = JSON.stringify(results);
+  deepFreeze(calls);
+  deepFreeze(results);
+  const returned = FsbFastPath.observeTools(r.session, calls, results);
+  check(returned === undefined && fp(r.session).off === false, 'observeTools returns nothing and does not latch on frozen input');
+  check(JSON.stringify(calls) === callsBefore && JSON.stringify(results) === resultsBefore, 'toolCalls and toolResults stay deep-equal to their input');
+  check(jf(r.session).llmTurnSeen === true && jf(r.session).consecutiveFast === 0 && jf(r.session).lastStep === null && jf(r.session).previousStep === null,
+    'observeTools sets llmTurnSeen, resets consecutiveFast and clears the no-progress chain');
+  check(sameJson(fp(r.session).recent, [
+    { op: 'click', selector: null, ref: 'e5', changed: false, source: 'llm', refEpoch: 0, docEpoch: 0 },
+    { op: 'click', selector: '#go', ref: null, changed: true, source: 'llm', refEpoch: 1, docEpoch: 0 },
+    { op: 'type_text', selector: null, ref: 'e7', changed: false, source: 'llm', refEpoch: 2, docEpoch: 1 },
+    { op: 'hover', selector: null, ref: 'e9', changed: false, source: 'llm', refEpoch: 2, docEpoch: 1 }
+  ]), 'recent actions: contract ops only, in call order, e-refs as refs, changed from evidence only (' + JSON.stringify(fp(r.session).recent) + ')');
+  check(fp(r.session).refEpoch === 2 && fp(r.session).docEpoch === 1, 'the snapshot moved refEpoch once and the navigation moved both epochs');
+  check(!JSON.stringify(r.session._fastPath).includes('SECRET-TYPED-TEXT'), 'typed text is never recorded');
+  check(sameJson(fp(r.session).lastLlmTools, ['click', 'get_page_snapshot', 'click', 'navigate', 'report_progress', 'type_text', 'hover']),
+    'the LLM\'s tool names are stored for capture');
+
+  // At most 10, newest last; long selectors are dropped, never cut.
+  const many = [];
+  const manyResults = [];
+  for (let i = 0; i < 13; i += 1) {
+    many.push(llmCall('m' + i, 'click', { selector: '#s' + i }));
+    manyResults.push(loopResult('m' + i, 'click', OK_RESULT()));
+  }
+  many.push(llmCall('long', 'click', { selector: '#' + 'a'.repeat(299) }));
+  many.push(llmCall('edge', 'click', { selector: '#' + 'b'.repeat(249) }));
+  FsbFastPath.observeTools(r.session, many, manyResults);
+  const recent = fp(r.session).recent;
+  check(recent.length === 10 && recent[recent.length - 1].selector === '#' + 'b'.repeat(249) && recent[recent.length - 2].selector === null
+    && recent[0].selector === '#s5', 'at most 10 recent actions, newest last; a selector over 250 characters is null');
+  check(recent.every((a) => a.selector === null || a.selector.length <= 250), 'every recorded selector is at most 250 characters');
+
+  // Vault tools.
+  FsbFastPath.observeTools(r.session, [llmCall('v1', 'fill_credential', { selector: '#user' })], [loopResult('v1', 'fill_credential', OK_RESULT())]);
+  check(jf(r.session).vaultFlow === true, 'a vault tool marks the command as a vault flow');
+  const out = await r.turn(2);
+  check(out.decline === 'vault_flow' && jf(r.session).latched === 'vault_flow', 'the next call latches the command vault_flow');
+
+  const source = fs.readFileSync(MODULE_PATH, 'utf8');
+  for (const name of ['afterStep', 'observeTools']) {
+    const start = source.indexOf('function ' + name + '(');
+    const end = source.indexOf('\n  }\n', start);
+    const body = start === -1 ? '' : source.slice(start, end);
+    check(body.length > 0 && !/\bawait\b/.test(body) && !/\basync\b/.test(source.slice(start - 6, start)), name + ' is synchronous (no await)');
+  }
+
+  let threw = null;
+  try {
+    FsbFastPath.observeTools(null, [], []);
+    FsbFastPath.observeTools(fastSession(), null, null);
+    FsbFastPath.observeTools(fastSession(), [null, 5, { name: 7 }, { id: 'x' }], 'not an array');
+  } catch (error) { threw = error; }
+  check(threw === null, 'observeTools never throws on malformed input');
+}
+
+async function observeDrivesTask1Cases() {
+  // First turn, through the real observeTools.
+  const r = rig();
+  check((await r.turn(1)).decline === 'first_llm_turn', 'observeTools path: the first iteration declines first_llm_turn');
+  FsbFastPath.observeTools(r.session, [llmCall('c1', 'click', { selector: 'e5' })], [loopResult('c1', 'click', OK_RESULT())]);
+  const out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.calls.length === 1, 'observeTools path: after the LLM turn the next call is eligible');
+  nextCommand(r.session);
+  check((await r.turn(1)).decline === 'first_llm_turn' && r.client.calls.length === 1, 'observeTools path: a follow-up command again starts with the LLM');
+
+  // Never re-roll, through the real observeTools.
+  const spy = wrapBuildRequest();
+  try {
+    const n = rig({ responder: answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } }) });
+    await n.turn(1);
+    FsbFastPath.observeTools(n.session, [llmCall('a', 'click', { selector: '#x' })], [loopResult('a', 'click', OK_RESULT())]);
+    const first = await n.turn(2);
+    FsbFastPath.observeTools(n.session, [llmCall('b', 'get_page_snapshot')], [loopResult('b', 'get_page_snapshot', OK_RESULT())]);
+    const built = spy.count;
+    const second = await n.turn(3);
+    check(first.decline === 'operation_below_threshold' && sameJson(second, { decline: 'same_state' }) && spy.count === built && n.client.calls.length === 1
+      && jf(n.session).consecutiveEscalations === 1, 'observeTools path: after a read-only LLM turn the unchanged page declines same_state');
+  } finally {
+    spy.restore();
+  }
+
+  // Recent descriptors, through the real observeTools.
+  const d = rig({ responder: answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } }),
+    menus: ['d1', 'd2', 'd3'].map((signature) => decisionMenu({ signature })) });
+  await d.turn(1);
+  FsbFastPath.observeTools(d.session, [llmCall('a', 'click', { selector: 'e5' }), llmCall('b', 'click', { selector: '#go' })],
+    [loopResult('a', 'click', OK_RESULT()), loopResult('b', 'click', OK_RESULT())]);
+  await d.turn(2);
+  check(sameJson(d.log.requestMenu[0].options.recent, [{ selector: null, ref: 'e5' }, { selector: '#go', ref: null }]),
+    'observeTools path: an LLM ref click is sent as {selector:null, ref:e5} and a selector click with its selector');
+  FsbFastPath.observeTools(d.session, [llmCall('c', 'get_page_snapshot')], [loopResult('c', 'get_page_snapshot', OK_RESULT())]);
+  await d.turn(3);
+  check(sameJson(d.log.requestMenu[1].options.recent, [{ selector: null, ref: null }, { selector: '#go', ref: null }]),
+    'observeTools path: after get_page_snapshot the ref is withheld and the selector survives');
+  FsbFastPath.observeTools(d.session, [llmCall('e', 'go_back')], [loopResult('e', 'go_back', OK_RESULT({ navigationTriggered: true }))]);
+  await d.turn(4);
+  check(sameJson(d.log.requestMenu[2].options.recent, [{ selector: null, ref: null }, { selector: null, ref: null }, { selector: null, ref: null }]),
+    'observeTools path: after a navigation every LLM descriptor is empty and the list keeps its order and length');
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -2040,6 +2370,14 @@ async function main() {
     await section('68-05 flushHandoff (D-10)', orchFlushHandoff);
     await section('68-05 beforeTurn: exceptions and missing deps (F13, T-68-08)', orchExceptions);
     await section('68-05 beforeTurn: measurement (D-23, T-68-11)', orchMeasurement);
+    await section('68-05 afterStep: progress, the pending hand-off and the actionHistory marker (D-17, D-23)', afterProgress);
+    await section('68-05 afterStep: uncertain, stale, denied and failed steps escalate once (D-18, sync issue 2, T-68-04)', afterEscalations);
+    await section('68-05 afterStep: no effect latches the command (D-17)', afterNoEffect);
+    await section('68-05 afterStep: unconfirmed steps are judged by the next menu (D-17)', afterUnconfirmed);
+    await section('68-05 afterStep: a missing or hostile result latches the session (T-68-08)', afterBroken);
+    await section('68-05 afterStep: navigation epochs and page-level steps (D-11)', afterNavigation);
+    await section('68-05 observeTools: what the LLM did on its own turn (D-09, D-11)', observe);
+    await section('68-05 first turn, never re-roll and recent descriptors through the real observeTools', observeDrivesTask1Cases);
   }
 
   console.log('\n--- Summary ---');

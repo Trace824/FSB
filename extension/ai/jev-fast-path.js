@@ -684,10 +684,12 @@
   function stepLine(step, index) {
     var s = isObject(step) ? step : {};
     var op = typeof s.op === 'string' && contains(ALL_OPERATIONS, s.op) ? s.op : 'step';
+    var effect = typeof s.effect === 'string' && hasOwn(EFFECT_TEXT, s.effect) ? EFFECT_TEXT[s.effect] : 'result unknown';
+    // scroll and go_back act on the page, not on a control: no role or label.
+    if (contains(PAGE_OPS, op)) return (index + 1) + '. ' + op + ' (page): ' + effect;
     var role = safePageText(s.role, ROLE_MAX);
     var label = safePageText(s.label, LABEL_MAX);
     var target = label === null ? '(label withheld)' : '"' + label + '" (page text)';
-    var effect = typeof s.effect === 'string' && hasOwn(EFFECT_TEXT, s.effect) ? EFFECT_TEXT[s.effect] : 'result unknown';
     return (index + 1) + '. ' + op + ' ' + (role === null || role.length === 0 ? 'control' : role) + ' ' + target + ': ' + effect;
   }
 
@@ -1416,6 +1418,253 @@
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // After a fast step, and after the LLM's own turn (68-05)
+  // ---------------------------------------------------------------------------
+
+  // A positional ref the LLM passes as a selector or ref ("e5"): re-minted by
+  // every snapshot, so it is tracked as a ref, never as a CSS selector.
+  var LLM_REF_RE = /^e[0-9]+$/i;
+  var SELECTOR_MAX = 250;
+
+  function trimRecent(state) {
+    var over = state.recent.length - constants.RECENT_ACTIONS_MAX;
+    if (over > 0) state.recent.splice(0, over);
+  }
+
+  /** {found, result} for the step's call id; the scan may throw on a hostile entry. */
+  function stepResultIn(toolResults, callId) {
+    if (!Array.isArray(toolResults) || typeof callId !== 'string') return { found: false, result: undefined };
+    for (var i = 0; i < toolResults.length; i += 1) {
+      var item = toolResults[i];
+      if (isObject(item) && item.callId === callId) return { found: true, result: item.result };
+    }
+    return { found: false, result: undefined };
+  }
+
+  /** The pending hand-off line for a step: {op, role, label, effect}, nothing else. */
+  function pendingStepOf(step, effect) {
+    return {
+      op: typeof step.op === 'string' ? step.op : null,
+      role: typeof step.role === 'string' ? step.role : null,
+      label: typeof step.label === 'string' ? step.label : null,
+      effect: effect
+    };
+  }
+
+  /** Mark the acting attempt of this step with what the step did. */
+  function markStepOutcome(session, step, outcome) {
+    var block = session.jevMeasurement;
+    if (!isObject(block) || !Array.isArray(block.attempts)) return;
+    for (var i = block.attempts.length - 1; i >= 0; i -= 1) {
+      var attempt = block.attempts[i];
+      if (isObject(attempt) && attempt.outcome === 'acted' && attempt.iteration === step.iteration && attempt.command === step.command) {
+        if (contains(STEP_OUTCOMES, outcome)) attempt.stepOutcome = outcome;
+        return;
+      }
+    }
+  }
+
+  /** Tag the loop's actionHistory event for this step (same iteration and tool) decisionSource 'jev' (D-23). */
+  function tagActionHistory(session, step) {
+    var history = isObject(session._actionHistory) && Array.isArray(session._actionHistory.events)
+      ? session._actionHistory.events
+      : (Array.isArray(session.actionHistory) ? session.actionHistory : null);
+    if (history === null) return;
+    for (var i = history.length - 1; i >= 0; i -= 1) {
+      var event = history[i];
+      if (isObject(event) && event.iteration === step.iteration && event.tool === step.name) {
+        event.decisionSource = 'jev';
+        return;
+      }
+    }
+  }
+
+  /**
+   * What one fast step did, read from its own tool result (D-17, D-18). It
+   * never dispatches, never schedules and never retries: an uncertain, stale,
+   * failed or denied step makes the LLM take the next turn exactly once, with
+   * a truthful hand-off; no effect latches the command; progress resets the
+   * escalation run; an unconfirmed step is judged by the next menu's
+   * signature. Synchronous; never throws (a failure latches the session).
+   */
+  function afterStep(session, step, toolResults) {
+    if (!isObject(session)) return;
+    var pushed = false;
+    try {
+      var state = fastPathOf(session);
+      var jevFast = commandStateOf(session, state);
+      if (!isObject(step)) {
+        latchOff(session, 'exception');
+        return;
+      }
+      var lookup = stepResultIn(toolResults, step.callId);
+      var toolResult = lookup.result;
+      var verdict = classifyStepEvidence(step.op, toolResult);
+      var outcome = verdict.outcome;
+      state.pendingSteps.push(pendingStepOf(step, outcome));
+      pushed = true;
+
+      jevFast.previousStep = isObject(jevFast.lastStep) ? jevFast.lastStep : null;
+      jevFast.lastStep = {
+        op: typeof step.op === 'string' ? step.op : null,
+        role: typeof step.role === 'string' ? step.role : null,
+        label: typeof step.label === 'string' ? step.label : null,
+        url: typeof step.url === 'string' ? step.url : null,
+        signature: typeof step.signature === 'string' ? step.signature : null,
+        outcome: outcome,
+        effectObserved: verdict.effectObserved === true
+      };
+
+      // The step's own recent action, recorded at the epochs it ran under.
+      if (typeof step.op === 'string' && contains(ALL_OPERATIONS, step.op)) {
+        state.recent.push({
+          op: step.op,
+          role: typeof step.role === 'string' ? step.role : null,
+          name: typeof step.label === 'string' ? step.label : null,
+          changed: verdict.effectObserved === true,
+          source: 'jev',
+          refEpoch: state.refEpoch,
+          docEpoch: state.docEpoch
+        });
+        trimRecent(state);
+      }
+      if (isObject(toolResult) && toolResult.navigationTriggered === true) {
+        state.docEpoch += 1;
+        state.refEpoch += 1;
+      }
+
+      var escalation = null;
+      if (outcome === 'progress') {
+        jevFast.consecutiveEscalations = 0;
+      } else if (outcome === 'no_effect') {
+        escalation = 'no_effect';
+        latchCommand(jevFast, 'no_progress');
+        jevFast.yieldToLlm = true;
+        state.stopReason = 'no_effect';
+      } else if (outcome === 'uncertain' || outcome === 'stale' || outcome === 'failed' || outcome === 'denied') {
+        escalation = verdict.reason;
+        jevFast.yieldToLlm = true;
+        state.stopReason = verdict.reason;
+        if (outcome === 'uncertain') state.uncertain = true;
+        jevFast.consecutiveEscalations += 1;
+        if (jevFast.consecutiveEscalations >= constants.FAST_ESCALATION_LATCH) latchCommand(jevFast, 'escalation_latch');
+      }
+
+      markStepOutcome(session, step, outcome);
+      if (isObject(session.jevMeasurement)) {
+        var command = indexOrNull(step.command) !== null ? step.command : jevFast.command;
+        addCommandTotals(session, command, { fastSteps: 1, escalation: escalation === null ? undefined : escalation });
+      }
+      tagActionHistory(session, step);
+      // No result for this call id: the step may have run, and the loop and
+      // this module disagree about it, so fast mode stops for the session.
+      if (!lookup.found) latchOff(session, 'exception');
+    } catch (_e) {
+      latchOff(session, 'exception');
+      if (!pushed && isObject(step)) {
+        try {
+          var fallbackState = fastPathOf(session);
+          fallbackState.pendingSteps.push(pendingStepOf(step, 'uncertain'));
+          fallbackState.uncertain = true;
+          if (typeof fallbackState.stopReason !== 'string' || fallbackState.stopReason.length === 0) fallbackState.stopReason = 'exception';
+        } catch (_ignored) {
+          /* nothing more can be done */
+        }
+      }
+    }
+  }
+
+  /** {selector, ref} of an LLM call: an e-ref is a ref; a selector over SELECTOR_MAX is dropped, never cut. */
+  function llmTargetOf(args) {
+    var a = isObject(args) ? args : {};
+    var ref = typeof a.ref === 'string' && LLM_REF_RE.test(a.ref) ? a.ref : null;
+    var selector = null;
+    if (typeof a.selector === 'string' && a.selector.length > 0) {
+      if (LLM_REF_RE.test(a.selector)) {
+        if (ref === null) ref = a.selector;
+      } else if (a.selector.length <= SELECTOR_MAX) {
+        selector = a.selector;
+      }
+    }
+    return { selector: selector, ref: ref };
+  }
+
+  /** Evidence that an LLM action changed the page: a navigation or a verified effect, never the success flag. */
+  function llmChanged(result) {
+    if (!isObject(result)) return false;
+    if (result.navigationTriggered === true) return true;
+    var nested = isObject(result.result) ? result.result : null;
+    return nested !== null && isObject(nested.verification) && nested.verification.verified === true;
+  }
+
+  /** The loop result for one LLM call: by call id, else by position when the call has no id. */
+  function resultOfCall(results, call, index) {
+    if (typeof call.id === 'string') {
+      for (var i = 0; i < results.length; i += 1) {
+        if (isObject(results[i]) && results[i].callId === call.id) return results[i].result;
+      }
+      return undefined;
+    }
+    var same = results[index];
+    return isObject(same) && same.name === call.name ? same.result : undefined;
+  }
+
+  /**
+   * Record what the LLM did on its own turn (D-09, D-11). Called only on
+   * LLM-path iterations that executed tools. It marks the LLM turn, ends the
+   * run of fast steps and the no-progress chain, records the LLM's recent
+   * actions (contract operations only, with evidence-based changed values
+   * and the epochs they ran under), moves refEpoch on get_page_snapshot and
+   * both epochs on any navigation, notes vault-tool use and keeps the tool
+   * names for capture. It only reads toolCalls and toolResults.
+   * Synchronous; never throws.
+   */
+  function observeTools(session, toolCalls, toolResults) {
+    if (!isObject(session)) return;
+    try {
+      var state = fastPathOf(session);
+      var jevFast = commandStateOf(session, state);
+      jevFast.llmTurnSeen = true;
+      jevFast.yieldToLlm = false;
+      jevFast.consecutiveFast = 0;
+      jevFast.lastStep = null;
+      jevFast.previousStep = null;
+      var calls = Array.isArray(toolCalls) ? toolCalls : [];
+      var results = Array.isArray(toolResults) ? toolResults : [];
+      var names = [];
+      for (var i = 0; i < calls.length; i += 1) {
+        var call = calls[i];
+        if (!isObject(call) || typeof call.name !== 'string') continue;
+        var name = call.name;
+        names.push(name);
+        var result = resultOfCall(results, call, i);
+        if (contains(constants.VAULT_TOOL_NAMES, name)) jevFast.vaultFlow = true;
+        if (contains(ALL_OPERATIONS, name)) {
+          var target = llmTargetOf(call.args);
+          state.recent.push({
+            op: name,
+            selector: target.selector,
+            ref: target.ref,
+            changed: llmChanged(result),
+            source: 'llm',
+            refEpoch: state.refEpoch,
+            docEpoch: state.docEpoch
+          });
+        }
+        if (name === 'get_page_snapshot') state.refEpoch += 1;
+        if (isObject(result) && result.navigationTriggered === true) {
+          state.docEpoch += 1;
+          state.refEpoch += 1;
+        }
+      }
+      trimRecent(state);
+      state.lastLlmTools = names;
+    } catch (_e) {
+      latchOff(session, 'exception');
+    }
+  }
+
   var api = {
     constants: constants,
     classifyFallback: classifyFallback,
@@ -1432,6 +1681,8 @@
     addCommandTotals: addCommandTotals,
     attemptFromResult: attemptFromResult,
     beforeTurn: beforeTurn,
+    afterStep: afterStep,
+    observeTools: observeTools,
     flushHandoff: flushHandoff,
     latchOff: latchOff,
     abortInFlight: abortInFlight
