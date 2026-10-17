@@ -2,10 +2,11 @@
 'use strict';
 
 /**
- * Phase 68 Plan 04 -- FsbFastPath pure core (AUTO-02..AUTO-05).
+ * Phase 68 Plans 04 and 05 -- FsbFastPath (AUTO-02..AUTO-05).
  *
- * Proves the fast-path decision core offline, with a fake gateway
- * (tests/fixtures/jev-fake-gateway.js) and a test-only calibrated profile:
+ * Proves the fast-path decision core and its orchestration offline, with a
+ * fake gateway (tests/fixtures/jev-fake-gateway.js) and a test-only
+ * calibrated profile:
  *
  *   - module shape: one IIFE, one global, inert load, none of the 67-11
  *     boundary bans, and Jev answers read only through FsbJevPolicy.accept;
@@ -15,7 +16,11 @@
  *     empty-target-set decline (sync issue 6);
  *   - evaluateDecision over real FsbJevClient results;
  *   - buildStaticCall: code-held arguments only, pagePath on the call object;
- *   - evidence, no-progress, hand-off text and measurement helpers (Task 2).
+ *   - evidence, no-progress, hand-off text and measurement helpers (Task 2);
+ *   - 68-05 orchestration over fake deps and the fake-gateway client:
+ *     beforeTurn (eligibility, latches, budgets, one menu, one decide, the
+ *     decision and the hand-off flush), flushHandoff, latchOff and
+ *     abortInFlight.
  *
  * No network, no ports, no real timers. Node 20-safe.
  *
@@ -1145,11 +1150,860 @@ async function measurement() {
 }
 
 // ---------------------------------------------------------------------------
+// Plan 68-05 Task 1: orchestration (beforeTurn, flushHandoff, latchOff,
+// abortInFlight) over fake deps and the fake-gateway client (held timers).
+// ---------------------------------------------------------------------------
+
+// A bench goal holding a run token: the 67-01 high-entropy rule makes it sensitive_goal (F5).
+const BENCH_GOAL = 'Open http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html. Tick Alpha.';
+const MENU_URL = 'https://example.test/wizard/step-2?token=abc#frag';
+
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+function tick() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function until(predicate) {
+  for (let i = 0; i < 200 && !predicate(); i += 1) await tick();
+  return predicate();
+}
+
+/** A copy of a JSON-shaped value, so a recorded call cannot change later. */
+function copyJson(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+/**
+ * Fake fast-path deps recording every call. opts: {menus (a queue of menus,
+ * nulls or functions(options)), menu (the default once the queue is empty),
+ * readSwitch(), snapshot(), menuMs (clock advance per menu)}. A menu object
+ * without recentHandles answers one null per recent descriptor, like a page
+ * where nothing resolves.
+ */
+function fakeDeps(o) {
+  const opts = o || {};
+  const log = { now: 0, readSwitch: 0, requestMenu: [], requestSnapshot: [], getTabUrl: 0 };
+  const clock = { t: 1000 };
+  const queue = Array.isArray(opts.menus) ? opts.menus.slice() : [];
+  const deps = {
+    now() { log.now += 1; return clock.t; },
+    readSwitch() { log.readSwitch += 1; return opts.readSwitch ? opts.readSwitch() : Promise.resolve(true); },
+    requestMenu(tabId, options, deadlineMs) {
+      log.requestMenu.push({ tabId, options: copyJson(options), deadlineMs });
+      if (opts.menuMs) clock.t += opts.menuMs;
+      const next = queue.length > 0 ? queue.shift() : (hasOwn(opts, 'menu') ? opts.menu : decisionMenu());
+      if (typeof next === 'function') return next(options);
+      if (next === null || next === undefined || typeof next !== 'object') return Promise.resolve(next === undefined ? null : next);
+      const menu = copyJson(next);
+      if (menu.success === true && !Array.isArray(menu.recentHandles)) {
+        menu.recentHandles = (options && Array.isArray(options.recent) ? options.recent : []).map(() => null);
+      }
+      return Promise.resolve(menu);
+    },
+    requestSnapshot(tabId, deadlineMs) {
+      log.requestSnapshot.push({ tabId, deadlineMs });
+      return opts.snapshot ? opts.snapshot() : Promise.resolve({ success: true, markdownSnapshot: 'SNAP-CURRENT' });
+    },
+    getTabUrl() { log.getTabUrl += 1; return Promise.resolve(MENU_URL); }
+  };
+  return { deps, log, clock };
+}
+
+function idByLabel(request, label) {
+  const element = request.elements.find((e) => e.label === label);
+  return element ? element.id : gateway.CATCH_ALL;
+}
+
+/** A calibrated answer: `op` on the element labelled `label` (the catch-all when label is null). */
+function answer(op, label, extra) {
+  return (request) => ({ body: gateway.calibratedBody(request, Object.assign({
+    operation: { choice: op },
+    target: { choice: label === null ? gateway.CATCH_ALL : idByLabel(request, label) }
+  }, extra || {})) });
+}
+
+function fastSession(over) {
+  return Object.assign({
+    sessionId: 'sess-68-05',
+    status: 'running',
+    task: GOAL,
+    tabId: 7,
+    commandCount: 1,
+    fastMode: { enabled: true, stored: true, source: null },
+    messages: [{ role: 'system', content: 'system prompt' }, { role: 'user', content: GOAL }],
+    agentState: { iterationCount: 0 }
+  }, over || {});
+}
+
+/**
+ * One fast-path rig: a session, fake deps and a real FsbJevClient over the
+ * fake gateway with held timers and the deps clock. opts: fakeDeps options
+ * plus {responder, decideMs, session}.
+ */
+function rig(o) {
+  const opts = o || {};
+  const fake = fakeDeps(opts);
+  const responder = opts.responder || answer('click', 'Next');
+  const client = gateway.makeClient((request, info) => {
+    if (opts.decideMs) fake.clock.t += opts.decideMs;
+    return responder(request, info);
+  }, { now: () => fake.clock.t });
+  fake.deps.jevClient = client;
+  const session = fastSession(opts.session);
+  return {
+    session,
+    deps: fake.deps,
+    log: fake.log,
+    clock: fake.clock,
+    client,
+    ctx: (iteration) => ({ sessionId: session.sessionId, iteration, deps: fake.deps }),
+    turn: (iteration) => FsbFastPath.beforeTurn(session, { sessionId: session.sessionId, iteration, deps: fake.deps })
+  };
+}
+
+function jf(session) {
+  return session.agentState && session.agentState.jevFast;
+}
+
+function fp(session) {
+  return session._fastPath;
+}
+
+/** Run the command's first beforeTurn (first_llm_turn), then seed the LLM turn as observeTools would. */
+async function primed(r) {
+  const first = await r.turn(1);
+  if (jf(r.session)) jf(r.session).llmTurnSeen = true;
+  return first;
+}
+
+/** Start a follow-up command: a new commandCount and a rebuilt agentState (hydrateAgentRunState). */
+function nextCommand(session) {
+  session.commandCount = (session.commandCount || 1) + 1;
+  session.agentState = { iterationCount: 0 };
+}
+
+function handoffs(session) {
+  return session.messages.filter((m) => m && m.role === 'user' && typeof m.content === 'string'
+    && m.content.indexOf(FsbFastPath.constants.SUMMARY_PREFIX) === 0);
+}
+
+const PENDING_CLICK = Object.freeze({ op: 'click', role: 'button', label: 'Next', effect: 'progress' });
+
+/** Install a FsbJevState copy whose buildRequest is wrapped; returns {count, restore}. */
+function wrapBuildRequest(replacement) {
+  const had = hasOwn(globalThis, 'FsbJevState');
+  const previous = globalThis.FsbJevState;
+  const spy = { count: 0 };
+  globalThis.FsbJevState = Object.assign({}, FsbJevState, {
+    buildRequest(input, opts) {
+      spy.count += 1;
+      return replacement ? replacement(input, opts) : FsbJevState.buildRequest(input, opts);
+    }
+  });
+  spy.restore = () => {
+    if (had) globalThis.FsbJevState = previous;
+    else delete globalThis.FsbJevState;
+  };
+  return spy;
+}
+
+async function orchModuleSurface() {
+  for (const name of ['beforeTurn', 'flushHandoff', 'latchOff', 'abortInFlight']) {
+    check(typeof FsbFastPath[name] === 'function', 'FsbFastPath.' + name + ' is a function');
+  }
+  const source = fs.readFileSync(MODULE_PATH, 'utf8');
+  check((source.match(/getHashKey/g) || []).length === 0, 'the module never names a hash-key supplier (D-11)');
+  check(/decide\(/.test(source) && /requestMenu/.test(source), 'the module calls decide( and requestMenu');
+  check(!/fsbFastPathDeps\s*=/.test(source), 'the module never assigns the deps global (background.js owns it, 68-06)');
+}
+
+async function orchFirstTurn() {
+  const r = rig();
+  const first = await r.turn(1);
+  check(sameJson(first, { decline: 'first_llm_turn' }), 'the first iteration of a command declines first_llm_turn (' + JSON.stringify(first) + ')');
+  check(r.log.readSwitch === 0 && r.log.requestMenu.length === 0 && r.log.requestSnapshot.length === 0 && r.client.calls.length === 0,
+    'first_llm_turn makes no readSwitch, requestMenu, requestSnapshot or decide call');
+  check(sameJson(sortedKeys(fp(r.session)), ['docEpoch', 'inFlight', 'lastLlmTools', 'off', 'offCommand', 'offReason', 'pendingSteps', 'recent', 'refEpoch', 'stopReason', 'uncertain']),
+    'session._fastPath holds the documented keys');
+  check(sameJson(sortedKeys(jf(r.session)), ['answeredStates', 'calls', 'command', 'consecutiveEscalations', 'consecutiveFast', 'firstUrl', 'jevMs',
+    'lastStep', 'latched', 'llmTurnSeen', 'previousStep', 'steps', 'vaultFlow', 'yieldToLlm']),
+  'session.agentState.jevFast holds the documented keys');
+  const again = await r.turn(2);
+  check(again.decline === 'first_llm_turn' && r.log.requestMenu.length === 0, 'without an LLM turn the command stays ineligible');
+  jf(r.session).llmTurnSeen = true;
+  const eligible = await r.turn(3);
+  check(Boolean(eligible.toolCall) && r.log.requestMenu.length === 1 && r.client.calls.length === 1, 'after an LLM turn the next call is eligible');
+  nextCommand(r.session);
+  const follow = await r.turn(1);
+  check(follow.decline === 'first_llm_turn' && r.log.readSwitch === 1 && r.log.requestMenu.length === 1 && r.client.calls.length === 1,
+    'a follow-up command (new agentState, new jevFast) declines first_llm_turn with no fast-path call');
+  check(jf(r.session).command === 2 && jf(r.session).llmTurnSeen === false, 'jevFast is rebuilt for the follow-up command');
+}
+
+async function orchNotEnabled() {
+  const counts = { now: 0, readSwitch: 0, requestMenu: 0, requestSnapshot: 0, getTabUrl: 0 };
+  const deps = {};
+  for (const name of Object.keys(counts)) {
+    deps[name] = () => { counts[name] += 1; return name === 'now' ? 0 : Promise.resolve(name === 'readSwitch' ? true : null); };
+  }
+  const client = gateway.makeClient(() => ({ body: {} }));
+  deps.jevClient = client;
+  const session = fastSession({ fastMode: { enabled: false, stored: true, source: 'mcp' } });
+  const before = JSON.stringify(session.messages);
+  for (let i = 1; i <= 4; i += 1) {
+    const out = await FsbFastPath.beforeTurn(session, { sessionId: 's', iteration: i, deps });
+    check(sameJson(out, { decline: 'not_enabled' }), 'a run_task session declines not_enabled at iteration ' + i);
+    if (jf(session)) jf(session).llmTurnSeen = true;
+  }
+  check(Object.values(counts).every((n) => n === 0), 'not_enabled makes zero calls on every fast-path dependency (' + JSON.stringify(counts) + ')');
+  check(client.calls.length === 0, 'not_enabled never calls decide');
+  check(JSON.stringify(session.messages) === before, 'not_enabled adds no message');
+  check(!hasOwn(session, 'jevMeasurement'), 'not_enabled creates no measurement block');
+  const bare = fastSession();
+  delete bare.fastMode;
+  const out = await FsbFastPath.beforeTurn(bare, { iteration: 1, deps });
+  check(out.decline === 'not_enabled' && Object.values(counts).every((n) => n === 0), 'a session without fastMode declines not_enabled with no call');
+}
+
+async function orchAccepted() {
+  const C = FsbFastPath.constants;
+  const r = rig({ menuMs: 30, decideMs: 70, menus: [decisionMenu(), decisionMenu({ signature: 'sig-2' })] });
+  await primed(r);
+  const out = await r.turn(4);
+  check(Boolean(out && out.toolCall && out.step), 'a calibrated click returns {toolCall, step} (' + JSON.stringify(out && out.decline) + ')');
+  if (!out || !out.toolCall) return;
+  check(r.log.requestMenu.length === 1 && sameJson(r.log.requestMenu[0].options, { cap: 48, recent: [], capture: false })
+    && r.log.requestMenu[0].deadlineMs === 1500 && r.log.requestMenu[0].tabId === 7,
+  'exactly one requestMenu with {cap:48, recent:[], capture:false}, deadline 1500, on the session tab');
+  check(r.log.readSwitch === 1, 'the stored switch is re-read before the attempt');
+  check(r.client.calls.length === 1, 'exactly one decide call');
+  const request = r.client.calls[0].request;
+  check(request.goal === r.session.task && sameJson(request.kinds, C.KINDS) && !hasOwn(request, 'proposedAction'),
+    'the request carries goal === session.task, the four kinds and no proposedAction');
+  const call = out.toolCall;
+  check(call.name === 'click' && call.source === 'jev' && sameJson(call.args, { jevHandle: 'j1', jevGeneration: 'abcd1234-1',
+    expectedRole: 'button', expectedName: 'Next', visual_reason: C.FAST_VISUAL_REASON }), 'the tool call args are code-built from the menu entry');
+  check(call.id === 'jev_1_4' && call.pagePath === '/wizard/step-2', 'the call id is jev_<command>_<iteration> and pagePath is on the call object');
+  const step = out.step;
+  check(sameJson(sortedKeys(step), ['callId', 'command', 'generation', 'handle', 'iteration', 'label', 'name', 'op', 'role', 'signature', 'url']),
+    'the step holds exactly callId, name, op, handle, role, label, url, signature, generation, iteration and command');
+  check(step.callId === call.id && step.name === call.name && step.op === 'click' && step.handle === 'j1' && step.role === 'button'
+    && step.label === 'Next' && step.url === MENU_URL && step.signature === 'sig-1' && step.generation === 'abcd1234-1'
+    && step.iteration === 4 && step.command === 1, 'the step values come from the menu and the call');
+  check(jf(r.session).steps === 1 && jf(r.session).calls === 1 && jf(r.session).consecutiveFast === 1, 'steps, calls and consecutiveFast increment');
+  check(jf(r.session).jevMs === 100, 'jevMs adds the measured menu (30) and decide (70) durations (' + jf(r.session).jevMs + ')');
+  check(r.client.timers.lastDelay() === 2500 && r.client.timers.pending() === 0, 'decide armed the 2500 ms deadline and cleared it');
+  check(handoffs(r.session).length === 0, 'an acting call pushes no message');
+
+  const second = await r.turn(5);
+  check(second.toolCall && second.toolCall.id === 'jev_1_5' && second.toolCall.id !== call.id, 'a second act in the same command gets another id');
+  check(jf(r.session).steps === 2 && jf(r.session).calls === 2 && jf(r.session).consecutiveFast === 2, 'the counters keep counting within the command');
+  nextCommand(r.session);
+  await primed(r);
+  const third = await r.turn(4);
+  check(third.toolCall && third.toolCall.id === 'jev_2_4', 'the same iteration number in a follow-up command gets another id (' + (third.toolCall && third.toolCall.id) + ')');
+  check(jf(r.session).steps === 1 && jf(r.session).calls === 1, 'per-command counters restart with the command');
+}
+
+async function orchSwitchOff() {
+  let stored = false;
+  const r = rig({ readSwitch: () => Promise.resolve(stored) });
+  await primed(r);
+  const out = await r.turn(2);
+  check(sameJson(out, { decline: 'switch_off' }), 'readSwitch false declines switch_off (' + JSON.stringify(out) + ')');
+  check(fp(r.session).off === true && fp(r.session).offReason === 'switch_off' && fp(r.session).offCommand === 1, 'the session is latched off (switch_off, command 1)');
+  check(r.log.requestMenu.length === 0 && r.client.calls.length === 0, 'no menu request and no decide after the switch reads off');
+  stored = true;
+  const again = await r.turn(3);
+  check(again.decline === 'switch_off' && r.log.readSwitch === 1 && r.log.requestMenu.length === 0, 'the rest of the command stays off without reading the switch again');
+  nextCommand(r.session);
+  await primed(r);
+  const next = await r.turn(2);
+  check(Boolean(next.toolCall) && fp(r.session).off === false && r.log.requestMenu.length === 1 && r.client.calls.length === 1,
+    'the next command with the switch on is eligible again (D-05)');
+}
+
+async function orchCalibrationLatch() {
+  for (const [name, bodyFor] of [['uncalibrated', gateway.uncalibratedBody], ['snapshot_changed', gateway.snapshotChangedBody]]) {
+    const r = rig({ responder: (request) => ({ body: bodyFor(request) }) });
+    await primed(r);
+    const out = await r.turn(2);
+    check(sameJson(out, { decline: 'not_calibrated' }) && fp(r.session).off === true && fp(r.session).offReason === 'not_calibrated',
+      'an ' + name + ' answer escalates and latches the session (' + JSON.stringify(out) + ')');
+    for (let i = 3; i <= 6; i += 1) {
+      jf(r.session).llmTurnSeen = true;
+      await r.turn(i);
+    }
+    nextCommand(r.session);
+    await r.turn(1);
+    jf(r.session).llmTurnSeen = true;
+    await r.turn(2);
+    check(r.log.requestMenu.length === 1 && r.client.calls.length === 1 && r.log.readSwitch === 1,
+      name + ': at most one menu and one Jev call per session, also across a follow-up command (AUTO-03-d)');
+  }
+}
+
+async function orchFallbacks() {
+  const sessionReasons = CONTRACT.NON_TRANSIENT_REASONS.map((reason) => [reason,
+    () => ({ status: CONTRACT.HTTP_STATUS_BY_REASON[reason] || 503, body: gateway.fallbackBody(reason) })]);
+  sessionReasons.push(['invalid_request', () => ({ status: 404, text: '' })]);
+  sessionReasons.push(['invalid_response', () => ({ status: 200, text: 'not json' })]);
+  for (const [reason, responder] of sessionReasons) {
+    const r = rig({ responder });
+    await primed(r);
+    const out = await r.turn(2);
+    jf(r.session).llmTurnSeen = true;
+    await r.turn(3);
+    check(out.decline === reason && fp(r.session).off === true && fp(r.session).offReason === reason
+      && r.log.requestMenu.length === 1 && r.client.calls.length === 1,
+    'decide fallback ' + reason + ' latches the session; no later menu or call (' + JSON.stringify(out) + ')');
+  }
+
+  // sensitive_goal from buildRequest: a command latch, no decide.
+  let r = rig({ session: { task: BENCH_GOAL } });
+  await primed(r);
+  let out = await r.turn(2);
+  check(out.decline === 'sensitive_goal' && jf(r.session).latched === 'sensitive_goal' && fp(r.session).off === false && r.client.calls.length === 0,
+    'a bench-like goal holding a run token latches the command sensitive_goal with zero decide calls (' + JSON.stringify(out) + ')');
+  out = await r.turn(3);
+  check(out.decline === 'sensitive_goal' && r.log.requestMenu.length === 1, 'the sensitive_goal command latch holds for the rest of the command');
+  const local = r.session.jevMeasurement && r.session.jevMeasurement.attempts[0];
+  check(local && local.jevCalled === false && local.fallback === 'sensitive_goal' && local.outcome === 'declined'
+    && local.escalationReason === 'sensitive_goal', 'the sensitive_goal attempt is recorded with jevCalled false');
+
+  // A local buildRequest invalid_request: a command latch, never a session latch (sync issue 6).
+  const spy = wrapBuildRequest(() => ({ ok: false, reason: 'invalid_request' }));
+  try {
+    r = rig();
+    await primed(r);
+    out = await r.turn(2);
+    check(out.decline === 'local_invalid_request' && jf(r.session).latched === 'local_invalid_request' && fp(r.session).off === false
+      && r.client.calls.length === 0 && spy.count === 1,
+    'a local buildRequest invalid_request latches the command local_invalid_request with zero decide calls (' + JSON.stringify(out) + ')');
+    const attempt = r.session.jevMeasurement.attempts[0];
+    check(attempt.jevCalled === false && attempt.fallback === 'invalid_request' && attempt.escalationReason === 'local_invalid_request',
+      'the local refusal is recorded with jevCalled false');
+  } finally {
+    spy.restore();
+  }
+  nextCommand(r.session);
+  await primed(r);
+  out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.calls.length === 1, 'the next command is eligible again after a local refusal');
+
+  // Transient: one iteration.
+  r = rig({ responder: () => ({ status: 504, body: gateway.fallbackBody('timeout') }) });
+  await primed(r);
+  out = await r.turn(2);
+  check(out.decline === 'timeout' && fp(r.session).off === false && jf(r.session).latched === null && jf(r.session).consecutiveEscalations === 1,
+    'a transient fallback escalates this iteration only and counts one escalation');
+
+  // Three consecutive escalations latch the command.
+  r = rig({
+    menus: ['sig-a', 'sig-b', 'sig-c', 'sig-d'].map((signature) => decisionMenu({ signature })),
+    responder: answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } })
+  });
+  await primed(r);
+  const reasons = [];
+  for (let i = 2; i <= 4; i += 1) reasons.push((await r.turn(i)).decline);
+  check(sameJson(reasons, ['operation_below_threshold', 'operation_below_threshold', 'operation_below_threshold'])
+    && jf(r.session).latched === 'escalation_latch' && fp(r.session).off === false,
+  'three consecutive escalations latch the command escalation_latch (' + JSON.stringify(reasons) + ')');
+  out = await r.turn(5);
+  check(out.decline === 'escalation_latch' && r.log.requestMenu.length === 3 && r.client.calls.length === 3, 'the latched command makes no fourth menu or call');
+}
+
+async function orchBudgets() {
+  const cases = [['steps', 12, 'step_budget'], ['calls', 16, 'call_budget'], ['jevMs', 20000, 'time_budget']];
+  for (const [field, value, reason] of cases) {
+    const r = rig();
+    await primed(r);
+    jf(r.session)[field] = value;
+    const out = await r.turn(2);
+    check(sameJson(out, { decline: reason }) && jf(r.session).latched === reason && fp(r.session).off === false,
+      field + ' = ' + value + ' declines with the command latch ' + reason + ' (' + JSON.stringify(out) + ')');
+    check(r.log.readSwitch === 0 && r.log.requestMenu.length === 0 && r.client.calls.length === 0 && r.session.status === 'running',
+      reason + ': no switch read, menu or call, and the task is not ended');
+    nextCommand(r.session);
+    await primed(r);
+    check(Boolean((await r.turn(2)).toolCall), reason + ': the next command is eligible again');
+  }
+  let r = rig();
+  await primed(r);
+  jf(r.session).jevMs = 18500;
+  let out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.timers.lastDelay() === 1500, 'with 18 500 ms used the decide timeout is 1500 (' + r.client.timers.lastDelay() + ')');
+  r = rig();
+  await primed(r);
+  out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.timers.lastDelay() === 2500, 'with no time used the decide timeout is 2500, never above');
+  r = rig();
+  await primed(r);
+  jf(r.session).consecutiveFast = 3;
+  out = await r.turn(2);
+  check(sameJson(out, { decline: 'consecutive_cap' }) && jf(r.session).latched === null && r.log.readSwitch === 0 && r.log.requestMenu.length === 0,
+    'three consecutive fast steps decline consecutive_cap with no latch and no call');
+  out = await r.turn(3);
+  check(out.decline === 'consecutive_cap', 'consecutive_cap holds until an LLM turn');
+  jf(r.session).consecutiveFast = 0;
+  out = await r.turn(4);
+  check(Boolean(out.toolCall), 'after an LLM turn resets the run, the next call is eligible');
+}
+
+async function orchVault() {
+  const r = rig();
+  await primed(r);
+  jf(r.session).vaultFlow = true;
+  const out = await r.turn(2);
+  check(sameJson(out, { decline: 'vault_flow' }) && jf(r.session).latched === 'vault_flow' && r.log.readSwitch === 0 && r.log.requestMenu.length === 0,
+    'a vault tool in this command latches the command vault_flow');
+}
+
+const EMPTY_TARGET_MENU = () => menuOf([
+  entry(1, { role: 'checkbox', label: 'Done box', ops: [], inputType: 'checkbox',
+    state: { checked: true, expanded: null, selected: null, pressed: null }, fastEligible: false }),
+  entry(2, { role: 'textbox', label: 'Password', ops: ['click'], inputType: 'password', fastEligible: false }),
+  entry(3, { role: 'textbox', label: 'Token', ops: ['click'], inputType: 'hidden', fastEligible: false }),
+  entry(4, { role: 'button', label: 'Upload', ops: [], inputType: 'file', fastEligible: false }),
+  entry(6, { label: 'Use saved card', vaultFilled: true, fastEligible: false })
+], { moreBelow: true, signature: 'sig-empty' });
+
+async function orchMenus() {
+  for (const [name, menu] of [['null', null], ['{success:false}', { success: false, reason: 'not_main_frame' }], ['undefined', undefined]]) {
+    const r = rig({ menus: [menu === undefined ? () => Promise.resolve(undefined) : menu] });
+    await primed(r);
+    const out = await r.turn(2);
+    check(sameJson(out, { decline: 'menu_unavailable' }) && r.client.calls.length === 0 && jf(r.session).consecutiveEscalations === 0
+      && jf(r.session).latched === null && fp(r.session).off === false, 'a ' + name + ' menu declines menu_unavailable with no decide, latch or escalation count');
+  }
+  const spy = wrapBuildRequest();
+  try {
+    const r = rig({ menus: [EMPTY_TARGET_MENU(), decisionMenu()] });
+    await primed(r);
+    const out = await r.turn(2);
+    check(sameJson(out, { decline: 'nothing_offerable' }) && spy.count === 0 && r.client.calls.length === 0,
+      'a menu whose every entry buildRequest would drop declines nothing_offerable before buildRequest and decide');
+    check(fp(r.session).off === false && jf(r.session).latched === null && jf(r.session).consecutiveEscalations === 0,
+      'nothing_offerable sets no latch of any kind and counts no escalation');
+    const next = await r.turn(3);
+    check(Boolean(next.toolCall) && spy.count === 1 && r.client.calls.length === 1, 'the next iteration with an offerable menu calls decide');
+  } finally {
+    spy.restore();
+  }
+  const r = rig({ menus: [menuOf([entry(3, { role: 'textbox', label: 'Name', ops: ['click'], inputType: 'text', fastEligible: false })])] });
+  await primed(r);
+  check((await r.turn(2)).decline === 'nothing_offerable' && r.client.calls.length === 0, 'a menu with no fast-eligible entry and no page op declines nothing_offerable');
+  const bad = rig({ menus: [decisionMenu({ signature: '' })] });
+  await primed(bad);
+  check((await bad.turn(2)).decline === 'menu_invalid' && bad.client.calls.length === 0, 'a menu without a signature declines menu_invalid (no-progress and same-state need it)');
+}
+
+async function orchStop() {
+  // readSwitch pending.
+  let gate = deferred();
+  let r = rig({ readSwitch: () => gate.promise });
+  await primed(r);
+  fp(r.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  let before = r.session.messages.length;
+  let pending = r.turn(2);
+  await tick();
+  r.session.status = 'stopped';
+  gate.resolve(true);
+  let out = await pending;
+  check(sameJson(out, { decline: 'stopped' }) && r.log.requestMenu.length === 0 && r.session.messages.length === before && r.log.requestSnapshot.length === 0,
+    'a stop while readSwitch is pending resolves stopped with no menu and no message');
+
+  // requestMenu pending.
+  gate = deferred();
+  r = rig({ menus: [() => gate.promise] });
+  await primed(r);
+  fp(r.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  before = r.session.messages.length;
+  pending = r.turn(2);
+  await until(() => r.log.requestMenu.length === 1);
+  r.session.status = 'stopped';
+  gate.resolve(Object.assign(decisionMenu(), { recentHandles: [] }));
+  out = await pending;
+  check(sameJson(out, { decline: 'stopped' }) && r.client.calls.length === 0 && r.session.messages.length === before,
+    'a stop while requestMenu is pending resolves stopped with no decide and no message');
+
+  // decide pending.
+  gate = deferred();
+  r = rig({ responder: (request) => gate.promise.then(() => answer('click', 'Next')(request)) });
+  await primed(r);
+  fp(r.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  before = r.session.messages.length;
+  pending = r.turn(2);
+  await until(() => r.client.calls.length === 1);
+  r.session.status = 'stopped';
+  gate.resolve();
+  out = await pending;
+  check(sameJson(out, { decline: 'stopped' }) && r.session.messages.length === before && fp(r.session).inFlight === null,
+    'a stop while decide is pending resolves stopped, returns no tool call and adds no message');
+
+  // abortInFlight aborts the signal the client passed to fetch.
+  r = rig({ responder: () => new Promise(() => {}) });
+  await primed(r);
+  pending = r.turn(2);
+  await until(() => r.client.calls.length === 1);
+  check(fp(r.session).inFlight !== null, 'an in-flight decide is tracked on _fastPath.inFlight');
+  FsbFastPath.abortInFlight(r.session);
+  out = await pending;
+  const signal = r.client.calls[0] && r.client.calls[0].init.signal;
+  check(signal && signal.aborted === true, 'abortInFlight aborts the signal passed to fetch');
+  check(out.decline === 'aborted' && fp(r.session).inFlight === null && fp(r.session).off === false,
+    'the aborted decide escalates aborted for this iteration (' + JSON.stringify(out) + ')');
+
+  // latchOff aborts too.
+  r = rig({ responder: () => new Promise(() => {}) });
+  await primed(r);
+  pending = r.turn(2);
+  await until(() => r.client.calls.length === 1);
+  FsbFastPath.latchOff(r.session, 'exception');
+  out = await pending;
+  check(r.client.calls[0].init.signal.aborted === true && fp(r.session).off === true && fp(r.session).offReason === 'exception',
+    'latchOff latches the session and aborts the in-flight decide');
+  FsbFastPath.abortInFlight(null);
+  FsbFastPath.abortInFlight({});
+  FsbFastPath.latchOff(null, 'exception');
+  check(true, 'abortInFlight and latchOff accept missing sessions without throwing');
+}
+
+async function orchNoProgress() {
+  const U = MENU_URL;
+  const lastOf = (over) => Object.assign({ op: 'click', role: 'button', label: 'Next', url: U, signature: 'sig-1',
+    outcome: 'progress', effectObserved: true }, over || {});
+  for (const [name, last, previous, menu] of [
+    ['a verified step followed by the same url and signature', lastOf(), null, decisionMenu()],
+    ['an unverified step followed by the same url and signature', lastOf({ outcome: 'unconfirmed', effectObserved: false }), null, decisionMenu()],
+    ['two no-effect steps on the same role and label although the signature changed',
+      lastOf({ outcome: 'unconfirmed', effectObserved: false, signature: 'sig-2' }),
+      lastOf({ outcome: 'unconfirmed', effectObserved: false, signature: 'sig-1' }), decisionMenu({ signature: 'sig-3' })]
+  ]) {
+    const r = rig({ menus: [menu] });
+    await primed(r);
+    jf(r.session).lastStep = last;
+    jf(r.session).previousStep = previous;
+    fp(r.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+    const out = await r.turn(2);
+    const pushed = handoffs(r.session);
+    check(sameJson(out, { decline: 'no_progress' }) && jf(r.session).latched === 'no_progress' && r.client.calls.length === 0,
+      name + ' latches the command no_progress before any decide (' + JSON.stringify(out) + ')');
+    check(pushed.length === 1 && pushed[0].content.includes(FsbFastPath.describeEscalation('no_progress')) && fp(r.session).stopReason === null,
+      name + ': the flushed hand-off carries the no-progress hint');
+  }
+  const r = rig({ menus: [decisionMenu({ signature: 'sig-2' })] });
+  await primed(r);
+  jf(r.session).lastStep = lastOf();
+  const out = await r.turn(2);
+  check(Boolean(out.toolCall) && jf(r.session).latched === null && r.client.calls.length === 1, 'a verified step followed by a changed signature does not latch');
+}
+
+async function orchNeverReroll() {
+  const below = answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } });
+  const spy = wrapBuildRequest();
+  try {
+    const r = rig({ menus: [decisionMenu(), decisionMenu(), decisionMenu({ signature: 'sig-2' })], responder: below });
+    await primed(r);
+    let out = await r.turn(2);
+    check(out.decline === 'operation_below_threshold' && sameJson(jf(r.session).answeredStates, [MENU_URL + '\n' + 'sig-1']),
+      'a below-threshold answer escalates and remembers url + signature');
+    const built = spy.count;
+    out = await r.turn(3);
+    check(sameJson(out, { decline: 'same_state' }) && spy.count === built && r.client.calls.length === 1,
+      'the same url and signature decline same_state with no buildRequest and no decide (decide count stays 1)');
+    check(jf(r.session).consecutiveEscalations === 1 && jf(r.session).latched === null && fp(r.session).off === false,
+      'same_state counts no escalation and sets no latch');
+    out = await r.turn(4);
+    check(r.client.calls.length === 2, 'a changed signature is asked again (' + JSON.stringify(out) + ')');
+  } finally {
+    spy.restore();
+  }
+  const escalations = [
+    ['catch_all', answer(gateway.CATCH_ALL, 'Next')],
+    ['threshold_null', answer('click', 'Next', { operation: { choice: 'click', threshold: null } })],
+    ['completion_unconfirmed', answer('click', 'Next', { completion: { p: 0.5, threshold: 0.2 } })],
+    ['jev_stuck', answer('click', 'Next', { stuck: { p: 0.9, threshold: 0.8 } })]
+  ];
+  for (const [name, responder] of escalations) {
+    const r = rig({ responder });
+    await primed(r);
+    const first = await r.turn(2);
+    const second = await r.turn(3);
+    check(first.decline !== 'same_state' && second.decline === 'same_state' && r.client.calls.length === 1,
+      'after a ' + name + ' escalation the unchanged page declines same_state (' + first.decline + ', ' + second.decline + ')');
+  }
+  // A transient fallback is not remembered.
+  const t = rig({ responder: () => ({ status: 504, body: gateway.fallbackBody('timeout') }) });
+  await primed(t);
+  await t.turn(2);
+  const retry = await t.turn(3);
+  check(t.client.calls.length === 2 && retry.decline === 'timeout' && jf(t.session).answeredStates.length === 0,
+    'a timeout on the same url and signature is not remembered and may be asked again');
+  // A follow-up command may ask again.
+  const f = rig({ responder: below });
+  await primed(f);
+  await f.turn(2);
+  nextCommand(f.session);
+  await primed(f);
+  await f.turn(2);
+  check(f.client.calls.length === 2, 'a follow-up command (new jevFast) may ask about the same state again');
+}
+
+async function orchRecent() {
+  // Menus answer recentHandles from the descriptors: e5, '#go' and button/Next all mean j1.
+  const resolving = (signature) => (options) => Promise.resolve(Object.assign(decisionMenu({ signature }), {
+    recentHandles: options.recent.map((d) => (d.ref === 'e5' || d.selector === '#go' || (d.role === 'button' && d.name === 'Next') ? 'j1' : null))
+  }));
+  const r = rig({
+    menus: ['s1', 's2', 's3', 's4'].map(resolving),
+    responder: answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } })
+  });
+  await primed(r);
+  fp(r.session).recent = [
+    { op: 'click', selector: null, ref: 'e5', changed: false, source: 'llm', refEpoch: 0, docEpoch: 0 },
+    { op: 'click', selector: '#go', ref: null, changed: true, source: 'llm', refEpoch: 0, docEpoch: 0 },
+    { op: 'click', role: 'button', name: 'Next', changed: true, source: 'jev', refEpoch: 0, docEpoch: 0 }
+  ];
+  await r.turn(2);
+  check(sameJson(r.log.requestMenu[0].options.recent, [{ selector: null, ref: 'e5' }, { selector: '#go', ref: null }, { role: 'button', name: 'Next' }]),
+    'while nothing re-minted refs, the LLM ref, the LLM selector and the fast role/name are all sent (' + JSON.stringify(r.log.requestMenu[0].options.recent) + ')');
+  const first = r.client.calls[0].request.recentActions;
+  check(first.length === 3 && first.every((a) => a.targetId !== null), 'each resolved descriptor becomes a current-menu targetId');
+
+  fp(r.session).refEpoch += 1; // an LLM get_page_snapshot
+  await r.turn(3);
+  check(sameJson(r.log.requestMenu[1].options.recent, [{ selector: null, ref: null }, { selector: '#go', ref: null }, { role: 'button', name: 'Next' }]),
+    'after a snapshot the LLM ref is withheld; the selector and the fast role/name survive');
+  const second = r.client.calls[1].request.recentActions;
+  check(second.length === 3 && second[0].targetId === null && second[0].op === 'click' && second[0].changed === false
+    && second[1].targetId !== null && second[2].targetId !== null, 'the withheld entry keeps its position with targetId null');
+
+  fp(r.session).docEpoch += 1; // a navigation bumps both
+  fp(r.session).refEpoch += 1;
+  await r.turn(4);
+  check(sameJson(r.log.requestMenu[2].options.recent, [{ selector: null, ref: null }, { selector: null, ref: null }, { role: null, name: null }]),
+    'after a navigation every descriptor is empty');
+  const third = r.client.calls[2].request.recentActions;
+  check(third.length === 3 && third.every((a) => a.targetId === null) && sameJson(third.map((a) => a.changed), [false, true, true]),
+    'order and length do not change; every targetId is null and changed is kept');
+
+  // A hand-off snapshot request re-mints the LLM refs too.
+  const h = rig({ menus: [null, resolving('h1')], responder: answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } }) });
+  await primed(h);
+  fp(h.session).recent = [{ op: 'click', selector: null, ref: 'e5', changed: false, source: 'llm', refEpoch: 0, docEpoch: 0 }];
+  fp(h.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  await h.turn(2); // menu_unavailable: flushes the hand-off with its snapshot
+  check(h.log.requestSnapshot.length === 1 && fp(h.session).refEpoch === 1, 'the hand-off snapshot request increments refEpoch');
+  await h.turn(3);
+  check(sameJson(h.log.requestMenu[1].options.recent, [{ selector: null, ref: null }]), 'after a hand-off snapshot the LLM ref is withheld');
+}
+
+async function orchHandoff() {
+  const C = FsbFastPath.constants;
+  const earlier = C.SUMMARY_PREFIX + '\nFast mode took 1 step since your last turn.\n' + C.SNAPSHOT_HEADER + '\nOLD-SNAPSHOT';
+  for (const [reason, setup] of [
+    ['menu_unavailable', (r) => r],
+    ['consecutive_cap', (r) => { jf(r.session).consecutiveFast = 3; return r; }],
+    ['step_budget', (r) => { jf(r.session).steps = 12; return r; }]
+  ]) {
+    const r = rig({ menus: [null] });
+    await primed(r);
+    setup(r);
+    r.session.messages.push({ role: 'user', content: earlier });
+    fp(r.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+    const count = r.session.messages.length;
+    const out = await r.turn(2);
+    const last = r.session.messages[r.session.messages.length - 1];
+    check(out.decline === reason && r.session.messages.length === count + 1 && last.role === 'user' && typeof last.content === 'string'
+      && last.content.indexOf(C.SUMMARY_PREFIX) === 0 && sameJson(sortedKeys(last), ['content', 'role']),
+    reason + ': the declining call pushes exactly one {role:user, content} hand-off');
+    check(r.log.requestSnapshot.length === 1 && r.log.requestSnapshot[0].deadlineMs === 3000 && r.log.requestSnapshot[0].tabId === 7
+      && last.content.includes(C.SNAPSHOT_HEADER + '\nSNAP-CURRENT'), reason + ': one snapshot (deadline 3000) is fetched and carried');
+    check(!JSON.stringify(r.session.messages).includes('OLD-SNAPSHOT') && r.session.messages[count - 1].content.endsWith(C.SNAPSHOT_COLLAPSED),
+      reason + ': the earlier hand-off snapshot collapses');
+    check(last.content.includes('"Next" (page text)') && last.content.includes(FsbFastPath.describeEscalation(reason)),
+      reason + ': the hand-off lists the step and why fast mode stopped');
+    check(fp(r.session).pendingSteps.length === 0 && fp(r.session).stopReason === null && fp(r.session).uncertain === false,
+      reason + ': pendingSteps, stopReason and uncertain are cleared');
+  }
+  const r = rig({ menus: [null] });
+  await primed(r);
+  const count = r.session.messages.length;
+  await r.turn(2);
+  check(r.session.messages.length === count && r.log.requestSnapshot.length === 0, 'a decline with no acted step pushes nothing and requests no snapshot');
+  const failing = rig({ menus: [null], snapshot: () => Promise.resolve({ success: false, error: 'x' }) });
+  await primed(failing);
+  fp(failing.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  await failing.turn(2);
+  check(handoffs(failing.session).length === 1 && handoffs(failing.session)[0].content.includes('Snapshot unavailable; call get_page_snapshot before acting.'),
+    'a failed hand-off snapshot asks the LLM to take one');
+}
+
+async function orchFlushHandoff() {
+  const C = FsbFastPath.constants;
+  const r = rig();
+  await primed(r);
+  fp(r.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  const epoch = fp(r.session).refEpoch;
+  delete r.session.fastMode;
+  delete r.session.agentState;
+  const count = r.session.messages.length;
+  let done = await FsbFastPath.flushHandoff(r.session, { deps: r.deps });
+  const last = r.session.messages[r.session.messages.length - 1];
+  check(done === true && r.log.requestSnapshot.length === 1 && r.log.requestSnapshot[0].deadlineMs === 3000 && r.session.messages.length === count + 1
+    && last.role === 'user' && last.content.indexOf(C.SUMMARY_PREFIX) === 0 && last.content.includes('SNAP-CURRENT'),
+  'flushHandoff with fastMode deleted and agentState absent pushes one hand-off with one snapshot and resolves true');
+  check(fp(r.session).pendingSteps.length === 0 && fp(r.session).refEpoch === epoch + 1, 'flushHandoff empties pendingSteps and increments refEpoch');
+  const calls = JSON.stringify(r.log);
+  done = await FsbFastPath.flushHandoff(r.session, { deps: r.deps });
+  check(done === false && JSON.stringify(r.log) === calls && r.session.messages.length === count + 1, 'a second flushHandoff resolves false with zero dependency calls');
+  const fresh = fastSession();
+  done = await FsbFastPath.flushHandoff(fresh, { deps: r.deps });
+  check(done === false && JSON.stringify(r.log) === calls && !hasOwn(fresh, '_fastPath'), 'a session without _fastPath resolves false with zero calls');
+
+  // It reads neither fastMode nor agentState.
+  const guarded = rig();
+  await primed(guarded);
+  fp(guarded.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  for (const key of ['fastMode', 'agentState']) {
+    Object.defineProperty(guarded.session, key, { configurable: true, get() { throw new Error(key + ' read'); } });
+  }
+  done = await FsbFastPath.flushHandoff(guarded.session, { deps: guarded.deps });
+  check(done === true && handoffs(guarded.session).length === 1, 'flushHandoff reads neither session.fastMode nor session.agentState');
+
+  // A rejecting requestSnapshot still delivers the steps.
+  const rejecting = rig({ snapshot: () => Promise.reject(new Error('tab gone')) });
+  await primed(rejecting);
+  fp(rejecting.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  done = await FsbFastPath.flushHandoff(rejecting.session, { deps: rejecting.deps });
+  check(done === true && handoffs(rejecting.session).length === 1
+    && handoffs(rejecting.session)[0].content.includes('Snapshot unavailable; call get_page_snapshot before acting.'),
+  'a rejecting requestSnapshot still pushes the hand-off with the snapshot-unavailable sentence');
+
+  // Missing deps never reject.
+  const missing = rig();
+  await primed(missing);
+  fp(missing.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  let threw = null;
+  try {
+    done = await FsbFastPath.flushHandoff(missing.session);
+    await FsbFastPath.flushHandoff(missing.session, {});
+    await FsbFastPath.flushHandoff(null);
+    await FsbFastPath.flushHandoff(undefined, undefined);
+  } catch (error) { threw = error; }
+  check(threw === null && done === true && handoffs(missing.session).length === 1
+    && handoffs(missing.session)[0].content.includes('Snapshot unavailable'), 'missing deps never reject; the steps are still delivered');
+
+  // After flushHandoff, beforeTurn pushes no second hand-off for that step.
+  const after = rig({ menus: [null] });
+  await primed(after);
+  fp(after.session).pendingSteps.push(Object.assign({}, PENDING_CLICK));
+  await FsbFastPath.flushHandoff(after.session, { deps: after.deps });
+  await after.turn(2);
+  check(handoffs(after.session).length === 1 && after.log.requestSnapshot.length === 1, 'after flushHandoff a declining beforeTurn pushes no second hand-off');
+}
+
+async function orchExceptions() {
+  const thrower = (message) => () => { throw new Error(message); };
+  const cases = [
+    ['a throwing readSwitch', { readSwitch: thrower('readSwitch') }],
+    ['a rejecting readSwitch', { readSwitch: () => Promise.reject(new Error('readSwitch')) }],
+    ['a rejecting requestMenu', { menus: [() => Promise.reject(new Error('menu'))] }],
+    ['a throwing requestMenu', { menus: [thrower('menu')] }]
+  ];
+  for (const [name, opts] of cases) {
+    const r = rig(opts);
+    await primed(r);
+    let out = null;
+    let threw = null;
+    try { out = await r.turn(2); } catch (error) { threw = error; }
+    check(threw === null && sameJson(out, { decline: 'exception' }) && fp(r.session).off === true && fp(r.session).offReason === 'exception',
+      name + ' resolves {decline:exception} and latches the session (' + JSON.stringify(out) + ')');
+  }
+  const clockless = rig();
+  await primed(clockless);
+  clockless.deps.now = thrower('now');
+  check(sameJson(await clockless.turn(2), { decline: 'exception' }) && fp(clockless.session).off === true, 'a throwing now() resolves exception');
+  for (const [name, decide] of [['throws', thrower('decide')], ['rejects', () => Promise.reject(new Error('decide'))]]) {
+    const r = rig();
+    r.deps.jevClient = { decide };
+    await primed(r);
+    const out = await r.turn(2);
+    check(sameJson(out, { decline: 'exception' }) && fp(r.session).off === true && fp(r.session).inFlight === null,
+      'a client whose decide ' + name + ' resolves exception, latches the session and clears inFlight');
+  }
+  let threw = null;
+  let outs = [];
+  try {
+    outs = [await FsbFastPath.beforeTurn(null, null), await FsbFastPath.beforeTurn(undefined), await FsbFastPath.beforeTurn('x', {})];
+  } catch (error) { threw = error; }
+  check(threw === null && outs.every((o) => o && typeof o.decline === 'string'), 'beforeTurn never rejects, even without a session');
+
+  // Missing deps latch the session 'unavailable'; the global deps are used when ctx has none.
+  const s = fastSession();
+  const out = await FsbFastPath.beforeTurn(s, { sessionId: 's', iteration: 1 });
+  check(sameJson(out, { decline: 'unavailable' }) && s._fastPath.off === true && s._fastPath.offReason === 'unavailable',
+    'with no ctx.deps and no global deps the session latches unavailable');
+  const g = rig();
+  globalThis.fsbFastPathDeps = g.deps;
+  try {
+    await FsbFastPath.beforeTurn(g.session, { sessionId: 's', iteration: 1 });
+    jf(g.session).llmTurnSeen = true;
+    const viaGlobal = await FsbFastPath.beforeTurn(g.session, { sessionId: 's', iteration: 2 });
+    check(Boolean(viaGlobal.toolCall) && g.log.requestMenu.length === 1, 'without ctx.deps the module resolves globalThis.fsbFastPathDeps');
+  } finally {
+    delete globalThis.fsbFastPathDeps;
+  }
+}
+
+async function orchMeasurement() {
+  const r = rig({ menus: [null, EMPTY_TARGET_MENU()] });
+  await primed(r);
+  await r.turn(2);
+  await r.turn(3);
+  jf(r.session).consecutiveFast = 3;
+  await r.turn(4);
+  check(!hasOwn(r.session, 'jevMeasurement'), 'no request-building attempt -> no session.jevMeasurement key');
+  const m = rig();
+  await primed(m);
+  const out = await m.turn(2);
+  const block = m.session.jevMeasurement;
+  const attempt = block && block.attempts[0];
+  check(Boolean(out.toolCall) && block && block.attempts.length === 1, 'one decide -> one attempt');
+  check(attempt && attempt.jevCalled === true && attempt.servedModel === gateway.SERVED_MODEL && attempt.instrumentVersion === gateway.INSTRUMENT_VERSION
+    && attempt.calibrationStatus === 'calibrated' && typeof attempt.latencyMs === 'number' && sameJson(attempt.usage, { inputTokens: 900, source: 'provider' })
+    && sameJson(attempt.cost, { usd: 0.0000378, source: 'provider' }) && attempt.outcome === 'acted' && attempt.op === 'click'
+    && attempt.iteration === 2 && attempt.command === 1 && attempt.decisionSource === 'jev',
+  'the attempt carries servedModel, instrumentVersion, calibrationStatus, latencyMs and labelled usage and cost (' + JSON.stringify(attempt) + ')');
+  const totals = block && block.commands[0];
+  check(totals && totals.command === 1 && totals.jevCalls === 1 && totals.usd.provider === 0.0000378 && totals.usd.estimate === null,
+    'the command totals count the call and its provider USD (' + JSON.stringify(totals) + ')');
+  check(!/Next|example\.test|Wizard|Tick Alpha/.test(JSON.stringify(block)), 'the measurement block holds no label, url, title or goal');
+  const esc = rig({ responder: () => ({ status: 504, body: gateway.fallbackBody('timeout') }) });
+  await primed(esc);
+  await esc.turn(2);
+  const escAttempt = esc.session.jevMeasurement.attempts[0];
+  check(escAttempt.outcome === 'escalated' && escAttempt.escalationReason === 'timeout' && escAttempt.fallback === 'timeout'
+    && sameJson(esc.session.jevMeasurement.commands[0].escalations, { timeout: 1 }), 'an escalation is recorded with its reason');
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log('Phase 68 Plan 04 -- FsbFastPath pure core');
+  console.log('Phase 68 Plans 04 and 05 -- FsbFastPath core and orchestration');
   await section('module shape and the 67-11 bans (D-08, D-17 of 67, D-20)', moduleShape);
   if (FsbFastPath === null) {
     check(false, 'the remaining sections need the module');
@@ -1168,6 +2022,24 @@ async function main() {
     await section('buildHandoffMessage (D-10, T-68-06)', handoffText);
     await section('collapseEarlierHandoffs (D-10)', collapse);
     await section('measurement helpers (D-23, T-68-11)', measurement);
+    await section('68-05 orchestration: module surface', orchModuleSurface);
+    await section('68-05 beforeTurn: the LLM takes the first turn of every command (D-09)', orchFirstTurn);
+    await section('68-05 beforeTurn: run_task sessions are never fast (D-03)', orchNotEnabled);
+    await section('68-05 beforeTurn: the accepted path (one menu, one decide, a code-built call)', orchAccepted);
+    await section('68-05 beforeTurn: the switch is re-read before each attempt (D-05)', orchSwitchOff);
+    await section('68-05 beforeTurn: the calibration latch (D-16, AUTO-03-d, T-68-09)', orchCalibrationLatch);
+    await section('68-05 beforeTurn: fallback classes and latch scopes (D-16, D-18, F9, sync issue 6)', orchFallbacks);
+    await section('68-05 beforeTurn: per-command budgets (D-12, T-68-10)', orchBudgets);
+    await section('68-05 beforeTurn: vault flows (D-19)', orchVault);
+    await section('68-05 beforeTurn: unavailable and empty menus (sync issue 6)', orchMenus);
+    await section('68-05 beforeTurn: stop and abort (F21, T-68-08)', orchStop);
+    await section('68-05 beforeTurn: no progress (D-17, sync issue 4)', orchNoProgress);
+    await section('68-05 beforeTurn: never re-roll (D-18, T-68-09c)', orchNeverReroll);
+    await section('68-05 beforeTurn: recent descriptors never name the wrong element (D-11, T-68-05)', orchRecent);
+    await section('68-05 beforeTurn: the hand-off (D-10)', orchHandoff);
+    await section('68-05 flushHandoff (D-10)', orchFlushHandoff);
+    await section('68-05 beforeTurn: exceptions and missing deps (F13, T-68-08)', orchExceptions);
+    await section('68-05 beforeTurn: measurement (D-23, T-68-11)', orchMeasurement);
   }
 
   console.log('\n--- Summary ---');

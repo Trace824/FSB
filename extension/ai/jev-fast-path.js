@@ -909,6 +909,513 @@
     return record;
   }
 
+  // ---------------------------------------------------------------------------
+  // Orchestration (68-05): one bounded fast attempt per iteration
+  // ---------------------------------------------------------------------------
+  //
+  // State lives in memory only and is never persisted (RESEARCH Pattern 2):
+  //   session._fastPath             the session: the session latch, the
+  //                                 in-flight decide, the pending hand-off,
+  //                                 the recent actions and the ref epochs;
+  //   session.agentState.jevFast    the command (hydrateAgentRunState builds a
+  //                                 new agentState for every command, F14);
+  //   session.jevMeasurement        the D-23 block, created by the first
+  //                                 request-building attempt.
+  // Dependencies are injected (ctx.deps, else root.fsbFastPathDeps): now(),
+  // readSwitch(), requestMenu(tabId, options, deadlineMs),
+  // requestSnapshot(tabId, deadlineMs), getTabUrl(tabId) and an optional
+  // jevClient. The module itself reads no browser API and arms no timer: the
+  // decide deadline belongs to the Jev client.
+
+  var REQUIRED_DEPS = ['now', 'readSwitch', 'requestMenu', 'requestSnapshot'];
+  // Used only when a client is injected but FsbJevClient itself is unreachable.
+  var FALLBACK_DECIDE_TIMEOUT_MS = 2500;
+  // The one default client, created on first use with no options (D-11: no
+  // attribution key is ever supplied).
+  var lazyClient = null;
+
+  function resolveDeps(ctx) {
+    var c = isObject(ctx) ? ctx : {};
+    if (isObject(c.deps)) return c.deps;
+    return root && isObject(root.fsbFastPathDeps) ? root.fsbFastPathDeps : null;
+  }
+
+  function depsUsable(deps) {
+    if (!isObject(deps)) return false;
+    for (var i = 0; i < REQUIRED_DEPS.length; i += 1) {
+      if (typeof deps[REQUIRED_DEPS[i]] !== 'function') return false;
+    }
+    return true;
+  }
+
+  function resolveClientModule() {
+    return resolveModule('FsbJevClient', './jev-client.js');
+  }
+
+  /** The injected client, else the one default client; null when neither is reachable. */
+  function clientFor(deps) {
+    if (isObject(deps) && isObject(deps.jevClient) && typeof deps.jevClient.decide === 'function') return deps.jevClient;
+    if (lazyClient === null) {
+      var clientModule = resolveClientModule();
+      if (!clientModule || typeof clientModule.createJevClient !== 'function') return null;
+      lazyClient = clientModule.createJevClient({});
+    }
+    return isObject(lazyClient) && typeof lazyClient.decide === 'function' ? lazyClient : null;
+  }
+
+  /** The client's own deadline cap (DEFAULT_TIMEOUT_MS). */
+  function decideTimeoutLimit() {
+    var clientModule = resolveClientModule();
+    var limit = clientModule ? clientModule.DEFAULT_TIMEOUT_MS : null;
+    return typeof limit === 'number' && isFinite(limit) && limit > 0 ? limit : FALLBACK_DECIDE_TIMEOUT_MS;
+  }
+
+  function commandIndexOf(session) {
+    var n = session.commandCount;
+    return typeof n === 'number' && Math.floor(n) === n && n >= 1 ? n : 1;
+  }
+
+  function isStopped(session) {
+    return session.status !== 'running';
+  }
+
+  /** session._fastPath, created on first use. */
+  function fastPathOf(session) {
+    var state = session._fastPath;
+    if (!isObject(state)) {
+      state = {
+        off: false,
+        offReason: null,
+        offCommand: null,
+        inFlight: null,
+        pendingSteps: [],
+        stopReason: null,
+        uncertain: false,
+        recent: [],
+        lastLlmTools: [],
+        refEpoch: 0,
+        docEpoch: 0
+      };
+      session._fastPath = state;
+    }
+    if (!Array.isArray(state.pendingSteps)) state.pendingSteps = [];
+    if (!Array.isArray(state.recent)) state.recent = [];
+    if (!Array.isArray(state.lastLlmTools)) state.lastLlmTools = [];
+    if (indexOrNull(state.refEpoch) === null) state.refEpoch = 0;
+    if (indexOrNull(state.docEpoch) === null) state.docEpoch = 0;
+    return state;
+  }
+
+  /**
+   * session.agentState.jevFast for the current command (session.commandCount
+   * || 1). A new command starts with fresh counters, and clears a switch_off
+   * session latch set in an earlier command (D-05: turning the switch on
+   * takes effect at the next command); every other session latch stays.
+   */
+  function commandStateOf(session, state) {
+    var command = commandIndexOf(session);
+    if (!isObject(session.agentState)) session.agentState = {};
+    var jevFast = session.agentState.jevFast;
+    if (!isObject(jevFast) || jevFast.command !== command) {
+      jevFast = {
+        command: command,
+        llmTurnSeen: false,
+        yieldToLlm: false,
+        consecutiveFast: 0,
+        consecutiveEscalations: 0,
+        steps: 0,
+        calls: 0,
+        jevMs: 0,
+        latched: null,
+        lastStep: null,
+        previousStep: null,
+        firstUrl: null,
+        vaultFlow: false,
+        answeredStates: []
+      };
+      session.agentState.jevFast = jevFast;
+    }
+    if (!Array.isArray(jevFast.answeredStates)) jevFast.answeredStates = [];
+    if (state.off === true && state.offReason === 'switch_off' && state.offCommand !== command) {
+      state.off = false;
+      state.offReason = null;
+      state.offCommand = null;
+    }
+    return jevFast;
+  }
+
+  /** Abort the in-flight decide, if any (F21). Never throws. */
+  function abortInFlight(session) {
+    try {
+      var state = isObject(session) ? session._fastPath : null;
+      var controller = isObject(state) ? state.inFlight : null;
+      if (controller !== null && typeof controller === 'object' && typeof controller.abort === 'function') controller.abort();
+    } catch (_e) {
+      /* already aborted */
+    }
+  }
+
+  /**
+   * Turn fast mode off for the rest of the session and abort any in-flight
+   * decide. A switch_off latch may be replaced by a lasting reason; any other
+   * latch is kept. Never throws.
+   */
+  function latchOff(session, reason) {
+    try {
+      if (!isObject(session)) return;
+      var state = fastPathOf(session);
+      if (state.off !== true || state.offReason === 'switch_off') {
+        state.off = true;
+        state.offReason = typeof reason === 'string' && REASON_CODE_RE.test(reason) ? reason : 'exception';
+        state.offCommand = commandIndexOf(session);
+      }
+      abortInFlight(session);
+    } catch (_e) {
+      /* nothing more can be done */
+    }
+  }
+
+  /** Turn fast mode off for the rest of this command; the first reason is kept. */
+  function latchCommand(jevFast, reason) {
+    if (typeof jevFast.latched !== 'string' || jevFast.latched.length === 0) jevFast.latched = reason;
+    return jevFast.latched;
+  }
+
+  function budgetReason(jevFast) {
+    if (jevFast.steps >= constants.FAST_MAX_STEPS) return 'step_budget';
+    if (jevFast.calls >= constants.FAST_MAX_CALLS) return 'call_budget';
+    if (jevFast.jevMs >= constants.FAST_WALL_BUDGET_MS) return 'time_budget';
+    return null;
+  }
+
+  /** Milliseconds since `started` on the injected clock; 0 when the clock does not move forward. */
+  function elapsedSince(deps, started) {
+    var t = deps.now();
+    return typeof t === 'number' && typeof started === 'number' && isFinite(t) && isFinite(started) && t > started ? t - started : 0;
+  }
+
+  function originPathOf(url) {
+    var parsed = parseWebUrl(url);
+    return parsed ? parsed.origin + parsed.pathname : null;
+  }
+
+  /**
+   * The identity descriptor sent to the content script for one recent action
+   * (D-11). Refs are positional and re-minted by every LLM snapshot, every
+   * hand-off snapshot and every navigation, so an LLM ref is sent only while
+   * no such event has happened since the action; an LLM selector and a fast
+   * step's role and name are sent only while no navigation has. Otherwise
+   * the descriptor is empty and its target resolves to null.
+   */
+  function recentDescriptor(item, state) {
+    var action = isObject(item) ? item : {};
+    var sameDocument = action.docEpoch === state.docEpoch;
+    if (action.source === 'jev') {
+      return sameDocument && typeof action.role === 'string' && typeof action.name === 'string'
+        ? { role: action.role, name: action.name }
+        : { role: null, name: null };
+    }
+    return {
+      selector: sameDocument && typeof action.selector === 'string' ? action.selector : null,
+      ref: sameDocument && action.refEpoch === state.refEpoch && typeof action.ref === 'string' ? action.ref : null
+    };
+  }
+
+  /** The request's recent actions, in the same order as the descriptors; handles the menu could not resolve are null. */
+  function recentActionsFor(recent, handles) {
+    var list = Array.isArray(handles) && handles.length === recent.length ? handles : null;
+    return recent.map(function toAction(item, index) {
+      var handle = list !== null && typeof list[index] === 'string' && HANDLE_RE.test(list[index]) ? list[index] : null;
+      return { op: isObject(item) ? item.op : null, targetId: handle, changed: isObject(item) && item.changed === true };
+    });
+  }
+
+  /**
+   * Deliver the fast steps taken since the LLM's last turn as one
+   * provider-neutral role:'user' message (D-10). With no pending step it
+   * clears any stale stop reason and makes no call. Otherwise it requests one
+   * snapshot (the hand-off snapshot re-mints the LLM's refs, so refEpoch
+   * moves), collapses earlier hand-off snapshots, pushes the message and
+   * clears the pending state. `reason` (the decline that triggered the
+   * flush) is the stop reason when the attempt set none and it has its own
+   * description. It reads only session._fastPath, session.tabId,
+   * session.messages and deps.
+   */
+  async function deliverPending(session, deps, reason) {
+    var state = session._fastPath;
+    if (!isObject(state)) return false;
+    var pending = Array.isArray(state.pendingSteps) ? state.pendingSteps : [];
+    if (pending.length === 0) {
+      state.stopReason = null;
+      state.uncertain = false;
+      return false;
+    }
+    var steps = pending.slice();
+    var stopReason = typeof state.stopReason === 'string' && state.stopReason.length > 0
+      ? state.stopReason
+      : (describeEscalation(reason) !== GENERIC_ESCALATION ? reason : null);
+    var uncertain = state.uncertain === true;
+    var snapshot = null;
+    if (isObject(deps) && typeof deps.requestSnapshot === 'function') {
+      state.refEpoch = (indexOrNull(state.refEpoch) || 0) + 1;
+      try {
+        var answer = await deps.requestSnapshot(session.tabId, constants.SNAPSHOT_DEADLINE_MS);
+        if (isObject(answer) && answer.success === true && typeof answer.markdownSnapshot === 'string' && answer.markdownSnapshot.length > 0) {
+          snapshot = answer.markdownSnapshot;
+        }
+      } catch (_e) {
+        snapshot = null;
+      }
+    }
+    if (!Array.isArray(session.messages)) session.messages = [];
+    collapseEarlierHandoffs(session.messages);
+    session.messages.push({
+      role: 'user',
+      content: buildHandoffMessage({ steps: steps, stopReason: stopReason, uncertain: uncertain, snapshot: snapshot })
+    });
+    state.pendingSteps = Array.isArray(state.pendingSteps) ? state.pendingSteps.slice(steps.length) : [];
+    state.stopReason = null;
+    state.uncertain = false;
+    return true;
+  }
+
+  /**
+   * Deliver steps a command left unflushed (68-06 calls this on a follow-up
+   * before it recomputes session.fastMode). Resolves true when it pushed a
+   * hand-off; with no _fastPath or no pending step it resolves false with no
+   * dependency call. It reads neither session.fastMode nor agentState, and
+   * never rejects (a failure latches the session 'exception').
+   * @returns {Promise<boolean>}
+   */
+  async function flushHandoff(session, ctx) {
+    try {
+      if (!isObject(session) || !isObject(session._fastPath)) return false;
+      var pending = session._fastPath.pendingSteps;
+      if (!Array.isArray(pending) || pending.length === 0) return false;
+      return await deliverPending(session, resolveDeps(ctx), null);
+    } catch (_e) {
+      latchOff(session, 'exception');
+      return false;
+    }
+  }
+
+  /** Flush any pending hand-off, then hand this iteration to the LLM. */
+  async function declineWith(session, deps, reason) {
+    await deliverPending(session, deps, reason);
+    return { decline: reason };
+  }
+
+  function stoppedDecline() {
+    return { decline: 'stopped' };
+  }
+
+  /** What one escalation costs: the session, the command or this iteration (D-16, D-18). */
+  function applyEscalation(session, state, jevFast, reason, latch) {
+    if (latch === 'session') {
+      latchOff(session, reason);
+    } else if (latch === 'command') {
+      latchCommand(jevFast, reason);
+    } else {
+      jevFast.consecutiveEscalations += 1;
+      if (jevFast.consecutiveEscalations >= constants.FAST_ESCALATION_LATCH) latchCommand(jevFast, 'escalation_latch');
+    }
+    state.stopReason = reason;
+  }
+
+  function callIdFor(command, iteration, steps) {
+    return 'jev_' + command + '_' + (iteration !== null ? iteration : 's' + steps);
+  }
+
+  /**
+   * One fast attempt for this iteration. Resolves {toolCall, step} when FSB
+   * takes one code-built step, else {decline: reason} and the iteration runs
+   * on the LLM. Never rejects.
+   *
+   * In order: a session without fastMode.enabled declines not_enabled before
+   * any dependency call (run_task, D-03); latches; the LLM's first turn of
+   * the command (D-09); a forced LLM turn after an uncertain step; the run of
+   * consecutive fast steps; the four budgets (D-12); a vault flow; the stored
+   * switch (D-05); one menu; no progress (D-17); never re-roll (D-18); the
+   * request (sync issue 6: a local refusal latches the command); one decide
+   * bounded by the time left; the decision. After every await the attempt
+   * stops when the session is no longer running (F21).
+   *
+   * ctx: {sessionId, iteration, deps?}.
+   * @returns {Promise<{toolCall:Object, step:Object}|{decline:string}>}
+   */
+  async function beforeTurn(session, ctx) {
+    if (!isObject(session)) return { decline: 'exception' };
+    var deps = null;
+    try {
+      var c = isObject(ctx) ? ctx : {};
+      deps = resolveDeps(c);
+      var state = fastPathOf(session);
+      var jevFast = commandStateOf(session, state);
+      if (!isObject(session.fastMode) || session.fastMode.enabled !== true) return { decline: 'not_enabled' };
+      if (!depsUsable(deps)) {
+        deps = null;
+        latchOff(session, 'unavailable');
+      }
+
+      if (state.off === true) return await declineWith(session, deps, state.offReason || 'unavailable');
+      if (typeof jevFast.latched === 'string' && jevFast.latched.length > 0) return await declineWith(session, deps, jevFast.latched);
+      if (jevFast.llmTurnSeen !== true) return await declineWith(session, deps, 'first_llm_turn');
+      if (jevFast.yieldToLlm === true) {
+        jevFast.yieldToLlm = false;
+        return await declineWith(session, deps, state.stopReason || 'yield_to_llm');
+      }
+      if (jevFast.consecutiveFast >= constants.FAST_MAX_CONSECUTIVE) return await declineWith(session, deps, 'consecutive_cap');
+      var budget = budgetReason(jevFast);
+      if (budget !== null) return await declineWith(session, deps, latchCommand(jevFast, budget));
+      if (jevFast.vaultFlow === true) return await declineWith(session, deps, latchCommand(jevFast, 'vault_flow'));
+
+      var switchOn = await deps.readSwitch();
+      if (isStopped(session)) return stoppedDecline();
+      if (switchOn !== true) {
+        latchOff(session, 'switch_off');
+        return await declineWith(session, deps, 'switch_off');
+      }
+
+      var recent = state.recent.slice(Math.max(0, state.recent.length - constants.RECENT_ACTIONS_MAX));
+      var descriptors = recent.map(function describe(item) { return recentDescriptor(item, state); });
+      var menuStarted = deps.now();
+      var menu = await deps.requestMenu(session.tabId, { cap: constants.MENU_CAP, recent: descriptors, capture: false },
+        constants.MENU_DEADLINE_MS);
+      jevFast.jevMs += elapsedSince(deps, menuStarted);
+      if (isStopped(session)) return stoppedDecline();
+      if (!isObject(menu) || menu.success !== true) return await declineWith(session, deps, 'menu_unavailable');
+      if (typeof menu.url !== 'string' || typeof menu.signature !== 'string' || menu.signature.length === 0) {
+        return await declineWith(session, deps, 'menu_invalid');
+      }
+      if (jevFast.firstUrl === null && parseWebUrl(menu.url) !== null) jevFast.firstUrl = menu.url;
+
+      if (isNoProgress(jevFast.lastStep, menu, jevFast.previousStep)) {
+        latchCommand(jevFast, 'no_progress');
+        state.stopReason = 'no_progress';
+        return await declineWith(session, deps, 'no_progress');
+      }
+      var stateKey = menu.url + '\n' + menu.signature;
+      if (contains(jevFast.answeredStates, stateKey)) return await declineWith(session, deps, 'same_state');
+
+      var firstPath = originPathOf(jevFast.firstUrl);
+      var menuPath = originPathOf(menu.url);
+      var mapped = toBuilderInput(menu, {
+        goal: session.task,
+        recentActions: recentActionsFor(recent, menu.recentHandles),
+        navigatedInCommand: firstPath !== null && menuPath !== null && firstPath !== menuPath
+      });
+      if (!mapped.ok) return await declineWith(session, deps, mapped.reason);
+
+      var iteration = indexOrNull(c.iteration);
+      var jevState = resolveState();
+      if (!jevState || typeof jevState.buildRequest !== 'function') {
+        latchOff(session, 'unavailable');
+        return await declineWith(session, deps, 'unavailable');
+      }
+      var built = jevState.buildRequest(mapped.input);
+      if (!isObject(built) || built.ok !== true || !isObject(built.request) || !isObject(built.idMap)) {
+        // A local refusal is a property of this page or this goal, never a
+        // gateway mismatch: it latches the command, not the session.
+        var refusal = isObject(built) && built.reason === 'sensitive_goal' ? 'sensitive_goal' : 'local_invalid_request';
+        appendAttempt(session, attemptFromResult({ ok: false, reason: refusal === 'sensitive_goal' ? 'sensitive_goal' : 'invalid_request' },
+          { iteration: iteration, command: jevFast.command, outcome: 'declined', escalationReason: refusal }));
+        addCommandTotals(session, jevFast.command, { escalation: refusal });
+        return await declineWith(session, deps, latchCommand(jevFast, refusal));
+      }
+
+      var remaining = constants.FAST_WALL_BUDGET_MS - jevFast.jevMs;
+      if (!(remaining > 0)) return await declineWith(session, deps, latchCommand(jevFast, 'time_budget'));
+      var client = clientFor(deps);
+      if (client === null) {
+        latchOff(session, 'unavailable');
+        return await declineWith(session, deps, 'unavailable');
+      }
+      var timeoutMs = Math.min(decideTimeoutLimit(), remaining);
+      var Controller = root && typeof root.AbortController === 'function' ? root.AbortController : null;
+      var controller = Controller ? new Controller() : null;
+      state.inFlight = controller;
+      var decideStarted = deps.now();
+      var result;
+      try {
+        result = await client.decide(built.request, controller ? { signal: controller.signal, timeoutMs: timeoutMs } : { timeoutMs: timeoutMs });
+      } finally {
+        if (state.inFlight === controller) state.inFlight = null;
+      }
+      var decideMs = elapsedSince(deps, decideStarted);
+      jevFast.calls += 1;
+      jevFast.jevMs += decideMs;
+
+      var decision = null;
+      var call = null;
+      if (!isStopped(session)) {
+        decision = evaluateDecision(result, {
+          request: built.request,
+          idMap: built.idMap,
+          entriesByHandle: mapped.entriesByHandle,
+          offeredOps: mapped.offeredOps
+        });
+        if (decision.act === true) {
+          call = buildStaticCall(decision, {
+            generation: menu.generation,
+            callId: callIdFor(jevFast.command, iteration, jevFast.steps),
+            pageUrl: menu.url
+          });
+          if (call === null) decision = escalate('menu_invalid');
+        }
+      }
+      var escalated = decision !== null && decision.act !== true;
+      appendAttempt(session, attemptFromResult(result, {
+        iteration: iteration,
+        command: jevFast.command,
+        outcome: decision === null ? 'declined' : (escalated ? 'escalated' : 'acted'),
+        escalationReason: decision === null ? 'stopped' : (escalated ? decision.reason : null),
+        op: decision !== null && !escalated ? decision.op : null
+      }));
+      addCommandTotals(session, jevFast.command, {
+        jevCalls: 1,
+        jevMs: decideMs,
+        cost: isObject(result) && result.ok === true ? result.cost : null,
+        escalation: escalated ? decision.reason : undefined
+      });
+      // D-18: any answer on this page state, acted or escalated, is final for
+      // the command. A fallback carries no answer and is not remembered.
+      if (isObject(result) && result.ok === true) jevFast.answeredStates.push(stateKey);
+      if (decision === null) return stoppedDecline();
+      if (escalated) {
+        applyEscalation(session, state, jevFast, decision.reason, decision.latch);
+        return await declineWith(session, deps, decision.reason);
+      }
+
+      jevFast.steps += 1;
+      jevFast.consecutiveFast += 1;
+      var entry = isObject(decision.entry) ? decision.entry : null;
+      return {
+        toolCall: call,
+        step: {
+          callId: call.id,
+          name: call.name,
+          op: decision.op,
+          handle: decision.handle,
+          role: entry ? entry.role : null,
+          label: entry ? entry.label : null,
+          url: menu.url,
+          signature: menu.signature,
+          generation: typeof menu.generation === 'string' ? menu.generation : null,
+          iteration: iteration,
+          command: jevFast.command
+        }
+      };
+    } catch (_e) {
+      latchOff(session, 'exception');
+      try {
+        await deliverPending(session, depsUsable(deps) ? deps : null, 'exception');
+      } catch (_flushError) {
+        /* the next iteration flushes */
+      }
+      return { decline: 'exception' };
+    }
+  }
+
   var api = {
     constants: constants,
     classifyFallback: classifyFallback,
@@ -923,7 +1430,11 @@
     ensureMeasurement: ensureMeasurement,
     appendAttempt: appendAttempt,
     addCommandTotals: addCommandTotals,
-    attemptFromResult: attemptFromResult
+    attemptFromResult: attemptFromResult,
+    beforeTurn: beforeTurn,
+    flushHandoff: flushHandoff,
+    latchOff: latchOff,
+    abortInFlight: abortInFlight
   };
   root.FsbFastPath = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
