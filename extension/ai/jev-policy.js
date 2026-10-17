@@ -36,9 +36,16 @@
    */
 
   /**
-   * The verdict of accept().
+   * The verdict of accept(). A Noul verdict names its effect, because the
+   * polarity differs by kind (CONTRACT.NOUL_DIRECTION): an accepted
+   * completion is a VETO ('veto_completion': Jev is confident the task is
+   * NOT done, p at or below its threshold) and never means "done"; an
+   * accepted stuck or risk is a flag ('flag_stuck', 'flag_risk': p at or
+   * above its threshold).
    * @typedef {({accepted: true, kind: ('operation'|'target'), choice: string}
-   *   | {accepted: true, kind: ('completion'|'stuck'|'risk'), p: number}
+   *   | {accepted: true, kind: 'completion', p: number, effect: 'veto_completion'}
+   *   | {accepted: true, kind: 'stuck', p: number, effect: 'flag_stuck'}
+   *   | {accepted: true, kind: 'risk', p: number, effect: 'flag_risk'}
    *   | {accepted: false, reason: ('not_ok'|'not_calibrated'|'kind_absent'|'threshold_null'|'below_threshold'|'catch_all'|'malformed')})} JevAcceptance
    */
 
@@ -81,6 +88,10 @@
   });
 
   var CONFIRM_DENIAL_REASON = 'jev_requires_confirmation';
+
+  // What an accepted Noul does. completion can only veto "done" (its
+  // threshold is met when p is at or below it); it never confirms completion.
+  var NOUL_EFFECTS = deepFreeze({ completion: 'veto_completion', stuck: 'flag_stuck', risk: 'flag_risk' });
 
   function isObjectLike(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -148,7 +159,7 @@
 
     var p = decision.p;
     if (!isUnitNumber(p)) return reject('malformed');
-    return { accepted: true, kind: kind, p: p };
+    return { accepted: true, kind: kind, p: p, effect: NOUL_EFFECTS[kind] };
   }
 
   /**
@@ -157,6 +168,13 @@
    * kind's decision exists (as an own property) with a numeric threshold in
    * [0, 1] and meetsThreshold true; and, for a Choice, the choice is not
    * none_of_the_above. A Noul also needs p in [0, 1].
+   *
+   * An accepted Noul carries `effect`. For completion it is
+   * 'veto_completion': the server meets a completion threshold when p is AT
+   * OR BELOW it, so acceptance means Jev is confident the task is not done
+   * yet. A caller must never read it as "Jev confirms done"; ending a task
+   * early is the one loosening JEV-06 forbids. stuck and risk give
+   * 'flag_stuck' and 'flag_risk' (p at or above the threshold).
    *
    * It reads only result.ok, result.calibration.status and
    * result.decisions[kind].{threshold, meetsThreshold, choice | p}, each read

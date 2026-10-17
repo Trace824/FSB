@@ -552,9 +552,13 @@ function sectionA() {
 // Section B -- accept()
 // ---------------------------------------------------------------------------
 
+// The effect an accepted Noul names (WR-07). An accepted completion is a veto
+// of "done" (p at or below its threshold), never a confirmation of it.
+const NOUL_EFFECTS = { completion: 'veto_completion', stuck: 'flag_stuck', risk: 'flag_risk' };
+
 function expectedAccept(outcome, kind) {
   if (kind !== 'risk') return null;
-  if (outcome.risk === 'flag') return { accepted: true, kind: 'risk', p: outcome.result.decisions.risk.p };
+  if (outcome.risk === 'flag') return { accepted: true, kind: 'risk', p: outcome.result.decisions.risk.p, effect: 'flag_risk' };
   return { accepted: false, reason: outcome.risk };
 }
 
@@ -591,8 +595,8 @@ function sectionB() {
         || (v.accepted === true && v.kind === kind && KINDS.includes(kind) && (
           (CONTRACT.CHOICE_KINDS.includes(kind) && sameKeys(v, ['accepted', 'kind', 'choice']) && typeof v.choice === 'string'
             && v.choice !== CONTRACT.RESERVED_OPTION_KEY)
-          || (CONTRACT.NOUL_KINDS.includes(kind) && sameKeys(v, ['accepted', 'kind', 'p']) && typeof v.p === 'number'
-            && v.p >= 0 && v.p <= 1))));
+          || (CONTRACT.NOUL_KINDS.includes(kind) && sameKeys(v, ['accepted', 'kind', 'p', 'effect']) && typeof v.p === 'number'
+            && v.p >= 0 && v.p <= 1 && v.effect === NOUL_EFFECTS[kind]))));
       if (!valid) { shapeOk = false; badShape.push(outcome.id + '/' + kind + ' -> ' + safeJson(v)); }
       if (!KINDS.includes(kind) && !(v && v.accepted === false && v.reason === 'malformed')) {
         shapeOk = false; badShape.push(outcome.id + '/' + kind + ' (unknown kind) -> ' + safeJson(v));
@@ -616,9 +620,35 @@ function sectionB() {
   const all = produce(HIGH_ANSWERS);
   checkDeep(Policy.accept(all, 'operation'), { accepted: true, kind: 'operation', choice: 'click' }, 'calibrated operation at threshold is accepted with its choice');
   checkDeep(Policy.accept(all, 'target'), { accepted: true, kind: 'target', choice: 'e3' }, 'calibrated target at threshold is accepted with its choice');
-  checkDeep(Policy.accept(all, 'completion'), { accepted: true, kind: 'completion', p: 0.03 }, 'calibrated completion veto (p at or below 0.2) is accepted with its p');
-  checkDeep(Policy.accept(all, 'stuck'), { accepted: true, kind: 'stuck', p: 0.95 }, 'calibrated stuck flag is accepted with its p');
-  checkDeep(Policy.accept(all, 'risk'), { accepted: true, kind: 'risk', p: 0.98 }, 'calibrated risk flag is accepted with its p');
+  checkDeep(Policy.accept(all, 'completion'), { accepted: true, kind: 'completion', p: 0.03, effect: 'veto_completion' }, 'calibrated completion veto (p at or below 0.2) is accepted with its p and effect veto_completion');
+  checkDeep(Policy.accept(all, 'stuck'), { accepted: true, kind: 'stuck', p: 0.95, effect: 'flag_stuck' }, 'calibrated stuck flag is accepted with its p and effect flag_stuck');
+  checkDeep(Policy.accept(all, 'risk'), { accepted: true, kind: 'risk', p: 0.98, effect: 'flag_risk' }, 'calibrated risk flag is accepted with its p and effect flag_risk');
+
+  // Tighten-only: an accepted completion only ever vetoes "done" (WR-07). Over
+  // a grid of p, every accepted completion has p at or below its threshold,
+  // names veto_completion and carries nothing that could read as "done".
+  let vetoOnly = true;
+  let vetoes = 0;
+  const vetoProblems = [];
+  for (let i = 0; i <= 100; i += 1) {
+    const p = i / 100;
+    const verdict = Policy.accept(produce({ completion: noulAnswer(p) }), 'completion');
+    if (verdict.accepted !== true) continue;
+    vetoes += 1;
+    const decision = produce({ completion: noulAnswer(p) }).decisions.completion;
+    const done = Object.keys(verdict).some((key) => /done|complete[d]?$|finish/i.test(key))
+      || /done|confirm|finish/i.test(String(verdict.effect));
+    if (verdict.effect !== 'veto_completion' || !(decision.p <= decision.threshold) || done) {
+      vetoOnly = false;
+      vetoProblems.push(p + ' -> ' + safeJson(verdict));
+    }
+  }
+  check(vetoes > 0 && vetoes < 101, 'the completion grid exercises both sides of the veto cut (' + vetoes + ' of 101 accepted)');
+  check(vetoOnly, 'every accepted completion is a veto_completion with p at or below its threshold, never a "done"'
+    + (vetoProblems.length ? ' ' + vetoProblems.slice(0, 3).join('; ') : ''));
+  check(Object.values(NOUL_EFFECTS).every((effect) => !CONTRACT.APPROVAL_KEY_DENYLIST.some((source) => new RegExp(source, 'i').test(effect)))
+    && !CONTRACT.APPROVAL_KEY_DENYLIST.some((source) => new RegExp(source, 'i').test('effect')),
+  'the effect key and its values match no approval deny-list source (D-29)');
   const catchAll = produce({
     operation: choiceAnswer('none_of_the_above', 0.95, 'click'),
     target: choiceAnswer('none_of_the_above', 0.95, 'e3')
