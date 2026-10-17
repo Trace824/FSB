@@ -2320,7 +2320,9 @@ function sanitizeActionHistoryEntry(action) {
     },
     // Phase 66 (D-05): only measured values; an unmeasured call has no key.
     ...(Number.isFinite(action?.durationMs) && action.durationMs >= 0 ? { durationMs: action.durationMs } : {}),
-    ...(validProjectionTiming(action?.timing) ? { timing: validProjectionTiming(action.timing) } : {})
+    ...(validProjectionTiming(action?.timing) ? { timing: validProjectionTiming(action.timing) } : {}),
+    // Phase 68 (D-23): a fast step's marker; its params never leave.
+    ...(action && action.decisionSource === 'jev' ? { decisionSource: 'jev' } : {})
   };
 }
 
@@ -2356,9 +2358,15 @@ function sanitizeSessionDetail(session) {
   // /token/i key and flattens deep objects, so it would mangle them.
   delete sanitized.iterationTiming;
   delete sanitized.measurementSummary;
+  // Phase 68 (AUTO-04, D-23): the same for the fast-mode block. It is added
+  // only when the session has one, so other sessions read exactly as before.
+  delete sanitized.jevMeasurement;
   sanitized.measurement = session.mode === 'mcp-agent'
     ? buildMcpMeasurementFromLegacy(session)
     : buildAutopilotMeasurement(session);
+  if (session.jevMeasurement && typeof session.jevMeasurement === 'object' && !Array.isArray(session.jevMeasurement)) {
+    sanitized.jevMeasurement = projectJevMeasurement(session.jevMeasurement);
+  }
   withLegacyCostBasis(sanitized, session);
   return sanitized;
 }
@@ -2697,6 +2705,80 @@ function projectAutopilotIterationRow(row) {
     estimateDeltaPct: typeof row.estimateDeltaPct === 'number' && Number.isFinite(row.estimateDeltaPct)
       ? row.estimateDeltaPct
       : null
+  };
+}
+
+// Phase 68 (AUTO-04, D-23): the fast-mode measurement block, projected key by
+// key from the stored record. A string leaves only as a code word or a
+// bounded model id, so no label, URL or page text can; missing numbers are
+// null, never 0, and usage and cost keep their source labels. Jev cost stays
+// in this block, outside costUsd and the provider measurement, and is never
+// priced here. automation-logger.js cloneJevMeasurementForPersistence keeps
+// the same keys; tests/jev-fast-measurement.test.js holds both to the 68-04
+// producers.
+function jevMeasurementCode(value) {
+  return typeof value === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(value) ? value : null;
+}
+
+function jevMeasurementString(value, maxLength) {
+  return typeof value === 'string' && value.length > 0 && value.length <= maxLength ? value : null;
+}
+
+function projectJevAttempt(attempt) {
+  const usage = attempt.usage && typeof attempt.usage === 'object' ? attempt.usage : {};
+  const cost = attempt.cost && typeof attempt.cost === 'object' ? attempt.cost : {};
+  return {
+    iteration: measurementCountOrNull(attempt.iteration),
+    command: measurementCountOrNull(attempt.command),
+    decisionSource: attempt.decisionSource === 'jev' ? 'jev' : null,
+    jevCalled: attempt.jevCalled === true,
+    servedModel: jevMeasurementString(attempt.servedModel, 128),
+    instrumentVersion: jevMeasurementString(attempt.instrumentVersion, 64),
+    calibrationStatus: jevMeasurementCode(attempt.calibrationStatus),
+    latencyMs: measurementNumberOrNull(attempt.latencyMs),
+    usage: {
+      inputTokens: measurementCountOrNull(usage.inputTokens),
+      source: measurementSourceLabel(usage.source, ['provider', 'unavailable'])
+    },
+    cost: {
+      usd: measurementNumberOrNull(cost.usd),
+      source: measurementSourceLabel(cost.source, ['provider', 'estimate', 'unavailable'])
+    },
+    fallback: jevMeasurementCode(attempt.fallback),
+    outcome: jevMeasurementCode(attempt.outcome),
+    escalationReason: jevMeasurementCode(attempt.escalationReason),
+    op: jevMeasurementCode(attempt.op),
+    stepOutcome: jevMeasurementCode(attempt.stepOutcome)
+  };
+}
+
+function projectJevCommand(command) {
+  const usd = command.usd && typeof command.usd === 'object' ? command.usd : {};
+  const escalations = {};
+  if (command.escalations && typeof command.escalations === 'object' && !Array.isArray(command.escalations)) {
+    for (const reason of Object.keys(command.escalations).slice(0, 100)) {
+      const count = measurementCountOrNull(command.escalations[reason]);
+      if (jevMeasurementCode(reason) !== null && count !== null) escalations[reason] = count;
+    }
+  }
+  return {
+    command: measurementCountOrNull(command.command),
+    fastSteps: measurementCountOrNull(command.fastSteps),
+    jevCalls: measurementCountOrNull(command.jevCalls),
+    jevMs: measurementNumberOrNull(command.jevMs),
+    usd: { provider: measurementNumberOrNull(usd.provider), estimate: measurementNumberOrNull(usd.estimate) },
+    escalations
+  };
+}
+
+function projectJevMeasurement(block) {
+  const isRecord = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
+  const attempts = Array.isArray(block && block.attempts) ? block.attempts.filter(isRecord).slice(-100) : [];
+  const commands = Array.isArray(block && block.commands) ? block.commands.filter(isRecord).slice(-100) : [];
+  return {
+    v: 1,
+    attempts: attempts.map(projectJevAttempt),
+    commands: commands.map(projectJevCommand)
   };
 }
 
