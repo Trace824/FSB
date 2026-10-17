@@ -44,6 +44,7 @@ class Config {
       prioritizeViewport: true,
       animatedActionHighlights: true,
       showSidepanelProgress: false,
+      fsbJevFastModeEnabled: false, // Phase 68: autopilot fast mode, off by default
 
       // Credential Manager (Beta)
       enableLogin: false,
@@ -430,7 +431,9 @@ if (typeof module !== 'undefined' && module.exports) {
     { key: 'fsbTelemetryOptOut', type: 'boolean', cls: 'writable', default: false },
     // Effective default: ws-client.js and the panel Sync use this host (Config.defaults says fly.dev).
     { key: 'serverUrl', type: 'string', cls: 'endpoint', default: 'https://full-selfbrowsing.com' },
-    { key: 'serverHashKey', type: 'string', cls: 'secret', default: '' }
+    { key: 'serverHashKey', type: 'string', cls: 'secret', default: '' },
+    // Phase 68 (AUTO-01): the autopilot fast mode switch, off by default.
+    { key: 'fsbJevFastModeEnabled', type: 'boolean', cls: 'writable', default: false }
   ];
 
   function hasOwn(obj, key) {

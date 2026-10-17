@@ -19,7 +19,12 @@
  *   3. No caller, no setting, no UI. Nothing outside extension/ai/jev-*.js
  *      names FsbJevState, FsbJevClient or FsbJevPolicy; background.js names
  *      only the three file names, in its three load lines; nothing under
- *      extension/ui or extension/config mentions jev.
+ *      extension/ui or extension/config mentions jev, except the one settings
+ *      key fsbJevFastModeEnabled (Phase 68 D-06), allowed as an exact,
+ *      word-bounded token in extension/config/config.js,
+ *      extension/config/init-config.js and extension/ui/options.js only. Any
+ *      other jev text in those files, or the token anywhere else under
+ *      extension/ui or extension/config, still fails.
  *   4. Inert load. Each module, alone and all three together, evaluates in a
  *      bare vm context (no chrome, no fetch, no require, no module), makes no
  *      timer call, logs nothing, throws nothing and adds exactly its own
@@ -75,6 +80,17 @@ const CALLER_PATTERN = Object.freeze({ name: 'FsbJev* global reference', re: /Fs
 // D-01: no Jev setting, storage key or UI.
 const UI_WORD_PATTERN = Object.freeze({ name: 'jev (word)', re: /\bjev\b/gi });
 const UI_TEXT_PATTERN = Object.freeze({ name: 'jev (any substring, text files)', re: /jev/gi });
+
+// Phase 68 D-06: the exact settings keys a text file under extension/ui or
+// extension/config may contain, and the only files that may contain them.
+// Each token is removed only where it stands as a whole word, and only in
+// those files, before UI_TEXT_PATTERN runs; any other jev text still fails.
+const UI_CONFIG_JEV_TOKENS = Object.freeze(['fsbJevFastModeEnabled']);
+const UI_CONFIG_TOKEN_FILES = Object.freeze([
+  'extension/config/config.js',
+  'extension/config/init-config.js',
+  'extension/ui/options.js'
+]);
 
 // Any scheme://... literal (https, http, ws, wss, chrome-extension, ...).
 const URL_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`)<>\]]*/gi;
@@ -145,6 +161,24 @@ function report(violations, label) {
   for (const v of violations) console.error('    - ' + v.file + ':' + v.line + ' -- ' + v.pattern + ' (' + JSON.stringify(v.match) + ')');
 }
 
+/** text with every whole-word UI_CONFIG_JEV_TOKENS occurrence removed (line breaks kept). */
+function stripAllowedTokens(text) {
+  let out = text;
+  for (const token of UI_CONFIG_JEV_TOKENS) out = out.replace(new RegExp('\\b' + token + '\\b', 'g'), '');
+  return out;
+}
+
+/**
+ * The UI_TEXT_PATTERN hits in one text file under extension/ui or
+ * extension/config (relPath is repo-relative). The allowed tokens are removed
+ * first only in UI_CONFIG_TOKEN_FILES, so the scan stays as strict everywhere
+ * else and for every other jev text.
+ */
+function uiTextHits(text, relPath) {
+  const scanned = UI_CONFIG_TOKEN_FILES.includes(relPath) ? stripAllowedTokens(text) : text;
+  return findAll(scanned, UI_TEXT_PATTERN);
+}
+
 // ---------------------------------------------------------------------------
 // Static scans
 // ---------------------------------------------------------------------------
@@ -176,6 +210,43 @@ function scannerSelfTest() {
   'UI patterns fire on a Jev label and (text files) a jev* storage key');
   const urls = 'a "https://x.example/p?q" b ws://h:1/ c chrome-extension://id/x.html'.match(URL_PATTERN) || [];
   check(urls.length === 3, 'URL pattern finds https, ws and chrome-extension literals');
+
+  // Phase 68 D-06: the ui/config token allowlist removes only the exact,
+  // word-bounded key, and only in the three allowed files.
+  const OPTIONS_REL = 'extension/ui/options.js';
+  const CONFIG_REL = 'extension/config/config.js';
+  const INIT_REL = 'extension/config/init-config.js';
+  const PANEL_REL = 'extension/ui/control_panel.html';
+  const stillReported = [
+    [OPTIONS_REL, '  // Jev fast mode\n'],
+    [OPTIONS_REL, '  fsbJevOther: true,\n'],
+    [OPTIONS_REL, 'const jevFastMode = false;\n'],
+    [OPTIONS_REL, '  fsbJevFastModeEnabledX: false,\n'],
+    [OPTIONS_REL, '  xfsbJevFastModeEnabled: false,\n'],
+    [OPTIONS_REL, '  fsbJevFastModeEnabled_2: false,\n'],
+    [CONFIG_REL, "    { key: 'fsbJevFastModeEnabledX', type: 'boolean', cls: 'writable', default: false }\n"],
+    [CONFIG_REL, "    { key: 'fsbjevfastmodeenabled', type: 'boolean', cls: 'writable', default: false }\n"],
+    [INIT_REL, '  // JEV fast mode\n'],
+    [PANEL_REL, '<label>Jev fast mode</label>\n'],
+    [PANEL_REL, '<input type="checkbox" id="fsbJevFastModeEnabled">\n'],
+    ['extension/ui/sidepanel.js', "const key = 'fsbJevFastModeEnabled';\n"]
+  ];
+  for (const [relPath, text] of stillReported) {
+    check(uiTextHits(text, relPath).length > 0, 'ui/config scan still reports ' + JSON.stringify(text.trim()) + ' in ' + relPath);
+  }
+  const allowedOnly = [
+    [OPTIONS_REL, "  fsbJevFastModeEnabled: false,\n  elements.fsbJevFastModeEnabled = document.getElementById('fsbJevFastModeEnabled');\n"
+      + '    fsbJevFastModeEnabled: elements.fsbJevFastModeEnabled?.checked ?? false,\n'],
+    [CONFIG_REL, "    { key: 'fsbJevFastModeEnabled', type: 'boolean', cls: 'writable', default: false }\n"
+      + '      fsbJevFastModeEnabled: false, // Phase 68: autopilot fast mode, off by default\n'],
+    [INIT_REL, '  fsbJevFastModeEnabled: false,\n']
+  ];
+  for (const [relPath, text] of allowedOnly) {
+    check(uiTextHits(text, relPath).length === 0, relPath + ' text whose only jev text is the exact token fsbJevFastModeEnabled is not reported');
+  }
+  const mixed = uiTextHits('  fsbJevFastModeEnabled: false,\n  // Jev decides\n', OPTIONS_REL);
+  check(mixed.length === 1 && mixed[0].line === 2 && mixed[0].match === 'Jev',
+    'other jev text in an allowed file is still reported, on its own line, next to the allowed token');
 }
 
 function treeScan(files) {
@@ -263,22 +334,30 @@ function uiConfigScan() {
   console.log('\n--- no Jev setting, storage key or UI in extension/ui or extension/config (D-01) ---');
   const files = walkFiles(path.join(EXT_DIR, 'ui'), []).concat(walkFiles(path.join(EXT_DIR, 'config'), []));
   const violations = [];
+  const tokenFiles = [];
   let textFiles = 0;
   for (const file of files) {
     const read = readForScan(file);
     if (read.skipped) continue;
-    // Text files: any jev substring (catches a jevFastMode-style key too).
+    const relPath = rel(file);
+    // Text files: any jev substring (catches a jevFastMode-style key too),
+    // after the Phase 68 D-06 token allowlist in its three files only.
     // Binaries: the word only, so random compressed bytes cannot trip it.
     const pattern = read.binary ? UI_WORD_PATTERN : UI_TEXT_PATTERN;
     if (!read.binary) textFiles += 1;
-    for (const hit of findAll(read.text, pattern)) {
-      violations.push({ file: rel(file), line: hit.line, pattern: pattern.name, match: hit.match });
+    const hits = read.binary ? findAll(read.text, pattern) : uiTextHits(read.text, relPath);
+    for (const hit of hits) {
+      violations.push({ file: relPath, line: hit.line, pattern: pattern.name, match: hit.match });
     }
+    if (UI_CONFIG_JEV_TOKENS.some((token) => read.text.indexOf(token) !== -1)) tokenFiles.push(relPath);
   }
   console.log('  ui/config files scanned: ' + files.length + ' (' + textFiles + ' text)');
   check(files.length > 0, 'extension/ui and extension/config hold files to scan');
   report(violations, 'ui/config');
-  check(violations.length === 0, 'nothing under extension/ui or extension/config mentions jev (' + violations.length + ' violation(s))');
+  check(violations.length === 0, 'nothing under extension/ui or extension/config mentions jev apart from the allowed settings key (' + violations.length + ' violation(s))');
+  console.log('  files holding an allowed token: ' + (tokenFiles.join(', ') || 'none'));
+  check(tokenFiles.every((relPath) => UI_CONFIG_TOKEN_FILES.includes(relPath)),
+    'the files under extension/ui and extension/config that hold fsbJevFastModeEnabled are a subset of config.js, init-config.js and options.js');
 }
 
 // ---------------------------------------------------------------------------

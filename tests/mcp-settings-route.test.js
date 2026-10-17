@@ -335,7 +335,7 @@ async function partA() {
     const response = await getSettings({ agentId: 'agent_ok' });
     check(response && response.success === true, 'read-all succeeds');
     const settings = (response && response.settings) || {};
-    check(Object.keys(settings).length === 35, 'read-all returns the 35 schema keys (got ' + Object.keys(settings).length + ')');
+    check(Object.keys(settings).length === 36, 'read-all returns the 36 schema keys (got ' + Object.keys(settings).length + ')');
     check(Array.isArray(response.readOnly) && response.readOnly.length === 11, 'read-all lists the 11 read-only keys');
     checkDeep(response.readOnly, PRODUCTION_SCHEMA.readOnlyKeys(), 'readOnly is the schema read-only list');
     for (const key of SECRET_KEYS.filter((k) => k !== 'openrouterApiKey')) {
@@ -847,6 +847,26 @@ async function partA() {
     check(isFailure(gone, 'SETTING_UNKNOWN_KEY'), 'the production schema does not know the fixture key');
     const goneWrite = await setSetting(writePayload('fsbFixtureFastMode', 'true'));
     check(isFailure(goneWrite, 'SETTING_UNKNOWN_KEY'), 'the production schema refuses to write the fixture key');
+  });
+
+  // Phase 68 (AUTO-01 SC1): the real switch is one stored value, reached
+  // through the production schema alone, with no MCP change.
+  await runSection('the fast-mode switch is one stored value (Phase 68, AUTO-01)', async () => {
+    const KEY = 'fsbJevFastModeEnabled';
+    check(PRODUCTION_SCHEMA.keys().includes(KEY) && !PRODUCTION_SCHEMA.keys().includes('fsbFixtureFastMode'),
+      'the production schema has the switch and still not the fsbFixtureFastMode fixture');
+    resetStorage({});
+    const all = await getSettings({ agentId: 'agent_ok' });
+    check(all && all.success === true && all.settings && all.settings[KEY] === false,
+      'read-all reports fsbJevFastModeEnabled as false when storage is empty');
+    const one = await getSettings({ agentId: 'agent_ok', key: KEY });
+    checkDeep(one, { success: true, key: KEY, value: false, type: 'boolean', writable: true }, 'read-one describes the switch');
+    const write = await setSetting(writePayload(KEY, 'true'));
+    checkDeep(write, { success: true, key: KEY, value: true, previous: false, changed: [KEY] },
+      "a write of 'true' succeeds with changed ['fsbJevFastModeEnabled']");
+    checkDeep(fakeStorage.setCalls, [{ [KEY]: true }], 'the write stores exactly {fsbJevFastModeEnabled: true}');
+    const after = await getSettings({ agentId: 'agent_ok', key: KEY });
+    check(after && after.success === true && after.value === true, 'read-one then reports true');
   });
 }
 

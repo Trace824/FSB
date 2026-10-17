@@ -187,6 +187,7 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node tests/jev-extension-boundary.test.js',
   'node --test tests/jev-shadow-score.test.mjs tests/jev-shadow-select.test.mjs tests/jev-shadow-records.test.mjs tests/jev-shadow-harness.test.mjs',
   'node tests/jev-fast-upstream-contract.test.js',
+  'node tests/jev-fast-settings.test.js',
 ]);
 
 const PHASE64_RETAINED_ROOT_COMMANDS = Object.freeze([

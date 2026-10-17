@@ -154,7 +154,7 @@ function buildRegistry() {
   for (const id of [
     'debugMode', 'domOptimization', 'prioritizeViewport', 'animatedActionHighlights',
     'showSidepanelProgress', 'enableLogin', 'captchaSolverEnabled', 'sttProvider',
-    'voiceInputEnabled', 'autoRefineSiteMaps', 'fsbChangeReportsEnabled',
+    'voiceInputEnabled', 'autoRefineSiteMaps', 'fsbChangeReportsEnabled', 'fsbJevFastModeEnabled',
     'fsbMcpSessionRecordingEnabled', 'autoAnalyzeToggle', 'fsbTelemetryOptOut'
   ]) {
     const el = reg(makeEl('input', id));

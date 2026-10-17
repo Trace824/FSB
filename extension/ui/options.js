@@ -43,6 +43,8 @@ const defaultSettings = {
   // false, the dispatcher skips harvest instrumentation entirely (zero
   // overhead) and action tool responses revert to pre-Phase-245 shape.
   fsbChangeReportsEnabled: true,
+  // Phase 68 (AUTO-01): autopilot fast mode switch, off by default.
+  fsbJevFastModeEnabled: false,
   // Exact-fidelity MCP replay is opt-out. Saved MCP sessions age out
   // independently of Autopilot history.
   fsbMcpSessionRecordingEnabled: true,
@@ -325,6 +327,8 @@ function cacheElements() {
   elements.fsbTriggerCapCurrentActive = document.getElementById('fsbTriggerCapCurrentActive');
   // Phase 245 D-07: Action Change Reports global toggle.
   elements.fsbChangeReportsEnabled = document.getElementById('fsbChangeReportsEnabled');
+  // Phase 68 (AUTO-01): autopilot fast mode switch (null until its card exists).
+  elements.fsbJevFastModeEnabled = document.getElementById('fsbJevFastModeEnabled');
   elements.fsbMcpSessionRecordingEnabled = document.getElementById('fsbMcpSessionRecordingEnabled');
   elements.fsbMcpSessionRetentionDays = document.getElementById('fsbMcpSessionRetentionDays');
   elements.prioritizeViewport = document.getElementById('prioritizeViewport');
@@ -1003,6 +1007,13 @@ function setupEventListeners() {
   // persistence below.
   if (elements.fsbChangeReportsEnabled) {
     elements.fsbChangeReportsEnabled.addEventListener('change', () => {
+      markUnsavedChanges();
+    });
+  }
+
+  // Phase 68 (AUTO-01): autopilot fast mode switch, same pattern.
+  if (elements.fsbJevFastModeEnabled) {
+    elements.fsbJevFastModeEnabled.addEventListener('change', () => {
       markUnsavedChanges();
     });
   }
@@ -2048,6 +2059,11 @@ function loadSettings() {
       elements.fsbChangeReportsEnabled.checked = settings.fsbChangeReportsEnabled ?? true;
     }
 
+    // Phase 68 (AUTO-01): autopilot fast mode. Default false when the key is absent.
+    if (elements.fsbJevFastModeEnabled) {
+      elements.fsbJevFastModeEnabled.checked = settings.fsbJevFastModeEnabled ?? false;
+    }
+
     if (elements.fsbMcpSessionRecordingEnabled) {
       elements.fsbMcpSessionRecordingEnabled.checked = settings.fsbMcpSessionRecordingEnabled !== false;
     }
@@ -2382,6 +2398,7 @@ function saveSettings() {
     // Phase 245 D-07: persist Action Change Reports toggle. Default true so
     // builds where the user has never visited the toggle still emit reports.
     fsbChangeReportsEnabled: elements.fsbChangeReportsEnabled?.checked ?? true,
+    fsbJevFastModeEnabled: elements.fsbJevFastModeEnabled?.checked ?? false,
     fsbMcpSessionRecordingEnabled: elements.fsbMcpSessionRecordingEnabled?.checked ?? true,
     fsbMcpSessionRetentionDays: clampMcpSessionRetentionDays(elements.fsbMcpSessionRetentionDays?.value)
   };
@@ -9732,6 +9749,7 @@ function initializeSyncSection() {
       refreshStepperFor(deps, 'fsbTriggerCap');
     },
     fsbChangeReportsEnabled: (value, deps) => setControlChecked(deps, 'fsbChangeReportsEnabled', value !== false),
+    fsbJevFastModeEnabled: (value, deps) => setControlChecked(deps, 'fsbJevFastModeEnabled', value === true),
     fsbMcpSessionRecordingEnabled: (value, deps) => setControlChecked(deps, 'fsbMcpSessionRecordingEnabled', value !== false),
     fsbMcpSessionRetentionDays: (value, deps) => {
       const days = typeof clampMcpSessionRetentionDays === 'function' ? clampMcpSessionRetentionDays(value) : value;
