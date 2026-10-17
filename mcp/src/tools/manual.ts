@@ -97,7 +97,7 @@ export function parseExpectArg(v: unknown): unknown {
 
 // D-13: one flat, closed object. No .min()/.max() and no sub-property
 // descriptions (they would publish bytes, RESEARCH Finding 12); the length,
-// non-empty, at-least-one-predicate and selector rules live in one
+// non-empty, non-blank, at-least-one-predicate and selector rules live in one
 // superRefine, which the SDK does not publish. `value` may be '' (the natural
 // check after clear_input), mirroring the extension's normalizeExpectSpec.
 //
@@ -132,6 +132,10 @@ const expectObject = z.object({
     if (typeof value !== 'string') continue;
     if (value.length === 0 && key !== 'value') {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} must not be empty` });
+    } else if (key !== 'value' && value.trim().length === 0) {
+      // Text matching collapses whitespace, so a blank predicate would match
+      // every page (or none): reject it like ''. value keeps '' and blanks.
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} must not be blank` });
     }
     if (value.length > EXPECT_STRING_MAX) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} must be at most ${EXPECT_STRING_MAX} characters` });

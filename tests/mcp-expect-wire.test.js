@@ -182,6 +182,9 @@ const REJECTED_EXPECTS = Object.freeze([
   ['boolean timeout_ms', { text_visible: 'a', timeout_ms: true }],
   ['whitespace-only timeout_ms', { text_visible: 'a', timeout_ms: '   ' }],
   ['array timeout_ms', { text_visible: 'a', timeout_ms: [] }],
+  // 69-REVIEW WR-03: a blank predicate would be vacuously met.
+  ['whitespace-only text_visible', { text_visible: '   ' }],
+  ['whitespace-only title_includes', { title_includes: '  ' }],
 ]);
 
 // Order-insensitive deep equality through sorted-key JSON.

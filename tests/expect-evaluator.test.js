@@ -180,6 +180,19 @@ check('rejects a 2,001-character string and non-object specs', () => {
   assert.equal(ok.ok, true, 'a 2000-char string is still accepted');
 });
 
+check('whitespace-only predicates are rejected; a blank value is still a check (WR-03)', () => {
+  invalid({ text_visible: '   ' }, 'blank text_visible');
+  invalid({ title_includes: ' \t\n ' }, 'blank title_includes');
+  invalid({ text_gone: '  ' }, 'blank text_gone');
+  invalid({ url_includes: ' ' }, 'blank url_includes');
+  invalid({ selector: '  ' }, 'blank selector');
+  invalid({ selector: '  ', value: 'x' }, 'blank selector with value');
+  const v = av.normalizeExpectSpec({ selector: '#q', value: '   ' });
+  assert.equal(v.ok, true, 'value may be blank');
+  assert.deepEqual(v.spec.checks, [{ kind: 'value', expected: '   ', selector: '#q' }]);
+  assert.equal(av.normalizeExpectSpec({ text_visible: ' Order saved ' }).ok, true, 'padding around text is fine');
+});
+
 check("value: '' is a valid check (D-13); empty strings stay invalid elsewhere", () => {
   const r = av.normalizeExpectSpec({ selector: '#q', value: '' });
   assert.equal(r.ok, true);

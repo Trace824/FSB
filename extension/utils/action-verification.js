@@ -739,8 +739,8 @@ const EXPECT_UNCERTAIN_REASONS = Object.freeze([
   'no_toggle_signal', 'value_unreadable'
 ]);
 
-// The string-typed spec fields; only `value` may be '' (D-13: '' is the
-// natural check after clear_input).
+// The string-typed spec fields; only `value` may be '' or blank (D-13: '' is
+// the natural check after clear_input).
 const _fsbExpectStringKeys = Object.freeze(['url_includes', 'title_includes', 'text_visible', 'text_gone', 'selector', 'value']);
 
 // No 'g' flag, so test() keeps no lastIndex state between calls.
@@ -820,6 +820,9 @@ function normalizeExpectSpec(raw) {
     const v = raw[key];
     if (typeof v !== 'string') return fail(key + ' must be a string');
     if (v.length === 0 && key !== 'value') return fail(key + ' must not be empty');
+    // Matching collapses whitespace, so a blank predicate is vacuous (always
+    // met, or never met for text_gone); value keeps '' and blank strings.
+    if (key !== 'value' && v.trim().length === 0) return fail(key + ' must not be blank');
     if (v.length > EXPECT_STRING_MAX) return fail(key + ' is longer than ' + EXPECT_STRING_MAX + ' characters');
   }
   if (has('state') && !(typeof raw.state === 'string' && EXPECT_STATES.includes(raw.state))) {
