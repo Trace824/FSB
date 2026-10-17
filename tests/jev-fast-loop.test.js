@@ -38,6 +38,17 @@
  *     observeTools never reaches the API-error path, and a stop during the
  *     decision ends the iteration with no provider call and no schedule.
  *
+ * Plan 68-07 adds, through the same harness:
+ *   - latches and budgets (Task 1): the uncalibrated latch (one menu, one
+ *     decide, then the switch-off path), fallback classes (session, command,
+ *     iteration and the escalation latch), the four per-command budgets, the
+ *     completion and stuck gates, the D-17 no-progress latch, never re-roll
+ *     (same state), the existing maxIterations and meta-attempt breakers with
+ *     the per-page meta key, and no terminal tool in any fast call.
+ *
+ * Only one harness is live at a time: createHarness installs its own chrome
+ * and timer globals, and dispose() restores them.
+ *
  * No network, no ports, no real waits. Node 20-safe.
  *
  * Run: node tests/jev-fast-loop.test.js
@@ -644,6 +655,606 @@ async function containmentCases() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Plan 68-07 Task 1: latches, budgets, completion and stuck gates, and the
+// existing breakers, all through the real runAgentIteration (D-12, D-16,
+// D-17, D-18, F1; AUTO-03-d, AUTO-04-a..c, AUTO-05-b).
+// ---------------------------------------------------------------------------
+
+const TERMINAL_TOOLS = ['complete_task', 'partial_task', 'fail_task'];
+// Every fast call a loop case executed (actionHistory decisionSource 'jev').
+const executedFastTools = [];
+// A bench goal holding a run token: the 67-01 high-entropy rule refuses it locally (F5).
+const BENCH_GOAL = 'Open http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html. Tick Alpha.';
+
+/** The fast-path module (already loaded by the harness; require is cached). */
+function fastPathApi() {
+  return require('../extension/ai/jev-fast-path.js');
+}
+
+function itemEntries(count) {
+  const list = [];
+  for (let i = 1; i <= count; i += 1) list.push(entry('j' + i, { label: 'Item ' + i }));
+  return list;
+}
+const ITEM_ENTRIES = itemEntries(20);
+const NEXT_ENTRIES = [entry('j1', { label: 'Next' }), entry('j2', { label: 'Back' })];
+
+/** A calibrated answer: op on the control labelled label, plus extra picks (completion, stuck, ...). */
+function calibratedPick(op, label, extra) {
+  return (request) => ({ body: gateway.calibratedBody(request, Object.assign({
+    operation: { choice: op },
+    target: { choice: idByLabel(request, label) }
+  }, extra || {})) });
+}
+
+/** The i-th decide (0-based) clicks "Item <i+1>", so every fast step hits a different control. */
+function clickNthItem(request, info, index) {
+  return calibratedPick('click', 'Item ' + (index + 1))(request);
+}
+
+/** A calibrated answer whose operation confidence is below its cut (operation_below_threshold). */
+function belowThresholdOp(request) {
+  return { body: gateway.calibratedBody(request, {
+    operation: { choice: 'click', confidence: 0.5 },
+    target: { choice: request.elements.length > 0 ? request.elements[0].id : gateway.CATCH_ALL }
+  }) };
+}
+
+/** LLM turns that only read the page: get_page_snapshot, a fresh call id each turn. */
+function llmSnapshotScript() {
+  return (index) => H.openAiToolResponse('resp_snap_' + index, [{ id: 'call_snap_' + index, name: 'get_page_snapshot', args: {} }]);
+}
+
+/**
+ * A fast-mode run on the real loop. opts: answers (scriptedGateway), content
+ * (signatureMenuContent options; ITEM_ENTRIES by default), clock (a fake
+ * clock for the deps and the client), fast (false: no session.fastMode, the
+ * switch-off session), maxIterations (40), task, providerScript,
+ * providerKey, sessionPatch.
+ */
+function loopRun(opts) {
+  const o = opts || {};
+  const content = H.signatureMenuContent(Object.assign({ entries: ITEM_ENTRIES }, o.content || {}));
+  const gw = H.scriptedGateway(o.answers || [catchAll]);
+  const deps = createBackgroundDeps();
+  if (o.clock) deps.now = o.clock.now;
+  const rec = H.recordingJevClient(gw.responder, { now: deps.now });
+  const sessionPatch = Object.assign({ maxIterations: o.maxIterations || 40 }, o.sessionPatch || {});
+  if (o.fast !== false) sessionPatch.fastMode = Object.assign({}, FAST_FIELD);
+  const harnessOptions = {
+    loadFastPath: true,
+    storage: { fsbJevFastModeEnabled: o.fast !== false },
+    sessionPatch,
+    deps,
+    jevClient: rec.client,
+    contentResponder: content.respond,
+    providerScript: o.providerScript || llmSnapshotScript()
+  };
+  if (o.task) harnessOptions.task = o.task;
+  if (o.providerKey) harnessOptions.providerKey = o.providerKey;
+  const h = H.createHarness(harnessOptions);
+  return { h, content, gw, rec, steps: [] };
+}
+
+/** Run n iterations, recording per iteration what the loop and the fast path did. */
+async function runSteps(run, n) {
+  for (let i = 0; i < n; i += 1) {
+    const decidesBefore = run.rec.decides.length;
+    const callsBefore = run.gw.requests.length;
+    await run.h.step();
+    const index = run.h.stepsRun;
+    const ev = stepEvents(run.h.events, index);
+    const actions = contentActions(ev, 'executeAction');
+    const jf = run.h.session.agentState ? run.h.session.agentState.jevFast : null;
+    run.steps.push({
+      index,
+      providerEvents: ofType(ev, 'provider'),
+      provider: ofType(ev, 'provider').length,
+      menus: contentActions(ev, 'getJevMenu').length,
+      snapshots: contentActions(ev, 'getMarkdownSnapshot').length,
+      decides: run.rec.decides.length - decidesBefore,
+      gatewayCalls: run.gw.requests.length - callsBefore,
+      fast: actions.filter((e) => e.message.params && e.message.params.jevHandle).length,
+      actions: actions.length,
+      schedules: ofType(ev, 'schedule').length,
+      status: run.h.session.status,
+      latched: jf ? jf.latched : null,
+      consecutiveEscalations: jf ? jf.consecutiveEscalations : null,
+      jevMs: jf ? jf.jevMs : null
+    });
+  }
+  return run.steps;
+}
+
+function total(run, key) {
+  return run.steps.reduce((sum, s) => sum + s[key], 0);
+}
+
+function iterationsWhere(run, key) {
+  return run.steps.filter((s) => s[key] > 0).map((s) => s.index);
+}
+
+/** The hand-off messages in the (openai-format) LLM request of one recorded step. */
+function handoffsIn(step) {
+  const body = step && step.providerEvents.length === 1 ? step.providerEvents[0].requestBody : null;
+  return body && Array.isArray(body.messages) ? handoffMessages(body.messages) : [];
+}
+
+function jevFastOf(run) {
+  return (run.h.session.agentState && run.h.session.agentState.jevFast) || {};
+}
+
+function fastStateOf(run) {
+  return run.h.session._fastPath || {};
+}
+
+/** A follow-up command on the same session, as reactivateSession and hydrateAgentRunState leave it. */
+function startFollowUp(h, task) {
+  h.session.status = 'running';
+  h.session.commandCount = (h.session.commandCount || 1) + 1;
+  h.session.task = task;
+  h.session.commands = (h.session.commands || []).concat([task]);
+  h.session.agentState = {
+    iterationCount: 0,
+    completedIterations: 0,
+    totalInputTokens: h.session.totalInputTokens || 0,
+    totalOutputTokens: h.session.totalOutputTokens || 0,
+    totalCost: h.session.totalCost || 0,
+    startTime: Date.now(),
+    lastDOMHash: null,
+    consecutiveNoChangeCount: 0
+  };
+}
+
+/** Collect the run's executed fast calls, then restore the globals. */
+function finish(run) {
+  for (const event of run.h.session.actionHistory || []) {
+    if (event && event.decisionSource === 'jev') executedFastTools.push(event.tool);
+  }
+  run.h.dispose();
+}
+
+/** Still running, and fast mode never applied a terminal outcome. */
+function stillRunning(run) {
+  return run.h.session.status === 'running' && run.h.session.outcome === undefined && run.h.session.outcomeDetails === undefined;
+}
+
+function sixTurnScript() {
+  return [
+    H.openAiToolResponse('resp_u1', [{ id: 'call_u1', name: 'click', args: { selector: '#a' } }]),
+    H.openAiToolResponse('resp_u2', [{ id: 'call_u2', name: 'get_page_snapshot', args: {} }]),
+    H.openAiToolResponse('resp_u3', [{ id: 'call_u3', name: 'click', args: { selector: '#b' } }]),
+    H.openAiToolResponse('resp_u4', [{ id: 'call_u4', name: 'get_page_snapshot', args: {} }]),
+    H.openAiToolResponse('resp_u5', [{ id: 'call_u5', name: 'click', args: { selector: '#c' } }]),
+    H.openAiToolResponse('resp_u6', [{ id: 'call_u6', name: 'get_page_snapshot', args: {} }])
+  ];
+}
+
+async function uncalibratedLatchCases() {
+  section('latches and budgets: the uncalibrated latch through the loop (D-16, AUTO-03-d)');
+  const off = loopRun({ fast: false, providerScript: sixTurnScript() });
+  try {
+    await runSteps(off, 6);
+  } finally {
+    finish(off);
+  }
+  check(off.steps.every((s) => s.provider === 1 && s.menus === 0 && s.decides === 0) && stillRunning(off),
+    'uncalibrated latch: the switch-off reference run is six LLM turns with no menu and no decide');
+
+  const bodies = [['uncalibrated', gateway.uncalibratedBody], ['snapshot_changed', gateway.snapshotChangedBody]];
+  for (const [label, makeBody] of bodies) {
+    const on = loopRun({ providerScript: sixTurnScript(), answers: [(request) => ({ body: makeBody(request) })] });
+    try {
+      await runSteps(on, 6);
+      check(total(on, 'menus') === 1 && on.steps[1].menus === 1 && total(on, 'decides') === 1 && on.steps[1].decides === 1 && on.gw.requests.length === 1,
+        'uncalibrated latch (' + label + '): exactly one getJevMenu and one decide in the whole session, both in iteration 2');
+      check(on.steps.every((s) => s.provider === 1 && s.fast === 0),
+        'uncalibrated latch (' + label + '): every iteration, iteration 2 included, runs the LLM and no fast step acts');
+      check(on.steps.slice(2).every((s) => s.menus === 0 && s.decides === 0 && s.snapshots === (off.steps[s.index - 1].snapshots)),
+        'uncalibrated latch (' + label + '): iterations 3-6 send no getJevMenu, make no decide and fetch no extra snapshot');
+      check(handoffMessages(on.h.session.messages).length === 0
+        && util.isDeepStrictEqual(on.h.finalState().messages, off.h.finalState().messages),
+      'uncalibrated latch (' + label + '): fast mode added nothing to session.messages (it equals the switch-off run)');
+      let sameBodies = true;
+      for (let k = 2; k < 6; k += 1) {
+        if (!util.isDeepStrictEqual(on.steps[k].providerEvents, off.steps[k].providerEvents)) sameBodies = false;
+      }
+      check(sameBodies, 'uncalibrated latch (' + label + '): the provider request bodies of iterations 3-6 equal the switch-off run');
+      check(util.isDeepStrictEqual(on.steps[1].providerEvents, off.steps[1].providerEvents),
+        'uncalibrated latch (' + label + '): iteration 2\'s LLM request (after the declined attempt) also equals the switch-off run');
+      check(fastStateOf(on).off === true && fastStateOf(on).offReason === 'not_calibrated' && stillRunning(on),
+        'uncalibrated latch (' + label + '): the session latch reads not_calibrated and the session keeps running');
+    } finally {
+      finish(on);
+    }
+  }
+}
+
+async function fallbackClassCases() {
+  section('latches and budgets: fallback classes through the loop (D-16, AUTO-05-b)');
+  const sessionClass = [
+    ['disabled', () => ({ body: gateway.fallbackBody('disabled') }), 'disabled'],
+    ['invalid_request (a 404 with no body)', () => ({ status: 404, text: '' }), 'invalid_request']
+  ];
+  for (const [label, answer, reason] of sessionClass) {
+    const run = loopRun({ answers: [answer] });
+    try {
+      await runSteps(run, 4);
+      check(run.gw.requests.length === 1 && total(run, 'decides') === 1 && run.steps[1].decides === 1 && run.steps[1].provider === 1,
+        'fallback ' + label + ': one Jev call in iteration 2, and that iteration runs the LLM');
+      check(run.steps.slice(2).every((s) => s.menus === 0 && s.decides === 0 && s.provider === 1),
+        'fallback ' + label + ': later iterations send no menu request and make no decide');
+      check(fastStateOf(run).off === true && fastStateOf(run).offReason === reason, 'fallback ' + label + ': the session latch names ' + reason);
+      startFollowUp(run.h, 'Now open the summary');
+      await runSteps(run, 3);
+      check(run.steps.slice(4).every((s) => s.menus === 0 && s.decides === 0 && s.provider === 1) && run.gw.requests.length === 1,
+        'fallback ' + label + ': a follow-up command in the same session still makes no menu request and no decide (session latch: one call in the session)');
+      check(stillRunning(run), 'fallback ' + label + ': the session keeps running with no outcome from fast mode');
+    } finally {
+      finish(run);
+    }
+  }
+
+  const sens = loopRun({ task: BENCH_GOAL });
+  try {
+    await runSteps(sens, 4);
+    check(sens.steps[1].menus === 1 && total(sens, 'decides') === 0 && sens.gw.requests.length === 0 && sens.steps[1].provider === 1,
+      'fallback sensitive_goal: a goal holding a run token is refused locally (one menu, zero decide calls) and the LLM runs');
+    check(jevFastOf(sens).latched === 'sensitive_goal' && fastStateOf(sens).off === false,
+      'fallback sensitive_goal: it latches the command, not the session');
+    check(sens.steps.slice(2).every((s) => s.menus === 0 && s.decides === 0), 'fallback sensitive_goal: the rest of the command sends no menu request');
+    startFollowUp(sens.h, 'Now open the summary page');
+    await runSteps(sens, 2);
+    check(sens.steps[4].menus === 0 && sens.steps[5].menus === 1 && sens.steps[5].decides === 1,
+      'fallback sensitive_goal: the next command, with a clean goal, asks Jev again after its first LLM turn');
+  } finally {
+    finish(sens);
+  }
+
+  const timeoutRun = loopRun({
+    content: { signature: 'S-fixed' },
+    answers: [() => ({ body: gateway.fallbackBody('timeout', 504) }), clickNthItem]
+  });
+  try {
+    await runSteps(timeoutRun, 3);
+    check(timeoutRun.steps[1].decides === 1 && timeoutRun.steps[1].provider === 1 && timeoutRun.steps[1].fast === 0,
+      'fallback timeout: iteration 2 escalates that iteration only and runs the LLM');
+    check(timeoutRun.steps[2].menus === 1 && timeoutRun.steps[2].decides === 1 && timeoutRun.steps[2].fast === 1 && timeoutRun.steps[2].provider === 0,
+      'fallback timeout: after the next LLM turn fast mode asks again on the same page state and acts (a fallback is not an answer)');
+    check(!jevFastOf(timeoutRun).latched && fastStateOf(timeoutRun).off === false && stillRunning(timeoutRun),
+      'fallback timeout: no latch is left behind');
+  } finally {
+    finish(timeoutRun);
+  }
+
+  const busy = loopRun({ answers: [() => ({ body: gateway.fallbackBody('busy') })] });
+  try {
+    await runSteps(busy, 6);
+    check(busy.steps.slice(1, 4).every((s) => s.decides === 1 && s.provider === 1 && s.fast === 0),
+      'escalation latch: iterations 2-4 each make one decide, get a transient fallback and run the LLM');
+    check(busy.steps.slice(4).every((s) => s.menus === 0 && s.decides === 0 && s.provider === 1) && total(busy, 'decides') === 3,
+      'escalation latch: three consecutive transient fallbacks latch the command; there is no fourth decide');
+    check(jevFastOf(busy).latched === 'escalation_latch' && fastStateOf(busy).off === false && stillRunning(busy),
+      'escalation latch: the command latch reads escalation_latch, the session is not latched and keeps running');
+  } finally {
+    finish(busy);
+  }
+}
+
+async function budgetCases() {
+  section('latches and budgets: the four per-command budgets switch to LLM-only and never end the task (D-12, AUTO-04-a)');
+  const FAST = fastPathApi().constants;
+  check(FAST.FAST_MAX_CONSECUTIVE === 3 && FAST.FAST_MAX_STEPS === 12 && FAST.FAST_MAX_CALLS === 16 && FAST.FAST_WALL_BUDGET_MS === 20000,
+    'the budgets under test are FAST_MAX_CONSECUTIVE 3, FAST_MAX_STEPS 12, FAST_MAX_CALLS 16 and FAST_WALL_BUDGET_MS 20000');
+
+  const cap = loopRun({ answers: [clickNthItem] });
+  try {
+    await runSteps(cap, 6);
+    check(cap.steps.slice(1, 4).every((s) => s.fast === 1 && s.provider === 0),
+      'consecutive cap: iterations 2-4 are three effective fast steps with no provider request');
+    check(cap.steps[4].provider === 1 && cap.steps[4].menus === 0 && cap.steps[4].decides === 0 && cap.steps[4].fast === 0,
+      'consecutive cap: FAST_MAX_CONSECUTIVE forces iteration 5 onto the LLM with no menu and no decide');
+    const handoffs = handoffsIn(cap.steps[4]);
+    check(handoffs.length === 1 && handoffs[0].content.indexOf('Fast mode took 3 steps') !== -1
+      && handoffs[0].content.indexOf(fastPathApi().describeEscalation('consecutive_cap')) !== -1,
+    'consecutive cap: that LLM request carries one hand-off listing the 3 steps and the consecutive-cap reason');
+    check(cap.steps[5].fast === 1 && stillRunning(cap), 'consecutive cap: the command is not latched; iteration 6 takes a fast step again');
+  } finally {
+    finish(cap);
+  }
+
+  const stepBudget = loopRun({ answers: [clickNthItem] });
+  try {
+    await runSteps(stepBudget, 19);
+    const fastIterations = iterationsWhere(stepBudget, 'fast');
+    check(total(stepBudget, 'fast') === 12 && util.isDeepStrictEqual(fastIterations, [2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15, 16]),
+      'step budget: twelve effective fast steps run, three at a time between LLM turns (' + fastIterations.join(',') + ')');
+    check(stepBudget.steps.slice(16).every((s) => s.fast === 0 && s.provider === 1) && total(stepBudget, 'decides') === 12,
+      'step budget: the twelfth fast step is the last one in the command; every later iteration runs the LLM');
+    check(stepBudget.steps[17].menus === 0 && stepBudget.steps[17].decides === 0 && jevFastOf(stepBudget).latched === 'step_budget',
+      'step budget: iteration 18 latches the command step_budget before any menu or decide');
+    check(stillRunning(stepBudget), 'step budget: the session keeps running; fast mode applied no terminal outcome');
+  } finally {
+    finish(stepBudget);
+  }
+
+  const callBudget = loopRun({ answers: [(request, info, index) => (index % 2 === 0 ? clickNthItem(request, info, index) : belowThresholdOp(request))] });
+  try {
+    await runSteps(callBudget, 18);
+    const decideIterations = iterationsWhere(callBudget, 'decides');
+    check(total(callBudget, 'decides') === 16 && decideIterations[decideIterations.length - 1] === 17 && decideIterations.length === 16,
+      'call budget: alternating an acted step and a below-threshold escalation, the sixteenth decide (iteration 17) is the last one in the command');
+    check(total(callBudget, 'fast') === 8 && callBudget.steps.filter((s) => s.decides === 1 && s.fast === 0).every((s) => s.provider === 1),
+      'call budget: eight steps acted and every escalated iteration ran the LLM');
+    check(callBudget.steps[17].menus === 0 && callBudget.steps[17].decides === 0 && callBudget.steps[17].provider === 1
+      && jevFastOf(callBudget).latched === 'call_budget',
+    'call budget: iteration 18 latches the command call_budget and runs the LLM');
+    check(stillRunning(callBudget), 'call budget: the session keeps running; fast mode applied no terminal outcome');
+  } finally {
+    finish(callBudget);
+  }
+
+  // Time budget: the fake clock moves 300 ms per menu and 2 400 ms per decide;
+  // a decide whose deadline is shorter takes the deadline and times out
+  // through the real client (its held timer fires), as a slow gateway would.
+  const clock = H.makeFakeClock(0);
+  const ref = {};
+  const timeBudget = loopRun({
+    clock,
+    content: { onMenu: () => clock.advance(300) },
+    answers: [(request, info, index) => {
+      const deadline = ref.run.rec.timers.lastDelay();
+      if (deadline < 2400) {
+        clock.advance(deadline);
+        ref.run.rec.timers.fireAll();
+        return new Promise(() => {});
+      }
+      clock.advance(2400);
+      return clickNthItem(request, info, index);
+    }]
+  });
+  ref.run = timeBudget;
+  try {
+    await runSteps(timeBudget, 13);
+    const decides = timeBudget.rec.decides;
+    const limit = FAST.FAST_WALL_BUDGET_MS;
+    check(decides.length === 8 && decides.every((d) => typeof d.timeoutMs === 'number' && d.timeoutMs <= Math.min(2500, limit - d.at)),
+      'time budget: every decide receives timeoutMs <= min(2500, remaining) (' + decides.map((d) => d.timeoutMs + '@' + d.at).join(', ') + ')');
+    check(util.isDeepStrictEqual(decides.map((d) => d.timeoutMs), [2500, 2500, 2500, 2500, 2500, 2500, 2500, 800]),
+      'time budget: the eighth decide gets only the 800 ms left (19 200 ms used)');
+    check(jevFastOf(timeBudget).latched === 'time_budget' && jevFastOf(timeBudget).jevMs === limit && clock.t === limit,
+      'time budget: the command latches time_budget with exactly 20 000 ms used, never more');
+    const latchAt = timeBudget.steps.findIndex((s) => s.latched === 'time_budget');
+    check(latchAt >= 0 && timeBudget.steps.slice(latchAt).every((s) => s.menus === 0 && s.decides === 0 && s.provider === 1),
+      'time budget: from the latch on, every iteration runs the LLM with no menu and no decide');
+    check(timeBudget.steps[10].decides === 1 && timeBudget.steps[10].fast === 0 && timeBudget.steps[10].provider === 1,
+      'time budget: the cut-short eighth decide escalates and that iteration runs the LLM');
+    check(stillRunning(timeBudget), 'time budget: the session keeps running; fast mode applied no terminal outcome');
+  } finally {
+    finish(timeBudget);
+  }
+}
+
+async function completionStuckCases() {
+  section('latches and budgets: completion and stuck gates through the loop (D-17, AUTO-04-c)');
+  const low = loopRun({ answers: [
+    calibratedPick('click', 'Item 1', { completion: { p: 0.05, threshold: 0.2 } }),
+    calibratedPick('click', 'Item 2', { completion: { p: 0.05, threshold: 0.2 } })
+  ] });
+  try {
+    await runSteps(low, 3);
+    check(low.steps[1].fast === 1 && low.steps[2].fast === 1 && low.steps[2].provider === 0,
+      'completion: a calibrated completion p below the cut (0.05 <= 0.2) lets the fast step act, and the next one too');
+  } finally {
+    finish(low);
+  }
+
+  const high = loopRun({ answers: [
+    calibratedPick('click', 'Item 1'),
+    calibratedPick('click', 'Item 2', { completion: { p: 0.6, threshold: 0.2 } })
+  ] });
+  try {
+    await runSteps(high, 3);
+    check(high.steps[1].fast === 1 && high.steps[2].decides === 1 && high.steps[2].fast === 0 && high.steps[2].provider === 1,
+      'completion: a calibrated completion p above the cut (not accepted) hands iteration 3 to the LLM with no fast step');
+    const handoffs = handoffsIn(high.steps[2]);
+    check(handoffs.length === 1 && handoffs[0].content.indexOf(fastPathApi().describeEscalation('completion_unconfirmed')) !== -1,
+      'completion: the hand-off asks the LLM to check whether the goal is already met');
+    check(stillRunning(high), 'completion: fast mode never ends the task itself');
+  } finally {
+    finish(high);
+  }
+
+  const notAFit = loopRun({ answers: [(request, info, index) => calibratedPick('click', 'Item ' + (index + 1), { completion: { threshold: null } })(request)] });
+  try {
+    await runSteps(notAFit, 5);
+    check(notAFit.steps.slice(1, 4).every((s) => s.fast === 1 && s.provider === 0),
+      'completion threshold_null: with operation and target accepted, the fast steps act');
+    check(notAFit.steps[4].provider === 1 && notAFit.steps[4].menus === 0 && notAFit.steps[4].decides === 0,
+      'completion threshold_null: the consecutive cap still forces iteration 5 onto the LLM');
+  } finally {
+    finish(notAFit);
+  }
+
+  const stuck = loopRun({ answers: [
+    calibratedPick('click', 'Item 1'),
+    calibratedPick('click', 'Item 2', { stuck: { p: 0.9, threshold: 0.8 } })
+  ] });
+  try {
+    await runSteps(stuck, 3);
+    check(stuck.steps[1].fast === 1 && stuck.steps[2].decides === 1 && stuck.steps[2].fast === 0 && stuck.steps[2].provider === 1,
+      'stuck: a calibrated stuck p above its cut (0.9 >= 0.8) hands iteration 3 to the LLM with no fast step');
+    const handoffs = handoffsIn(stuck.steps[2]);
+    check(handoffs.length === 1 && handoffs[0].content.indexOf(fastPathApi().describeEscalation('jev_stuck')) !== -1,
+      'stuck: the hand-off names the stuck signal');
+    check(stillRunning(stuck), 'stuck: the session keeps running');
+  } finally {
+    finish(stuck);
+  }
+}
+
+async function noProgressCases() {
+  section('latches and budgets: the D-17 no-progress latch through the loop (sync issue 4)');
+  const sameSignature = [
+    ['an unconfirmed click', () => ({ success: true })],
+    ['a click with verification.verified true', () => ({ success: true, verification: { verified: true, changes: ['content'], confidence: 'high' } })]
+  ];
+  for (const [label, action] of sameSignature) {
+    const run = loopRun({ content: { entries: NEXT_ENTRIES, signature: 'S-same', action }, answers: [calibratedPick('click', 'Next'), catchAll] });
+    try {
+      await runSteps(run, 4);
+      check(run.steps[1].fast === 1 && run.steps[1].provider === 0, 'no progress: iteration 2 takes ' + label + ' on "Next"');
+      check(run.steps[2].menus === 1 && run.steps[2].decides === 0 && run.steps[2].provider === 1 && jevFastOf(run).latched === 'no_progress',
+        'no progress: ' + label + ' followed by a menu with the same url and signature latches the command before the next decide');
+      const handoffs = handoffsIn(run.steps[2]);
+      check(handoffs.length === 1 && handoffs[0].content.indexOf(fastPathApi().describeEscalation('no_progress')) !== -1,
+        'no progress: the next LLM request carries one hand-off with the no-progress hint (' + label + ')');
+      check(run.steps[3].menus === 0 && run.steps[3].decides === 0 && total(run, 'decides') === 1 && stillRunning(run),
+        'no progress: the command stays latched and the session keeps running (' + label + ')');
+    } finally {
+      finish(run);
+    }
+  }
+
+  const moving = loopRun({ content: { entries: NEXT_ENTRIES, signature: 'action' }, answers: [calibratedPick('click', 'Next'), catchAll] });
+  try {
+    await runSteps(moving, 3);
+    check(moving.steps[1].fast === 1 && moving.steps[2].decides === 1 && jevFastOf(moving).latched !== 'no_progress',
+      'no progress: a verified click that changes the signature does not latch (the next iteration makes its decide)');
+  } finally {
+    finish(moving);
+  }
+
+  const twice = loopRun({
+    content: { entries: NEXT_ENTRIES, signature: 'request', action: () => ({ success: true }) },
+    answers: [calibratedPick('click', 'Next'), calibratedPick('click', 'Next'), catchAll]
+  });
+  try {
+    await runSteps(twice, 4);
+    check(twice.steps[1].fast === 1 && twice.steps[2].fast === 1, 'no progress: iterations 2 and 3 each click "Next" with no observed effect');
+    check(twice.steps[3].menus === 1 && twice.steps[3].decides === 0 && twice.steps[3].provider === 1 && jevFastOf(twice).latched === 'no_progress',
+      'no progress: two no-effect clicks on the same role and label latch even though a title counter changed the signature');
+  } finally {
+    finish(twice);
+  }
+}
+
+async function sameStateCases() {
+  section('latches and budgets: never re-roll; one decide per page state (D-18, AUTO-05-a)');
+  const variants = [
+    ['operation below_threshold', belowThresholdOp],
+    ['target catch_all', (request) => ({ body: gateway.calibratedBody(request, { operation: { choice: 'click' }, target: { choice: gateway.CATCH_ALL } }) })],
+    ['target threshold_null', (request) => ({ body: gateway.calibratedBody(request, { operation: { choice: 'click' }, target: { choice: idByLabel(request, 'Next'), threshold: null } }) })]
+  ];
+  for (const [label, first] of variants) {
+    const signature = { value: 'S' };
+    const run = loopRun({ content: { entries: NEXT_ENTRIES, signature: () => signature.value }, answers: [first, catchAll] });
+    try {
+      await runSteps(run, 2);
+      const log2 = (run.h.session.toolCallLog || []).filter((e) => e.iteration === 2).map((e) => e.tool);
+      check(run.steps[1].decides === 1 && run.steps[1].fast === 0 && run.steps[1].provider === 1 && util.isDeepStrictEqual(log2, ['get_page_snapshot']),
+        'same state (' + label + '): iteration 2 escalates on menu (U, S) and the LLM\'s turn is only get_page_snapshot');
+      await runSteps(run, 1);
+      const jf = jevFastOf(run);
+      check(run.steps[2].menus === 1 && total(run, 'decides') === 1 && run.steps[2].provider === 1 && run.steps[2].fast === 0,
+        'same state (' + label + '): iteration 3 sees the same U and S, makes no second decide and runs the LLM');
+      check(jf.consecutiveEscalations === 1 && !jf.latched, 'same state (' + label + '): the decline is not an escalation (consecutiveEscalations 1) and the command is not latched');
+      signature.value = 'S2';
+      await runSteps(run, 1);
+      check(run.steps[3].decides === 1 && total(run, 'decides') === 2, 'same state (' + label + '): a changed signature in iteration 4 makes the second decide');
+    } finally {
+      finish(run);
+    }
+  }
+}
+
+async function breakerCases() {
+  section('latches and budgets: the existing breakers count and stop fast steps (D-12, F1, AUTO-04-b)');
+  // One harness at a time: createHarness installs its own chrome and timer globals.
+  for (const limit of [4, 5]) {
+    const offRun = loopRun({ fast: false, maxIterations: limit });
+    try {
+      await runSteps(offRun, limit);
+    } finally {
+      finish(offRun);
+    }
+    const fastRun = loopRun({ maxIterations: limit, answers: [clickNthItem] });
+    try {
+      await runSteps(fastRun, limit);
+      const fastIterations = iterationsWhere(fastRun, 'fast');
+      const expected = [];
+      for (let i = 2; i < limit; i += 1) expected.push(i);
+      const last = fastRun.steps[limit - 1];
+      check(util.isDeepStrictEqual(fastIterations, expected) && last.provider === 0 && last.menus === 0 && last.decides === 0 && last.schedules === 0,
+        'maxIterations: with maxIterations ' + limit + ' and fast steps in iterations ' + expected.join('-') + ', iteration ' + limit + ' stops before any menu or provider call');
+      const fastDetails = fastRun.h.session.outcomeDetails || {};
+      const offDetails = offRun.h.session.outcomeDetails || {};
+      check(fastRun.h.session.status === 'stopped' && fastDetails.reason === 'iteration_limit_exceeded'
+        && offRun.h.session.status === 'stopped' && offDetails.reason === fastDetails.reason
+        && fastRun.h.session.iterationCount === limit && offRun.h.session.iterationCount === limit,
+      'maxIterations: the existing safety breaker stops the run at the limit of ' + limit + ' with iteration_limit_exceeded, fast iterations counted, exactly as an LLM-only run');
+    } finally {
+      finish(fastRun);
+    }
+  }
+
+  const llmMeta = loopRun({
+    fast: false,
+    providerScript: (index) => H.openAiToolResponse('resp_m' + index, [{ id: 'call_m' + index, name: 'click', args: { selector: '#next' } }])
+  });
+  try {
+    await runSteps(llmMeta, 6);
+  } finally {
+    finish(llmMeta);
+  }
+  const meta = loopRun({ content: { entries: NEXT_ENTRIES }, answers: [calibratedPick('click', 'Next')] });
+  try {
+    await runSteps(meta, 8);
+    const metaDetails = meta.h.session.outcomeDetails || {};
+    const llmDetails = llmMeta.h.session.outcomeDetails || {};
+    check(util.isDeepStrictEqual(iterationsWhere(meta, 'fast'), [2, 3, 4, 6, 7, 8]) && meta.steps[7].schedules === 0,
+      'meta_cognitive_loop_break: six effective fast clicks on "Next" on one page path ran in iterations 2-4 and 6-8');
+    check(meta.h.session.status === 'stopped' && metaDetails.reason === 'meta_cognitive_loop_break'
+      && /6 attempts on `jev:\/start:button:Next`/.test(String(metaDetails.summary)),
+    'meta_cognitive_loop_break: the sixth fast click ends the run through the meta-attempt breaker under jev:/start:button:Next');
+    check(llmMeta.h.session.status === 'stopped' && llmDetails.reason === 'meta_cognitive_loop_break'
+      && /6 attempts on `sel:#next`/.test(String(llmDetails.summary)) && llmMeta.h.session.iterationCount === 6,
+    'meta_cognitive_loop_break: exactly as six LLM clicks on one selector do');
+  } finally {
+    finish(meta);
+  }
+
+  const pages = loopRun({
+    content: { entries: NEXT_ENTRIES, url: (state) => 'https://wizard.example/wizard/step-' + (state.fastActions + 1) },
+    answers: [calibratedPick('click', 'Next')]
+  });
+  try {
+    await runSteps(pages, 10);
+    const keys = Object.keys(pages.h.session._metaAttempts || {}).filter((k) => k.indexOf('jev:') === 0);
+    const expectedKeys = [];
+    for (let n = 1; n <= 7; n += 1) expectedKeys.push('jev:/wizard/step-' + n + ':button:Next');
+    check(total(pages, 'fast') === 7 && stillRunning(pages),
+      'per-page meta key: seven effective "Next" clicks, one wizard page each, do not end the run');
+    check(util.isDeepStrictEqual(keys.slice().sort(), expectedKeys.slice().sort())
+      && keys.every((k) => pages.h.session._metaAttempts[k].length === 1),
+    'per-page meta key: each click is one attempt under its own jev:<pagePath>:button:Next key');
+  } finally {
+    finish(pages);
+  }
+}
+
+function terminalToolChecks() {
+  section('latches and budgets: fast mode never applies a terminal outcome (D-17, AUTO-04-c)');
+  check(executedFastTools.length > 0 && executedFastTools.every((name) => TERMINAL_TOOLS.indexOf(name) === -1),
+    'no executed fast call is named complete_task, partial_task or fail_task (' + executedFastTools.length + ' fast calls across the loop cases)');
+  const source = fs.readFileSync(path.join(ROOT, 'extension', 'ai', 'jev-fast-path.js'), 'utf8');
+  const slice = sliceFunction(source, 'buildStaticCall');
+  check(typeof slice === 'string' && slice.length > 0 && TERMINAL_TOOLS.every((name) => slice.indexOf(name) === -1),
+    'jev-fast-path.js buildStaticCall names none of complete_task, partial_task or fail_task');
+  check(TERMINAL_TOOLS.every((name) => source.indexOf(name) === -1), 'jev-fast-path.js names no terminal tool anywhere');
+}
+
 async function main() {
   await offGoldenCases();
   await offThreeWayCases();
@@ -654,6 +1265,15 @@ async function main() {
   await permissionDenialCase();
   await runTaskCase();
   await containmentCases();
+  // Plan 68-07 Task 1: latches and budgets.
+  await uncalibratedLatchCases();
+  await fallbackClassCases();
+  await budgetCases();
+  await completionStuckCases();
+  await noProgressCases();
+  await sameStateCases();
+  await breakerCases();
+  terminalToolChecks();
   // The Task 2 golden cases again, after every fast-mode run in this process.
   section('off golden again after the fast-mode runs (no state leaks between harnesses)');
   const again = await H.runGoldenScenario({ loadFastPath: false });

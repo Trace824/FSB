@@ -603,6 +603,139 @@ async function runGoldenScenario(extra) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Plan 68-07 helpers: a fake clock, scripted gateways and a content script
+// whose menu signature the case controls. They only build inputs for
+// createHarness; no existing case runs differently because of them.
+// ---------------------------------------------------------------------------
+
+/**
+ * A fake clock for the fast-path deps and the Jev client: now() returns the
+ * current reading and advance(ms) moves it. Nothing else moves it, so a case
+ * that advances it only inside the menu and decide stubs reads the command's
+ * Jev time straight off the clock.
+ */
+function makeFakeClock(start) {
+  let t = typeof start === 'number' ? start : 0;
+  return {
+    now() { return t; },
+    advance(ms) {
+      if (typeof ms === 'number' && ms > 0) t += ms;
+      return t;
+    },
+    get t() { return t; }
+  };
+}
+
+/**
+ * A scripted fake-gateway responder: the i-th decide gets answers[i] (the last
+ * answer repeats). An answer is a responder value ({body}, {status, text}, an
+ * Error, a promise) or fn(request, info, index) returning one. requests holds
+ * every request the gateway saw, in order.
+ */
+function scriptedGateway(answers) {
+  const list = Array.isArray(answers) ? answers.slice() : [answers];
+  const requests = [];
+  function responder(request, info) {
+    requests.push(request);
+    const index = requests.length - 1;
+    const answer = list[Math.min(index, list.length - 1)];
+    return typeof answer === 'function' ? answer(request, info, index) : answer;
+  }
+  return { responder, requests };
+}
+
+/**
+ * A real FsbJevClient over a fake gateway with held timers (sync issue 5),
+ * wrapped so each decide call records {timeoutMs, signal, at} (at: the clock
+ * reading when the fast path called decide). Pass client as createHarness's
+ * jevClient. opts: {now, timers}.
+ * @returns {{client:Object, timers:Object, calls:Array, decides:Array}}
+ */
+function recordingJevClient(responder, opts) {
+  const gateway = require(path.join(__dirname, 'jev-fake-gateway.js'));
+  const o = opts || {};
+  const timers = o.timers || gateway.makeHeldTimers();
+  const inner = gateway.makeClient(responder, { now: o.now, timers });
+  const decides = [];
+  const client = {
+    decide(request, callOpts) {
+      const c = callOpts || {};
+      decides.push({ timeoutMs: c.timeoutMs, signal: c.signal || null, at: typeof o.now === 'function' ? o.now() : null });
+      return inner.decide(request, callOpts);
+    },
+    resetCooldown: inner.resetCooldown
+  };
+  return { client, timers, calls: inner.calls, decides };
+}
+
+function pick(value, state, fallback) {
+  if (typeof value === 'function') return value(state);
+  return value === undefined ? fallback : value;
+}
+
+/**
+ * A content script for fast-mode loop cases whose menu the case controls.
+ * opts:
+ *   entries    array or fn(state): the 68-02 menu entries
+ *   url        string or fn(state) (default DEFAULTS.pageUrl)
+ *   signature  'request' (default: changes on every getJevMenu request, with
+ *              the request counter in the title), 'action' (changes after
+ *              every fast action), a fixed string, or fn(state)
+ *   moreBelow  boolean
+ *   onMenu(state)               runs on every getJevMenu request (a clock tick)
+ *   action(message, state)      the answer to a fast executeAction (one with
+ *              params.jevHandle); it may throw (a rejected sendMessage) or
+ *              return undefined (no answer). Default: a verified click.
+ *   snapshot   fn(state) or string: the getMarkdownSnapshot text (default
+ *              'SNAP-<n>' with n the snapshot request count)
+ * state: {menuRequests, fastActions, snapshots}.
+ * @returns {{respond:Function, state:Object}}
+ */
+function signatureMenuContent(opts) {
+  const o = opts || {};
+  const state = { menuRequests: 0, fastActions: 0, snapshots: 0 };
+  function signatureFor() {
+    const mode = o.signature === undefined ? 'request' : o.signature;
+    if (mode === 'request') return 'sig-r' + state.menuRequests;
+    if (mode === 'action') return 'sig-a' + state.fastActions;
+    return pick(mode, state, 'sig');
+  }
+  function respond(message) {
+    if (message && message.action === 'getJevMenu') {
+      state.menuRequests += 1;
+      if (typeof o.onMenu === 'function') o.onMenu(state);
+      const options = message.options || {};
+      const entries = pick(o.entries, state, []);
+      return {
+        success: true,
+        generation: 'g' + state.menuRequests + 'abcd-' + state.fastActions,
+        url: pick(o.url, state, DEFAULTS.pageUrl),
+        title: 'Wizard (' + state.menuRequests + ')',
+        visibleText: 'Wizard page',
+        moreBelow: o.moreBelow === true,
+        signature: signatureFor(),
+        count: entries.length,
+        truncated: false,
+        entries,
+        recentHandles: (Array.isArray(options.recent) ? options.recent : []).map(() => null)
+      };
+    }
+    if (message && message.action === 'executeAction' && message.params && message.params.jevHandle) {
+      state.fastActions += 1;
+      if (typeof o.action === 'function') return o.action(message, state);
+      return { success: true, verification: { verified: true, changes: ['content'], confidence: 'high' } };
+    }
+    if (message && message.action === 'getMarkdownSnapshot') {
+      state.snapshots += 1;
+      const text = pick(o.snapshot, state, 'SNAP-' + state.snapshots);
+      return { success: true, markdownSnapshot: text, elementCount: 1 };
+    }
+    return defaultContentResponder(message);
+  }
+  return { respond, state };
+}
+
 module.exports = {
   createHarness,
   goldenProviderScript,
@@ -613,6 +746,10 @@ module.exports = {
   normaliseRequestBody,
   digestText,
   sha256,
+  makeFakeClock,
+  scriptedGateway,
+  recordingJevClient,
+  signatureMenuContent,
   DEFAULTS,
   HOLD_MIN_MS,
   REAL_SET_TIMEOUT,
