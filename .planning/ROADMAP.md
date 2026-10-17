@@ -133,6 +133,7 @@ Plans:
 **Goal:** Provide version-pinned Jev through an FSB-owned server credential and a bounded, installation-associated HTTPS decision path; validate safe inputs, accounting, fallback, and calibration before live control.
 **Depends on:** Phase 66 (baseline and labelled task records).
 **Requirements:** JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07.
+**Status:** Code-complete 2026-10-15; human/live checks deferred to the Validation Block (V2 secrets, branch deploy, switch flip, live smoke, real error mapping and the IN-04/IN-05 owner decision; V3 live shadow calibration; V4 default-off gate; V5 WR-06 and IN-02 owner decisions; V6 release; see `67-HUMAN-UAT.md`).
 **Success Criteria:**
 
 1. The FSB server holds the upstream Jev credential in server-side secret storage, calls a pinned model, and returns typed decisions; no extension bundle, message, response, or storage record contains that credential, and users enter no Jev or OpenRouter key.
@@ -146,31 +147,31 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 67-01-PLAN.md — Server Jev contract (19-reason fallback enum, key sets, caps), mirrored secret scrubber + injection filter, exact-key request validator, shared fixtures (wave 1)
-- [ ] 67-02-PLAN.md — Shadow scoring by confidence bucket, predeclared Bonferroni/Wilson threshold selection, committed targets.json (wave 1)
+- [x] 67-01-PLAN.md — Server Jev contract (19-reason fallback enum, key sets, caps), mirrored secret scrubber + injection filter, exact-key request validator, shared fixtures (wave 1)
+- [x] 67-02-PLAN.md — Shadow scoring by confidence bucket, predeclared Bonferroni/Wilson threshold selection, committed targets.json (wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 67-03-PLAN.md — Server-owned versioned instrument with byte budget, calibration profiles and the explicit UNCALIBRATED default (wave 2)
-- [ ] 67-04-PLAN.md — Boot-time config (route + pin as configuration, operator switch), single-attempt upstream client with D-16 classification, loopback fake upstream (wave 2)
-- [ ] 67-05-PLAN.md — Body-free SQLite ledger and daily aggregate, housekeeper retention, read-only report CLI (wave 2)
-- [ ] 67-06-PLAN.md — FsbJevState: mirrored contract with parity test, gateway-response validator, sanitizer and budgeted request builder (wave 2)
-- [ ] 67-07-PLAN.md — FsbJevPolicy tighten-only lattice with exhaustive tables, real breaker invariance and HookPipeline ordering proof (wave 2)
+- [x] 67-03-PLAN.md — Server-owned versioned instrument with byte budget, calibration profiles and the explicit UNCALIBRATED default (wave 2)
+- [x] 67-04-PLAN.md — Boot-time config (route + pin as configuration, operator switch), single-attempt upstream client with D-16 classification, loopback fake upstream (wave 2)
+- [x] 67-05-PLAN.md — Body-free SQLite ledger and daily aggregate, housekeeper retention, read-only report CLI (wave 2)
+- [x] 67-06-PLAN.md — FsbJevState: mirrored contract with parity test, gateway-response validator, sanitizer and budgeted request builder (wave 2)
+- [x] 67-07-PLAN.md — FsbJevPolicy tighten-only lattice with exhaustive tables, real breaker invariance and HookPipeline ordering proof (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 67-08-PLAN.md — FsbJevClient.decide(): never-rejecting fixed-endpoint client, typed fallbacks, abort/deadline, in-memory cool-down (wave 3)
-- [ ] 67-09-PLAN.md — /api/jev/decide router, server.js and global-parser wiring, crash-resistance and log-hygiene proofs (wave 3)
-- [ ] 67-10-PLAN.md — Labelled shadow step-record format and 25-record seed set over the 12 core fixtures (wave 3)
+- [x] 67-08-PLAN.md — FsbJevClient.decide(): never-rejecting fixed-endpoint client, typed fallbacks, abort/deadline, in-memory cool-down (wave 3)
+- [x] 67-09-PLAN.md — /api/jev/decide router, server.js and global-parser wiring, crash-resistance and log-hygiene proofs (wave 3)
+- [x] 67-10-PLAN.md — Labelled shadow step-record format and 25-record seed set over the 12 core fixtures (wave 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 67-11-PLAN.md — Inert importScripts loads with paired lattice pin bump, extension boundary suite (wave 4)
-- [ ] 67-12-PLAN.md — Gateway-only shadow harness, offline end-to-end run, profile round-trip, V2 smoke command (wave 4)
+- [x] 67-11-PLAN.md — Inert importScripts loads with paired lattice pin bump, extension boundary suite (wave 4)
+- [x] 67-12-PLAN.md — Gateway-only shadow harness, offline end-to-end run, profile round-trip, V2 smoke command (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 67-13-PLAN.md — Register the 14 Jev suites in the test chain and refinement contract; full-chain, Node 20 and compatibility audits (wave 5)
+- [x] 67-13-PLAN.md — Register the 14 Jev suites in the test chain and refinement contract; full-chain, Node 20 and compatibility audits (wave 5)
 
 ### Phase 68: Autopilot Fast Mode
 
