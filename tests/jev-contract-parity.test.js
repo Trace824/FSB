@@ -298,10 +298,18 @@ function mutationPools(contract) {
     kindLists: [['operation'], ['target'], ['completion'], ['stuck'], ['risk'], ['operation', 'target'],
       ['completion', 'stuck', 'risk'], contract.KINDS.slice(), [], ['completion', 'completion'], ['approval'], 'risk'],
     extraKeys: ['extra', 'questions', 'instructions', 'model', 'value', 'approved', 'skipConfirmation', 'constructor'],
+    secretGoals: ['Pay with 4111 1111 1111 1111 now', 'Use sk-abcdefghij0123456789 to log in',
+      'Send Bearer abcdefgh12345678 upstream', 'Store AbCdEfGh1234567890IjKlMnOpQrStUv12 safely'],
   };
 }
 
 function mutateRequest(rand, request, pools, contract) {
+  // An earlier step may have replaced a container with a scalar; that step's
+  // corruption stands and this one is skipped.
+  try { applyMutation(rand, request, pools, contract); } catch (_e) { /* container already corrupted */ }
+}
+
+function applyMutation(rand, request, pools, contract) {
   const pick = (list) => list[Math.floor(rand() * list.length)];
   const clone = (v) => (v !== null && typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : v);
   const op = Math.floor(rand() * 16);
@@ -399,6 +407,9 @@ function validatorSection(sides) {
     const request = baseRequest();
     const steps = 1 + Math.floor(rand() * 3);
     for (let s = 0; s < steps; s += 1) mutateRequest(rand, request, pools, serverContract.CONTRACT);
+    // A share of the mutations also carry a secret goal, so sensitive_goal
+    // ordering (only after the whole shape passes) is compared too.
+    if (rand() < 0.25) request.goal = pools.secretGoals[Math.floor(rand() * pools.secretGoals.length)];
     const input = JSON.parse(JSON.stringify(request));
     let serverVerdict;
     let extensionVerdict;
