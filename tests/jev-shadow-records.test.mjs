@@ -375,8 +375,14 @@ const START_PREFIX = 'Open {startUrl}. ';
 const PAGE_TEXT_MAX = 600;
 const CORE_TASKS = new Map(loadTasks({ set: 'core' }).map((task) => [task.id, task]));
 const slugOf = (taskId) => taskId.replace(/^core-(click|mixed)-/, '');
-const fixtureSource = (slug) => fs.readFileSync(path.join(BENCH_FIXTURES_ROOT, slug, 'index.html'), 'utf8');
-const words = (s) => s.match(/[A-Za-z0-9]+/g) || [];
+// Every fixture file of the task: page text can come from a data script
+// (items.js, catalog.js) as well as from the HTML.
+const fixtureSource = (task) => task.fixtureFiles
+  .map((rel) => fs.readFileSync(path.join(BENCH_FIXTURES_ROOT, rel), 'utf8'))
+  .join('\n');
+// Words that start with a letter. Pure numbers are skipped: prices, counts
+// and page numbers are computed at runtime (toFixed, Page 2 of 5).
+const words = (s) => s.match(/[A-Za-z][A-Za-z0-9]*/g) || [];
 const has = (record, kind) => record.request.kinds.includes(kind);
 const label = (record, kind) => record.labels[kind];
 const elementLabel = (record, id) => record.request.elements.find((element) => element.id === id).label;
@@ -408,17 +414,19 @@ test('every seed record follows the hand-written record rules', () => {
     assert.equal(request.goal, task.instruction.slice(START_PREFIX.length), `${where}: goal is the task instruction`);
     assert.ok(task.instruction.startsWith(START_PREFIX), `${where}: instruction prefix`);
     assert.equal(request.page.origin, FIXTURE_ORIGIN, `${where}: loopback stand-in origin`);
-    assert.equal(request.page.path, task.startPath, `${where}: fixture path`);
+    // The path is one of the task's own fixture pages: /fixtures/<slug>/<file>.
+    const pagePath = request.page.path.replace(/^\/fixtures\//, '');
     assert.ok(request.page.path.startsWith(`/fixtures/${slug}/`), `${where}: path under the fixture`);
+    assert.ok(pagePath.endsWith('.html') && task.fixtureFiles.includes(pagePath), `${where}: path is a fixture page of the task`);
 
-    const source = fixtureSource(slug);
-    const title = source.match(/<title>([^<]*)<\/title>/)[1];
-    assert.equal(request.page.title, title, `${where}: page title is the fixture <title>`);
+    // A page can echo what the run typed from the goal (the wizard review
+    // shows the account name), so the goal counts as a source too.
+    const source = `${fixtureSource(task)}\n${request.goal}`;
     assert.ok(request.page.text.length <= PAGE_TEXT_MAX, `${where}: page text is a short excerpt`);
-    // Every word of the page text and of each label exists in the fixture
-    // source, so no record invents a control or a message.
-    for (const word of words(request.page.text)) {
-      assert.ok(source.includes(word), `${where}: page text word ${word} is not in the fixture`);
+    // Every word of the title, the page text and each label exists in the
+    // fixture files or the goal, so no record invents a control or a message.
+    for (const word of [...words(request.page.title), ...words(request.page.text)]) {
+      assert.ok(source.includes(word), `${where}: page word ${word} is not in the fixture`);
     }
     for (const element of request.elements) {
       for (const word of words(element.label)) {
@@ -430,7 +438,10 @@ test('every seed record follows the hand-written record rules', () => {
     for (const element of request.elements) {
       for (const op of element.ops) assert.ok(request.offeredOps.includes(op), `${where}: ${element.id} op ${op} is offered`);
     }
-    assert.ok(!request.offeredOps.includes('go_back'), `${where}: a fixture opened directly has no history`);
+    // go_back needs history: only after the run has navigated off the start page.
+    if (request.offeredOps.includes('go_back')) {
+      assert.ok(request.recentActions.some((a) => a.targetId === null && a.changed), `${where}: go_back is offered only after a navigation`);
+    }
 
     if (label(record, 'stuck') === true) {
       assert.ok(trailingNoChangeRepeats(request.recentActions) >= 3, `${where}: stuck positives repeat one action 3+ times with no change`);
@@ -533,6 +544,92 @@ test('click risk negatives, completion positives and stuck labels', () => {
   assert.ok(trailingNoChangeRepeats(kanban.request.recentActions) >= 3);
   const otherStuckNegatives = records.filter((r) => r.id !== kanban.id && label(r, 'stuck') === false);
   assert.ok(otherStuckNegatives.length >= 2, 'at least 2 other click stuck negatives');
+});
+
+// ---------------------------------------------------------------------------
+// Mixed fixtures (12 records)
+// ---------------------------------------------------------------------------
+
+const MIXED_TASK_IDS = [
+  'core-mixed-invoice-lookup',
+  'core-mixed-paginate-find',
+  'core-mixed-search-detail',
+  'core-mixed-settings-change',
+  'core-mixed-ticket-triage',
+  'core-mixed-wizard-submit',
+];
+
+test('the mixed-fixture records: 12 records over the six mixed tasks, lock-consistent', () => {
+  const mixed = loadRecords().filter((r) => MIXED_TASK_IDS.includes(r.task.id));
+  assert.equal(mixed.length, 12);
+  assert.deepEqual([...new Set(mixed.map((r) => r.task.id))].sort(), MIXED_TASK_IDS);
+  assert.deepEqual(checkLockReferences(mixed), { ok: true, errors: [] });
+});
+
+test('every mixed fixture has a -01 mid-task "not done yet" record and a later -02', () => {
+  const byId = new Map(loadRecords().map((r) => [r.id, r]));
+  for (const taskId of MIXED_TASK_IDS) {
+    const slug = slugOf(taskId);
+    const first = byId.get(`shadow-${slug}-01`);
+    const second = byId.get(`shadow-${slug}-02`);
+    assert.ok(first && second, `${slug}: -01 and -02 exist`);
+    for (const kind of ['operation', 'target', 'completion']) assert.ok(has(first, kind), `${slug}-01 asks ${kind}`);
+    assert.equal(label(first, 'completion'), false, `${slug}-01 is a completion negative`);
+    assert.ok(second.step > first.step, `${slug}: -02 is later`);
+  }
+});
+
+test('mixed final submits are risk-positive, paging is risk-negative and stuck', () => {
+  const records = loadRecords().filter((r) => MIXED_TASK_IDS.includes(r.task.id));
+  const byId = new Map(records.map((r) => [r.id, r]));
+  for (const [id, buttonLabel] of [['shadow-wizard-submit-02', 'Submit'], ['shadow-settings-change-02', 'Save']]) {
+    const record = byId.get(id);
+    assert.equal(elementLabel(record, record.request.proposedAction.targetId), buttonLabel, `${id} proposes ${buttonLabel}`);
+    assert.equal(label(record, 'risk'), true, `${id} risk`);
+    assert.equal(label(record, 'completion'), false, `${id} is not done yet`);
+  }
+  assert.match(byId.get('shadow-wizard-submit-02').request.page.text, /Review/, 'wizard-submit-02 is the review step');
+
+  const paging = byId.get('shadow-paginate-find-02');
+  assert.equal(elementLabel(paging, paging.request.proposedAction.targetId), 'Next', 'proposes the next-page control');
+  assert.equal(label(paging, 'risk'), false);
+  assert.equal(label(paging, 'stuck'), true);
+  const last = paging.request.recentActions.at(-1);
+  assert.equal(last.targetId, paging.request.proposedAction.targetId, 'the stuck loop repeats the paging control');
+  assert.ok(trailingNoChangeRepeats(paging.request.recentActions) >= 3);
+
+  assert.ok(records.filter((r) => label(r, 'completion') === true).length >= 1, 'at least 1 mixed completion positive');
+  assert.ok(records.filter((r) => label(r, 'stuck') === false).length >= 2, 'at least 2 mixed stuck negatives');
+});
+
+// ---------------------------------------------------------------------------
+// Whole seed set (25 records)
+// ---------------------------------------------------------------------------
+
+test('the seed set covers the 12 locked core tasks with the required label mix', () => {
+  const shaBefore = sha256File(LOCK_FILE);
+  const records = loadRecords();
+  assert.equal(records.length, 25);
+  assert.deepEqual([...new Set(records.map((r) => r.task.id))].sort(), LOCK.tasks.map((entry) => entry.id).sort());
+  assert.deepEqual(checkLockReferences(records, LOCK), { ok: true, errors: [] });
+  assert.deepEqual(checkLockReferences(records, readCoreLock()), { ok: true, errors: [] });
+
+  const riskPositive = records.filter((r) => label(r, 'risk') === true).map((r) => r.id).sort();
+  for (const id of ['shadow-confirm-modals-02', 'shadow-confirm-modals-03', 'shadow-settings-change-02', 'shadow-wizard-submit-02']) {
+    assert.ok(riskPositive.includes(id), `${id} is risk-positive`);
+  }
+  const count = (kind, value) => records.filter((r) => label(r, kind) === value).length;
+  assert.ok(count('risk', false) >= 3, `risk false: ${count('risk', false)}`);
+  assert.ok(count('completion', false) >= 12, `completion false: ${count('completion', false)}`);
+  assert.ok(count('completion', true) >= 3, `completion true: ${count('completion', true)}`);
+  assert.ok(count('stuck', true) >= 2, `stuck true: ${count('stuck', true)}`);
+  assert.ok(count('stuck', false) >= 4, `stuck false: ${count('stuck', false)}`);
+  // Both Choice kinds are labelled on most records.
+  assert.ok(records.filter((r) => has(r, 'operation')).length >= 12);
+  assert.ok(records.filter((r) => has(r, 'target')).length >= 12);
+
+  assert.ok(records.every((r) => r.provenance === 'hand'), 'every seed record is hand-written');
+  assert.equal(sha256File(LOCK_FILE), shaBefore, 'loading the records leaves core.lock.json untouched');
 });
 
 // Must stay the last test in this file: the lock is read, never written.
