@@ -15,7 +15,12 @@
  *   - recordAggregateOnly touches one jev_daily row per (day, outcome) and never
  *     a ledger row, so refused traffic stays bounded;
  *   - todaySpendUsd, pruneJevLedger, dayUtcKey and the allowlisted
- *     formatDecisionLog line.
+ *     formatDecisionLog line;
+ *   - the hourly housekeeper prunes both tables in its own guarded step, with a
+ *     fixed error line, and leaves the telemetry tick untouched;
+ *   - the read-only operator report (src/jev/report.js): per-day outcomes,
+ *     served models, usage and cost, the N newest decisions keyed by
+ *     decisionId, fixed usage and failure lines, and a read-only file handle.
  *
  * Run: node tests/jev-gateway-ledger.test.js
  */
@@ -554,6 +559,296 @@ function staticSection() {
   check('ledger.js validates outcomes against GATEWAY_FALLBACK_REASONS', source.includes('GATEWAY_FALLBACK_REASONS'));
 }
 
+// ---------------------------------------------------------------------------
+// Task 2: housekeeper retention and the read-only operator report
+// ---------------------------------------------------------------------------
+
+function captureConsoleError(fn) {
+  const calls = [];
+  const original = console.error;
+  console.error = (...args) => { calls.push(args); };
+  let threw = false;
+  try {
+    fn();
+  } catch (_e) {
+    threw = true;
+  } finally {
+    console.error = original;
+  }
+  return { calls, threw };
+}
+
+function seedJevRetention(ledger, db) {
+  ledger.recordDecision(db, baseRow({ decisionId: 'h-old', createdAtMs: NOW - 8 * ONE_DAY_MS }));
+  ledger.recordDecision(db, baseRow({ decisionId: 'h-new', createdAtMs: NOW - 2 * ONE_DAY_MS }));
+  ledger.recordAggregateOnly(db, { dayUtc: ledger.dayUtcKey(NOW - 400 * ONE_DAY_MS), outcome: 'busy' });
+  ledger.recordAggregateOnly(db, { dayUtc: ledger.dayUtcKey(NOW - 30 * ONE_DAY_MS), outcome: 'busy' });
+}
+
+function housekeeperSection(ledger) {
+  console.log('\n--- Housekeeper: guarded Jev prune after the telemetry tick ---');
+  const housekeeper = require(path.join(SERVER_DIR, 'src', 'telemetry', 'housekeeper'));
+  const Queries = require(path.join(SERVER_DIR, 'src', 'db', 'queries'));
+
+  const db = freshDb();
+  const queries = new Queries(db);
+  seedJevRetention(ledger, db);
+  queries.insertTelemetryEventWithRegionV2.run(
+    '00000000-0000-4000-8000-0000000000a1', '11111111-1111-4111-8111-111111111111',
+    NOW - 8 * ONE_DAY_MS, 'Claude', 'm', 10, 5, 1, 2, 'periodic', 'h1', NOW - 8 * ONE_DAY_MS, 'unknown'
+  );
+  queries.insertTelemetryEventWithRegionV2.run(
+    '00000000-0000-4000-8000-0000000000a2', '11111111-1111-4111-8111-111111111111',
+    NOW - 60000, 'Claude', 'm', 10, 5, 1, 2, 'periodic', 'h1', NOW - 60000, 'unknown'
+  );
+  const tick = captureConsoleError(() => housekeeper.runHousekeeperTick(db, queries, NOW));
+  check('runHousekeeperTick does not throw', !tick.threw);
+  check('a healthy tick logs nothing to console.error', tick.calls.length === 0, show(tick.calls));
+  const ids = db.prepare('SELECT decision_id FROM jev_decisions').all().map((r) => r.decision_id);
+  check('the tick deletes ledger rows older than 7 days', !ids.includes('h-old'), show(ids));
+  check('the tick keeps newer ledger rows', ids.includes('h-new'), show(ids));
+  const days = db.prepare('SELECT day_utc FROM jev_daily').all().map((r) => r.day_utc);
+  check('the tick deletes aggregates older than 365 days', !days.includes(ledger.dayUtcKey(NOW - 400 * ONE_DAY_MS)), show(days));
+  check('the tick keeps newer aggregates', days.includes(ledger.dayUtcKey(NOW - 30 * ONE_DAY_MS)), show(days));
+  const events = db.prepare('SELECT event_id FROM telemetry_events').all().map((r) => r.event_id);
+  check('the telemetry tick still prunes old raw events', !events.includes('00000000-0000-4000-8000-0000000000a1') && events.includes('00000000-0000-4000-8000-0000000000a2'), show(events));
+  const global = db.prepare('SELECT unique_installs FROM telemetry_global_aggregates WHERE day_utc = ?').get(TODAY);
+  check('the telemetry tick still writes today\'s global aggregate', global && global.unique_installs === 1, show(global));
+
+  console.log('\n--- Housekeeper: missing Jev tables ---');
+  const missing = freshDb();
+  missing.exec('DROP TABLE jev_decisions; DROP TABLE jev_daily;');
+  const missingTick = captureConsoleError(() => housekeeper.runHousekeeperTick(missing, undefined, NOW));
+  check('missing jev tables: runHousekeeperTick does not throw', !missingTick.threw);
+  check('missing jev tables: console.error receives exactly the fixed line',
+    missingTick.calls.length === 1 && missingTick.calls[0].length === 1 && missingTick.calls[0][0] === '[housekeeper] jev prune failed',
+    show(missingTick.calls));
+  const missingGlobal = missing.prepare('SELECT day_utc FROM telemetry_global_aggregates WHERE day_utc = ?').get(TODAY);
+  check('missing jev tables: the telemetry tick still ran', !!missingGlobal);
+
+  console.log('\n--- Housekeeper: pruneJevLedger throws with a message ---');
+  const throwing = freshDb();
+  seedJevRetention(ledger, throwing);
+  throwing.exec("CREATE TRIGGER jev_prune_fail BEFORE DELETE ON jev_decisions BEGIN SELECT RAISE(ABORT, 'MARKER-SQL-ERROR-6f1d'); END;");
+  const throwingTick = captureConsoleError(() => housekeeper.runHousekeeperTick(throwing, undefined, NOW));
+  check('a throwing prune: runHousekeeperTick does not throw', !throwingTick.threw);
+  check('a throwing prune: console.error receives exactly the fixed line',
+    throwingTick.calls.length === 1 && throwingTick.calls[0].length === 1 && throwingTick.calls[0][0] === '[housekeeper] jev prune failed',
+    show(throwingTick.calls));
+  check('a throwing prune: the SQL error message is never logged', !show(throwingTick.calls).includes('MARKER-SQL-ERROR'));
+  check('a throwing prune: its transaction rolled back (aggregates untouched)', throwing.prepare('SELECT COUNT(*) AS n FROM jev_daily').get().n === 4);
+
+  console.log('\n--- Housekeeper: the telemetry failure path is unchanged ---');
+  const broken = freshDb();
+  seedJevRetention(ledger, broken);
+  const brokenQueries = { deleteOldEvents: { run: () => { throw new Error('synthetic SQL error'); } } };
+  const brokenTick = captureConsoleError(() => housekeeper.runHousekeeperTick(broken, brokenQueries, NOW));
+  const brokenText = brokenTick.calls.map((args) => args.join(' ')).join('\n');
+  check('broken telemetry queries: runHousekeeperTick does not throw', !brokenTick.threw);
+  check('broken telemetry queries: the existing tick-failed line is unchanged',
+    brokenTick.calls.length === 1 && brokenTick.calls[0][0] === '[housekeeper] tick failed:' && brokenTick.calls[0][1] === 'synthetic SQL error',
+    show(brokenTick.calls));
+  check('broken telemetry queries: no jev prune failure', !brokenText.includes('jev prune failed'));
+  check('broken telemetry queries: the Jev prune still runs in its own step',
+    !broken.prepare('SELECT decision_id FROM jev_decisions').all().some((r) => r.decision_id === 'h-old'));
+
+  const fs = require('fs');
+  const source = fs.readFileSync(path.join(SERVER_DIR, 'src', 'telemetry', 'housekeeper.js'), 'utf8');
+  check('housekeeper.js keeps exactly one tick-failed line', source.split('[housekeeper] tick failed:').length === 2);
+  check('housekeeper.js has exactly one jev-prune-failed line', source.split('[housekeeper] jev prune failed').length === 2);
+  check('housekeeper.js calls pruneJevLedger(db, nowMs)', /pruneJevLedger\(db, nowMs\)/.test(source));
+}
+
+const REPORT_USAGE_PREFIX = 'usage: node src/jev/report.js';
+
+function seedReport(ledger, db, nowMs) {
+  const day = (offset) => nowMs - offset * ONE_DAY_MS;
+  const extra = Object.assign({}, MARKERS);
+  const rows = [
+    // today: 3 ok (2 calibrated on the dated snapshot, 1 uncalibrated on another family), 1 timeout
+    baseRow(Object.assign({}, extra, { decisionId: 'r-1', createdAtMs: day(0) - 4000, servedModel: 'typesafe/jev-1.13-20260901', calibrationStatus: 'calibrated', inputTokens: 100, costUsd: 0.0001, costSource: 'provider' })),
+    baseRow(Object.assign({}, extra, { decisionId: 'r-2', createdAtMs: day(0) - 3000, servedModel: 'typesafe/jev-1.13-20260901', calibrationStatus: 'calibrated', inputTokens: 200, costUsd: 0.00002, costSource: 'estimate' })),
+    baseRow(Object.assign({}, extra, { decisionId: 'r-3', createdAtMs: day(0) - 2000, servedModel: 'jev-2.0.0', calibrationStatus: 'uncalibrated', inputTokens: 300, costUsd: 0.0003, costSource: 'provider' })),
+    baseRow(Object.assign({}, extra, { decisionId: 'r-4', createdAtMs: day(0) - 1000, outcome: 'timeout', servedModel: null, calibrationStatus: null, inputTokens: null, usageSource: 'unavailable', costUsd: null, costSource: 'unavailable', upstreamLatencyMs: null, upstreamStatus: null })),
+    // yesterday: 1 ok, 1 upstream_error
+    baseRow(Object.assign({}, extra, { decisionId: 'r-5', createdAtMs: day(1), servedModel: 'typesafe/jev-1.13-20260901', calibrationStatus: 'snapshot_changed', inputTokens: 50, costUsd: 0.00005, costSource: 'provider' })),
+  ];
+  const caps = [0.0001, 0.00002, 0.0003, 0.00004, 0.00005];
+  rows.forEach((row, i) => ledger.recordDecision(db, row, { capUsd: caps[i] }));
+  ledger.recordDecision(db, baseRow(Object.assign({}, extra, { decisionId: 'r-6', createdAtMs: day(1) + 1000, outcome: 'upstream_error', servedModel: null, calibrationStatus: null, inputTokens: null, usageSource: 'unavailable', costUsd: null, costSource: 'unavailable', upstreamStatus: 503 })), { capUsd: 0.00004 });
+  // two days ago: refusals only
+  ledger.recordAggregateOnly(db, { dayUtc: ledger.dayUtcKey(day(2)), outcome: 'busy' });
+  ledger.recordAggregateOnly(db, { dayUtc: ledger.dayUtcKey(day(2)), outcome: 'busy' });
+  ledger.recordAggregateOnly(db, { dayUtc: ledger.dayUtcKey(day(2)), outcome: 'invalid_request' });
+  ledger.recordAggregateOnly(db, { dayUtc: ledger.dayUtcKey(day(0)), outcome: 'spend_cap_reached' });
+}
+
+function runCapture(report, argv, deps) {
+  const out = [];
+  const err = [];
+  const code = report.runCli(argv, Object.assign({ out: (line) => out.push(line), err: (line) => err.push(line) }, deps));
+  return { code, out, err, text: out.join('\n') + '\n' + err.join('\n') };
+}
+
+function reportSection(ledger, report) {
+  console.log('\n--- Report: buildReport ---');
+  const fs = require('fs');
+  const os = require('os');
+  const { spawnSync } = require('child_process');
+
+  const db = freshDb();
+  seedReport(ledger, db, NOW);
+  const built = report.buildReport(db, { days: 7, nowMs: NOW });
+  check('buildReport returns days and servedModels', built && Array.isArray(built.days) && Array.isArray(built.servedModels), show(built));
+  check('buildReport has exactly the top-level keys', built && deepEqual(Object.keys(built), ['days', 'servedModels']), show(built && Object.keys(built)));
+  const byDay = Object.fromEntries((built.days || []).map((d) => [d.dayUtc, d]));
+  check('three seeded days, newest first', deepEqual((built.days || []).map((d) => d.dayUtc), [TODAY, '2026-05-13', '2026-05-12']), show((built.days || []).map((d) => d.dayUtc)));
+  const today = byDay[TODAY] || {};
+  check('day keys are exactly the interface keys', deepEqual(Object.keys(today), ['dayUtc', 'requests', 'byOutcome', 'inputTokensKnown', 'inputTokensUnavailable', 'costProviderUsd', 'costEstimateUsd', 'costUnavailable', 'capAccruedUsd']), show(Object.keys(today)));
+  check('today: requests across outcomes', today.requests === 5, show(today));
+  check('today: per-outcome counts', deepEqual(today.byOutcome, { ok: 3, spend_cap_reached: 1, timeout: 1 }) || deepEqual(today.byOutcome, { ok: 3, timeout: 1, spend_cap_reached: 1 }), show(today.byOutcome));
+  check('today: known and unavailable tokens', today.inputTokensKnown === 600 && today.inputTokensUnavailable === 1, show(today));
+  check('today: cost by source', approx(today.costProviderUsd, 0.0004) && approx(today.costEstimateUsd, 0.00002) && today.costUnavailable === 1, show(today));
+  check('today: cap accrual', approx(today.capAccruedUsd, 0.0001 + 0.00002 + 0.0003 + 0.00004), show(today.capAccruedUsd));
+  const yesterday = byDay['2026-05-13'] || {};
+  check('yesterday: ok and upstream_error', yesterday.requests === 2 && deepEqual(yesterday.byOutcome, { ok: 1, upstream_error: 1 }), show(yesterday));
+  const twoAgo = byDay['2026-05-12'] || {};
+  check('two days ago: refusals only, nothing spent', twoAgo.requests === 3 && twoAgo.byOutcome.busy === 2 && twoAgo.byOutcome.invalid_request === 1 && twoAgo.capAccruedUsd === 0, show(twoAgo));
+  const models = Object.fromEntries((built.servedModels || []).map((m) => [String(m.servedModel), m]));
+  check('served models: the dated snapshot counted with its calibration statuses',
+    models['typesafe/jev-1.13-20260901'] && models['typesafe/jev-1.13-20260901'].n === 3
+    && deepEqual(models['typesafe/jev-1.13-20260901'].calibration, { calibrated: 2, snapshot_changed: 1 }), show(built.servedModels));
+  check('served models: the other family is uncalibrated', models['jev-2.0.0'] && models['jev-2.0.0'].n === 1 && deepEqual(models['jev-2.0.0'].calibration, { uncalibrated: 1 }));
+  check('served models: rows without a served model are counted under null', models.null && models.null.servedModel === null && models.null.n === 2, show(models.null));
+  check('served models: most frequent first', built.servedModels && built.servedModels[0] && built.servedModels[0].servedModel === 'typesafe/jev-1.13-20260901');
+  const oneDay = report.buildReport(db, { days: 1, nowMs: NOW });
+  check('days 1 covers only today', deepEqual(oneDay.days.map((d) => d.dayUtc), [TODAY]) && oneDay.servedModels.reduce((s, m) => s + m.n, 0) === 4, show(oneDay));
+
+  console.log('\n--- Report: runCli --days ---');
+  const cli = runCapture(report, ['--days', '7'], { db, now: () => NOW });
+  check('runCli --days 7 returns 0', cli.code === 0, show(cli));
+  check('runCli --days 7 prints nothing to err', cli.err.length === 0, show(cli.err));
+  check('one header line', cli.out.length > 0 && cli.out[0].startsWith('jev-report ') && cli.out.filter((l) => l.startsWith('jev-report ')).length === 1, show(cli.out[0]));
+  check('one line per day', cli.out.filter((l) => l.startsWith('day ')).length === 3);
+  check('one line per served model', cli.out.filter((l) => l.startsWith('model ')).length === 3);
+  check('only header, day and model lines', cli.out.every((l) => /^(jev-report|day|model) /.test(l)), show(cli.out));
+  const modelLine = cli.out.find((l) => l.includes('typesafe/jev-1.13-20260901')) || '';
+  check('the served model line names the model and its count', modelLine.includes('n=3') && modelLine.includes('calibrated:2') && modelLine.includes('snapshot_changed:1'), modelLine);
+  const todayLine = cli.out.find((l) => l.startsWith(`day ${TODAY}`)) || '';
+  check('the day line shows requests and outcomes', todayLine.includes('requests=5') && todayLine.includes('ok:3') && todayLine.includes('timeout:1'), todayLine);
+  const leakedCli = Object.values(MARKERS).filter((m) => cli.text.includes(m));
+  check('the days report contains none of the planted markers', leakedCli.length === 0, show(leakedCli));
+  const defaultCli = runCapture(report, [], { db, now: () => NOW });
+  check('runCli with no flags reports the last 7 days', defaultCli.code === 0 && deepEqual(defaultCli.out, cli.out), show(defaultCli.out));
+  const eqForm = runCapture(report, ['--days=7'], { db, now: () => NOW });
+  check('--days=N is accepted', eqForm.code === 0 && deepEqual(eqForm.out, cli.out));
+
+  console.log('\n--- Report: runCli --recent ---');
+  const recent = runCapture(report, ['--recent', '3'], { db, now: () => NOW });
+  check('runCli --recent 3 returns 0', recent.code === 0, show(recent));
+  const rowLines = recent.out.filter((l) => l.startsWith('decision '));
+  check('exactly 3 row lines', rowLines.length === 3, show(recent.out));
+  check('one header plus the row lines', recent.out.length === 4 && recent.out[0].startsWith('jev-report '), show(recent.out));
+  check('newest first, each keyed by its decisionId', rowLines[0] && rowLines[0].startsWith('decision r-4 ')
+    && rowLines[1].startsWith('decision r-3 ') && rowLines[2].startsWith('decision r-2 '), show(rowLines));
+  const logLine = ledger.formatDecisionLog(baseRow({ decisionId: 'r-3' }));
+  const loggedId = JSON.parse(logLine.slice('[jev] decision '.length)).decisionId;
+  check('a decisionId copied from a decision log line finds its row', rowLines.some((l) => l.startsWith(`decision ${loggedId} `)));
+  const r3 = rowLines[1] || '';
+  for (const piece of ['created=2026-05-14T11:59:58.000Z', 'outcome=ok', 'served_model=jev-2.0.0', 'instrument_version=fsb-jev-instrument-1',
+    'calibration=uncalibrated', 'kinds=operation,target', 'elements=12', 'bytes=3456', 'input_tokens=300', 'usage_source=provider',
+    'cost_usd=0.0003', 'cost_source=provider', 'upstream_ms=420', 'gateway_ms=455', 'upstream_status=200', 'hash_key_present=1']) {
+    check(`the row line holds ${piece}`, r3.includes(piece), r3);
+  }
+  const r4 = rowLines[0] || '';
+  check('unknown usage and cost print as null, never 0', r4.includes('input_tokens=null') && r4.includes('cost_usd=null') && r4.includes('served_model=null'), r4);
+  const leakedRecent = Object.values(MARKERS).filter((m) => recent.text.includes(m));
+  check('the recent listing contains none of the planted markers', leakedRecent.length === 0, show(leakedRecent));
+  const recentRows = report.buildRecent(db, { limit: 2 });
+  check('buildRecent returns the newest rows', Array.isArray(recentRows) && recentRows.length === 2 && recentRows[0].decisionId === 'r-4' && recentRows[1].decisionId === 'r-3', show(recentRows));
+  check('buildRecent rows hold only the allowlisted fields', recentRows[0] && deepEqual(Object.keys(recentRows[0]), [
+    'decisionId', 'createdAt', 'outcome', 'servedModel', 'instrumentVersion', 'calibrationStatus', 'kinds', 'elementCount',
+    'requestBytes', 'inputTokens', 'usageSource', 'costUsd', 'costSource', 'upstreamLatencyMs', 'gatewayLatencyMs',
+    'upstreamStatus', 'hashKeyPresent']), show(recentRows[0] && Object.keys(recentRows[0])));
+  const both = runCapture(report, ['--days', '1', '--recent', '1'], { db, now: () => NOW });
+  check('--days and --recent together print both sections', both.code === 0 && both.out.filter((l) => l.startsWith('day ')).length === 1
+    && both.out.filter((l) => l.startsWith('decision ')).length === 1, show(both.out));
+
+  console.log('\n--- Report: usage errors ---');
+  for (const argv of [['--days', '0'], ['--days', '366'], ['--days', '1.5'], ['--days', 'x'], ['--days'], ['--recent', '0'],
+    ['--recent', '201'], ['--bogus'], ['--days', '7', '--days', '3'], ['--db'], ['extra']]) {
+    const bad = runCapture(report, argv, { db, now: () => NOW });
+    check(`runCli ${show(argv)} returns 2 with the fixed usage line`, bad.code === 2 && bad.out.length === 0
+      && bad.err.length === 1 && bad.err[0].startsWith(REPORT_USAGE_PREFIX), show(bad));
+  }
+  const echo = runCapture(report, ['--MARKER-FLAG-ab12'], { db, now: () => NOW });
+  check('a usage error never echoes the argument', !echo.text.includes('MARKER-FLAG'), echo.text);
+
+  console.log('\n--- Report: file databases ---');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsb-jev-report-'));
+  try {
+    const missingPath = path.join(tmp, 'missing.db');
+    const unopenable = runCapture(report, ['--db', missingPath]);
+    check('an unopenable --db returns 1', unopenable.code === 1, show(unopenable));
+    check('an unopenable --db prints only "jev-report: failed"', unopenable.out.length === 0 && deepEqual(unopenable.err, ['jev-report: failed']), show(unopenable));
+    check('an unopenable --db is not created', !fs.existsSync(missingPath));
+
+    const emptyPath = path.join(tmp, 'empty.db');
+    new Database(emptyPath).close();
+    const noTables = runCapture(report, ['--db', emptyPath]);
+    check('a database without the jev tables returns 1 with the fixed line', noTables.code === 1 && deepEqual(noTables.err, ['jev-report: failed']) && noTables.out.length === 0, show(noTables));
+
+    const filePath = path.join(tmp, 'fsb-data.db');
+    const fileDb = new Database(filePath);
+    const originalLog = console.log;
+    console.log = () => {};
+    try { initializeDatabase(fileDb); } finally { console.log = originalLog; }
+    const realNow = Date.now();
+    seedReport(ledger, fileDb, realNow);
+    fileDb.close();
+    const sizeBefore = fs.statSync(filePath).size;
+
+    const fileRun = runCapture(report, ['--db', filePath, '--days', '7', '--recent', '2']);
+    check('runCli opens a file database given by --db', fileRun.code === 0 && fileRun.out.filter((l) => l.startsWith('decision ')).length === 2, show(fileRun));
+
+    const handle = report.openReadOnlyDb(filePath);
+    let writeFailed = false;
+    try {
+      handle.prepare("INSERT INTO jev_daily (day_utc, outcome, requests) VALUES ('2026-01-01', 'busy', 1)").run();
+    } catch (_e) {
+      writeFailed = true;
+    }
+    check('the report handle is read-only', handle.readonly === true);
+    check('a write through the report handle fails', writeFailed);
+    handle.close();
+    const check2 = new Database(filePath, { readonly: true });
+    check('the file database is unchanged by the report', check2.prepare("SELECT COUNT(*) AS n FROM jev_daily WHERE day_utc = '2026-01-01'").get().n === 0);
+    check2.close();
+    check('the file size is unchanged by the report', fs.statSync(filePath).size === sizeBefore);
+
+    console.log('\n--- Report: the CLI entry point (DB_PATH and exit codes) ---');
+    const reportPath = path.join(JEV_DIR, 'report.js');
+    const childEnv = Object.assign({}, process.env, { DB_PATH: filePath });
+    const child = spawnSync(process.execPath, [reportPath, '--recent', '5'], { env: childEnv, encoding: 'utf8' });
+    check('node src/jev/report.js --recent 5 with DB_PATH exits 0', child.status === 0, show({ status: child.status, stderr: child.stderr }));
+    check('the child prints the newest rows keyed by decisionId', /^decision r-4 /m.test(child.stdout) && child.stdout.split('\n').filter((l) => l.startsWith('decision ')).length === 5, child.stdout);
+    check('the child output contains none of the planted markers', Object.values(MARKERS).every((m) => !child.stdout.includes(m) && !child.stderr.includes(m)));
+    const childDays = spawnSync(process.execPath, [reportPath, '--days', '1'], { env: childEnv, encoding: 'utf8' });
+    check('node src/jev/report.js --days 1 exits 0 with one day line', childDays.status === 0 && childDays.stdout.split('\n').filter((l) => l.startsWith('day ')).length === 1, show({ status: childDays.status, stdout: childDays.stdout }));
+    const childMissing = spawnSync(process.execPath, [reportPath], { env: Object.assign({}, process.env, { DB_PATH: missingPath }), encoding: 'utf8' });
+    check('a missing DB_PATH exits 1 with only the fixed line', childMissing.status === 1 && childMissing.stdout === '' && childMissing.stderr === 'jev-report: failed\n', show({ status: childMissing.status, stdout: childMissing.stdout, stderr: childMissing.stderr }));
+    const childBad = spawnSync(process.execPath, [reportPath, '--bogus'], { env: childEnv, encoding: 'utf8' });
+    check('a usage error exits 2', childBad.status === 2 && childBad.stderr.startsWith(REPORT_USAGE_PREFIX), show({ status: childBad.status, stderr: childBad.stderr }));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  const source = fs.readFileSync(path.join(JEV_DIR, 'report.js'), 'utf8');
+  check('report.js never prints an error message or stack', !/err\.message|error\.message|\.stack\b/.test(source));
+  check('report.js has the CJS main guard', source.includes('if (require.main === module) process.exitCode = runCli(process.argv.slice(2));'));
+  check('report.js opens databases read-only', /readonly:\s*true/.test(source) && /fileMustExist:\s*true/.test(source));
+}
+
 function main() {
   const ledger = loadModule('ledger.js');
   schemaSection(ledger);
@@ -567,6 +862,9 @@ function main() {
     pruneSection(ledger);
     formatLogSection(ledger);
     staticSection();
+    housekeeperSection(ledger);
+    const report = loadModule('report.js');
+    if (report) reportSection(ledger, report);
   }
   console.log(`\n=== jev-gateway-ledger results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);
