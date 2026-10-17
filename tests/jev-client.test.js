@@ -1019,10 +1019,15 @@ async function fuzzSection() {
   }
 
   function randomBodyText(request) {
-    const roll = int(0, 11);
+    const roll = int(0, 13);
     const matching = request && Array.isArray(request.kinds) && request.kinds.length === 5 ? allKindsBody() : okBody();
     if (roll <= 2) return JSON.stringify(matching);
     if (roll === 3) return JSON.stringify(mutateOk(matching));
+    if (roll === 12 || roll === 13) {
+      // A well-formed gateway fallback, often a non-transient one, so the cool-down is exercised.
+      const reason = rng() < 0.6 ? pick(S.CONTRACT.NON_TRANSIENT_REASONS) : pick(S.CONTRACT.GATEWAY_FALLBACK_REASONS);
+      return JSON.stringify(fallbackBody(reason, S.CONTRACT.HTTP_STATUS_BY_REASON[reason], pick([null, 'typesafe/jev-1.13'])));
+    }
     if (roll === 4) {
       const reason = pick(S.CONTRACT.FALLBACK_REASONS);
       return JSON.stringify(fallbackBody(reason, pick([null, 400, 413, 500, 502, 503, 504, 99]), pick([null, 'typesafe/jev-1.13', '', 7])));
@@ -1129,15 +1134,26 @@ async function fuzzSection() {
   let firstProblem = null;
   const started = Date.now();
 
+  /** A gateway that answers with a well-formed typed fallback, usually a non-transient one. */
+  function gatewayFallbackFetch() {
+    const reason = rng() < 0.7 ? pick(S.CONTRACT.NON_TRANSIENT_REASONS) : pick(S.CONTRACT.GATEWAY_FALLBACK_REASONS);
+    const status = S.CONTRACT.HTTP_STATUS_BY_REASON[reason];
+    return { impl: () => Promise.resolve(jsonResponse(status, fallbackBody(reason, status))), hangs: false };
+  }
+
   for (let i = 0; i < CASES; i += 1) {
     const request = randomRequest();
-    const { impl, hangs } = randomFetch(request);
+    const useShared = rng() < 0.4;
+    const { impl, hangs } = useShared && rng() < 0.5 ? gatewayFallbackFetch() : randomFetch(request);
     let fetchCalls = 0;
     const counted = (url, init) => { fetchCalls += 1; return impl(url, init); };
     const callOpts = randomCallOpts(hangs);
     let client;
-    if (rng() < 0.3) {
-      sharedClock.t += int(0, 90000);
+    if (useShared) {
+      // Steps around COOLDOWN_MS, so the shared client both cools and recovers;
+      // an occasional reset keeps an hour-long spend cool-down from pinning it.
+      sharedClock.t += int(0, 30000);
+      if (rng() < 0.1) shared.resetCooldown();
       sharedImpl = counted;
       client = shared;
     } else {

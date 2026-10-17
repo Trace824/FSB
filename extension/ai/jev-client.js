@@ -14,10 +14,18 @@
  * - The response body is mapped first and the HTTP status only when the body
  *   is missing, not JSON or not an exact D-15 shape. A response with any
  *   unknown or approval-like key is never accepted (D-15, D-29).
+ * - The caller's signal and the client's own deadline are composed by hand
+ *   into one internal AbortController. A local `why` flag, never the error
+ *   name, decides between timeout (deadline) and aborted (caller). Every wait
+ *   also races that abort, so a fetch that ignores its signal is still
+ *   bounded.
+ * - Non-transient fallbacks start a cool-down held only in this closure,
+ *   never in storage (D-16). Every timer and listener is released before
+ *   decide() resolves.
  *
  * Inert by design (D-17): loading this file makes no network call, schedules
- * nothing, reads no storage and touches no browser API. fetch is resolved
- * when decide() runs, never at load.
+ * nothing, reads no storage and touches no browser API. fetch and the timer
+ * functions are resolved when decide() runs, never at load.
  */
 (function initFsbJevClient(root) {
   'use strict';
@@ -73,9 +81,43 @@
   var MAX_RESPONSE_CHARS = 65536;
   /** The optional attribution header value: a self-issued 64-char lowercase hex key (D-07). */
   var HASH_KEY_RE = /^[a-f0-9]{64}$/;
+  /** One UTC day. JavaScript time has no leap seconds, so UTC midnights are multiples of it. */
+  var DAY_MS = 86400000;
+  /** What a wait settles to once the call is aborted (by the deadline or the caller). */
+  var ABORTED = Object.freeze({ aborted: true });
 
   function isObjectLike(node) {
     return node !== null && typeof node === 'object';
+  }
+
+  /** An AbortSignal-like object the client can listen on. Anything else is ignored. */
+  function isListenable(signal) {
+    return isObjectLike(signal)
+      && typeof signal.addEventListener === 'function'
+      && typeof signal.removeEventListener === 'function';
+  }
+
+  /** min(timeoutMs, DEFAULT_TIMEOUT_MS) for a positive finite number, else the default. */
+  function deadlineFor(timeoutMs) {
+    if (typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+      return timeoutMs < DEFAULT_TIMEOUT_MS ? timeoutMs : DEFAULT_TIMEOUT_MS;
+    }
+    return DEFAULT_TIMEOUT_MS;
+  }
+
+  /**
+   * The spend_cap_reached cool-down at time t: until the next UTC midnight,
+   * when the gateway's daily ceiling resets, and never longer than
+   * MAX_SPEND_COOLDOWN_MS.
+   */
+  function spendCooldownMs(t) {
+    var intoDay = ((t % DAY_MS) + DAY_MS) % DAY_MS;
+    var untilMidnight = DAY_MS - intoDay;
+    return untilMidnight < MAX_SPEND_COOLDOWN_MS ? untilMidnight : MAX_SPEND_COOLDOWN_MS;
+  }
+
+  function reasonForAbort(why) {
+    return why === 'deadline' ? 'timeout' : 'aborted';
   }
 
   /** FsbJevState, resolved at call time: the worker global, else require under Node. */
@@ -148,6 +190,22 @@
     return new Promise(function run(resolve) { resolve(fn()); });
   }
 
+  /**
+   * Wait for `promise` or for the abort gate, whichever settles first.
+   * Resolves to {result}, {error:true} or ABORTED. Never rejects, and the
+   * losing promise's rejection is always handled.
+   */
+  function untilAborted(promise, gate) {
+    return Promise.race([
+      promise.then(function settled(result) {
+        return { result: result };
+      }, function failed() {
+        return { error: true };
+      }),
+      gate
+    ]);
+  }
+
   /** getHashKey() as a promise of a well-formed key or null. Never rejects. */
   function readHashKey(getHashKey) {
     return invoke(getHashKey).then(function keep(key) {
@@ -160,10 +218,20 @@
   /**
    * Create a client. Every option is for tests and tooling; the extension uses
    * the defaults.
+   *
+   * - endpoint: defaults to ENDPOINT. Only tests and the shadow tooling pass one.
+   * - fetchImpl: defaults to the global fetch, looked up on every call.
+   * - now: the clock for latency and the cool-down; defaults to Date.now.
+   * - getHashKey: optional attribution only (D-07, T-67-10). It may return a
+   *   key or a promise of one; anything but a 64-char lowercase hex string, or
+   *   a throw, means the header is left out and the decision still runs.
+   * - setTimeoutImpl / clearTimeoutImpl: default to the global timer
+   *   functions, looked up on every call.
    * @param {{endpoint?:string, fetchImpl?:Function, now?:function():number,
    *   getHashKey?:(function():(string|null|Promise<string|null>))|null,
    *   setTimeoutImpl?:Function, clearTimeoutImpl?:Function}} [opts]
-   * @returns {{decide:function(Object, {signal?:AbortSignal, timeoutMs?:number}=):Promise<JevOk|JevFallback>}}
+   * @returns {{decide:function(Object, {signal?:AbortSignal, timeoutMs?:number}=):Promise<JevOk|JevFallback>,
+   *   resetCooldown:function():void}}
    */
   function createJevClient(opts) {
     var options = isObjectLike(opts) ? opts : {};
@@ -171,6 +239,12 @@
     var fetchImpl = typeof options.fetchImpl === 'function' ? options.fetchImpl : null;
     var nowImpl = typeof options.now === 'function' ? options.now : null;
     var getHashKey = typeof options.getHashKey === 'function' ? options.getHashKey : null;
+    var setTimeoutImpl = typeof options.setTimeoutImpl === 'function' ? options.setTimeoutImpl : null;
+    var clearTimeoutImpl = typeof options.clearTimeoutImpl === 'function' ? options.clearTimeoutImpl : null;
+
+    // {reason, since, until}. It lives only in this closure: never stored,
+    // never shared between clients, gone when the worker restarts (D-16).
+    var cooldown = null;
 
     /** The injected clock, or Date.now; null when it misbehaves. */
     function clock() {
@@ -188,6 +262,26 @@
       return t > started ? t - started : 0;
     }
 
+    /** The reason still cooling at time t, or null. A clock that moved backwards ends it. */
+    function coolingReason(t) {
+      if (!cooldown) return null;
+      if (t !== null && t >= cooldown.since && t < cooldown.until) return cooldown.reason;
+      cooldown = null;
+      return null;
+    }
+
+    function startCooldown(reason) {
+      var t = clock();
+      if (t === null) return;
+      var length = reason === 'spend_cap_reached' ? spendCooldownMs(t) : COOLDOWN_MS;
+      cooldown = { reason: reason, since: t, until: t + length };
+    }
+
+    /** Forget any active cool-down. */
+    function resetCooldown() {
+      cooldown = null;
+    }
+
     /**
      * Ask the gateway for one decision. Never throws, never rejects.
      * @param {Object} request - a request built by FsbJevState.buildRequest.
@@ -197,10 +291,25 @@
     async function decide(request, callOpts) {
       var started = clock();
       var phase = 'local';
-      var status = null;
+      var why = null; // 'deadline' | 'caller', set by the first abort only
+      var status = null; // the HTTP status received, once there is one
+      var timerArmed = false;
+      var timerHandle = null;
+      var clearTimer = null;
+      var callerSignal = null;
+      var onCallerAbort = null;
+      var state = null;
+
+      // Every network-phase fallback goes through here: non-transient
+      // reasons start the in-memory cool-down.
+      var settle = function settle(reason, servedModel, httpStatus) {
+        if (state && state.CONTRACT.NON_TRANSIENT_REASONS.indexOf(reason) !== -1) startCooldown(reason);
+        return fail(reason, servedModel, httpStatus, elapsedSince(started));
+      };
+
       try {
-        // 1. Local checks: no network.
-        var state = resolveState();
+        // 1. Local checks: no network, no timer, no listener.
+        state = resolveState();
         if (!state) return fail('invalid_request', null, null, elapsedSince(started));
         var verdict = state.validateRequest(request);
         if (!isObjectLike(verdict) || verdict.ok !== true) {
@@ -212,21 +321,46 @@
           return fail('payload_too_large', null, null, elapsedSince(started));
         }
         var call = isObjectLike(callOpts) ? callOpts : {};
-        var callerSignal = call.signal;
-        if (isObjectLike(callerSignal) && callerSignal.aborted === true) {
+        var signal = call.signal;
+        var deadlineMs = deadlineFor(call.timeoutMs);
+        if (isObjectLike(signal) && signal.aborted === true) {
           return fail('aborted', null, null, elapsedSince(started));
         }
+        var cooling = coolingReason(clock());
+        if (cooling) return fail(cooling, null, null, elapsedSince(started));
 
-        // 2. One POST to the fixed endpoint.
+        // 2. Compose the caller's signal and the deadline into one controller.
         phase = 'network';
         var fetchFn = fetchImpl || root.fetch;
-        if (typeof fetchFn !== 'function') return fail('network_error', null, null, elapsedSince(started));
+        if (typeof fetchFn !== 'function') return settle('network_error', null, null);
         var Controller = root.AbortController;
         var controller = typeof Controller === 'function' ? new Controller() : null;
+        var openGate = null;
+        var gate = new Promise(function holdGate(resolve) { openGate = resolve; });
+        var abortWith = function abortWith(cause) {
+          if (why !== null) return;
+          why = cause;
+          if (controller) {
+            try { controller.abort(); } catch (_e) { /* already aborted */ }
+          }
+          openGate(ABORTED);
+        };
+        if (isListenable(signal)) {
+          onCallerAbort = function onCallerAbort() { abortWith('caller'); };
+          signal.addEventListener('abort', onCallerAbort, { once: true });
+          callerSignal = signal;
+        }
+        var armTimer = setTimeoutImpl || root.setTimeout;
+        clearTimer = clearTimeoutImpl || root.clearTimeout;
+        timerHandle = armTimer(function onDeadline() { abortWith('deadline'); }, deadlineMs);
+        timerArmed = true;
+
+        // 3. One POST to the fixed endpoint.
         var headers = { 'Content-Type': 'application/json' };
         if (getHashKey) {
-          var hashKey = await readHashKey(getHashKey);
-          if (hashKey) headers['X-FSB-Hash-Key'] = hashKey;
+          var keyRead = await untilAborted(readHashKey(getHashKey), gate);
+          if (why !== null) return settle(reasonForAbort(why), null, null);
+          if (typeof keyRead.result === 'string') headers['X-FSB-Hash-Key'] = keyRead.result;
         }
         var init = {
           method: 'POST',
@@ -237,20 +371,19 @@
           body: bodyText,
           signal: controller ? controller.signal : undefined
         };
-        var res = await invoke(function send() { return fetchFn(endpoint, init); });
-        if (!isObjectLike(res) || !isReceivedStatus(res.status)) {
-          return fail('network_error', null, null, elapsedSince(started));
-        }
+        var sent = await untilAborted(invoke(function send() { return fetchFn(endpoint, init); }), gate);
+        if (why !== null) return settle(reasonForAbort(why), null, null);
+        if (sent.error) return settle('network_error', null, null);
+        var res = sent.result;
+        if (!isObjectLike(res) || !isReceivedStatus(res.status)) return settle('network_error', null, null);
         status = res.status;
 
-        // 3. Body first, then the status.
+        // 4. Body first, then the status.
         var text = null;
         if (typeof res.text === 'function') {
-          text = await invoke(function read() { return res.text(); }).then(function asText(value) {
-            return typeof value === 'string' ? value : null;
-          }, function unreadable() {
-            return null;
-          });
+          var read = await untilAborted(invoke(function readBody() { return res.text(); }), gate);
+          if (why !== null) return settle(reasonForAbort(why), null, status);
+          if (!read.error && typeof read.result === 'string') text = read.result;
         }
         var parsed;
         var hasBody = false;
@@ -267,17 +400,24 @@
           if (isObjectLike(checked) && checked.ok === true) {
             var body = checked.value;
             if (body.ok === true) return okResult(body, elapsedSince(started));
-            return fail(body.fallback, body.servedModel, status, elapsedSince(started));
+            return settle(body.fallback, body.servedModel, status);
           }
         }
-        return fail(reasonForStatus(status), null, status, elapsedSince(started));
+        return settle(reasonForStatus(status), null, status);
       } catch (_e) {
         if (phase === 'local') return fail('invalid_request', null, null, elapsedSince(started));
-        return fail('network_error', null, status, elapsedSince(started));
+        return fail(why === null ? 'network_error' : reasonForAbort(why), null, status, elapsedSince(started));
+      } finally {
+        if (timerArmed) {
+          try { clearTimer(timerHandle); } catch (_e) { /* nothing left to clear */ }
+        }
+        if (callerSignal && onCallerAbort) {
+          try { callerSignal.removeEventListener('abort', onCallerAbort); } catch (_e) { /* already gone */ }
+        }
       }
     }
 
-    return { decide: decide };
+    return { decide: decide, resetCooldown: resetCooldown };
   }
 
   // The default instance. Creating it reads nothing and schedules nothing.
