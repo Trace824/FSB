@@ -11,11 +11,17 @@
 //   - the offline run writes body-free rows and a report keyed by the served
 //     model and the local instrument, and the seed set selects nothing;
 //   - the run is refused on an instrument mismatch or mixed served models;
-//   - one request in flight, no retries, and no credential from the harness.
+//   - one request in flight, no retries, and no credential from the harness;
+//   - a fit selection becomes a profile the server validates, loads, selects
+//     and applies with meetsThreshold flipping exactly at the threshold;
+//   - the V2 smoke command sends one fixed benign request and prints one
+//     body-free JSON line;
+//   - neither script names an upstream, a credential or an auth header.
 //
 // Never calls Jev, binds only port 0 on 127.0.0.1 and never mutates process.env.
 // Outputs go to fresh temp directories only.
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import { createRequire } from 'node:module';
@@ -39,8 +45,16 @@ const { loadJevConfig } = require(path.join(SERVER, 'src', 'jev', 'config'));
 const { INSTRUMENT_VERSION, INSTRUMENT_HASH, buildUpstreamBody } = require(path.join(SERVER, 'src', 'jev', 'instrument'));
 const { validateAnswers } = require(path.join(SERVER, 'src', 'jev', 'upstream'));
 const { canonicalJson, sha256Hex } = require(path.join(SERVER, 'src', 'jev', 'canonical-json'));
+const {
+  validateProfile,
+  applyCalibration,
+  loadProfiles,
+  selectProfile,
+} = require(path.join(SERVER, 'src', 'jev', 'calibration'));
+const serverValidator = require(path.join(SERVER, 'src', 'jev', 'validator'));
 const createJevRouter = require(path.join(SERVER, 'src', 'routes', 'jev'));
-const { startFakeUpstream } = require('./fixtures/jev-fake-upstream.js');
+const { startFakeUpstream, OPENROUTER_MODEL } = require('./fixtures/jev-fake-upstream.js');
+const FsbJevState = require(path.join(ROOT, 'extension', 'ai', 'jev-state.js'));
 
 const KINDS = ['operation', 'target', 'completion', 'stuck', 'risk'];
 const CHOICE_KINDS = ['operation', 'target'];
@@ -49,6 +63,11 @@ const SERVED = 'typesafe/jev-1.13-20260917';
 const CREDENTIAL = 'sk-test-SHADOW-0123456789abcdef';
 const RUN_SHADOW = 'scripts/bench/shadow/run-shadow.mjs';
 const RECORDED_ANSWERS = 'scripts/bench/shadow/lib/recorded-answers.mjs';
+const SMOKE = 'scripts/bench/shadow/gateway-smoke.mjs';
+const SMOKE_KEYS = ['ok', 'fallback', 'servedModel', 'instrumentVersion', 'calibrationStatus', 'usageSource', 'costSource',
+  'latencyMs'];
+const PROFILE_KEYS = ['schemaVersion', 'profileId', 'status', 'note', 'model', 'snapshot', 'instrumentVersion',
+  'instrumentHash', 'thresholds'];
 const ANSWERS_FILE = path.join(ROOT, 'scripts', 'bench', 'shadow', 'answers', 'fake-upstream.json');
 const ROW_KEYS = ['recordId', 'taskId', 'kind', 'label', 'decision', 'fallback'];
 const REPORT_KEYS = ['runId', 'servedModel', 'instrumentVersion', 'instrumentHash', 'counts', 'scores', 'selection',
@@ -130,6 +149,7 @@ function stubFetch(bodyFor) {
 // ---------------------------------------------------------------------------
 
 const openServers = [];
+const openUpstreams = [];
 const openDbs = [];
 
 async function startGateway(routerOptions) {
@@ -202,6 +222,7 @@ before(async () => {
 after(async () => {
   for (const server of openServers) await server.close();
   if (recordedUpstream) await recordedUpstream.close();
+  for (const upstream of openUpstreams) await upstream.close();
   for (const db of openDbs) {
     try { db.close(); } catch { /* already closed */ }
   }
@@ -633,4 +654,205 @@ test('usage errors exit 2 before any request', async () => {
     assert.equal(spy.calls.length, 0);
     assert.ok(cap.err.some((line) => line.startsWith('usage:')), cap.err.join('\n'));
   }
+});
+
+// ---------------------------------------------------------------------------
+// The candidate profile round trip (D-27, D-28)
+// ---------------------------------------------------------------------------
+
+const Z = 2.5758293035489004;
+const NOT_FIT = Object.freeze({ status: 'not_a_fit', effectiveThreshold: null, z: Z, reason: 'no_cut_qualifies' });
+
+function syntheticSelection() {
+  return {
+    operation: { status: 'fit', cut: 0.8, effectiveThreshold: 0.85, n: 400, hits: 398, lower: 0.97, z: Z },
+    target: { ...NOT_FIT },
+    completion: { status: 'fit', cut: 0.85, effectiveThreshold: 0.9, n: 300, hits: 299, lower: 0.96, z: Z },
+    stuck: { ...NOT_FIT },
+    risk: { ...NOT_FIT, reason: 'insufficient_samples' },
+  };
+}
+
+function answersWith(confidence, p) {
+  return {
+    operation: { type: 'choice', choice: 'click', confidence, probabilities: { click: 0.9, none_of_the_above: 0.1 } },
+    target: { type: 'choice', choice: 'e0', confidence: 0.99, probabilities: { e0: 0.99, none_of_the_above: 0.01 } },
+    completion: { type: 'noul', noul: p },
+    stuck: { type: 'noul', noul: 0.99 },
+    risk: { type: 'noul', noul: 0.99 },
+  };
+}
+
+test('profile: a fit selection becomes a profile the server validates and applies exactly at the threshold', async () => {
+  const mod = await load(RUN_SHADOW);
+  assert.equal(typeof mod.buildCandidateProfile, 'function', 'run-shadow.mjs exports buildCandidateProfile');
+  const input = { selection: syntheticSelection(), pin: PIN, servedModel: SERVED, instrumentVersion: INSTRUMENT_VERSION,
+    instrumentHash: INSTRUMENT_HASH };
+  const profile = mod.buildCandidateProfile(input);
+  assert.deepEqual(validateProfile(profile), { ok: true, errors: [] });
+  assert.deepEqual(Object.keys(profile), PROFILE_KEYS);
+  assert.equal(profile.schemaVersion, 1);
+  assert.equal(profile.status, 'calibrated');
+  assert.equal(profile.model, PIN);
+  assert.equal(profile.snapshot, SERVED);
+  assert.equal(profile.instrumentVersion, INSTRUMENT_VERSION);
+  assert.equal(profile.instrumentHash, INSTRUMENT_HASH);
+  assert.deepEqual(profile.thresholds, { operation: 0.85, target: null, completion: 0.1, stuck: null, risk: null });
+  // The client accepts a calibration profileId of at most 64 characters.
+  assert.match(profile.profileId, /^calibrated-[0-9a-f]{16}$/);
+  assert.deepEqual(mod.buildCandidateProfile(input), profile, 'deterministic');
+
+  const apply = (answers) => applyCalibration({ profile, configuredModel: PIN, servedModel: SERVED, answers, kinds: KINDS });
+  const at = apply(answersWith(0.85, 0.1));
+  assert.deepEqual(at.calibration, { status: 'calibrated', profileId: profile.profileId });
+  assert.equal(at.decisions.operation.threshold, 0.85);
+  assert.equal(at.decisions.operation.meetsThreshold, true);
+  assert.equal(at.decisions.completion.threshold, 0.1);
+  assert.equal(at.decisions.completion.meetsThreshold, true);
+  for (const kind of ['target', 'stuck', 'risk']) {
+    assert.equal(at.decisions[kind].threshold, null, kind);
+    assert.equal(at.decisions[kind].meetsThreshold, false, kind);
+  }
+  const past = apply(answersWith(0.8499, 0.1001));
+  assert.equal(past.decisions.operation.meetsThreshold, false);
+  assert.equal(past.decisions.completion.meetsThreshold, false);
+
+  // V3 commits the output unchanged: written as a file, the server loads and selects it.
+  const dir = tempDir('profile');
+  fs.writeFileSync(path.join(dir, 'candidate.json'), `${JSON.stringify(profile, null, 2)}\n`);
+  const loaded = loadProfiles(dir);
+  assert.equal(loaded.length, 2);
+  assert.deepEqual(selectProfile(loaded, { model: PIN, instrumentHash: INSTRUMENT_HASH }), profile);
+});
+
+test('profile: none without a fit kind, outside the pin family or without a pin', async () => {
+  const mod = await load(RUN_SHADOW);
+  assert.equal(typeof mod.buildCandidateProfile, 'function');
+  const base = { selection: syntheticSelection(), pin: PIN, servedModel: SERVED, instrumentVersion: INSTRUMENT_VERSION,
+    instrumentHash: INSTRUMENT_HASH };
+  const allNotFit = Object.fromEntries(KINDS.map((kind) => [kind, { ...NOT_FIT }]));
+  assert.equal(mod.buildCandidateProfile({ ...base, selection: allNotFit }), null);
+  assert.equal(mod.buildCandidateProfile({ ...base, servedModel: 'typesafe/jev-1.14-20260917' }), null);
+  assert.equal(mod.buildCandidateProfile({ ...base, servedModel: 'typesafe/jev-1.13-2026' }), null);
+  assert.equal(mod.buildCandidateProfile({ ...base, servedModel: null }), null);
+  assert.equal(mod.buildCandidateProfile({ ...base, pin: null }), null);
+  // The direct route pins and serves the same exact model.
+  const direct = mod.buildCandidateProfile({ ...base, pin: 'jev-1.13.0', servedModel: 'jev-1.13.0' });
+  assert.equal(validateProfile(direct).ok, true);
+  assert.equal(direct.snapshot, 'jev-1.13.0');
+});
+
+// ---------------------------------------------------------------------------
+// The V2 smoke command (JEV-02, M-67-04)
+// ---------------------------------------------------------------------------
+
+test('smoke: SMOKE_REQUEST is a fixed benign request both validators accept', async () => {
+  const { SMOKE_REQUEST } = await load(SMOKE);
+  assert.ok(Object.isFrozen(SMOKE_REQUEST) && Object.isFrozen(SMOKE_REQUEST.elements));
+  assert.equal(SMOKE_REQUEST.v, 1);
+  assert.deepEqual([...SMOKE_REQUEST.kinds], ['operation', 'target', 'completion']);
+  assert.equal(SMOKE_REQUEST.page.origin, 'https://example.test');
+  assert.equal(SMOKE_REQUEST.page.path, '/smoke');
+  assert.deepEqual(SMOKE_REQUEST.elements.map((e) => [e.id, e.role, e.label]), [['e0', 'button', 'Continue'], ['e1', 'link', 'Help']]);
+  assert.ok(!Object.prototype.hasOwnProperty.call(SMOKE_REQUEST, 'proposedAction'));
+  assert.equal(FsbJevState.validateRequest(SMOKE_REQUEST).ok, true);
+  assert.equal(serverValidator.validateRequest(JSON.parse(JSON.stringify(SMOKE_REQUEST))).ok, true);
+});
+
+function smokeNeedles(request) {
+  return [request.goal, request.page.origin, request.page.title, request.page.text, request.page.path,
+    ...request.elements.map((e) => e.label)];
+}
+
+test('smoke: an enabled gateway gives one body-free JSON line and exit 0', async () => {
+  const smoke = await load(SMOKE);
+  const upstream = await startFakeUpstream({ mode: 'ok-openrouter' });
+  openUpstreams.push(upstream);
+  const gw = await startGateway({
+    db: makeDb(),
+    config: enabledConfig(upstream.url),
+    fetchImpl: (...args) => globalThis.fetch(...args),
+    log: silentLog,
+  });
+  const spy = spyFetch((...args) => globalThis.fetch(...args));
+  const cap = captureLog();
+  const code = await smoke.main(['--gateway', gw.url], { fetchImpl: spy.fetchImpl, log: cap.log });
+  assert.equal(code, 0, cap.err.join('\n'));
+  assert.equal(cap.out.length, 1, cap.out.join('\n'));
+  const line = JSON.parse(cap.out[0]);
+  assert.deepEqual(Object.keys(line), SMOKE_KEYS);
+  assert.equal(line.ok, true);
+  assert.equal(line.fallback, null);
+  assert.equal(line.servedModel, OPENROUTER_MODEL);
+  assert.equal(line.instrumentVersion, INSTRUMENT_VERSION);
+  assert.equal(line.calibrationStatus, 'uncalibrated');
+  assert.equal(line.usageSource, 'provider');
+  assert.equal(line.costSource, 'provider');
+  assert.ok(Number.isFinite(line.latencyMs) && line.latencyMs >= 0);
+  assert.equal(spy.calls.length, 1);
+  assert.equal(upstream.requests.length, 1);
+  assert.equal(upstream.requests[0].headers.authorization, `Bearer ${CREDENTIAL}`);
+  assert.ok(!Object.keys(spy.calls[0].headers).some((name) => name.toLowerCase() === 'authorization'));
+  for (const needle of smokeNeedles(smoke.SMOKE_REQUEST)) assert.ok(!cap.out[0].includes(needle), needle);
+  assert.ok(!cap.out[0].includes('://'));
+});
+
+test('smoke: a disabled gateway prints ok false with the typed fallback and exits 0', async () => {
+  const smoke = await load(SMOKE);
+  const cap = captureLog();
+  const code = await smoke.main([`--gateway=${disabledGateway.url}`], { log: cap.log });
+  assert.equal(code, 0, cap.err.join('\n'));
+  assert.equal(cap.out.length, 1);
+  const line = JSON.parse(cap.out[0]);
+  assert.deepEqual(Object.keys(line), SMOKE_KEYS);
+  assert.deepEqual({ ...line, latencyMs: 0 }, {
+    ok: false,
+    fallback: 'disabled',
+    servedModel: null,
+    instrumentVersion: null,
+    calibrationStatus: null,
+    usageSource: null,
+    costSource: null,
+    latencyMs: 0,
+  });
+  assert.ok(Number.isFinite(line.latencyMs) && line.latencyMs >= 0);
+  for (const needle of smokeNeedles(smoke.SMOKE_REQUEST)) assert.ok(!cap.out[0].includes(needle), needle);
+});
+
+test('smoke: usage errors exit 2 with a usage line and no request', async () => {
+  const smoke = await load(SMOKE);
+  const gw = ['--gateway', 'https://full-selfbrowsing.com/api/jev/decide'];
+  for (const argv of [[], ['--gateway', 'https://example.test/v1/systemone'], [...gw, ...gw], [...gw, '--limit', '3'],
+    ['--gateway', 'http://example.test/api/jev/decide']]) {
+    const spy = spyFetch(() => { throw new Error('must not be called'); });
+    const cap = captureLog();
+    assert.equal(await smoke.main(argv, { fetchImpl: spy.fetchImpl, log: cap.log }), 2, JSON.stringify(argv));
+    assert.equal(spy.calls.length, 0);
+    assert.equal(cap.out.length, 0);
+    assert.ok(cap.err.some((line) => line.startsWith('usage:')), cap.err.join('\n'));
+  }
+});
+
+test('cli: both scripts run as commands and exit 2 with a usage line when --gateway is missing', () => {
+  for (const rel of [SMOKE, RUN_SHADOW]) {
+    const result = spawnSync(process.execPath, [path.join(ROOT, rel)], { cwd: ROOT, encoding: 'utf8', timeout: 30000 });
+    assert.equal(result.status, 2, `${rel}: ${result.stderr}`);
+    assert.match(result.stderr, /^usage: node scripts\/bench\/shadow\//m, rel);
+    assert.equal(result.stdout, '', rel);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Static: gateway only, outputs gitignored (T-67-01)
+// ---------------------------------------------------------------------------
+
+test('static: the harness and smoke scripts name no upstream, credential, auth header or env read', () => {
+  for (const rel of [RUN_SHADOW, RECORDED_ANSWERS, SMOKE]) {
+    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    assert.doesNotMatch(text, /systemone|typesafe\.ai|openrouter\.ai|JEV_API_KEY|authorization/i, rel);
+    assert.doesNotMatch(text, /process\.env/, rel);
+    assert.doesNotMatch(text, /Object\.groupBy|Promise\.withResolvers|\.toSorted\(|\.toReversed\(|\.findLast\(/, rel);
+  }
+  const ignore = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8').split('\n').map((line) => line.trim());
+  assert.ok(ignore.includes('scripts/bench/.local/'), 'shadow outputs stay gitignored');
 });
