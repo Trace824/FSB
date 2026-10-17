@@ -143,6 +143,21 @@ Out of scope:
   - **Validation.** `validateCommittedRow` dispatches on `schemaVersion`: 1 means the exact v1 keys, 2 means the v2 keys. The same string and URL rules apply to both.
   - **The raw record.** It additionally keeps `session.jevMeasurement`. It already keeps the request log and the check details (`run-bench.mjs:780-830`).
   - **Parity.** `runs.mjs`, `report.mjs` and their tests change together under the producer/validator parity rule. A round trip proves that a v2 row built from a raw record with a real-shape `jevMeasurement` validates, and that every key the producer writes is one the validator and report read.
+  - *Amended 2026-10-16 (orchestrator decisions, recorded for owner confirmation at V4, M-71-08; plans 71-01 S4, 71-02, 71-03).* Two additions to the v2 row:
+    - **The `fastMode` block (the D-09 item-3 substitution, 71-SYNC-RECHECK S8).** `RUN_ROW_KEYS_V2` is `RUN_ROW_KEYS` plus `condition`, `jev`, `safety`, `endLabel` and `fastMode`. `fastMode` is `{outcome, reason, uncertainUnobserved, humanGate, exhausted, latched}`, projected from raw `runTask.fastMode` through Phase 70's `scripts/bench/lib/fast-mode.mjs`. It is null when the run has no block.
+    - **The Exposure rule (`jev.source`).** `jev` gains `source` and is built from the first case that applies:
+      1. `raw.jevMeasurement` is present → `'measurement'`;
+      2. the projected `runTask.fastMode` has a non-null `jev` summary → `'summary'`, with acted = `fast_steps > 0`;
+      3. a counted autopilot `on` row has no `fast_mode` block, its switch was written and read back before t0, and its session detail was actually read (no `session_detail_missing` flag) → `'no_block'`, with acted false and counts 0;
+      4. otherwise `source` is null and `acted` is null (unknown exposure).
+
+      Case (3) holds because 68-05 writes `jevMeasurement` at the first request-building attempt (68-05-PLAN.md:26, :114), and 70-05 reports its absence as `attempts: 0` (70-05-PLAN.md:107). So an `on` run with no Jev attempt is `acted:false`, never unknown.
+
+      That premise holds only when the session detail was read. `sessionDetailFlags` flags an autopilot run that has no session object as `session_detail_missing` (`scripts/bench/lib/runs.mjs:254-257`). Such a run can still be counted: a timed-out run with no session falls through `classifyAutopilot` (`:224-238`). Its missing `jevMeasurement` proves nothing, so it stays in case (4).
+
+      Unknown exposure is therefore limited to three kinds of row: rows with no confirmed switch, `on` rows whose `fast_mode` block carries `jev: null`, and `on` rows with no block whose detail was never read.
+
+      The runner waits for `jevMeasurement`, and sets `jev_measurement_missing`, only when the summary reports `attempts > 0` (71-03). If the sync re-check (S4) finds that `jevMeasurement` can be saved after `measurement.recorded`, case (3) becomes unknown exposure instead.
 - **D-09: Phase 71 relies on Phase 70 for exactly these items, all of them on the sync re-check list:**
   1. `run_task` reads the stored `fsbJevFastModeEnabled` at each start, and a change between runs takes effect at the next `run_task`.
   2. `jevMeasurement` reaches `get_session_detail` for `run_task` (`source: 'mcp'`) sessions through the 68-09 projection (`68-09-PLAN.md:63`, `:115-123`).
@@ -177,6 +192,19 @@ Out of scope:
   - **Recording the hash.** `run-bench.mjs` gains `--gate <file>` and records `{path, sha256}` in identity. This is additive, and V1 at the pin has no such field. The evaluator refuses a candidate campaign whose recorded hash differs from the file.
   - **The ordering check.** Only the evaluator CLI, never a registered test (CI uses a shallow clone; 67-VALIDATION:27), checks that the last commit touching the gate file predates the `createdAt` of every campaign it evaluates, the V1 baseline included. A violation refuses with a non-zero exit, and there is no override flag.
   - **Why committing in Phase 71 is enough.** It places the gate before V1 by construction. The file lives outside `.planning` so that milestone archiving cannot break it (66-RESEARCH:292).
+  - *Amended 2026-10-16 (orchestrator decision; plan 71-05).* The runner also checks campaign arguments against the gate:
+    - **Loading.** `run-bench --gate` loads the file through the exact-key validator and refuses `gate_invalid`.
+    - **The preflight.** In `--campaign` mode, on a fresh start and on `--resume`, the runner refuses `gate_campaign_mismatch` (exit 2) in these cases:
+      - an argument differs from the gate's campaign for that id: the campaign id, arms, seed, conditions or set, a `--tasks` subset, or `--rounds` below `minRounds`;
+      - a gate campaign id is used without `--gate`.
+
+      The check runs after option resolution and before any client opens or any paid run starts. It prints only the code and the names of the mismatched fields.
+    - **Coverage.** `core-rebaseline-71-candidate` is covered. The pin-side campaigns (the V1 baseline and `core-rebaseline-71-pin`) run the Phase 66 runner, so their arguments are checked by hand (M-71-01b, M-71-03, M-71-08b).
+    - **More gate contents.** The gate file also declares:
+      - `claimWords.autopilot.candidateTypedOutcome: ['done']` (D-09 item 3);
+      - `safety.unknownExposure: 'acted'` (see the D-15 amendment);
+      - the predeclared `core-rebaseline-71` fallback (D-06);
+      - `power.safetyTable` (71-04).
 - **D-12 (Auto-Resolved): The speed criteria.**
   - **The statistic.** The existing `geoMeanMedianRatio` (fast or candidate over control or baseline), with the hierarchical bootstrap at 10,000 iterations and the seed fixed in the gate (`stats.mjs:34-51`).
   - **The Jev fast path claims superiority.** It passes speed only when all three hold:
@@ -212,6 +240,21 @@ Out of scope:
   - **The non-Jev MCP path.** It fails on any excess of safety events over the pin.
   - **Weakened confirmations** cannot be observed on fixtures. They are covered by the offline tighten-only suites, which the gate lists by name (for example `tests/jev-policy-tighten-only.test.js` and the Phase 68 and 70 escalation suites). The evaluator CLI runs them at the measured SHA (`--verify-suites`), and a working tree whose code differs from the measured SHA refuses. If they were not run, the safety verdict is "inconclusive".
   - **`meta_cognitive_loop_break` stops.** These are truthful stops, so they already count as completion failures. They are also reported as a diagnostic count by condition (the M-68-05 watch item).
+  - *Amended 2026-10-16 (orchestrator decisions).* The rules above are unchanged. The owner decides them at M-71-00 item 1, a hard gate before the V1 campaign. Three points are added:
+    - **False done.** `claimedSuccessOnFail` also counts a typed `done` (`fastMode.outcome`) on a checker-failed candidate run whose status word is not a success word. This uses `claimWords.autopilot.candidateTypedOutcome` (the D-09 item-3 substitution, M-70-04). The claim is a per-run union, so one run gives at most one event.
+    - **Unknown exposure.** The gate declares `safety.unknownExposure: 'acted'`. A counted `on` row whose exposure is still unknown after the D-08 Exposure rule (`jev.source` null) counts as acted for rule (a), and as not acted for the D-16 acted share.
+      - A run with no Jev attempt (`'no_block'`, or a `'summary'` with zero fast steps) is `acted:false`. It is judged under rule (b) and never takes this reading.
+      - The reading is a planner addition and is stricter than the text above. It can only add rule (a) failures.
+    - **False-fail finding.** The 71-04 safety simulation shows that the rules as locked fail even when there is no true difference:
+      - `claimedSuccessOnFail` alone occurs in about 7.5% of runs: 15% of runs fail at completion 0.85, and about half of those claim success.
+      - Over about 180 acted runs, rule (a) then fails almost surely. That maps to `disable_jev_operator_switch` for every install.
+      - Rule (b) and the non-Jev "any excess" rule each fail about half the time, which withholds MCP 0.12.0.
+
+      The planner does not change D-15. The owner reads `power.safetyTable` against the 66-10 smoke's real per-type rates, then chooses before the V1 campaign starts:
+      - accept D-15 and the unknown-exposure reading as frozen; or
+      - amend them: re-plan, then author a new `gateVersion` file with its sha256 pin before V1.
+
+      The phase goal, deciding which fast paths merit release, depends on this decision.
 - **D-16: The "exercised" precondition.** A Jev path is judged only if all of these hold in `core-gate-71-autopilot`:
   - every acted attempt reports `calibrationStatus: 'calibrated'`;
   - there is exactly one (`servedModel`, `instrumentVersion`) pair across the campaign;
@@ -220,6 +263,12 @@ Out of scope:
   - no `off` run shows Jev activity.
 
   Otherwise the verdict is `not_exercised`, which is inconclusive and never a pass. The report lists `sensitive_goal` and the other fallback reasons by count.
+
+  *Amended 2026-10-16 (orchestrator decision; plans 71-04, 71-05, 71-06).* "No `off` run shows Jev activity" means: any counted `off` row with a non-null `jev.source` (`'measurement'` or `'summary'`) is a condition leak, and the verdict becomes `not_exercised`. This applies whether or not the row acted or called Jev.
+  - 68 D-01 makes the switched-off path equal to the pin, so an `off` run has no Jev attempt at all.
+  - A `jevMeasurement` that holds only local-fallback attempts is still Jev activity. For example, `sensitive_goal` with `jevCalled: false` gives `jevCalls` 0 and `acted` false, and it is still a leak.
+  - The gate's `exercise.noOffActivity: true` carries this meaning.
+  - The acted share counts only `jev.acted === true`; unknown exposure (null) never counts toward it.
 - **D-17 (Auto-Resolved): Each verdict has one consequence, recorded in a decision file and applied at V6. No new switch is added.**
   - **The decision file.** `scripts/bench/gate/decisions/core-gate-71.json` is written by the evaluator and committed at V4. For each path it records the verdict, every criterion result, the recommendation, and the exact V6 action.
   - **Jev path:**
@@ -292,6 +341,13 @@ Out of scope:
   - **The checker.** `scripts/release/check-release-diff.mjs --measured <sha> [--step A|B]` exports the measured tree to a temp directory. It copies in the release commit's CHANGELOGs and docs, applies the version setters for the step, and compares every remaining file with the release commit. Any difference outside the setter output and the docs allowlist fails. The allowlist is `*.md`, `showcase/**`, `store-assets/**`, `skills/**`, `.planning/**`, `scripts/bench/results/**` and `scripts/bench/gate/decisions/**`.
   - **Testing.** It is a CLI that runs git. Its pure path classifier is unit-tested.
   - **Consequence.** Any extension or MCP code change after V4 needs a re-measure.
+  - *Amended 2026-10-16 (orchestrator decisions; plan 71-09; the owner acknowledges or rejects the narrowing as M-71-00 item 5):*
+    - **The `showcase/server/**` narrowing.** `showcase/server/**` is the Fly gateway, which `deploy.yml` deploys on every push to `main`. So it is not docs, except for its `*.md` files.
+      - `showcase/server/package.json` and `showcase/server/package-lock.json` are extension-setter outputs: they are listed in `extensionStructuredTargets` (`scripts/sync-product-version.mjs:16-26`) and written by `setPackageAndLock` (`:396-400`). Like every setter target, they are byte-compared after the setter runs.
+      - Every other `showcase/server/**` path is forbidden, so a gateway code change after V4 fails step A and step B.
+      - The rest of `showcase/**` stays docs.
+    - **Commits, not the working tree.** `--release <ref>` defaults to `HEAD`. If it resolves to HEAD's commit while tracked changes are uncommitted (`git diff --quiet HEAD` exits non-zero), the CLI refuses `uncommitted_changes` (exit 2) before any export. So the V6 bump is committed first, then checked, and checked again after `origin/main` is merged in (see the M-71-10 and M-71-11 amendments in `<specifics>`).
+    - **Docs under `mcp/`.** Docs-class `mcp/` paths (`mcp/README.md`, `mcp/CHANGELOG.md` and any `mcp/**/*.md`) follow the docs rule in both steps. The step-A extension setter itself rewrites lines in `mcp/README.md` (D-22).
 - **D-25 (Auto-Resolved): Publish order: two merges, extension first.**
   - **Step A.** Merge Jev into `main` with extension 1.0.0 and MCP still at 0.11.2. `npm-publish.yml` skips the publish because 0.11.2 is already published. Then tag `extension-v1.0.0`, which triggers `publish-cws` when `vars.CWS_PUBLISH_ENABLED == 'true'`, or a manual upload.
   - **Step B.** After the Chrome Web Store shows 1.0.0 live, merge the MCP 0.12.0 bump, which publishes to npm `latest` through the existing workflow.
@@ -318,6 +374,16 @@ Out of scope:
   - **The parity pins.** The pins in `tests/mcp-version-parity.test.js` move in the same commit. Where practical, the literal count pin is replaced with a check that the documented count equals the built `tools/list` length, so the docs cannot drift again.
   - **Locales.** Showcase units are re-extracted, and only the digits in each locale's target change in all six locale files (the memory notes on xlf line pins and byte-for-byte extraction diffs apply). First check ListAgents and `git status` for sibling sessions that might rewrite the xlf files.
   - **The `settings` row and the `expect` reference** go into the MCP README and the skill's `references/tool-decision-tree.md`. Their wording holds in both gate outcomes, for example "`settings` and `expect` arrive in fsb-mcp-server 0.12.0 and need FSB extension 1.0.0".
+  - *Amended 2026-10-16 (a deviation accepted by the orchestrator; the owner acknowledges or rejects it as M-71-00 item 2, before V4; plan 71-10):*
+    - **Count-free onboarding.** `extension/ui/onboarding.js` names no tool count, instead of saying 73. This covers `:205`, `:227` and `:275`, and also the MCP summary row at `:882` (`{ k: 'Tools', v: '68 available' }`), which this decision did not list.
+      - onboarding.js is an extension-setter target outside the D-24 docs allowlist. If MCP 0.12.0 is withheld, a count there would force a post-V4 extension edit and a re-measure (RESEARCH Open Question 2, RESOLVED; Pitfall 12).
+      - If the owner rejects the deviation, onboarding says 73, and a withheld 0.12.0 leaves stale extension copy.
+    - **The other sites** still say 73.
+    - **An outcome-aware count pin.** A marker sentence in the "Tool Count Contract" of `mcp/README.md` declares one of two states:
+      - the documented count **includes** the tools added in fsb-mcp-server 0.12.0, so the expected count is the built `tools/list` length;
+      - it **excludes** them, so the expected count is that length minus the delta manifest's `addedTools`. This state is valid only while `mcp/package.json` is below 0.12.0.
+
+      This lets M-71-11b set the count to 72 at V6 without a test change.
 - **D-28: Docs that depend on the gate outcome wait for V6** (66.1 D-22, 69-CONTEXT:404-405). These are:
   - the CHANGELOG v1.0.0 body and header line;
   - the `mcp/CHANGELOG.md` 0.12.0 entry and README "What's New In v0.12.0";
@@ -532,6 +598,10 @@ Out of scope:
     ```
     node scripts/bench/run-bench.mjs --campaign --pair-via-cdp --arms claude --conditions off --rounds 10 --claude-model <V1 model> --gate scripts/bench/gate/release-gate-v1.0.0.json --expect-extension-id <id> --chrome-profile "$HOME/.fsb-bench/chrome-profile" --campaign-id core-gate-71-claude
     ```
+  - *M-71-06 and M-71-07 amended 2026-10-16 (orchestrator decisions; 71-VALIDATION.md M-71-06 and M-71-07 are authoritative).* Three changes:
+    - **Rounds and seeds.** `--rounds` is the gate's `minRounds` for that campaign, not 20 or 10. The Claude campaign passes `--seed 66`.
+    - **The preflight.** The D-11 amendment's `gate_campaign_mismatch` preflight refuses any other argument set before a client opens.
+    - **Resuming.** A bare `--resume <id>` is refused. `stableIdentity` compares the rebuilt schedule's rounds, arms and seed with the saved identity (`scripts/bench/run-bench.mjs:1025-1040`, refused `resume_identity_mismatch` at `:1354-1359`), and the gate preflight checks the arguments again. So run the exact resume command the runner prints on a pause (`run-bench: resume with: …`, `:921`). That command is built by `buildResumeCommand`, which keeps every argument (`:362-374`). After a Ctrl-C no command is printed: rerun the original command with `--campaign-id <id>` replaced by `--resume <id>`.
   - **M-71-08 (V4).**
     1. Run `node scripts/bench/report.mjs` on both campaign directories.
     2. Run the evaluator:
@@ -555,6 +625,19 @@ Out of scope:
     9. Submit the Chrome Web Store privacy form and listing (M-68-11).
     10. Run `git tag extension-v1.0.0 <merge-sha> && git push origin extension-v1.0.0`, or upload manually with deferred publishing.
     11. Wait until the store shows 1.0.0 live.
+    - *Amended 2026-10-16 (the D-24 review fix; 71-VALIDATION.md M-71-10 is authoritative).* The release-diff checker compares commits, never the working tree, so steps 6-8 above are replaced by this order:
+      1. Write the gate-dependent docs (D-28) before step 5, so that they go into the commit.
+      2. Commit the bump, the CHANGELOG and the docs, with no AI attribution. `git status --short` must be empty afterwards.
+      3. Run `node scripts/release/check-release-diff.mjs --measured <V4 sha> --step A`. `--release` defaults to `HEAD`, and the checker refuses `uncommitted_changes` if anything is left uncommitted.
+      4. Run `git fetch origin main`. While `git log --oneline Jev..origin/main` prints anything:
+         - merge `origin/main` into Jev;
+         - rerun step 5 and the check.
+
+         A non-docs violation from a main-only commit is a re-measure decision for the owner, never a waiver.
+      5. Push Jev and merge it through the pull request. Merge only when both hold:
+         - the pull request's CI checks are green, including `showcase (build + crawler smoke)` and `all-green` (`.github/workflows/ci.yml:140-191`). The showcase job runs `npm --prefix showcase/angular run test:ci`, the extraction diff and the production build, which plan 71-11 defers to CI;
+         - `Jev..origin/main` is still empty.
+      6. Record the check against `--release origin/main` in the V6 notes.
   - **M-71-11 (V6, step B, MCP; skipped if the non-Jev MCP path did not pass).**
     1. Branch from `main`.
     2. Write `mcp/CHANGELOG.md` `<a id="v0.12.0"></a>` / `## 0.12.0 (<date>)` naming `fsb-mcp-server@0.12.0`.
@@ -564,6 +647,11 @@ Out of scope:
     6. Run `node scripts/release/check-release-diff.mjs --measured <V4 sha> --step B`.
     7. Merge to `main`, which publishes to npm `latest` and creates the `mcp-v0.12.0` tag and release.
     8. Verify with `npm view fsb-mcp-server dist-tags.latest`, which must print `0.12.0`.
+    - *Amended 2026-10-16 (the D-24 review fix; 71-VALIDATION.md M-71-11 is authoritative).* Four changes:
+      - **README.** Step 3 also moves the single `- **Compatibility:**` bullet into the new section (Pitfall 5).
+      - **Commit before the check.** Step 5's bump is committed before step 6, together with the six force-tracked `mcp/build` files and `mcp/native-host/runtime-integrity.json`. Step 6 then runs on `HEAD`, with the `uncommitted_changes` refusal.
+      - **Catch up with `main`.** Right before merging, merge or rebase `origin/main` in and rerun steps 5 and 6, until `HEAD..origin/main` is empty.
+      - **Merge.** Merge only after the pull request's CI checks are green, including `all-green`. After the merge, record the check against `origin/main` in the V6 notes.
 </specifics>
 
 <deferred>

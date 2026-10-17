@@ -14,7 +14,7 @@ All in-tree line numbers were read at `e1e6439c` in `the repository root`. Phase
 | `extension/ai/jev-fast-path.js` (MODIFY; created by 68-04/05/08) | pure service module | transform + event-driven (hook handlers) | `extension/ai/hooks/progress-hook.js:47-69` (handler factory); `extension/ai/screenshot-attachments.js:6-7,328-343` (module shape); 68-04/68-05 API; 68-08's lazy `TOOL_REGISTRY` lookup (`68-08-PLAN.md:115`) for `isPageObservationTool` | role-match (additions only) |
 | `extension/ws/mcp-bridge-client.js` (MODIFY: start capture plus settle block) | bridge controller | event-driven to request-response | the same function `_handleStartAutomation` `:2650-2925` | exact |
 | `scripts/bench/run-bench.mjs` (MODIFY: `runAutopilotArm` raw record) | CLI runner | batch / transform | the same function `:555-590`; `scripts/bench/lib/runs.mjs:35-39` frozen key list | exact |
-| `scripts/bench/lib/fast-mode.mjs` (OPTIONAL; only if pins forbid inline) | bench utility | transform | `scripts/bench/lib/runs.mjs:1-60` | role-match |
+| `scripts/bench/lib/fast-mode.mjs` (NEW; the fixed home of the bench key mirror and `projectFastMode`, RESEARCH Open Question 5 RESOLVED, 70-07-02) | bench utility | transform | `scripts/bench/lib/runs.mjs:1-60` | role-match |
 | `tests/jev-run-task-upstream-contract.test.js` (NEW) | test (tripwire) | contract | 68-01's `tests/jev-fast-upstream-contract.test.js` (`68-01-PLAN.md:141-158`) | exact (planned) |
 | `tests/fixtures/run-task-wire-golden.json` (NEW) | fixture | file-I/O | 68-06 `tests/fixtures/jev-fast-loop-off-golden.json` (`68-06-PLAN.md:155-160`) | role-match |
 | `tests/run-task-fast-mode-wire.test.js` (NEW) | test (vm bridge harness) | event-driven | `tests/run-task-resolve-discipline.test.js:225-300`; `tests/mcp-bridge-client-lifecycle.test.js:514-564` | exact |
@@ -129,10 +129,10 @@ function createToolProgressHook(emitter) {
   return toolProgressHandler;
 }
 ```
-For `createRunEvidenceHandlers(session, {startUrl})`, return `{beforeTool, afterTool, afterIteration}`; `afterTool` calls the module's own `isPageObservationTool` (Analog C), so no predicate is passed in.
+For `createRunEvidenceHandlers(session, {startUrl})`, return `{beforeTool, afterTool, afterIteration}`; `afterTool` calls the module's own `isPageObservationTool` (Analog C), so no predicate is passed in. `startUrl` only seeds `session._fastRunStartPage` (origin + path; PD-70-02) and never enters the evidence record; `beforeTool` always clears `pending` first and sets it only for a non-terminal tool (70-03; RESEARCH Pattern 2's first draft differed and is marked superseded).
 - Each handler is synchronous, wrapped in try/catch, and returns `{ shouldStop: false }` (or `undefined`); agent-loop reads only `denied`, `isStuck` and `shouldStop`.
 - Drop the `console.warn` and `Date.now()`; the module has no clock.
-- The factory creates `session._fastRunEvidence` (F13). It never touches `_fastPath` or `jevMeasurement` (F12).
+- The factory creates `session._fastRunEvidence` (F13) with the layout in 70-03-PLAN.md's interfaces block, which holds no URL (PD-70-02). It never touches `_fastPath` or `jevMeasurement` (F12).
 
 **Hook context shapes the handlers receive** (`extension/ai/agent-loop.js:2291-2297` and `:2866-2872`):
 ```javascript
@@ -161,7 +161,7 @@ There is no call object here, so the handlers cannot see `source:'jev'` (F2). Us
 - Step u (`68-05-PLAN.md:139`), on act: `if (session._fastRunEvidence) session._fastRunEvidence.fastIteration = ctx.iteration;`.
 - Step v flush helper (`68-05-PLAN.md:140`): only when `requestSnapshot` returned `success:true` with a snapshot, `if (session._fastRunEvidence) session._fastRunEvidence.lastObservationSeq = ++session._fastRunEvidence.seq;` (F14). The "Snapshot unavailable" branch writes nothing.
 
-**Goal normaliser call site:** step o (`68-05-PLAN.md:133`) currently passes `goal session.task` to `toBuilderInput`. Replace it with `normaliseGoal(session.task, [menu.url, evidence && evidence.startUrl])`, so the normaliser runs before step p's `buildRequest` secret scan. For the sketch, see RESEARCH Pattern 5 (`70-RESEARCH.md:644-661`).
+**Goal normaliser call site:** step o (`68-05-PLAN.md:133`) currently passes `goal session.task` to `toBuilderInput`. Replace it with `normaliseGoal(session.task, [menu.url, session._fastRunStartPage])` (PD-70-02; 70-04), so the normaliser runs before step p's `buildRequest` secret scan. For the sketch, see RESEARCH Pattern 5 (`70-RESEARCH.md:644-661`).
 
 **Classifier inputs: real producer excerpts that define the closed vocabulary.**
 
@@ -309,7 +309,7 @@ export const RUN_ROW_KEYS = Object.freeze([
   'schemaVersion', 'campaignId', 'runId', ...
 ]);
 ```
-Declare `FAST_MODE_BLOCK_KEYS` and `FAST_MODE_JEV_KEYS` the same way: inside `run-bench.mjs`, or in `scripts/bench/lib/fast-mode.mjs` if a pin forbids new exports. Grep `tests/bench-*.mjs` for export or file-list pins first.
+Declare `FAST_MODE_BLOCK_KEYS`, `FAST_MODE_SUMMARY_KEYS` and `FAST_MODE_OUTCOMES` the same way in the new `scripts/bench/lib/fast-mode.mjs`, next to `projectFastMode`; the location is fixed (RESEARCH Open Question 5 RESOLVED, 70-07-02), and `run-bench.mjs` only imports `projectFastMode`. Grep `tests/` for file-list or export pins on `scripts/bench/lib/` first and bump any in the same commit.
 - Pins: `tests/bench-drivers.test.mjs` and `tests/bench-identity.test.mjs` (hash readers), and `tests/bench-report.test.mjs:76-90` (`RUN_ROW_KEYS` deep-equal plus `Object.isFrozen`).
 - `classifyAutopilot` (`runs.mjs:224-236`) stays unchanged.
 
