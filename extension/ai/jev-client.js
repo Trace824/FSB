@@ -9,8 +9,9 @@
  *   key, reads no setting and never follows the user-editable Sync server
  *   URL (D-01, D-09). Requests omit credentials and carry nothing in the
  *   query string.
- * - Local checks cost no network: an invalid request, a secret in the goal
- *   or an oversized body is answered here (D-16, D-19).
+ * - Local checks cost no network: an invalid request, a secret in the goal,
+ *   page data not in FsbJevState.buildRequest's sanitized form or an
+ *   oversized body is answered here (D-16, D-19, D-20, D-21).
  * - The response body is mapped first and the HTTP status only when the body
  *   is missing, not JSON or not an exact D-15 shape. A response with any
  *   unknown or approval-like key is never accepted (D-15, D-29).
@@ -138,6 +139,31 @@
     var state = resolveState();
     if (!state) return reason === 'invalid_request';
     return state.CONTRACT.FALLBACK_REASONS.indexOf(reason) !== -1;
+  }
+
+  /** True when `s` is a fixed point of both the secret scrubber and the injection filter. */
+  function isSanitizedText(state, s) {
+    return state.scrubText(s) === s && state.filterInjection(s) === s;
+  }
+
+  /**
+   * True when every page-derived field of a schema-valid request is already in
+   * the form FsbJevState.buildRequest emits, so nothing raw leaves the
+   * machine even when a caller hand-builds the request (D-19, D-20, D-21):
+   * the text, title, labels and roles are scrubbed and filtered, and the
+   * origin + path are exactly what toOriginPath reduces them to (no query,
+   * fragment, dot segment or unscrubbed segment). The goal is checked by
+   * validateRequest (sensitive_goal).
+   */
+  function isSanitizedRequest(state, request) {
+    var page = request.page;
+    if (!isSanitizedText(state, page.text) || !isSanitizedText(state, page.title)) return false;
+    for (var i = 0; i < request.elements.length; i += 1) {
+      var element = request.elements[i];
+      if (!isSanitizedText(state, element.label) || !isSanitizedText(state, element.role)) return false;
+    }
+    var reduced = state.toOriginPath(page.origin + page.path);
+    return isObjectLike(reduced) && reduced.origin === page.origin && reduced.path === page.path;
   }
 
   /** An HTTP status a real response can carry. */
@@ -316,6 +342,7 @@
           var reason = isObjectLike(verdict) && verdict.reason === 'sensitive_goal' ? 'sensitive_goal' : 'invalid_request';
           return fail(reason, null, null, elapsedSince(started));
         }
+        if (!isSanitizedRequest(state, request)) return fail('invalid_request', null, null, elapsedSince(started));
         var bodyText = JSON.stringify(request);
         if (state.utf8ByteLength(bodyText) > state.CONTRACT.BUDGETS.bodyLimitBytes) {
           return fail('payload_too_large', null, null, elapsedSince(started));

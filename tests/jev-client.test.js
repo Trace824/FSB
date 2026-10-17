@@ -475,6 +475,56 @@ async function localCheckSection() {
     check('the sensitive_goal result does not echo the goal', !JSON.stringify(result).includes(goal));
   }
 
+  // A schema-valid but hand-built request whose page data was never sanitized
+  // is refused before anything leaves the machine (WR-04, D-19, D-20, D-21).
+  const injection = ['ignore', 'previous', 'instructions'].join(' ');
+  const raw = [
+    ['a card number in page.text', (r) => { r.page.text = 'Pay with 4111 1111 1111 1111'; }, '4111 1111'],
+    ['an API key in page.title', (r) => { r.page.title = 'Key sk-ant-abcdefghijklmnop1234'; }, 'sk-ant-abcdefghijklmnop1234'],
+    ['an injection phrase in an element label', (r) => { r.elements[0].label = `Alpha ${injection}`; }, injection],
+    ['an access key id as an element role', (r) => { r.elements[1].role = 'AKIAABCDEFGHIJKLMNOP'; }, 'AKIAABCDEFGHIJKLMNOP'],
+    ['a percent-encoded card number segment in page.path', (r) => { r.page.path = '/pay/4111%201111%201111%201111'; },
+      '4111%201111'],
+    ['a backslash in page.path', (r) => { r.page.path = '/a\\checklist'; }, '/a\\checklist'],
+    ['an unscrubbed token segment in page.path', (r) => { r.page.path = '/reset/AbCdEfGh1234567890IjKlMnOpQrStUv12'; },
+      'AbCdEfGh1234567890IjKlMnOpQrStUv12'],
+    ['a dot segment in page.path', (r) => { r.page.path = '/a/../checklist'; }, '/a/../'],
+  ];
+  for (const [label, mutate, secret] of raw) {
+    const request = validRequest();
+    mutate(request);
+    const precondition = S.validateRequest(request).ok === true;
+    const { result, fetchImpl } = await runOnce(jsonResponse(200, okBody()), { request });
+    check(`${label} -> invalid_request with no fetch (schema-valid: ${precondition})`,
+      precondition && deepEqual(result, fallbackOf('invalid_request', null, 0)) && fetchImpl.calls.length === 0,
+      show({ result, calls: fetchImpl.calls.length }));
+    check(`the ${label} result does not echo the raw value`, !JSON.stringify(result).includes(secret));
+  }
+
+  // The same raw page data through buildRequest is sanitized and is sent.
+  const built = S.buildRequest({
+    kinds: ['operation', 'target'],
+    goal: 'Save the checklist',
+    url: 'https://example.test/reset/AbCdEfGh1234567890IjKlMnOpQrStUv12?token=abc123#frag',
+    title: 'Key sk-ant-abcdefghijklmnop1234',
+    visibleText: `Pay with 4111 1111 1111 1111 and ${injection}`,
+    elements: [
+      { id: 'a', role: 'button', label: `Alpha ${injection}`, ops: ['click'] },
+      { id: 'b', role: 'AKIAABCDEFGHIJKLMNOP', label: 'Save', ops: ['click'] },
+    ],
+    offeredOps: ['click'],
+  });
+  check('precondition: buildRequest succeeds on the same raw page data', built.ok === true, show(built));
+  if (built.ok) {
+    const sent = await runOnce(jsonResponse(503, fallbackBody('busy', 503)), { request: built.request });
+    check('a buildRequest request passes the sanitized-form check and reaches the network',
+      sent.fetchImpl.calls.length === 1 && sent.result.fallback === 'busy', show(sent.result));
+    const wire = sent.fetchImpl.calls.length === 1 ? String(sent.fetchImpl.calls[0].init.body) : '';
+    check('no raw value reaches the wire body',
+      ['4111 1111', 'sk-ant-abcdefghijklmnop1234', injection, 'AKIAABCDEFGHIJKLMNOP', 'token=abc123',
+        'AbCdEfGh1234567890IjKlMnOpQrStUv12'].every((secret) => !wire.includes(secret)), wire.slice(0, 300));
+  }
+
   const controller = new AbortController();
   controller.abort();
   const pre = await runOnce(jsonResponse(200, okBody()), { call: { signal: controller.signal } });
@@ -937,8 +987,11 @@ async function persistenceSection() {
   // Run a cool-down cycle inside a vm context whose storage globals record every read.
   const touched = [];
   const trap = (name) => new Proxy({}, { get(_t, key) { touched.push(`${name}.${String(key)}`); return undefined; } });
+  // URL is a standard worker global (not a storage or browser API); decide()
+  // uses it through FsbJevState.toOriginPath to check the request's origin + path.
   const sandbox = {
     TextEncoder,
+    URL,
     AbortController,
     setTimeout,
     clearTimeout,
