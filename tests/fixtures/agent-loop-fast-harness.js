@@ -736,6 +736,127 @@ function signatureMenuContent(opts) {
   return { respond, state };
 }
 
+// ---------------------------------------------------------------------------
+// Provider formats (extension/ai/tool-use-adapter.js): raw responses with tool
+// calls, and a pairing check over the request bodies the loop builds.
+// ---------------------------------------------------------------------------
+
+/** The wire format of a provider key: 'anthropic', 'gemini', or 'openai' (xai, openai, openrouter, lmstudio, custom). */
+function providerFormat(providerKey) {
+  if (providerKey === 'anthropic') return 'anthropic';
+  if (providerKey === 'gemini') return 'gemini';
+  return 'openai';
+}
+
+/** One raw provider response holding tool calls [{id, name, args}] in that provider's format. */
+function providerToolResponse(providerKey, id, calls) {
+  const format = providerFormat(providerKey);
+  if (format === 'anthropic') {
+    return {
+      id,
+      type: 'message',
+      role: 'assistant',
+      model: 'harness-model',
+      content: calls.map((c) => ({ type: 'tool_use', id: c.id, name: c.name, input: c.args || {} })),
+      stop_reason: 'tool_use',
+      usage: { input_tokens: 1000, output_tokens: 40 }
+    };
+  }
+  if (format === 'gemini') {
+    return {
+      responseId: id,
+      candidates: [{
+        index: 0,
+        finishReason: 'STOP',
+        content: { role: 'model', parts: calls.map((c) => ({ functionCall: { id: c.id, name: c.name, args: c.args || {} } })) }
+      }],
+      usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 40, totalTokenCount: 1040 }
+    };
+  }
+  return openAiToolResponse(id, calls);
+}
+
+function toolCallIdsOf(format, message) {
+  if (!message || typeof message !== 'object') return [];
+  if (format === 'openai') {
+    return message.role === 'assistant' && Array.isArray(message.tool_calls) ? message.tool_calls.map((c) => c && c.id) : [];
+  }
+  if (format === 'anthropic') {
+    return message.role === 'assistant' && Array.isArray(message.content)
+      ? message.content.filter((b) => b && b.type === 'tool_use').map((b) => b.id) : [];
+  }
+  if (message.role !== 'model' || !Array.isArray(message.parts)) return [];
+  // parseToolCalls names an id-less Gemini call gemini-call-<index>.
+  return message.parts.filter((p) => p && p.functionCall).map((p, i) => p.functionCall.id || ('gemini-call-' + i));
+}
+
+function toolResultIdsOf(format, message) {
+  if (!message || typeof message !== 'object') return [];
+  if (format === 'openai') return message.role === 'tool' ? [message.tool_call_id] : [];
+  if (format === 'anthropic') {
+    return message.role === 'user' && Array.isArray(message.content)
+      ? message.content.filter((b) => b && b.type === 'tool_result').map((b) => b.tool_use_id) : [];
+  }
+  return message.role === 'user' && Array.isArray(message.parts)
+    ? message.parts.filter((p) => p && p.functionResponse).map((p) => p.functionResponse.id) : [];
+}
+
+function userTextOf(format, message) {
+  if (!message || message.role !== 'user') return null;
+  if (format !== 'gemini') return typeof message.content === 'string' ? message.content : null;
+  if (!Array.isArray(message.parts) || message.parts.some((p) => p && p.functionResponse)) return null;
+  const texts = message.parts.filter((p) => p && typeof p.text === 'string').map((p) => p.text);
+  return texts.length > 0 ? texts.join('\n') : null;
+}
+
+/**
+ * Tool-call pairing in one provider request body. Every assistant (Gemini:
+ * model) tool call must be answered by a tool result in the messages that
+ * immediately follow it, before any other message; every tool result must
+ * answer a call of that window. userTexts are the plain-text user entries
+ * (where a fast-mode hand-off has to sit).
+ * @returns {{ok:boolean, calls:string[], results:string[], unpaired:string[], orphans:string[], userTexts:string[]}}
+ */
+function toolPairing(providerKey, body) {
+  const format = providerFormat(providerKey);
+  const b = body || {};
+  const list = format === 'gemini' ? (b.contents || []) : (b.messages || []);
+  const calls = [];
+  const results = [];
+  const unpaired = [];
+  const orphans = [];
+  const userTexts = [];
+  let open = null;
+  function closeWindow() {
+    if (open) for (const id of open) unpaired.push(id);
+    open = null;
+  }
+  for (const message of list) {
+    const callIds = toolCallIdsOf(format, message);
+    if (callIds.length > 0) {
+      closeWindow();
+      calls.push(...callIds);
+      open = new Set(callIds);
+      continue;
+    }
+    const resultIds = toolResultIdsOf(format, message);
+    if (resultIds.length > 0) {
+      for (const id of resultIds) {
+        results.push(id);
+        if (open && open.has(id)) open.delete(id);
+        else orphans.push(id);
+      }
+      if (open && open.size === 0) open = null;
+      continue;
+    }
+    closeWindow();
+    const text = userTextOf(format, message);
+    if (text !== null) userTexts.push(text);
+  }
+  closeWindow();
+  return { ok: unpaired.length === 0 && orphans.length === 0, calls, results, unpaired, orphans, userTexts };
+}
+
 module.exports = {
   createHarness,
   goldenProviderScript,
@@ -750,6 +871,9 @@ module.exports = {
   scriptedGateway,
   recordingJevClient,
   signatureMenuContent,
+  providerFormat,
+  providerToolResponse,
+  toolPairing,
   DEFAULTS,
   HOLD_MIN_MS,
   REAL_SET_TIMEOUT,

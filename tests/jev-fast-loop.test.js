@@ -45,6 +45,14 @@
  *     completion and stuck gates, the D-17 no-progress latch, never re-roll
  *     (same state), the existing maxIterations and meta-attempt breakers with
  *     the per-page meta key, and no terminal tool in any fast call.
+ *   - outcomes, pairing and containment (Task 2): an unknown outcome,
+ *     bfCacheDetected, a stale target, a closed message channel and no answer
+ *     each dispatch once and escalate once with a truthful hand-off; request
+ *     bodies stay paired for xai, openai, anthropic, gemini, openrouter,
+ *     lmstudio and custom; earlier hand-off snapshots collapse; a throwing
+ *     beforeTurn or afterStep never reaches the API-error handler; a stop
+ *     during an in-flight decision aborts it and dispatches nothing; turning
+ *     the switch off mid-run latches fast mode off.
  *
  * Only one harness is live at a time: createHarness installs its own chrome
  * and timer globals, and dispose() restores them.
@@ -1255,6 +1263,274 @@ function terminalToolChecks() {
   check(TERMINAL_TOOLS.every((name) => source.indexOf(name) === -1), 'jev-fast-path.js names no terminal tool anywhere');
 }
 
+// ---------------------------------------------------------------------------
+// Plan 68-07 Task 2: uncertain outcomes, provider pairing, hand-off collapse,
+// exception containment, stop and switch-off (D-05, D-10, D-18, F11, F13,
+// F21; AUTO-05-a, AUTO-05-c, AUTO-05-d; sync issue 2).
+// ---------------------------------------------------------------------------
+
+const MAY_HAVE_EXECUTED = 'may have executed; inspect the page before retrying';
+
+async function uncertainOutcomeCases() {
+  section('outcomes, pairing and containment: uncertain and stale fast steps dispatch once and escalate once (D-18, F11, sync issue 2)');
+  const variants = [
+    {
+      name: 'unknown outcome / mayHaveExecuted',
+      action: () => ({
+        success: false,
+        outcome: 'unknown',
+        mayHaveExecuted: true,
+        method: 'dom_coordinate',
+        message: 'Click dispatched at coordinates; inspect the page before retrying because its effect is unknown'
+      }),
+      result: (r) => r.success === false && r.error === null,
+      stale: false
+    },
+    {
+      name: 'bfCacheDetected',
+      action: () => { throw new Error('Could not establish connection. Receiving end does not exist.'); },
+      result: (r) => r.success === true && r.error === null,
+      stale: false
+    },
+    {
+      name: 'stale target',
+      action: () => ({ success: false, error: 'Fast-mode target is no longer current (generation_mismatch).', tool: 'click', refStale: true, reason: 'generation_mismatch' }),
+      result: (r) => r.success === false && /no longer current/.test(String(r.error)),
+      stale: true
+    },
+    {
+      name: 'channel closed',
+      action: () => { throw new Error('A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received'); },
+      result: (r) => r.success === false && String(r.error).indexOf('Content tool click failed: A listener indicated') === 0,
+      stale: false
+    },
+    {
+      name: 'no answer',
+      action: () => undefined,
+      result: (r) => r.success === false && r.error === null,
+      stale: false
+    }
+  ];
+  for (const v of variants) {
+    const label = 'uncertain outcome (' + v.name + ')';
+    const run = loopRun({ content: { entries: NEXT_ENTRIES, action: v.action }, answers: [calibratedPick('click', 'Next'), catchAll] });
+    try {
+      await runSteps(run, 4);
+      const allActions = contentActions(run.h.events, 'executeAction');
+      check(allActions.length === 1 && run.steps[1].fast === 1 && run.content.state.fastActions === 1,
+        label + ': the fast step produced exactly one executeAction in the whole run (iteration 2)');
+      const fastEvent = (run.h.session.actionHistory || []).find((e) => e.iteration === 2 && e.decisionSource === 'jev');
+      check(fastEvent && v.result(fastEvent.result), label + ': the loop recorded the tool-executor shape for this answer');
+      const it3 = run.steps[2];
+      check(it3.provider === 1 && it3.menus === 0 && it3.decides === 0 && it3.fast === 0,
+        label + ': the next iteration runs the LLM with no further fast step before it');
+      const handoffs = handoffsIn(it3);
+      const text = handoffs.length === 1 ? handoffs[0].content : '';
+      if (v.stale) {
+        check(text.indexOf('not run: the target changed') !== -1 && text.indexOf(fastPathApi().describeEscalation('stale')) !== -1
+          && text.indexOf('may have executed') === -1,
+        label + ': one hand-off with the stale wording (nothing ran) and no may-have-executed claim');
+      } else {
+        check(text.indexOf(MAY_HAVE_EXECUTED) !== -1 && text.indexOf('click button "Next" (page text): may have executed') !== -1,
+          label + ': one hand-off saying the step "' + MAY_HAVE_EXECUTED + '"');
+      }
+      const allHandoffs = handoffMessages(run.h.session.messages);
+      check(allHandoffs.length === 1 && allHandoffs.every((m) => m.content.indexOf('not permitted') === -1),
+        label + ': no hand-off says the step was not permitted');
+      check(run.steps[3].fast === 0 && stillRunning(run), label + ': no second dispatch afterwards and the session keeps running');
+    } finally {
+      finish(run);
+    }
+  }
+}
+
+/** Crafted bodies in each format: the pairing check must reject an unpaired call, an orphan result and an interleaved message. */
+function pairingSelfTest() {
+  const handoff = HANDOFF_PREFIX + '\nFast mode took 1 step.';
+  const shapes = {
+    openai: {
+      call: (id) => ({ role: 'assistant', content: null, tool_calls: [{ id, type: 'function', function: { name: 'click', arguments: '{}' } }] }),
+      result: (id) => ({ role: 'tool', tool_call_id: id, name: 'click', content: '{}' }),
+      user: (text) => ({ role: 'user', content: text }),
+      wrap: (list) => ({ messages: [{ role: 'system', content: 's' }].concat(list) })
+    },
+    anthropic: {
+      call: (id) => ({ role: 'assistant', content: [{ type: 'tool_use', id, name: 'click', input: {} }] }),
+      result: (id) => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: '{}' }] }),
+      user: (text) => ({ role: 'user', content: text }),
+      wrap: (list) => ({ system: [{ type: 'text', text: 's' }], messages: list })
+    },
+    gemini: {
+      call: (id) => ({ role: 'model', parts: [{ functionCall: { id, name: 'click', args: {} } }] }),
+      result: (id) => ({ role: 'user', parts: [{ functionResponse: { id, name: 'click', response: {} } }] }),
+      user: (text) => ({ role: 'user', parts: [{ text }] }),
+      wrap: (list) => ({ contents: list })
+    }
+  };
+  const keyFor = { openai: 'openai', anthropic: 'anthropic', gemini: 'gemini' };
+  for (const format of Object.keys(shapes)) {
+    const s = shapes[format];
+    const good = H.toolPairing(keyFor[format], s.wrap([s.call('c1'), s.result('c1'), s.user(handoff)]));
+    const unpaired = H.toolPairing(keyFor[format], s.wrap([s.call('c1'), s.user(handoff)]));
+    const orphan = H.toolPairing(keyFor[format], s.wrap([s.user(handoff), s.result('jev_1_2')]));
+    const interleaved = H.toolPairing(keyFor[format], s.wrap([s.call('c1'), s.user(handoff), s.result('c1')]));
+    check(good.ok && good.userTexts.length === 1 && !unpaired.ok && unpaired.unpaired[0] === 'c1'
+      && !orphan.ok && orphan.orphans[0] === 'jev_1_2' && !interleaved.ok,
+    'pairing self-test (' + format + ' format): the check rejects an unpaired call, an orphan result and a message between a call and its result');
+  }
+}
+
+async function pairingCases() {
+  section('outcomes, pairing and containment: provider request bodies stay paired across fast steps (D-10, AUTO-05-c)');
+  pairingSelfTest();
+  const providerKeys = ['xai', 'openai', 'anthropic', 'gemini', 'openrouter', 'lmstudio', 'custom'];
+  for (const providerKey of providerKeys) {
+    const script = [
+      H.providerToolResponse(providerKey, 'resp_p1', [{ id: 'call_p1', name: 'click', args: { selector: '#start' } }]),
+      H.providerToolResponse(providerKey, 'resp_p2', [{ id: 'call_p2', name: 'get_page_snapshot', args: {} }]),
+      H.providerToolResponse(providerKey, 'resp_p3', [{ id: 'call_p3', name: 'complete_task', args: { summary: 'Wizard finished' } }])
+    ];
+    const run = loopRun({ providerKey, providerScript: script, answers: [clickNthItem, clickNthItem, catchAll] });
+    try {
+      await runSteps(run, 5);
+      check(run.steps[1].fast === 1 && run.steps[2].fast === 1 && run.steps[3].decides === 1 && run.steps[3].provider === 1,
+        'pairing (' + providerKey + '): LLM turn, two fast steps, an escalation and an LLM turn ran in that order');
+      const bodies = run.h.providerRequests.map((r) => r.requestBody);
+      const reports = bodies.map((body) => H.toolPairing(providerKey, body));
+      check(bodies.length === 3 && reports.every((r) => r.ok),
+        'pairing (' + providerKey + '): every assistant tool call has its result right after it and no result lacks its call ('
+        + reports.map((r) => r.calls.length + '/' + r.results.length).join(' ') + ')');
+      check(reports.every((r) => r.calls.concat(r.results).every((id) => !/^jev_/.test(String(id)))),
+        'pairing (' + providerKey + '): no fast-step call id appears as a tool call or a tool result');
+      const later = reports.slice(1);
+      check(later.every((r) => r.userTexts.filter((t) => t.indexOf(HANDOFF_PREFIX) === 0).length === 1),
+        'pairing (' + providerKey + '): the hand-off is one plain user-role entry in each later request');
+      check(run.h.session.status === 'completed', 'pairing (' + providerKey + '): the LLM ends the task');
+    } finally {
+      finish(run);
+    }
+  }
+}
+
+async function collapseCase() {
+  section('outcomes, pairing and containment: only the newest hand-off keeps its snapshot (D-10)');
+  const api = fastPathApi();
+  const SUMMARY_PREFIX = api.constants.SUMMARY_PREFIX;
+  const SNAPSHOT_HEADER = api.constants.SNAPSHOT_HEADER;
+  const SNAPSHOT_COLLAPSED = api.constants.SNAPSHOT_COLLAPSED;
+  const run = loopRun({ answers: [clickNthItem, catchAll, clickNthItem, catchAll] });
+  try {
+    await runSteps(run, 5);
+    const handoffs = (run.h.session.messages || []).filter((m) => m && m.role === 'user' && typeof m.content === 'string' && m.content.indexOf(SUMMARY_PREFIX) === 0);
+    check(handoffs.length === 2 && run.steps[2].provider === 1 && run.steps[4].provider === 1,
+      'collapse: two hand-offs in one session (iterations 3 and 5)');
+    const first = handoffs.length === 2 ? handoffs[0].content : '';
+    const last = handoffs.length === 2 ? handoffs[1].content : '';
+    check(first.endsWith(SNAPSHOT_HEADER + '\n' + SNAPSHOT_COLLAPSED) && !/\nSNAP-\d+/.test(first),
+      'collapse: the earlier hand-off ends with SNAPSHOT_COLLAPSED and keeps no snapshot text');
+    check(/\nSNAP-\d+$/.test(last) && last.indexOf(SNAPSHOT_HEADER + '\nSNAP-') !== -1 && last.indexOf(SNAPSHOT_COLLAPSED) === -1,
+      'collapse: only the latest hand-off carries SNAPSHOT_HEADER followed by the snapshot text');
+    const inRequest = handoffsIn(run.steps[4]);
+    check(inRequest.length === 2 && inRequest[0].content === first && inRequest[1].content === last,
+      'collapse: the iteration-5 LLM request sees the collapsed earlier hand-off and the full latest one');
+  } finally {
+    finish(run);
+  }
+}
+
+async function exceptionCases() {
+  section('outcomes, pairing and containment: a throwing fast path never reaches the iteration\'s API-error handler (F13, AUTO-05-d)');
+  const variants = [
+    ['beforeTurn throws', 'beforeTurn', function beforeTurnThrows() { throw new Error('fast path beforeTurn failed'); }],
+    ['afterStep throws', 'afterStep', function afterStepThrows() { throw new Error('fast path afterStep failed'); }]
+  ];
+  for (const [label, method, replacement] of variants) {
+    const run = loopRun({ answers: [clickNthItem] });
+    const real = run.h.fastPath;
+    globalThis.FsbFastPath = Object.assign({}, real, { [method]: replacement });
+    const stopReasons = [];
+    try {
+      for (let i = 0; i < 5; i += 1) {
+        await runSteps(run, 1);
+        stopReasons.push(run.h.session.lastTurnResult ? run.h.session.lastTurnResult.stopReason : null);
+      }
+      if (method === 'beforeTurn') {
+        check(run.steps.every((s) => s.provider === 1 && s.fast === 0 && s.schedules === 1),
+          'exception (' + label + '): every iteration runs the LLM and schedules the next one normally');
+      } else {
+        check(util.isDeepStrictEqual(iterationsWhere(run, 'fast'), [2, 3, 4]) && run.steps.slice(1, 4).every((s) => s.provider === 0 && s.schedules === 1),
+          'exception (' + label + '): each fast step completes and the iteration schedules the next one normally');
+      }
+      check(!run.h.consoleLines.some((line) => line.indexOf('Iteration error') !== -1),
+        'exception (' + label + '): the iteration catch never logs "Iteration error"');
+      check(stopReasons.every((r) => typeof r === 'string' && r !== 'error'),
+        'exception (' + label + '): lastTurnResult.stopReason is never "error" (' + stopReasons.join(',') + ')');
+      check(stillRunning(run) && run.h.session.agentState.iterationCount === 5, 'exception (' + label + '): the session is not ended');
+    } finally {
+      finish(run);
+    }
+  }
+}
+
+async function stopCase() {
+  section('outcomes, pairing and containment: a stop during an in-flight decision (F21)');
+  const run = loopRun({ answers: [() => new Promise(() => {})] });
+  try {
+    await runSteps(run, 1);
+    const pending = run.h.step();
+    let rounds = 0;
+    while (run.gw.requests.length === 0 && rounds < 500) {
+      await new Promise((resolve) => setImmediate(resolve));
+      rounds += 1;
+    }
+    // No check() here: the harness mutes the console while a step is in flight.
+    const wasPending = run.gw.requests.length === 1 && run.rec.calls.length === 1 && run.rec.calls[0].init.signal.aborted === false;
+    run.h.session.status = 'stopped';
+    globalThis.FsbFastPath.abortInFlight(run.h.session);
+    // Bounded wait: an iteration that never returns must fail by name, not
+    // end the process silently.
+    let settled = false;
+    pending.then(() => { settled = true; }, () => { settled = true; });
+    for (let i = 0; i < 2000 && !settled; i += 1) await new Promise((resolve) => setImmediate(resolve));
+    if (!settled) run.h.dispose();
+    const ev = stepEvents(run.h.events, 2);
+    check(settled, 'stop: the in-flight iteration returns once the stop aborts the decision');
+    check(wasPending, 'stop: a decide was pending at the gateway when the stop arrived');
+    check(ofType(ev, 'provider').length === 0 && contentActions(ev, 'executeAction').length === 0 && ofType(ev, 'schedule').length === 0,
+      'stop: runAgentIteration returns with no provider request, no executeAction and no next-iteration schedule');
+    check(run.rec.calls[0].init.signal.aborted === true && run.rec.decides[0].signal && run.rec.decides[0].signal.aborted === true,
+      'stop: the fetch signal is aborted');
+    check(handoffMessages(run.h.session.messages).length === 0 && run.h.session.status === 'stopped',
+      'stop: nothing was added to session.messages');
+  } finally {
+    finish(run);
+  }
+}
+
+async function switchOffCase() {
+  section('outcomes, pairing and containment: turning the switch off mid-run (D-05)');
+  const run = loopRun({ answers: [clickNthItem] });
+  try {
+    await runSteps(run, 2);
+    check(run.steps[1].fast === 1, 'switch-off: iteration 2 takes one fast step while the switch is on');
+    run.h.storage.local.fsbJevFastModeEnabled = false;
+    await runSteps(run, 3);
+    const reads = ofType(stepEvents(run.h.events, 3), 'storage-get').length;
+    check(reads === 1 && run.steps[2].menus === 0 && run.steps[2].decides === 0 && run.steps[2].provider === 1,
+      'switch-off: iteration 3 re-reads the switch, sends no menu request, makes no decide and runs the LLM');
+    check(fastStateOf(run).off === true && fastStateOf(run).offReason === 'switch_off', 'switch-off: the session latches fast mode off (switch_off)');
+    check(run.steps.slice(3).every((s) => s.menus === 0 && s.decides === 0 && s.provider === 1)
+      && ofType(stepEvents(run.h.events, 4), 'storage-get').length === 0 && ofType(stepEvents(run.h.events, 5), 'storage-get').length === 0,
+    'switch-off: later iterations make no getJevMenu, no decide and no further switch read');
+    const handoffs = handoffsIn(run.steps[2]);
+    check(handoffs.length === 1 && handoffs[0].content.indexOf(fastPathApi().describeEscalation('switch_off')) !== -1,
+      'switch-off: the fast step taken before the switch went off still reaches the LLM in one hand-off');
+    check(stillRunning(run), 'switch-off: the session keeps running');
+  } finally {
+    finish(run);
+  }
+}
+
 async function main() {
   await offGoldenCases();
   await offThreeWayCases();
@@ -1273,6 +1549,13 @@ async function main() {
   await noProgressCases();
   await sameStateCases();
   await breakerCases();
+  // Plan 68-07 Task 2: outcomes, pairing and containment.
+  await uncertainOutcomeCases();
+  await pairingCases();
+  await collapseCase();
+  await exceptionCases();
+  await stopCase();
+  await switchOffCase();
   terminalToolChecks();
   // The Task 2 golden cases again, after every fast-mode run in this process.
   section('off golden again after the fast-mode runs (no state leaks between harnesses)');
