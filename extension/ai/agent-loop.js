@@ -202,6 +202,8 @@ var _META_WINDOW_ITERATIONS = 12;
 function _extractMetaTargetKey(call) {
   if (!call || !call.args) return null;
   var a = call.args;
+  // Phase 68 fast path (F1): one key per control per page path.
+  if (a.jevHandle) return 'jev:' + String(call.pagePath || '').slice(0, 60) + ':' + String(a.expectedRole || '').slice(0, 20) + ':' + String(a.expectedName || '').slice(0, 60);
   if (a.selector) return 'sel:' + String(a.selector).slice(0, 80);
   if (a.elementId) return 'id:' + String(a.elementId).slice(0, 40);
   if (a.element_id) return 'id:' + String(a.element_id).slice(0, 40);
@@ -1915,6 +1917,29 @@ async function runAgentIteration(sessionId, options) {
     if (_al_ScreenshotAttachments && typeof _al_ScreenshotAttachments.expireOrphans === 'function') {
       _al_ScreenshotAttachments.expireOrphans(sessionId, session.messages);
     }
+    // Phase 68 fast path (D-08): only a session that carries the fast-mode
+    // field asks for at most one code-built step. A decline, an error or a
+    // missing field leaves this iteration to the LLM; a stop while the
+    // decision is pending ends it (F21). Errors stay here (F13).
+    var _fastStep = null;
+    if (session.fastMode && typeof globalThis !== 'undefined' && globalThis.FsbFastPath && typeof globalThis.FsbFastPath.beforeTurn === 'function') {
+      try {
+        _fastStep = await globalThis.FsbFastPath.beforeTurn(session, { sessionId: sessionId, iteration: iterNum });
+      } catch (_fastErr) {
+        _fastStep = null;
+      }
+      if (session.status !== 'running') return;
+    }
+    if (_fastStep && _fastStep.toolCall) {
+      // The fast branch skips the LLM block below: no model call, no usage,
+      // no timing row, no assistant message (D-23).
+      var toolCalls = [_fastStep.toolCall];
+      var response = null;
+      var inputTokens = 0;
+      var outputTokens = 0;
+      var iterationCost = 0;
+      var _timingRow = null;
+    } else {
     var turnMessages = buildTurnMessages(session);
     var pendingScreenshotAttachments = _al_ScreenshotAttachments
       && typeof _al_ScreenshotAttachments.pending === 'function'
@@ -2222,6 +2247,7 @@ async function runAgentIteration(sessionId, options) {
           return c.name + (summary ? '(' + String(summary).substring(0, 80) + ')' : '');
         })
       });
+    }
     }
 
     // Phase 233 Fix A: defensive iteration intent log. session.actionHistory
@@ -2879,6 +2905,13 @@ async function runAgentIteration(sessionId, options) {
     // m. Format tool results into messages and push to history
     // Verified Phase 183 AICOM-05: Continuation includes tool results (with DOM from snapshots), stuck recovery hints.
     // Tool results carry JSON.stringify(tr.result) via formatToolResult; stuck hints injected at step n below.
+    if (_fastStep && _fastStep.toolCall) {
+      // Phase 68 fast path (D-10): no tool message for a fast step; the LLM
+      // hears about it in one hand-off before its next turn.
+      try {
+        globalThis.FsbFastPath.afterStep(session, _fastStep.step, toolResults);
+      } catch (_fastAfterErr) { /* the module latches itself off */ }
+    } else {
     for (var ti = 0; ti < toolResults.length; ti++) {
       var tr = toolResults[ti];
       var resultMsg = _formatToolResult(
@@ -2888,6 +2921,12 @@ async function runAgentIteration(sessionId, options) {
         { name: tr.name }
       );
       session.messages.push(resultMsg);
+    }
+    if (session.fastMode && typeof globalThis !== 'undefined' && globalThis.FsbFastPath && typeof globalThis.FsbFastPath.observeTools === 'function') {
+      try {
+        globalThis.FsbFastPath.observeTools(session, toolCalls, toolResults);
+      } catch (_fastObsErr) { /* diagnostic only */ }
+    }
     }
 
     // m3. Phase 233: meta-cognitive attempt-counter. Operates directly on

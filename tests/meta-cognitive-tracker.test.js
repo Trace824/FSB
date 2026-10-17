@@ -154,5 +154,38 @@ assert(aOnly === null, 'separate targets do not pool counts (eA at 3 attempts ->
 assert(session._metaAttempts['id:eA'].length === 3, 'eA tracker has 3 entries');
 assert(session._metaAttempts['id:eB'].length === 2, 'eB tracker has 2 entries');
 
+console.log('\n--- fast-path calls (Phase 68 F1): jev:<pagePath>:<role>:<name> ---');
+function jevCall(pagePath, name) {
+  const call = {
+    name: 'click',
+    args: { jevHandle: 'j3', jevGeneration: 'ab12cd34-1', expectedRole: 'button', expectedName: name || 'Next' },
+    source: 'jev'
+  };
+  if (pagePath !== undefined) call.pagePath = pagePath;
+  return call;
+}
+assert(
+  _extractMetaTargetKey(jevCall('/wizard/step-2')) === 'jev:/wizard/step-2:button:Next',
+  'fast call -> jev:<pagePath>:<role>:<name>'
+);
+assert(
+  _extractMetaTargetKey(jevCall(undefined)) === 'jev::button:Next',
+  'fast call without pagePath -> jev::<role>:<name>'
+);
+assert(
+  _extractMetaTargetKey(jevCall('/p', 'x'.repeat(100))) === 'jev:/p:button:' + 'x'.repeat(60),
+  'fast call name is capped at 60 characters'
+);
+session = freshSession();
+let jevSignal = null;
+for (let i = 1; i <= 6; i++) jevSignal = _trackMetaAttempt(session, jevCall('/wizard/step-2'), i);
+assert(jevSignal && jevSignal.forceStop === true && jevSignal.target === 'jev:/wizard/step-2:button:Next',
+  'six fast calls on one control on one page force-stop, like six LLM attempts on one selector');
+session = freshSession();
+const perPage = [];
+for (let i = 1; i <= 6; i++) perPage.push(_trackMetaAttempt(session, jevCall('/wizard/step-' + i), i));
+assert(perPage.every((r) => r === null) && Object.keys(session._metaAttempts || {}).length === 6,
+  'six "Next" clicks on six different page paths are six targets, not one');
+
 console.log('\n=== Results: ' + passed + ' passed, ' + failed + ' failed ===');
 process.exit(failed > 0 ? 1 : 0);
