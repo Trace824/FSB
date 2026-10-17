@@ -19,7 +19,11 @@
  *   - panel sync: FSBSettingsSync loaded under the tests/settings-panel-sync
  *     DOM shim (refresh in place, no event, Save never reverts an external
  *     write, a user edit wins).
- * Plan 68-12 adds the card and copy sections.
+ * Plan 68-12 adds:
+ *   - copy accuracy: the shared disclosure fact list
+ *     (tests/fixtures/jev-fast-disclosure-facts.js) checked against the real
+ *     request builder (FsbJevState.buildRequest) and the content-side proofs,
+ *     so every never-sent claim stays true.
  *
  * No network, no ports. Node 20-safe.
  *
@@ -318,6 +322,120 @@ function loadOptionsDefaultSettings() {
   ok(threw === null && sameJson(appliedWithoutElement, [KEY]), 'with no checkbox in the page (before plan 68-12) the refresh is a safe no-op');
   ok(fetchCalls === 0, 'no network call was made');
   sync.reset({});
+
+  // -------------------------------------------------------------------------
+  section('copy accuracy (plan 68-12: each never-sent claim is enforced by code)');
+  // -------------------------------------------------------------------------
+  // The disclosure facts are characterization guards: they pass against the
+  // current request builder and content-side proofs, so a later change that
+  // makes a claim false fails here before the copy can drift from the code.
+  const facts = require('./fixtures/jev-fast-disclosure-facts.js');
+  const jevState = require('../extension/ai/jev-state.js');
+  const requestCases = require('./fixtures/jev-request-cases.js');
+
+  ok(typeof jevState.buildRequest === 'function' && jevState.CONTRACT && Array.isArray(jevState.CONTRACT.KEYS.element),
+    'require(extension/ai/jev-state.js) is the FsbJevState api with buildRequest and CONTRACT.KEYS.element');
+  ok(Array.isArray(facts.SHARED_PHRASES) && facts.SHARED_PHRASES.length >= 28 && typeof facts.textOf === 'function',
+    'the fact list exports at least 28 SHARED_PHRASES and textOf()');
+
+  const DROPPED_MARKERS = ['SECRET-PW-LABEL', 'SECRET-HIDDEN-LABEL', 'SECRET-FILE-LABEL', 'SECRET-CC-LABEL',
+    'SECRET-OTP-LABEL', 'SECRET-NEWPW-LABEL', 'SECRET-SENSITIVE-LABEL', 'SECRET-VAULT-LABEL'];
+  const pageInput = () => ({
+    kinds: ['operation', 'target'],
+    goal: 'Open the Bravo product page',
+    url: 'https://shop.test/a/b?q=SECRET-QUERY#SECRET-FRAG',
+    title: 'Shop',
+    visibleText: 'Products: Alpha, Bravo',
+    elements: [
+      { id: 'pw', role: 'textbox', label: 'Password SECRET-PW-LABEL', ops: ['click', 'type_text'], inputType: 'password' },
+      { id: 'hid', role: 'textbox', label: 'Token SECRET-HIDDEN-LABEL', ops: ['click'], inputType: 'hidden' },
+      { id: 'upload', role: 'button', label: 'Upload SECRET-FILE-LABEL', ops: ['click'], inputType: 'file' },
+      { id: 'card', role: 'textbox', label: 'Card SECRET-CC-LABEL', ops: ['click', 'type_text'], autocomplete: 'cc-number' },
+      { id: 'otp', role: 'textbox', label: 'Code SECRET-OTP-LABEL', ops: ['click', 'type_text'], autocomplete: 'one-time-code' },
+      { id: 'newpw', role: 'textbox', label: 'New password SECRET-NEWPW-LABEL', ops: ['click', 'type_text'], autocomplete: 'new-password' },
+      { id: 'sensitive', role: 'textbox', label: 'Account SECRET-SENSITIVE-LABEL', ops: ['click'], purpose: { sensitive: true } },
+      { id: 'vaulted', role: 'textbox', label: 'Email SECRET-VAULT-LABEL', ops: ['click', 'type_text'] },
+      { id: 'alpha', role: 'link', label: 'Alpha', ops: ['click'], value: 'SECRET-ELEMENT-VALUE', cookie: 'SECRET-COOKIE' },
+      { id: 'bravo', role: 'link', label: 'Bravo', ops: ['click'] }
+    ],
+    vaultFilledIds: ['vaulted'],
+    recentActions: [],
+    offeredOps: ['click']
+  });
+
+  const built = jevState.buildRequest(pageInput());
+  ok(built && built.ok === true && built.request && typeof built.request === 'object',
+    'buildRequest with password, hidden, file, cc-number, one-time-code, new-password, sensitive and vault-filled fields plus two ordinary links returns ok');
+  const request = built && built.ok ? built.request : { elements: [], page: {} };
+  const requestJson = JSON.stringify(request);
+  ok(request.elements.length === 2 && sameJson(built.idMap, { e0: 'alpha', e1: 'bravo' })
+    && sameJson(request.elements.map((e) => e.label), ['Alpha', 'Bravo']),
+  'only the two ordinary entries remain (idMap {e0: alpha, e1: bravo})');
+  ok(built && built.ok && built.stats.dropped.sensitive === 8, 'buildRequest reports all eight sensitive fields dropped');
+  ok(DROPPED_MARKERS.every((marker) => !requestJson.includes(marker)),
+    'no dropped field (password, hidden, file, payment, one-time-code, new-password, sensitive, saved-password fill) reaches the request');
+  const allowedElementKeys = jevState.CONTRACT.KEYS.element;
+  ok(request.elements.every((e) => Object.keys(e).every((k) => allowedElementKeys.includes(k))),
+    'every request element carries only CONTRACT.KEYS.element keys (' + allowedElementKeys.join(', ') + ')');
+  ok(!requestJson.includes('SECRET-QUERY') && !requestJson.includes('SECRET-FRAG'),
+    'neither the query string nor the fragment of the page address is sent');
+  ok(request.page.path === '/a/b' && request.page.origin === 'https://shop.test',
+    "the page address is sent as origin 'https://shop.test' and path '/a/b' only");
+  const requestKeys = [];
+  (function collectKeys(value) {
+    if (Array.isArray(value)) { value.forEach(collectKeys); return; }
+    if (value !== null && typeof value === 'object') {
+      for (const key of Object.keys(value)) { requestKeys.push(key); collectKeys(value[key]); }
+    }
+  })(request);
+  ok(requestKeys.length > 0 && requestKeys.every((key) => !/^(value|values|cookie|cookies)$/i.test(key)),
+    'no key named value or cookie appears anywhere in the request');
+  ok(!requestJson.includes('SECRET-ELEMENT-VALUE') && !requestJson.includes('SECRET-COOKIE'),
+    'a value or cookie carried on an ordinary entry is never copied into the request');
+
+  const secretCase = requestCases.INVALID_CASES.find((c) => c.reason === 'sensitive_goal' && /sk-/.test(c.request.goal));
+  const secretToken = secretCase ? (secretCase.request.goal.match(/sk-[A-Za-z0-9]+/) || [''])[0] : '';
+  ok(secretToken.length > 10 && jevState.matchesSecret(secretToken) === true,
+    'the secret sample comes from tests/fixtures/jev-request-cases.js and the scrubber matches it (' + secretToken.slice(0, 6) + '...)');
+  const goalInput = pageInput();
+  goalInput.goal = 'Sign in with ' + secretToken + ' then open Bravo';
+  const goalResult = jevState.buildRequest(goalInput);
+  ok(sameJson(goalResult, { ok: false, reason: 'sensitive_goal' }),
+    "a task text holding a secret returns {ok:false, reason:'sensitive_goal'}: nothing is sent for that task");
+  const textInput = pageInput();
+  textInput.visibleText = 'Your key is ' + secretToken + ' keep it safe';
+  const textResult = jevState.buildRequest(textInput);
+  ok(textResult && textResult.ok === true && !JSON.stringify(textResult.request).includes(secretToken)
+    && typeof textResult.request.page.text === 'string' && textResult.request.page.text.includes('keep it safe'),
+  'a secret in the visible-text excerpt is removed before the request is built (the rest of the excerpt stays)');
+
+  ok(Array.isArray(facts.ENFORCEMENT) && facts.ENFORCEMENT.length === 3
+    && sameJson(facts.ENFORCEMENT.map((e) => e.fact), ['typed', 'field value', 'saved']),
+  'ENFORCEMENT ties the typed, field value and saved facts to their proofs');
+  for (const entry of facts.ENFORCEMENT) {
+    const abs = path.join(ROOT, entry.file);
+    const exists = fs.existsSync(abs);
+    const source = exists ? fs.readFileSync(abs, 'utf8') : '';
+    ok(exists && entry.markers.length > 0 && entry.markers.every((marker) => source.includes(marker)),
+      "the '" + entry.fact + "' claim is backed by " + entry.file + ' (' + entry.markers.join(', ') + ')');
+    ok(facts.SHARED_PHRASES.some((phrase) => phrase.toLowerCase() === entry.fact.toLowerCase()),
+      "the enforced fact '" + entry.fact + "' is one of the SHARED_PHRASES");
+  }
+
+  const plantedForbidden = ['FSB never reads what you typed into them.', 'TypeSafe does not retain requests.', 'Never sent: passwords.'];
+  facts.FORBIDDEN_PATTERNS.forEach((re, index) => {
+    ok(plantedForbidden.some((sentence) => re.test(sentence)),
+      'FORBIDDEN_PATTERNS[' + index + '] ' + re + ' fires on a planted sentence');
+  });
+  ok(plantedForbidden.every((sentence) => facts.FORBIDDEN_PATTERNS.some((re) => re.test(sentence))),
+    'every planted forbidden sentence is caught');
+  const scopedForms = ["Never sent to FSB's server: passwords.", 'fast mode leaves out form fields',
+    "FSB's server keeps no page content.", 'TypeSafe AI keeps data as long as reasonably necessary to provide its services.'];
+  ok(scopedForms.every((sentence) => facts.FORBIDDEN_PATTERNS.every((re) => !re.test(sentence))),
+    'no FORBIDDEN_PATTERNS entry fires on the scoped forms');
+  ok(facts.textOf('<p>FSB&#39;s <span translate="no">server</span>&nbsp;keeps &amp; <!-- note -->drops</p>') === "FSB's server keeps & drops"
+    && facts.textOf('<b>FSB&rsquo;s</b>\n  <i>server&apos;s</i>') === "FSB's server's",
+  'textOf removes tags and comments, decodes the apostrophe, ampersand and nbsp entities and collapses whitespace');
 
   // -------------------------------------------------------------------------
   section('registration');
