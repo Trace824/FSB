@@ -333,7 +333,143 @@ function injectionSection() {
   check('filterInjection returns non-strings unchanged', filterInjection(null) === null && filterInjection(7) === 7);
 }
 
-const sections = [contractSection, statusMapSection, denyListSection, corpusSection, patternExportSection, injectionSection];
+// Local mulberry32 (the same generator as scripts/bench/lib/stats.mjs) so the
+// fuzz inputs are reproducible.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function next() {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randomJson(rand, depth, keyPool) {
+  const pick = (list) => list[Math.floor(rand() * list.length)];
+  const roll = rand();
+  if (depth <= 0 || roll < 0.35) {
+    return pick([
+      null, true, false, 0, 1, -1, 2, 1.5, 1e308, -0, '', ' ', 'e0', 'e1', 'e01', 'click', 'risk',
+      'https://example.test', '/checklist', 'sk-abcdefghij0123456789', '4111 1111 1111 1111',
+      'none_of_the_above', '__proto__', 'x'.repeat(7000), '\u{1F600}'.repeat(3),
+    ]);
+  }
+  if (roll < 0.6) {
+    const length = Math.floor(rand() * 5);
+    const out = [];
+    for (let i = 0; i < length; i += 1) out.push(randomJson(rand, depth - 1, keyPool));
+    return out;
+  }
+  const out = {};
+  const count = Math.floor(rand() * 6);
+  for (let i = 0; i < count; i += 1) out[pick(keyPool)] = randomJson(rand, depth - 1, keyPool);
+  return out;
+}
+
+function setAtRandomPath(rand, target, value) {
+  let node = target;
+  for (let step = 0; step < 4; step += 1) {
+    const keys = node !== null && typeof node === 'object' ? Object.keys(node) : [];
+    if (keys.length === 0) return;
+    const key = keys[Math.floor(rand() * keys.length)];
+    const child = node[key];
+    if (child === null || typeof child !== 'object' || rand() < 0.35) {
+      node[key] = value;
+      return;
+    }
+    node = child;
+  }
+}
+
+function validatorSection() {
+  console.log('\n--- Exact-key request validator (D-10, D-11, D-18, D-19, D-20) ---');
+  const { validateRequest, codePointLength } = require(path.join(JEV_DIR, 'validator.js'));
+  const { CONTRACT } = contractModule;
+  const { baseRequest, VALID_CASES, INVALID_CASES } = require(path.join(__dirname, 'fixtures', 'jev-request-cases.js'));
+
+  check('the fixture has at least 6 valid and 36 invalid cases',
+    VALID_CASES.length >= 6 && INVALID_CASES.length >= 36, `${VALID_CASES.length}/${INVALID_CASES.length}`);
+  check('every case name is unique',
+    new Set([...VALID_CASES, ...INVALID_CASES].map((c) => c.name)).size === VALID_CASES.length + INVALID_CASES.length);
+  check('baseRequest() returns a fresh object each call', baseRequest() !== baseRequest()
+    && deepEqual(baseRequest(), baseRequest()));
+  check('baseRequest() uses only CONTRACT request keys',
+    Object.keys(baseRequest()).every((key) => CONTRACT.KEYS.request.includes(key)));
+
+  const base = baseRequest();
+  const baseResult = validateRequest(base);
+  check('validateRequest(baseRequest()) is {ok:true, request}',
+    baseResult.ok === true && deepEqual(Object.keys(baseResult).sort(), ['ok', 'request']), show(baseResult));
+  check('the accepted request is returned unrepaired', baseResult.request === base && deepEqual(base, baseRequest()));
+
+  for (const testCase of VALID_CASES) {
+    const before = JSON.stringify(testCase.request);
+    const result = validateRequest(testCase.request);
+    check(`[valid] ${testCase.name}`, result.ok === true && result.request === testCase.request, show(result));
+    check(`[valid] ${testCase.name}: input not mutated`, JSON.stringify(testCase.request) === before);
+  }
+  for (const testCase of INVALID_CASES) {
+    const result = validateRequest(testCase.request);
+    check(`[invalid -> ${testCase.reason}] ${testCase.name}`,
+      deepEqual(result, { ok: false, reason: testCase.reason }), show(result));
+  }
+
+  check('every invalid reason is invalid_request or sensitive_goal',
+    INVALID_CASES.every((c) => c.reason === 'invalid_request' || c.reason === 'sensitive_goal'));
+  check('both sensitive_goal and invalid_request are exercised',
+    INVALID_CASES.some((c) => c.reason === 'sensitive_goal') && INVALID_CASES.some((c) => c.reason === 'invalid_request'));
+  check('the fixture covers the D-10 client-supplied instrument keys',
+    ['questions', 'instructions', 'criteria', 'model'].every((key) => INVALID_CASES.some((c) => c.request
+      && typeof c.request === 'object' && Object.prototype.hasOwnProperty.call(c.request, key))));
+  check('a rejection never echoes the offending value or field name',
+    INVALID_CASES.every((c) => {
+      const result = validateRequest(c.request);
+      return deepEqual(Object.keys(result).sort(), ['ok', 'reason']);
+    }));
+
+  check('codePointLength counts code points, not code units',
+    codePointLength('abc') === 3 && codePointLength('\u{1F600}\u{1F600}') === 2 && codePointLength('') === 0
+    && codePointLength('注文') === 2);
+
+  // Totality: seeded random JSON values and seeded corruptions of a valid
+  // request never throw and always return one of the two exact shapes.
+  const keyPool = [...CONTRACT.KEYS.request, ...CONTRACT.KEYS.page, ...CONTRACT.KEYS.element,
+    ...CONTRACT.KEYS.recentAction, 'value', 'questions', '__proto__', 'constructor', 'toString', 'x'];
+  const rand = mulberry32(0x67016701);
+  let thrown = 0;
+  let badShape = 0;
+  let accepted = 0;
+  const reasons = new Set();
+  for (let i = 0; i < 200; i += 1) {
+    let input;
+    if (i % 2 === 0) {
+      input = JSON.parse(JSON.stringify(randomJson(rand, 4, keyPool)) || 'null');
+    } else {
+      const request = baseRequest();
+      setAtRandomPath(rand, request, randomJson(rand, 2, keyPool));
+      if (rand() < 0.3) setAtRandomPath(rand, request, randomJson(rand, 2, keyPool));
+      input = JSON.parse(JSON.stringify(request));
+    }
+    let result;
+    try { result = validateRequest(input); } catch (_e) { thrown += 1; continue; }
+    const okShape = result && result.ok === true && deepEqual(Object.keys(result).sort(), ['ok', 'request'])
+      && result.request === input;
+    const failShape = result && result.ok === false && deepEqual(Object.keys(result).sort(), ['ok', 'reason'])
+      && (result.reason === 'invalid_request' || result.reason === 'sensitive_goal');
+    if (okShape) accepted += 1;
+    else if (failShape) reasons.add(result.reason);
+    else badShape += 1;
+  }
+  check('fuzz: validateRequest never throws over 200 seeded inputs', thrown === 0, `${thrown} threw`);
+  check('fuzz: every result is one of the two exact shapes', badShape === 0, `${badShape} bad shapes`);
+  check('fuzz: the corrupted inputs were mostly rejected', reasons.has('invalid_request') && accepted < 100,
+    `accepted=${accepted}`);
+}
+
+const sections = [contractSection, statusMapSection, denyListSection, corpusSection, patternExportSection, injectionSection,
+  validatorSection];
 
 function main() {
   console.log('--- jev-gateway-contract (JEV-03, JEV-06, JEV-07) ---');
