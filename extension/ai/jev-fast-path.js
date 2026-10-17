@@ -1057,6 +1057,7 @@
         lastStep: null,
         previousStep: null,
         firstUrl: null,
+        firstTabId: null,
         vaultFlow: false,
         answeredStates: []
       };
@@ -1357,6 +1358,12 @@
       if (!isObject(menu) || menu.success !== true) return await declineWith(session, deps, 'menu_unavailable');
       if (typeof menu.url !== 'string' || typeof menu.signature !== 'string' || menu.signature.length === 0) {
         return await declineWith(session, deps, 'menu_invalid');
+      }
+      // IN-04: go_back is offered only after a navigation in the tab fast
+      // mode now works in; a tab switch starts a new history, so it resets.
+      if (jevFast.firstTabId !== session.tabId) {
+        jevFast.firstTabId = session.tabId;
+        jevFast.firstUrl = null;
       }
       if (jevFast.firstUrl === null && parseWebUrl(menu.url) !== null) jevFast.firstUrl = menu.url;
 
@@ -1921,6 +1928,10 @@
     if (!isObject(menu) || menu.success !== true) return captureDrop(deps, 'menu_unavailable');
     if (typeof menu.generation !== 'string' || menu.generation.length === 0) return captureDrop(deps, 'menu_invalid');
     if (!isCaptureUrl(menu.url)) return captureDrop(deps, 'url_changed');
+    if (jevFast.captureFirstTabId !== capture.session.tabId) {
+      jevFast.captureFirstTabId = capture.session.tabId;
+      jevFast.captureFirstUrl = null;
+    }
     if (typeof jevFast.captureFirstUrl !== 'string') jevFast.captureFirstUrl = menu.url;
     var firstPath = originPathOf(jevFast.captureFirstUrl);
     var menuPath = originPathOf(menu.url);

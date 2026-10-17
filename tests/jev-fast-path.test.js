@@ -1359,7 +1359,7 @@ async function orchFirstTurn() {
     'first_llm_turn makes no readSwitch, requestMenu, requestSnapshot or decide call');
   check(sameJson(sortedKeys(fp(r.session)), ['calibratedSeen', 'docEpoch', 'inFlight', 'off', 'offCommand', 'offReason', 'pendingSteps', 'recent', 'refEpoch', 'stopReason', 'uncertain']),
     'session._fastPath holds the documented keys');
-  check(sameJson(sortedKeys(jf(r.session)), ['answeredStates', 'calls', 'command', 'consecutiveEscalations', 'consecutiveFast', 'firstUrl', 'jevMs',
+  check(sameJson(sortedKeys(jf(r.session)), ['answeredStates', 'calls', 'command', 'consecutiveEscalations', 'consecutiveFast', 'firstTabId', 'firstUrl', 'jevMs',
     'lastStep', 'latched', 'llmTurnSeen', 'previousStep', 'steps', 'vaultFlow', 'yieldToLlm']),
   'session.agentState.jevFast holds the documented keys');
   const again = await r.turn(2);
@@ -1455,6 +1455,30 @@ async function orchSwitchOff() {
   const next = await r.turn(2);
   check(Boolean(next.toolCall) && fp(r.session).off === false && r.log.requestMenu.length === 1 && r.client.calls.length === 1,
     'the next command with the switch on is eligible again (D-05)');
+}
+
+async function orchTabSwitchGoBack() {
+  // IN-04: go_back follows a navigation in the tab fast mode works in. The
+  // LLM's open_tab or switch_tab starts a new history, so it is not offered
+  // on the new tab until that tab navigates.
+  const offered = [];
+  const r = rig({
+    menus: [
+      decisionMenu({ url: 'https://example.test/a', signature: 's1' }),
+      decisionMenu({ url: 'https://other.test/b', signature: 's2' }),
+      decisionMenu({ url: 'https://other.test/c', signature: 's3' })
+    ],
+    responder: (request) => { offered.push(request.offeredOps.slice()); return answer(gateway.CATCH_ALL, null)(request); }
+  });
+  await primed(r);
+  await r.turn(2);
+  r.session.tabId = 8;
+  await r.turn(3);
+  await r.turn(4);
+  check(offered.length === 3 && !offered[0].includes('go_back'), 'IN-04: the first page of the command offers no go_back');
+  check(offered.length === 3 && !offered[1].includes('go_back') && jf(r.session).firstTabId === 8 && jf(r.session).firstUrl === 'https://other.test/b',
+    'IN-04: after a tab switch the new tab\'s page is its first page, so go_back is not offered (' + JSON.stringify(offered[1]) + ')');
+  check(offered.length === 3 && offered[2].includes('go_back'), 'IN-04: a navigation within the new tab offers go_back again');
 }
 
 async function orchCalibrationLatch() {
@@ -2868,6 +2892,7 @@ async function main() {
     await section('68-05 beforeTurn: run_task sessions are never fast (D-03)', orchNotEnabled);
     await section('68-05 beforeTurn: the accepted path (one menu, one decide, a code-built call)', orchAccepted);
     await section('68-05 beforeTurn: the switch is re-read before each attempt (D-05)', orchSwitchOff);
+    await section('68-05 beforeTurn: go_back after a tab switch (IN-04)', orchTabSwitchGoBack);
     await section('68-05 beforeTurn: the calibration latch (D-16, AUTO-03-d, T-68-09)', orchCalibrationLatch);
     await section('68-05 beforeTurn: fallback classes and latch scopes (D-16, D-18, F9, sync issue 6)', orchFallbacks);
     await section('68-05 beforeTurn: per-command budgets (D-12, T-68-10)', orchBudgets);
