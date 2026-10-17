@@ -1106,6 +1106,11 @@
           }
 
           if (FSB.tools[tool]) {
+            if (FSB._jevCaptureArm) {
+              try {
+                FSB.noteJevCaptureObservation(tool, params);
+              } catch (_jevCaptureError) { /* capture is diagnostic-only */ }
+            }
             // VIS-01/VIS-03: Show highlight on target element
             if (params && (params.selector || params.ref)) {
               try {

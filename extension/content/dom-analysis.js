@@ -4632,6 +4632,64 @@
     if (!selector) return jevRefuse('selector_not_unique');
     return { ok: true, element: el, selector };
   }
+
+  /**
+   * One-shot capture observation (plan 68-03, D-22, T-68-11). While a capture
+   * menu is armed (FSB._jevCaptureArm, set only by a getJevMenu request with
+   * capture:true), report which menu handle the next action's target is, then
+   * disarm. The target comes only from params.selector (set by the caller or by
+   * the ref branch, which has already run): the element cache when it returns
+   * an element, else FSB.querySelectorWithShadow; refs are never resolved here,
+   * so nothing falls back to CSS. The message carries the armed generation, the
+   * handle (or null), whether a target resolved, and the content verb; never a
+   * label, selector, text or value. Returns true when a message was attempted.
+   */
+  function noteJevCaptureObservation(tool, params) {
+    const arm = FSB._jevCaptureArm;
+    if (!arm || typeof arm !== 'object') return false;
+    FSB._jevCaptureArm = null;
+    const generation = typeof arm.generation === 'string' ? arm.generation : null;
+    let target = null;
+    try {
+      const selector = params && typeof params === 'object' && typeof params.selector === 'string' ? params.selector : '';
+      if (selector) {
+        const cache = FSB.elementCache;
+        const cached = cache && typeof cache.get === 'function' ? cache.get(selector) : null;
+        if (cached && typeof cached === 'object' && cached.nodeType === 1) {
+          target = cached;
+        } else if (typeof FSB.querySelectorWithShadow === 'function') {
+          target = FSB.querySelectorWithShadow(selector) || null;
+        }
+      }
+    } catch (_e) {
+      target = null;
+    }
+    let handle = null;
+    if (target) {
+      try {
+        const registry = FSB.jevRefMap;
+        if (generation !== null && registry && registry.generation === generation && typeof registry.findHandle === 'function') {
+          handle = registry.findHandle(target) || null;
+        }
+      } catch (_e) {
+        handle = null;
+      }
+    }
+    const message = {
+      action: 'jevCaptureObservation',
+      generation,
+      handle: typeof handle === 'string' ? handle : null,
+      resolved: !!target,
+      tool: typeof tool === 'string' ? tool : null
+    };
+    try {
+      const sent = chrome.runtime.sendMessage(message);
+      if (sent && typeof sent.catch === 'function') sent.catch(() => {});
+    } catch (_e) {
+      // Capture is diagnostic only; a failed send never affects the action.
+    }
+    return true;
+  }
   // ==== Phase 68 fast-mode element menu (end) ====
 
   // ============================================================================
@@ -4672,6 +4730,7 @@
   FSB.buildJevMenu = buildJevMenu;
   FSB.jevContentVerbOps = jevContentVerbOps;
   FSB.resolveJevHandle = resolveJevHandle;
+  FSB.noteJevCaptureObservation = noteJevCaptureObservation;
   FSB.findElementByStrategies = findElementByStrategies;
   FSB.buildMarkdownSnapshot = buildMarkdownSnapshot;
   FSB.findMainContentRoot = findMainContentRoot;

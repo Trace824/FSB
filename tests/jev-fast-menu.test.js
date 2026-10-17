@@ -2006,6 +2006,282 @@ check('getJevMenu is routed by the synchronous message switch, next to executeAc
 });
 
 // ---------------------------------------------------------------------------
+section("capture observation: one armed report of the next action's target (plan 68-03; D-22, T-68-11)");
+
+const VIS01_MARKER = '// VIS-01/VIS-03: Show highlight on target element';
+const OBSERVATION_KEYS = ['action', 'generation', 'handle', 'resolved', 'tool'];
+
+// executeAction from its label through the capture guard, closed right after
+// it: 'handler' means the tool handler would run next. events records runtime
+// messages and the handler in order.
+function executeActionThroughGuard() {
+  const start = messagingSource.indexOf(EXECUTE_CASE);
+  assert.ok(start > 0, 'executeAction case present');
+  const body = start + EXECUTE_CASE.length;
+  const stop = messagingSource.indexOf(VIS01_MARKER, body);
+  assert.ok(stop > body, 'VIS-01 block present');
+  return messagingSource.slice(body, stop);
+}
+
+let guardRunner = null;
+function runThroughGuard(request, harness, events) {
+  if (!guardRunner) {
+    guardRunner = vm.runInContext(
+      `(function (request, FSB, sendResponse, document, logger, events) {${executeActionThroughGuard()}\nevents.push('handler');\nreturn 'handler';\n}\nreturn 'no-handler';\n})`,
+      ctx.sandbox,
+      { filename: 'messaging.js#executeAction-capture-guard' }
+    );
+  }
+  return runGuardWith(guardRunner, request, harness, events);
+}
+
+function runGuardWith(runner, request, harness, events) {
+  return runner(request, harness.fsb, harness.sendResponse, harness.doc, harness.logger, events);
+}
+
+// chrome.runtime.sendMessage in the content context; behaviour(message) may
+// return a value or throw.
+function runtimeSpy(events, behaviour) {
+  const sent = [];
+  ctx.sandbox.chrome = {
+    runtime: {
+      sendMessage(message) {
+        sent.push(message);
+        events.push('message');
+        return behaviour ? behaviour(message) : undefined;
+      },
+    },
+  };
+  return sent;
+}
+
+let resolveRefCalls = 0;
+function captureFixture() {
+  const f = freshFixture();
+  const stranger = el({ tag: 'button', attrs: { type: 'button', id: 'stranger' }, text: 'Stranger', rect: inView(300) });
+  f.doc.body.appendChild(stranger);
+  f.stranger = stranger;
+  F.querySelectorWithShadow = (selector) => {
+    const list = ctx.sandbox.document.querySelectorAll(selector);
+    return list.length ? list[0] : null;
+  };
+  resolveRefCalls = 0;
+  F.resolveRef = () => {
+    resolveRefCalls++;
+    return null;
+  };
+  // Arm through the real getJevMenu case, as plan 68-08's capture path will.
+  const responses = runMenuCase({ action: 'getJevMenu', options: { capture: true } }, F);
+  assert.equal(responses.length, 1);
+  f.menu = responses[0];
+  assert.deepEqual(plain(F._jevCaptureArm), { generation: f.menu.generation });
+  return f;
+}
+
+function observation(sent) {
+  assert.equal(sent.length, 1, 'exactly one observation');
+  const message = plain(sent[0]);
+  assert.deepEqual(Object.keys(sent[0]).sort(), OBSERVATION_KEYS);
+  return message;
+}
+
+check('noteJevCaptureObservation is exported and the messaging guard sits first inside the handler block', () => {
+  assert.equal(typeof F.noteJevCaptureObservation, 'function');
+  const exportsAt = domAnalysisSource.indexOf('  FSB.getFilteredElements = getFilteredElements;');
+  assert.ok(domAnalysisSource.slice(exportsAt).includes('FSB.noteJevCaptureObservation = noteJevCaptureObservation;'));
+  const block = menuBlock();
+  assert.ok(block.includes('function noteJevCaptureObservation('));
+  assert.ok(block.includes("action: 'jevCaptureObservation'"));
+  assert.equal(block.includes('resolveRef('), false);
+  assert.match(
+    messagingSource,
+    /if \(FSB\.tools\[tool\]\) \{\n\s*if \(FSB\._jevCaptureArm\) \{\n\s*try \{\n\s*FSB\.noteJevCaptureObservation\(tool, params\);\n\s*\} catch \(_[A-Za-z]*\) \{[^}]*\}\n\s*\}\n\s*\/\/ VIS-01\/VIS-03/
+  );
+  assert.ok(messagingSource.split('FSB._jevCaptureArm').length - 1 >= 2);
+});
+
+check('unarmed: the observer is never called and nothing is sent', () => {
+  freshFixture();
+  for (const arm of [null, undefined, false, 0]) {
+    F._jevCaptureArm = arm;
+    const events = [];
+    const sent = runtimeSpy(events);
+    let observed = 0;
+    const h = messagingHarness({ fsb: { noteJevCaptureObservation() { observed++; } } });
+    assert.equal(runThroughGuard({ action: 'executeAction', tool: 'click', params: { selector: '#next' } }, h, events), 'handler');
+    assert.equal(observed, 0, String(arm));
+    assert.equal(sent.length, 0);
+    assert.deepEqual(events, ['handler']);
+  }
+  F._jevCaptureArm = null;
+  const events = [];
+  const sent = runtimeSpy(events);
+  assert.equal(F.noteJevCaptureObservation('click', { selector: '#next' }), false);
+  assert.equal(sent.length, 0);
+});
+
+check('armed: a click on an offered element reports its handle once, before the handler, then disarms', () => {
+  const f = captureFixture();
+  const events = [];
+  const sent = runtimeSpy(events);
+  const h = messagingHarness();
+  assert.equal(runThroughGuard({ action: 'executeAction', tool: 'click', params: { selector: '#next' } }, h, events), 'handler');
+  assert.deepEqual(observation(sent), {
+    action: 'jevCaptureObservation',
+    generation: f.menu.generation,
+    handle: entryOf(f.menu, 'Next').handle,
+    resolved: true,
+    tool: 'click',
+  });
+  assert.deepEqual(events, ['message', 'handler']);
+  assert.equal(F._jevCaptureArm, null, 'disarmed');
+  const again = [];
+  const sentAgain = runtimeSpy(again);
+  assert.equal(runThroughGuard({ action: 'executeAction', tool: 'click', params: { selector: '#docs' } }, messagingHarness(), again), 'handler');
+  assert.equal(sentAgain.length, 0, 'one shot');
+  assert.equal(resolveRefCalls, 0);
+});
+
+check('armed: the element cache is used when it returns an element; tool is the content verb as received', () => {
+  const f = captureFixture();
+  const events = [];
+  const sent = runtimeSpy(events);
+  const h = messagingHarness();
+  F.elementCache.get = (selector) => (selector === '#alpha' ? f.alpha : null);
+  F.querySelectorWithShadow = () => { throw new Error('not reached when the cache answers'); };
+  runThroughGuard({ action: 'executeAction', tool: 'toggleCheckbox', params: { selector: '#alpha', checked: true } }, h, events);
+  const message = observation(sent);
+  assert.equal(message.handle, entryOf(f.menu, 'Alpha').handle);
+  assert.equal(message.resolved, true);
+  assert.equal(message.tool, 'toggleCheckbox');
+});
+
+check('armed: a ref the COMPACT REF branch resolved is observed through the selector it set', () => {
+  const f = captureFixture();
+  const events = [];
+  const sent = runtimeSpy(events);
+  const h = messagingHarness({
+    fsb: {
+      resolveRef: () => f.docs,
+      refMap: { getInfo: () => ({ role: 'link', name: 'Docs', selector: '#docs' }) },
+    },
+  });
+  const params = { ref: 'e4' };
+  runThroughGuard({ action: 'executeAction', tool: 'hover', params }, h, events);
+  assert.equal(params.selector, '#docs');
+  assert.equal(observation(sent).handle, entryOf(f.menu, 'Docs').handle);
+});
+
+check('armed: an element outside the menu reports handle null with resolved true', () => {
+  captureFixture();
+  const events = [];
+  const sent = runtimeSpy(events);
+  runThroughGuard({ action: 'executeAction', tool: 'click', params: { selector: '#stranger' } }, messagingHarness(), events);
+  const message = observation(sent);
+  assert.equal(message.handle, null);
+  assert.equal(message.resolved, true);
+});
+
+check('armed: a text-based click (no selector) and a selector that resolves nothing report resolved false', () => {
+  captureFixture();
+  let events = [];
+  let sent = runtimeSpy(events);
+  runThroughGuard({ action: 'executeAction', tool: 'click', params: { text: 'Next' } }, messagingHarness(), events);
+  let message = observation(sent);
+  assert.equal(message.handle, null);
+  assert.equal(message.resolved, false);
+  captureFixture();
+  events = [];
+  sent = runtimeSpy(events);
+  runThroughGuard({ action: 'executeAction', tool: 'click', params: { selector: '#missing' } }, messagingHarness(), events);
+  message = observation(sent);
+  assert.equal(message.handle, null);
+  assert.equal(message.resolved, false);
+  assert.equal(resolveRefCalls, 0, 'never resolves refs (no CSS fallback)');
+});
+
+check('armed: a registry reset after arming (generation changed) reports handle null', () => {
+  const f = captureFixture();
+  const armed = f.menu.generation;
+  menuOver([f.next, f.alpha, f.search, f.docs, f.summary, f.nick]);
+  assert.notEqual(F.jevRefMap.generation, armed);
+  const events = [];
+  const sent = runtimeSpy(events);
+  runThroughGuard({ action: 'executeAction', tool: 'click', params: { selector: '#next' } }, messagingHarness(), events);
+  const message = observation(sent);
+  assert.equal(message.generation, armed, 'the armed generation is reported');
+  assert.equal(message.handle, null);
+  assert.equal(message.resolved, true);
+});
+
+check('the observation carries no label, selector, text or value (exact key set)', () => {
+  captureFixture();
+  const events = [];
+  const sent = runtimeSpy(events);
+  kit.resetValueReads();
+  runThroughGuard({
+    action: 'executeAction',
+    tool: 'type',
+    params: { selector: '#nick', text: 'SECRET-TYPED-TEXT', value: 'SECRET-VALUE' },
+  }, messagingHarness(), events);
+  const message = observation(sent);
+  const json = JSON.stringify(message);
+  for (const marker of ['SECRET-TYPED-TEXT', 'SECRET-VALUE', '#nick', 'Nickname', 'nick']) {
+    assert.equal(json.includes(marker), false, marker);
+  }
+  assert.deepEqual(kit.valueReads, []);
+  assert.equal(message.tool, 'type');
+  assert.equal(message.resolved, true);
+});
+
+check('a throwing sendMessage, resolver or observer never blocks or alters the action', () => {
+  captureFixture();
+  let events = [];
+  runtimeSpy(events, () => { throw new Error('Extension context invalidated.'); });
+  let params = { selector: '#next' };
+  assert.equal(runThroughGuard({ action: 'executeAction', tool: 'click', params }, messagingHarness(), events), 'handler');
+  assert.deepEqual(plain(params), { selector: '#next' });
+  assert.equal(F._jevCaptureArm, null, 'disarmed even when sending fails');
+  captureFixture();
+  events = [];
+  const sent = runtimeSpy(events);
+  F.querySelectorWithShadow = () => { throw new Error('bad selector'); };
+  params = { selector: '#next' };
+  assert.equal(runThroughGuard({ action: 'executeAction', tool: 'click', params }, messagingHarness(), events), 'handler');
+  const message = observation(sent);
+  assert.equal(message.resolved, false);
+  assert.equal(message.handle, null);
+  captureFixture();
+  events = [];
+  const h = messagingHarness({ fsb: { noteJevCaptureObservation() { throw new Error('observer failed'); } } });
+  params = { selector: '#next' };
+  assert.equal(runThroughGuard({ action: 'executeAction', tool: 'click', params }, h, events), 'handler');
+  assert.deepEqual(plain(params), { selector: '#next' });
+  F._jevCaptureArm = null;
+});
+
+sectionAsync('capture observation: asynchronous sendMessage failures (plan 68-03)');
+
+checkAsync('a rejected sendMessage promise is swallowed (no unhandled rejection)', async () => {
+  const rejections = [];
+  const onRejection = (reason) => rejections.push(reason);
+  process.on('unhandledRejection', onRejection);
+  try {
+    captureFixture();
+    const events = [];
+    const sent = runtimeSpy(events, () => Promise.reject(new Error('Could not establish connection')));
+    assert.equal(runThroughGuard({ action: 'executeAction', tool: 'click', params: { selector: '#next' } }, messagingHarness(), events), 'handler');
+    assert.equal(sent.length, 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(rejections.length, 0);
+  } finally {
+    process.removeListener('unhandledRejection', onRejection);
+    F._jevCaptureArm = null;
+  }
+});
+
+// ---------------------------------------------------------------------------
 sectionAsync('dispatch path: executeTool -> executeAction content verb -> jev branch (plan 68-03, AUTO-02)');
 
 const dispatched = [];
