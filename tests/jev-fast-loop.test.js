@@ -441,9 +441,22 @@ function seamShapeCases() {
   check(slice.length > 0 && !/\breturn\b/.test(rest) && !/\bawait\b/.test(rest) && rest.indexOf('session.status') === -1,
     'seam 1 guard shape: outside that block the slice has no return, no await and no session.status');
   check(/if \(_fastStep && _fastStep\.toolCall\) \{/.test(rest), 'seam 1 guard shape: the fast branch is a falsy test of _fastStep when the field is absent');
+  // WR-03: afterStep runs once on the normal path (with the tool results) and,
+  // only when that never ran, once more from the iteration catch (no results).
+  const afterStepCalls = [];
+  const afterStepRe = /globalThis\.FsbFastPath\.afterStep\(session, _fastStep\.step, ([^)]*)\)/g;
+  for (let m = afterStepRe.exec(agentLoopSource); m; m = afterStepRe.exec(agentLoopSource)) afterStepCalls.push({ index: m.index, results: m[1] });
+  const iterationCatchAt = agentLoopSource.indexOf('  } catch (error) {\n    // Phase 68 fast path (WR-03)');
   check((agentLoopSource.match(/globalThis\.FsbFastPath\.beforeTurn\(session/g) || []).length === 1
-    && (agentLoopSource.match(/globalThis\.FsbFastPath\.afterStep\(session/g) || []).length === 1,
-  'seam 1 guard shape: one beforeTurn call and one afterStep call in agent-loop.js');
+    && (agentLoopSource.match(/globalThis\.FsbFastPath\.afterStep\(session/g) || []).length === 2
+    && afterStepCalls.length === 2 && afterStepCalls[0].results === 'toolResults' && afterStepCalls[1].results === '[]'
+    && iterationCatchAt > afterStepCalls[0].index && afterStepCalls[1].index > iterationCatchAt
+    && afterStepCalls[1].index - iterationCatchAt < 800,
+  'seam 1 guard shape: one beforeTurn call; afterStep once on the normal path and once at the top of the iteration catch');
+  const catchHead = iterationCatchAt > 0 ? agentLoopSource.slice(iterationCatchAt, afterStepCalls.length === 2 ? afterStepCalls[1].index : iterationCatchAt) : '';
+  check(/_fastStep && _fastStep\.toolCall && _fastStep\.afterDone !== true/.test(catchHead) && /_fastStep\.afterDone = true;/.test(catchHead)
+    && (agentLoopSource.match(/_fastStep\.afterDone = true;/g) || []).length === 2,
+  'seam 1 guard shape: the catch call runs only when the normal-path afterStep never ran, and both paths mark it done');
 }
 
 async function acceptedStepCases() {
@@ -1514,6 +1527,45 @@ async function exceptionCases() {
   }
 }
 
+async function lostStepCase() {
+  section('outcomes, pairing and containment: an exception after the fast dispatch keeps the step and never repeats it (WR-03)');
+  const run = loopRun({ answers: [clickNthItem] });
+  try {
+    await runSteps(run, 1);
+    // Iteration 2: the fast click dispatches, then the loop throws before
+    // afterStep (an action-history push that fails), so the iteration catch
+    // runs and reschedules the same iteration.
+    const history = run.h.session._actionHistory;
+    const realPush = history.push;
+    let thrown = 0;
+    history.push = function throwingPush() {
+      thrown += 1;
+      throw new Error('action history push failed');
+    };
+    await runSteps(run, 1);
+    history.push = realPush;
+    const state = fastStateOf(run);
+    check(thrown === 1 && run.steps[1].fast === 1 && run.steps[1].provider === 0,
+      'lost step: iteration 2 dispatched one fast click, then threw before afterStep');
+    check(run.h.consoleLines.some((line) => line.indexOf('Iteration error') !== -1) && run.h.session.agentState.iterationCount === 1,
+      'lost step: the iteration catch handled it and gave the iteration back for a retry');
+    check(state.off === true && state.offReason === 'exception' && state.uncertain === true
+      && Array.isArray(state.pendingSteps) && state.pendingSteps.length === 1 && state.pendingSteps[0].effect === 'uncertain',
+    'lost step: the catch recorded the step as uncertain and latched fast mode off for the session');
+    // The retried iteration: no second fast dispatch, and the LLM is told the step may have executed.
+    await runSteps(run, 1);
+    const retry = run.steps[2];
+    const handoffs = handoffsIn(retry);
+    check(retry.fast === 0 && retry.menus === 0 && retry.decides === 0 && retry.provider === 1,
+      'lost step: the retry asks Jev nothing, dispatches nothing and runs the LLM');
+    check(handoffs.length === 1 && handoffs[0].content.indexOf('may have executed') !== -1 && /click button "Item 1" \(page text\)/.test(handoffs[0].content),
+      'lost step: the LLM gets one truthful hand-off naming the click as possibly executed');
+    check(total(run, 'fast') === 1, 'lost step: exactly one fast dispatch in the whole run');
+  } finally {
+    finish(run);
+  }
+}
+
 async function stopCase() {
   section('outcomes, pairing and containment: a stop during an in-flight decision (F21)');
   const run = loopRun({ answers: [() => new Promise(() => {})] });
@@ -1756,6 +1808,7 @@ async function main() {
   await pairingCases();
   await collapseCase();
   await exceptionCases();
+  await lostStepCase();
   await stopCase();
   await switchOffCase();
   // Plan 68-08 Task 1: recorded-llm capture through the real loop.

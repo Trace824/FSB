@@ -2924,6 +2924,7 @@ async function runAgentIteration(sessionId, options) {
     if (_fastStep && _fastStep.toolCall) {
       // Phase 68 fast path (D-10): no tool message for a fast step; the LLM
       // hears about it in one hand-off before its next turn.
+      _fastStep.afterDone = true;
       try {
         globalThis.FsbFastPath.afterStep(session, _fastStep.step, toolResults);
       } catch (_fastAfterErr) { /* the module latches itself off */ }
@@ -3137,6 +3138,18 @@ async function runAgentIteration(sessionId, options) {
     session._nextIterationTimer = setTimeout(function() { runAgentIteration(sessionId, options); }, 100);
 
   } catch (error) {
+    // Phase 68 fast path (WR-03): a throw after a fast step was dispatched but
+    // before afterStep ran would lose the step, and the retried iteration could
+    // act again. afterStep with no result records it as possibly executed and
+    // latches fast mode off, so the retry hands the LLM a truthful summary.
+    if (_fastStep && _fastStep.toolCall && _fastStep.afterDone !== true && typeof globalThis !== 'undefined'
+        && globalThis.FsbFastPath && typeof globalThis.FsbFastPath.afterStep === 'function') {
+      _fastStep.afterDone = true;
+      try {
+        globalThis.FsbFastPath.afterStep(session, _fastStep.step, []);
+      } catch (_fastCatchErr) { /* the module latches itself off */ }
+    }
+
     // Error handling for API call failures
     var errMsg = error.message || String(error);
     var errStatus = error.status;
