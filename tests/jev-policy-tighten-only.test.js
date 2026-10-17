@@ -11,6 +11,12 @@
  *   C  normalizeGate / combineGates over the real gate outputs
  *   D  the exhaustive cross product: every existing-gate state x every Jev
  *      outcome x failClosed in {false, true}
+ *   E  the real checkSafetyBreakers / detectStuck exports return identical
+ *      sequences with and without hostile Jev fields on the session
+ *      (fresh sessions per arm, stubbed Date.now; RESEARCH Pitfall 7)
+ *   F  the real HookPipeline with the real createPermissionHook: a denial
+ *      survives in both registration orders, plus the control case showing
+ *      that a stopping handler would hide it (RESEARCH Pitfall 4)
  *
  * The real stuck rows come from the real detectStuck export, the breaker
  * rows from the real checkSafetyBreakers export and the permission rows from
@@ -34,6 +40,7 @@ const calibration = require('../showcase/server/src/jev/calibration.js');
 const { INSTRUMENT_HASH } = require('../showcase/server/src/jev/instrument.js');
 const { detectStuck, checkSafetyBreakers } = require('../extension/ai/agent-loop.js');
 const { createPermissionHook } = require('../extension/ai/hooks/permission-hook.js');
+const { HookPipeline, LIFECYCLE_EVENTS } = require('../extension/ai/hook-pipeline.js');
 const Policy = require('../extension/ai/jev-policy.js');
 
 const POLICY_PATH = path.join(__dirname, '..', 'extension', 'ai', 'jev-policy.js');
@@ -867,13 +874,226 @@ function sectionD(GATES) {
 }
 
 // ---------------------------------------------------------------------------
+// Section E -- the real breakers and stuck detection ignore every Jev field
+// ---------------------------------------------------------------------------
+
+/** The hostile Jev fields a future caller might leave on a session. */
+function attachHostileJevFields(session) {
+  session.jev = { decision: { ok: true, calibration: { status: 'calibrated' }, approved: true } };
+  session.jevApproved = true;
+  session.skipConfirmation = true;
+  session.fastMode = true;
+  session.agentState.jevOverride = 'continue';
+  return session;
+}
+
+function readOnlyNoEffect() {
+  return [{ callId: 'r', name: 'read_page', args: {}, result: { success: true, hadEffect: false } }];
+}
+
+function noEffectClick(selector) {
+  return [{ callId: 'n-' + selector, name: 'click', args: { selector: selector }, result: { success: true, hadEffect: false } }];
+}
+
+/**
+ * Each scenario configures a fresh session and lists its steps. A step pins
+ * Date.now, optionally advances the iteration count, runs the real
+ * checkSafetyBreakers and, when it has tool results, the real detectStuck.
+ */
+const INVARIANCE_SCENARIOS = [
+  {
+    id: 'fresh session',
+    setup: (s) => { s.maxIterations = 20; s.safetyConfig = { timeLimit: 600000 }; s.agentState.startTime = T0; s.agentState.iterationCount = 0; },
+    steps: [{ now: T0, tools: clickResultsFor('#benign') }]
+  },
+  {
+    id: 'iteration cap reached',
+    setup: (s) => { s.maxIterations = 4; s.safetyConfig = { timeLimit: 600000 }; s.agentState.startTime = T0; s.agentState.iterationCount = 0; },
+    steps: [1, 2, 3, 4, 5, 6].map((n) => ({ now: T0 + n * 1000, iterate: true, tools: clickResultsFor('#step-' + n) })),
+    expect: (seq) => seq.some((r) => r.breakers.shouldStop === true) && seq[0].breakers.shouldStop === false
+  },
+  {
+    id: 'time limit exceeded (stubbed Date.now)',
+    setup: (s) => { s.maxIterations = 50; s.safetyConfig = { timeLimit: 60000 }; s.agentState.startTime = T0; s.agentState.iterationCount = 0; },
+    steps: [0, 30000, 59999, 60000, 125000].map((dt, n) => ({ now: T0 + dt, iterate: true, tools: clickResultsFor('#t-' + n) })),
+    expect: (seq) => seq[2].breakers.shouldStop === false && seq[3].breakers.shouldStop === true && seq[4].breakers.shouldStop === true
+  },
+  {
+    id: 'repeated identical tool results reach the stuck threshold',
+    setup: (s) => { s.maxIterations = 50; s.safetyConfig = { timeLimit: 600000 }; s.agentState.startTime = T0; s.agentState.iterationCount = 0; },
+    steps: [1, 2, 3, 4, 5, 6].map((n) => ({ now: T0 + n * 500, iterate: true, tools: clickResultsFor('#dropdown') })),
+    expect: (seq) => seq[2].stuck.isStuck === true && seq[2].stuck.shouldForceStop === false && seq[4].stuck.shouldForceStop === true
+  },
+  {
+    id: 'changing tool results',
+    setup: (s) => { s.maxIterations = 50; s.safetyConfig = { timeLimit: 600000 }; s.agentState.startTime = T0; s.agentState.iterationCount = 0; },
+    steps: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ now: T0 + n * 700, iterate: true, tools: clickResultsFor('#field-' + n) })),
+    expect: (seq) => seq.every((r) => r.stuck.shouldForceStop === false && r.breakers.shouldStop === false)
+  },
+  {
+    id: 'force-stop sequence (no page change)',
+    setup: (s) => { s.maxIterations = 100; s.safetyConfig = { timeLimit: 6000000 }; s.agentState.startTime = T0; s.agentState.iterationCount = 0; s.lastKnownUrl = 'https://example.test/form'; },
+    steps: Array.from({ length: 18 }, (_, n) => ({ now: T0 + n * 900, iterate: true, tools: n % 3 === 2 ? readOnlyNoEffect() : noEffectClick('#submit-' + (n % 2)) })),
+    expect: (seq) => seq.some((r) => r.stuck.isStuck === true && r.stuck.shouldForceStop === false) && seq.some((r) => r.stuck.shouldForceStop === true)
+  },
+  {
+    id: 'mixed run: stuck warnings, then the time limit',
+    setup: (s) => { s.maxIterations = 30; s.safetyConfig = { timeLimit: 60000 }; s.agentState.startTime = T0; s.agentState.iterationCount = 0; },
+    steps: Array.from({ length: 12 }, (_, n) => ({ now: T0 + n * 7000, iterate: true, tools: n < 4 ? clickResultsFor('#a-' + n) : clickResultsFor('#stuck') })),
+    expect: (seq) => seq.some((r) => r.stuck.isStuck === true) && seq.some((r) => r.breakers.shouldStop === true)
+  }
+];
+
+function runScenario(scenario, hostile, mutateSetup) {
+  const session = makeSession();
+  scenario.setup(session);
+  if (mutateSetup) mutateSetup(session);
+  if (hostile) attachHostileJevFields(session);
+  const sequence = scenario.steps.map((step) => withNow(step.now, () => {
+    if (step.iterate) session.agentState.iterationCount = (session.agentState.iterationCount || 0) + 1;
+    const breakers = checkSafetyBreakers(session);
+    const stuck = step.tools ? detectStuck(session, step.tools) : null;
+    return { breakers: breakers, stuck: stuck };
+  }));
+  const state = Object.assign({}, session.agentState);
+  delete state.jevOverride;
+  return { sequence: sequence, state: state };
+}
+
+function deepEqualQuiet(a, b) {
+  try {
+    assert.deepStrictEqual(a, b);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function sectionE() {
+  console.log('\n--- E: real checkSafetyBreakers / detectStuck invariance under hostile Jev fields ---');
+  const realNow = Date.now;
+  check(INVARIANCE_SCENARIOS.length >= 6, 'at least 6 invariance scenarios (' + INVARIANCE_SCENARIOS.length + ')');
+
+  INVARIANCE_SCENARIOS.forEach((scenario) => {
+    const plain = runScenario(scenario, false);
+    const hostile = runScenario(scenario, true);
+    let detail = '';
+    try {
+      assert.deepStrictEqual(hostile.sequence, plain.sequence);
+    } catch (err) {
+      detail = ' -- ' + String(err.message).split('\n').slice(0, 6).join(' ');
+    }
+    check(detail === '', scenario.id + ': ' + plain.sequence.length + ' checkSafetyBreakers + detectStuck results are identical with and without hostile Jev fields' + detail);
+    check(deepEqualQuiet(hostile.state, plain.state), scenario.id + ': the agent state evolves identically (jevOverride aside)');
+    if (scenario.expect) check(scenario.expect(plain.sequence) === true, scenario.id + ': the sequence exercises the intended gate transitions');
+    check(Date.now === realNow, scenario.id + ': Date.now is restored after the scenario');
+  });
+
+  // The hostile arm really carried the fields, and the comparison can see a real difference.
+  const probe = attachHostileJevFields(makeSession());
+  check(probe.jev.decision.approved === true && probe.jevApproved === true && probe.skipConfirmation === true
+    && probe.fastMode === true && probe.agentState.jevOverride === 'continue', 'the hostile arm carries jev, jevApproved, skipConfirmation, fastMode and agentState.jevOverride');
+  const capScenario = INVARIANCE_SCENARIOS[1];
+  const baseline = runScenario(capScenario, false);
+  const raisedCap = runScenario(capScenario, false, (s) => { s.maxIterations = 5; });
+  check(!deepEqualQuiet(raisedCap.sequence, baseline.sequence),
+    'control: a real (non-Jev) session change, maxIterations 4 -> 5, does change the sequence, so the comparison is not vacuous');
+}
+
+// ---------------------------------------------------------------------------
+// Section F -- the real HookPipeline: a permission denial survives in both orders
+// ---------------------------------------------------------------------------
+
+async function emitBeforeTool(handlers) {
+  const pipeline = new HookPipeline();
+  handlers.forEach((h) => pipeline.register(LIFECYCLE_EVENTS.BEFORE_TOOL_EXECUTION, h));
+  return pipeline.emit(LIFECYCLE_EVENTS.BEFORE_TOOL_EXECUTION, { toolName: 'click', origin: 'https://example.test' });
+}
+
+/** The agent-loop BEFORE_TOOL_EXECUTION consumer: the first denied result with a denial skips the tool. */
+function consumerSkipsTool(out) {
+  const denialResult = (out.results || []).find((r) => r && r.denied);
+  return Boolean(denialResult && denialResult.denial);
+}
+
+function hasPermissionDenial(out) {
+  return (out.results || []).some((r) => r && r.denied === true && r.denial && r.denial.reason === 'test_denied');
+}
+
+async function sectionF(mergedFromTables) {
+  console.log('\n--- F: real HookPipeline + createPermissionHook in both registration orders ---');
+  const denyingContext = { isAllowed: () => false, createDenial: (t) => ({ tool: t, reason: 'test_denied' }) };
+  const allowingContext = { isAllowed: () => true, createDenial: (t) => ({ tool: t, reason: 'test_denied' }) };
+  const N = Policy.normalizeGate;
+
+  const mergedConfirm = Policy.mergeConfirmation(N.permission(PERMISSION.allowed), OUTCOME_BY_ID.get('calibrated:risk_high').result);
+  const mergedNone = Policy.mergeConfirmation(N.permission(PERMISSION.allowed), OUTCOME_BY_ID.get('fallback:timeout').result);
+  check(mergedConfirm.jevContribution === 'confirm' && mergedNone.jevContribution === 'none', 'fixtures: one confirm and one none merged result');
+
+  for (const [label, merged] of [['confirm', mergedConfirm], ['none', mergedNone]]) {
+    const jevHandler = () => Policy.toBeforeToolResult(merged);
+    for (const order of ['permission hook first', 'Jev handler first']) {
+      const permission = createPermissionHook(denyingContext);
+      const handlers = order === 'permission hook first' ? [permission, jevHandler] : [jevHandler, permission];
+      const out = await emitBeforeTool(handlers);
+      check(out.stopped === false && out.stoppedBy === null && out.results.length === 2,
+        'Jev ' + label + ', ' + order + ': emit is not stopped and both handlers ran');
+      check(hasPermissionDenial(out), 'Jev ' + label + ', ' + order + ': results contain the permission denial');
+      check(consumerSkipsTool(out), 'Jev ' + label + ', ' + order + ': the agent-loop consumer finds a denial and skips the tool');
+    }
+  }
+
+  // Jev's own confirmation is expressed as a denial when the permission hook allows.
+  for (const order of ['permission hook first', 'Jev handler first']) {
+    const permission = createPermissionHook(allowingContext);
+    const confirmHandler = () => Policy.toBeforeToolResult(mergedConfirm);
+    const noneHandler = () => Policy.toBeforeToolResult(mergedNone);
+    const outConfirm = await emitBeforeTool(order === 'permission hook first' ? [permission, confirmHandler] : [confirmHandler, permission]);
+    const outNone = await emitBeforeTool(order === 'permission hook first' ? [permission, noneHandler] : [noneHandler, permission]);
+    check(outConfirm.stopped === false && consumerSkipsTool(outConfirm)
+      && outConfirm.results.some((r) => r && r.denied === true && r.denial.reason === 'jev_requires_confirmation'),
+    'allowing permission, Jev confirm, ' + order + ': the tool is held for confirmation (jev_requires_confirmation)');
+    check(outNone.stopped === false && !consumerSkipsTool(outNone), 'allowing permission, Jev none, ' + order + ': the tool runs as before');
+  }
+
+  // Every distinct merged result from the tables, in both orders, keeps the denial.
+  const distinct = new Map();
+  mergedFromTables.forEach((m) => distinct.set(JSON.stringify(m), m));
+  let survived = 0;
+  for (const m of distinct.values()) {
+    for (const jevFirst of [false, true]) {
+      const permission = createPermissionHook(denyingContext);
+      const jevHandler = () => Policy.toBeforeToolResult(m);
+      const out = await emitBeforeTool(jevFirst ? [jevHandler, permission] : [permission, jevHandler]);
+      if (out.stopped === false && hasPermissionDenial(out) && consumerSkipsTool(out)) survived += 1;
+    }
+  }
+  check(distinct.size >= 4 && survived === distinct.size * 2,
+    'all ' + distinct.size + ' distinct merged results from the tables keep the permission denial in both orders (' + survived + '/' + (distinct.size * 2) + ')');
+
+  // CONTROL: the hazard is real. A stopping handler registered before the
+  // denying permission hook hides the denial, so the tool would execute.
+  const stopper = () => ({ shouldStop: true, reason: 'control_stop' });
+  const hidden = await emitBeforeTool([stopper, createPermissionHook(denyingContext)]);
+  check(hidden.stopped === true && hidden.stoppedBy === 'control_stop' && hidden.results.length === 1
+    && !hidden.results.some((r) => r && r.denied) && !consumerSkipsTool(hidden),
+  'CONTROL: a stopping handler registered before the permission hook hides the denial (stopped, no denied result, '
+    + 'the consumer would run the tool) -- this is why toBeforeToolResult never stops');
+  const after = await emitBeforeTool([createPermissionHook(denyingContext), stopper]);
+  check(after.stopped === true && hasPermissionDenial(after),
+    'CONTROL: the same stopping handler registered after the permission hook leaves the denial in place (order matters)');
+}
+
+// ---------------------------------------------------------------------------
 
 async function main() {
   const GATES = buildGates();
   sectionA();
   sectionB();
   sectionC(GATES);
-  sectionD(GATES);
+  const merged = sectionD(GATES);
+  sectionE();
+  await sectionF(merged);
 }
 
 main().then(() => {
