@@ -4175,6 +4175,348 @@
     const reasons = jevRiskReasons(el, ctx, null);
     return reasons.length > 0 ? reasons[0] : null;
   }
+
+  // jevVisibleText skips these elements and everything under them.
+  const jevVisibleSkipTags = new Set([
+    'INPUT', 'TEXTAREA', 'SELECT', 'OPTION', 'DATALIST', 'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE',
+    'SVG', 'CANVAS', 'IFRAME', 'OBJECT', 'EMBED'
+  ]);
+  // Inline elements join their text without a separator; any other element
+  // is separated from its neighbours by a space.
+  const jevInlineTags = new Set([
+    'A', 'ABBR', 'B', 'BDI', 'BDO', 'CITE', 'CODE', 'DATA', 'DFN', 'EM', 'I', 'KBD', 'LABEL', 'MARK',
+    'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR'
+  ]);
+  const jevTextSeparator = Object.freeze({ separator: true });
+
+  function jevComputedStyle(el) {
+    try {
+      if (typeof window !== 'undefined' && window && typeof window.getComputedStyle === 'function') {
+        return window.getComputedStyle(el);
+      }
+    } catch (_e) {
+      return null;
+    }
+    return null;
+  }
+
+  function jevIsOverlayNode(el) {
+    const isOverlay = FSB.isFsbElement;
+    if (typeof isOverlay !== 'function') return false;
+    try {
+      return isOverlay(el) === true;
+    } catch (_e) {
+      return true;
+    }
+  }
+
+  function jevVisibleSkips(el) {
+    if (jevVisibleSkipTags.has(jevTag(el))) return true;
+    if (jevIsEditableRegion(el) || jevTextEntryRoles.includes(jevExplicitRole(el))) return true;
+    if (jevAttr(el, 'aria-hidden') === 'true') return true;
+    if (typeof el.hasAttribute === 'function' && el.hasAttribute('hidden')) return true;
+    if (jevIsOverlayNode(el)) return true;
+    const style = jevComputedStyle(el);
+    return !!style && (style.display === 'none' || style.visibility === 'hidden');
+  }
+
+  /**
+   * Visible-text excerpt of the page (F4): text nodes under document.body,
+   * skipping form controls, option lists, scripts, styles, templates, svg,
+   * editable regions, text-entry roles, aria-hidden and hidden subtrees,
+   * display:none / visibility:hidden subtrees and FSB's own overlay nodes.
+   * Whitespace is collapsed and the result is cut at maxChars code points.
+   */
+  function jevVisibleText(maxChars) {
+    const limit = jevLimit(maxChars, jevMenuConstants.TEXT_EXCERPT_CHARS);
+    const body = typeof document !== 'undefined' && document ? document.body : null;
+    if (!body || typeof body !== 'object') return '';
+    if (jevIsEditableRegion(body) || body.isContentEditable === true || jevLower(document.designMode) === 'on') return '';
+    const budget = limit * 2 + 2;
+    const stack = [];
+    const pushChildren = (parent) => {
+      const kids = parent.childNodes;
+      if (!kids || typeof kids.length !== 'number') return;
+      for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
+    };
+    let out = '';
+    pushChildren(body);
+    while (stack.length > 0 && out.length < budget) {
+      const current = stack.pop();
+      if (current === jevTextSeparator) {
+        out = jevAppendText(out, ' ');
+        continue;
+      }
+      if (!current) continue;
+      if (current.nodeType === 3) {
+        out = jevAppendText(out, current.nodeValue);
+        continue;
+      }
+      if (current.nodeType !== 1 || jevVisibleSkips(current)) continue;
+      if (!jevInlineTags.has(jevTag(current))) {
+        out = jevAppendText(out, ' ');
+        stack.push(jevTextSeparator);
+      }
+      pushChildren(current);
+    }
+    return jevCut(out.trim(), limit);
+  }
+
+  function jevIsMainFrame() {
+    try {
+      return typeof window !== 'undefined' && !!window && window.top === window;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function jevCentreInViewport(el) {
+    try {
+      const rect = el.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      return x >= 0 && y >= 0 && x < window.innerWidth && y < window.innerHeight;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  // 4 = DOCUMENT_POSITION_FOLLOWING, 2 = DOCUMENT_POSITION_PRECEDING.
+  function jevDocumentOrder(a, b) {
+    if (a.el !== b.el && typeof a.el.compareDocumentPosition === 'function') {
+      try {
+        const position = a.el.compareDocumentPosition(b.el);
+        if (position & 4) return -1;
+        if (position & 2) return 1;
+      } catch (_e) {
+        return a.index - b.index;
+      }
+    }
+    return a.index - b.index;
+  }
+
+  function jevClampCap(cap) {
+    const limits = jevMenuConstants;
+    if (typeof cap !== 'number' || !Number.isFinite(cap)) return limits.MENU_CAP;
+    return Math.min(limits.MENU_CAP_MAX, Math.max(limits.MENU_CAP_MIN, Math.floor(cap)));
+  }
+
+  function jevTriState(el, name) {
+    const state = jevLower(jevAttr(el, name) || '');
+    if (state === 'true') return true;
+    if (state === 'false') return false;
+    return state === 'mixed' ? 'mixed' : null;
+  }
+
+  // Content/SW-local state bits (never part of the request element schema).
+  function jevElementState(el) {
+    const tag = jevTag(el);
+    let checked = jevTriState(el, 'aria-checked');
+    if (tag === 'INPUT') {
+      const type = jevInputType(el);
+      if (type === 'checkbox' || type === 'radio') checked = el.indeterminate === true ? 'mixed' : el.checked === true;
+    }
+    let expanded = jevTriState(el, 'aria-expanded');
+    if (tag === 'SUMMARY') {
+      const open = jevDetailsOpen(el);
+      if (open !== null) expanded = open;
+    }
+    return { checked, expanded, selected: jevTriState(el, 'aria-selected'), pressed: jevTriState(el, 'aria-pressed') };
+  }
+
+  function jevMenuRole(el) {
+    const role = jevImplicitRole(el) || jevLower(jevTag(el));
+    return jevCut(role, jevMenuConstants.ROLE_CHARS);
+  }
+
+  // FSB's own overlay nodes and injected canvas-editor pseudo-elements are never offered.
+  function jevSkipCandidate(el) {
+    if (!el || typeof el !== 'object' || el.nodeType !== 1) return true;
+    if (el.dataset && el.dataset.fsbRole) return true;
+    return jevIsOverlayNode(el);
+  }
+
+  function jevBuildEntry(el, label, inViewport, formCache) {
+    const tag = jevTag(el);
+    const control = jevControl(el);
+    const rawPurpose = jevPurposeOf(el);
+    const purpose = {
+      sensitive: rawPurpose.sensitive === true,
+      danger: rawPurpose.danger === true,
+      intent: typeof rawPurpose.intent === 'string' ? rawPurpose.intent : null
+    };
+    const inputType = tag === 'INPUT' ? jevInputType(el) : null;
+    const autocomplete = jevCollapse(jevAttr(el, 'autocomplete') || '');
+    const hidden = inputType === 'hidden'
+      || (typeof el.hasAttribute === 'function' && el.hasAttribute('hidden'))
+      || jevAttr(el, 'aria-hidden') === 'true';
+    const vaultFilled = jevIsVaultFilled(el);
+    const risk = classifyJevRisk(el, { label, purpose: rawPurpose, formCache });
+    const disabled = el.disabled === true || jevLower(jevAttr(el, 'aria-disabled') || '') === 'true';
+    const fastEligible = control.ops.length > 0 && risk === null && inViewport === true
+      && control.kind !== 'text_entry' && !vaultFilled && !hidden && !purpose.sensitive && !disabled;
+    return {
+      handle: null,
+      role: jevMenuRole(el),
+      label,
+      ops: control.ops.slice(),
+      inputType,
+      autocomplete: autocomplete || null,
+      purpose,
+      hidden,
+      risk,
+      fastEligible,
+      vaultFilled,
+      state: jevElementState(el),
+      inViewport: inViewport === true
+    };
+  }
+
+  function jevStateBit(value) {
+    if (value === true) return 't';
+    if (value === false) return 'f';
+    return value === 'mixed' ? 'm' : '-';
+  }
+
+  // FNV-1a 32-bit over url, title, count and each entry's role, label, ops and state bits.
+  function jevMenuSignature(url, title, entries) {
+    const text = JSON.stringify([
+      url,
+      title,
+      entries.length,
+      entries.map((entry) => [
+        entry.role,
+        entry.label,
+        entry.ops.join(','),
+        jevStateBit(entry.state.checked) + jevStateBit(entry.state.expanded)
+          + jevStateBit(entry.state.selected) + jevStateBit(entry.state.pressed)
+      ])
+    ]);
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
+  }
+
+  // Map one recent-action descriptor {selector?, ref?, role?, name?} to the
+  // handle of the menu entry for the same element, else null. A selector or
+  // ref that resolves decides the answer; role+name must match exactly one entry.
+  function jevRecentHandle(descriptor, keptElements, entries) {
+    if (!descriptor || typeof descriptor !== 'object') return null;
+    let target = null;
+    if (typeof descriptor.selector === 'string' && descriptor.selector) {
+      try {
+        const find = FSB.querySelectorWithShadow;
+        target = typeof find === 'function' ? find(descriptor.selector) : null;
+      } catch (_e) {
+        target = null;
+      }
+    }
+    if (!target && typeof descriptor.ref === 'string' && descriptor.ref) {
+      const refs = FSB.refMap;
+      const resolved = refs && typeof refs.resolve === 'function' ? refs.resolve(descriptor.ref) : null;
+      target = resolved && resolved.stale === false ? resolved.element : null;
+    }
+    if (target) {
+      const index = keptElements.indexOf(target);
+      return index >= 0 ? entries[index].handle : null;
+    }
+    if (typeof descriptor.role !== 'string' || typeof descriptor.name !== 'string') return null;
+    const role = jevLower(descriptor.role.trim());
+    const name = jevNameText(descriptor.name);
+    if (!role || !name) return null;
+    const matches = entries.filter((entry) => entry.role === role && entry.label === name);
+    return matches.length === 1 ? matches[0].handle : null;
+  }
+
+  /**
+   * Build the value-free fast-mode menu for the main frame (AUTO-02, D-13).
+   * Candidates come from FSB.getFilteredElements with an explicit pool of
+   * MENU_POOL (its own default of 50 is score-sliced before any ordering), are
+   * ordered in-viewport first and then by document order, and are capped at
+   * options.cap clamped to MENU_CAP_MIN..MENU_CAP_MAX (default MENU_CAP).
+   * truncated is true when another keepable candidate exists beyond the cap or
+   * when the pool returned MENU_POOL elements. Kept entries are registered in
+   * FSB.jevRefMap (one reset per menu); FSB.refMap is never touched.
+   */
+  function buildJevMenu(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const limits = jevMenuConstants;
+    if (!jevIsMainFrame()) return { success: false, reason: 'not_main_frame' };
+    const registry = FSB.jevRefMap;
+    if (!registry || typeof registry.reset !== 'function' || typeof registry.register !== 'function') {
+      return { success: false, reason: 'registry_unavailable' };
+    }
+    const getCandidates = FSB.getFilteredElements;
+    if (typeof getCandidates !== 'function') return { success: false, reason: 'candidates_unavailable' };
+    let pool;
+    try {
+      pool = getCandidates({
+        maxElements: limits.MENU_POOL,
+        viewportComplete: true,
+        prioritizeViewport: true,
+        taskType: 'general',
+        guideSelectors: null
+      });
+    } catch (_e) {
+      return { success: false, reason: 'candidates_failed' };
+    }
+    const candidates = pool && typeof pool.length === 'number' ? Array.from(pool) : [];
+    const ordered = candidates.map((el, index) => ({ el, index, inViewport: jevCentreInViewport(el) }));
+    ordered.sort((a, b) => {
+      if (a.inViewport !== b.inViewport) return a.inViewport ? -1 : 1;
+      return jevDocumentOrder(a, b);
+    });
+
+    const cap = jevClampCap(opts.cap);
+    const keptElements = [];
+    const entries = [];
+    const formCache = new Map();
+    let anotherKeepable = false;
+    for (const item of ordered) {
+      if (jevSkipCandidate(item.el)) continue;
+      const label = jevMenuLabel(item.el);
+      if (!label) continue;
+      if (entries.length >= cap) {
+        anotherKeepable = true;
+        break;
+      }
+      keptElements.push(item.el);
+      entries.push(jevBuildEntry(item.el, label, item.inViewport, formCache));
+    }
+    const truncated = anotherKeepable || candidates.length >= limits.MENU_POOL;
+
+    FSB.jevRefMap.reset();
+    for (let i = 0; i < entries.length; i++) {
+      entries[i].handle = FSB.jevRefMap.register(keptElements[i], entries[i].role, entries[i].label);
+    }
+
+    const url = String((window.location && window.location.href) || '');
+    const title = typeof document.title === 'string' ? document.title : '';
+    const docElement = document.documentElement;
+    const body = document.body;
+    const scrollHeight = Math.max(Number(docElement && docElement.scrollHeight) || 0, Number(body && body.scrollHeight) || 0);
+    const scrollTop = Number(window.scrollY !== undefined ? window.scrollY : window.pageYOffset) || 0;
+    const viewportHeight = Number(window.innerHeight) || 0;
+    const moreBelow = scrollHeight - (scrollTop + viewportHeight) > limits.MORE_BELOW_PX;
+    const recent = Array.isArray(opts.recent) ? opts.recent.slice(0, 10) : [];
+
+    return {
+      success: true,
+      generation: FSB.jevRefMap.generation,
+      url,
+      title,
+      visibleText: jevVisibleText(limits.TEXT_EXCERPT_CHARS),
+      moreBelow,
+      signature: jevMenuSignature(url, title, entries),
+      count: entries.length,
+      truncated,
+      entries,
+      recentHandles: recent.map((descriptor) => jevRecentHandle(descriptor, keptElements, entries))
+    };
+  }
   // ==== Phase 68 fast-mode element menu (end) ====
 
   // ============================================================================
@@ -4211,6 +4553,8 @@
   FSB.jevMenuLabel = jevMenuLabel;
   FSB.classifyJevRisk = classifyJevRisk;
   FSB.jevElementOps = jevElementOps;
+  FSB.jevVisibleText = jevVisibleText;
+  FSB.buildJevMenu = buildJevMenu;
   FSB.findElementByStrategies = findElementByStrategies;
   FSB.buildMarkdownSnapshot = buildMarkdownSnapshot;
   FSB.findMainContentRoot = findMainContentRoot;

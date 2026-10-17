@@ -297,12 +297,14 @@ function createContentContext(options = {}) {
     crypto: kit.cryptoStub(options.seed || [0x5a, 0x11, 0xc3, 0x07]),
   };
   vm.createContext(sandbox);
-  const registrySlice = sliceBetween(domStateSource, REGISTRY_BEGIN, REGISTRY_END, { includeEnd: true });
+  const registrySlice = sliceBetween(domStateSource, '  class RefMap {', REGISTRY_END, { includeEnd: true });
   const registry = vm.runInContext(
-    `${registrySlice}\n({ JevRefRegistry, jevRefMap, vaultFilledElements, noteVaultFilled })`,
+    `${registrySlice}\n({ RefMap, refMap, JevRefRegistry, jevRefMap, vaultFilledElements, noteVaultFilled })`,
     sandbox,
-    { filename: 'dom-state.js#fast-mode-registry' }
+    { filename: 'dom-state.js#refmap-and-registry' }
   );
+  FSB.RefMap = registry.RefMap;
+  FSB.refMap = registry.refMap;
   FSB.JevRefRegistry = registry.JevRefRegistry;
   FSB.jevRefMap = registry.jevRefMap;
   FSB.vaultFilledElements = registry.vaultFilledElements;
@@ -904,6 +906,428 @@ check('67-10 risk-true targets (confirm-modals Continue and Delete permanently, 
   for (const [name, node] of [['Continue', cont], ['Delete permanently', del], ['Submit', submit], ['Save', save]]) {
     assert.notEqual(risk(node), null, name);
   }
+});
+
+// ---------------------------------------------------------------------------
+section('buildJevMenu: menu assembly (AUTO-02, D-13, D-14)');
+
+const C = F.jevMenuConstants;
+const crypto = require('crypto');
+
+// getFilteredElements stand-in: records its options and honours maxElements
+// the way the real function does (score-sliced, default 50). The list it
+// returns is in "score" order, deliberately not document order.
+let poolOptionsSeen = [];
+function stubPool(scoreOrdered) {
+  poolOptionsSeen = [];
+  F.getFilteredElements = (options) => {
+    poolOptionsSeen.push(options);
+    const max = options && options.maxElements !== undefined ? options.maxElements : 50;
+    return scoreOrdered.slice(0, max);
+  };
+}
+
+function inView(top) {
+  return { left: 20, top, width: 120, height: 24 };
+}
+
+function buttons(count, labelFor, rectFor) {
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    list.push(el({ tag: 'button', attrs: { type: 'button', id: `b${i + 1}` }, text: labelFor(i), rect: rectFor ? rectFor(i) : inView(10 + (i % 30) * 25) }));
+  }
+  return list;
+}
+
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function build(options) {
+  return plain(F.buildJevMenu(options || {}));
+}
+
+F.isFsbElement = (node) => !!(node && typeof node.hasAttribute === 'function' && node.hasAttribute('data-fsb-id'));
+
+check('buildJevMenu and jevVisibleText are exported next to the other menu helpers', () => {
+  assert.equal(typeof F.buildJevMenu, 'function');
+  assert.equal(typeof F.jevVisibleText, 'function');
+  const exportsAt = domAnalysisSource.indexOf('  FSB.getFilteredElements = getFilteredElements;');
+  const tail = domAnalysisSource.slice(exportsAt);
+  assert.ok(tail.includes('FSB.jevVisibleText = jevVisibleText;'));
+  assert.ok(tail.includes('FSB.buildJevMenu = buildJevMenu;'));
+});
+
+check('the pool comes from getFilteredElements with exactly maxElements MENU_POOL and the snapshot options', () => {
+  const list = buttons(5, (i) => `Item ${i + 1}`);
+  page(list);
+  stubPool(list.slice().reverse());
+  const menu = build();
+  assert.equal(menu.success, true);
+  assert.equal(poolOptionsSeen.length, 1);
+  assert.deepEqual(plain(poolOptionsSeen[0]), {
+    maxElements: C.MENU_POOL,
+    viewportComplete: true,
+    prioritizeViewport: true,
+    taskType: 'general',
+    guideSelectors: null,
+  });
+  assert.equal(poolOptionsSeen[0].guideSelectors, null);
+  assert.ok(C.MENU_POOL > C.MENU_CAP_MAX);
+});
+
+check('the block passes the pool size by name and never resets FSB.refMap', () => {
+  const block = menuBlock();
+  assert.match(block, /maxElements: *[A-Za-z_.]*MENU_POOL/);
+  assert.equal(block.includes('FSB.refMap.reset'), false);
+  assert.match(block, /FSB\.jevRefMap\.reset\(\)/);
+});
+
+check('cap 64 over 70 eligible candidates: 64 entries, truncated true', () => {
+  const list = buttons(70, (i) => `Item ${i + 1}`);
+  page(list);
+  stubPool(list.slice().reverse());
+  const menu = build({ cap: 64 });
+  assert.equal(menu.entries.length, 64);
+  assert.equal(menu.count, 64);
+  assert.equal(menu.truncated, true);
+});
+
+check('no cap over 70 candidates: MENU_CAP (48) entries, truncated true', () => {
+  const list = buttons(70, (i) => `Item ${i + 1}`);
+  page(list);
+  stubPool(list.slice().reverse());
+  const menu = build();
+  assert.equal(menu.entries.length, 48);
+  assert.equal(menu.truncated, true);
+});
+
+check('cap 48 over 40 candidates: 40 entries, truncated false', () => {
+  const list = buttons(40, (i) => `Item ${i + 1}`);
+  page(list);
+  stubPool(list.slice().reverse());
+  const menu = build({ cap: 48 });
+  assert.equal(menu.entries.length, 40);
+  assert.equal(menu.truncated, false);
+});
+
+check('cap 48 over 49 candidates whose 49th in order has no label: 48 entries, truncated false', () => {
+  const list = buttons(49, (i) => (i === 48 ? '' : `Item ${i + 1}`));
+  page(list);
+  stubPool(list.slice().reverse());
+  const menu = build({ cap: 48 });
+  assert.equal(menu.entries.length, 48);
+  assert.equal(menu.truncated, false);
+});
+
+check('a pool of exactly MENU_POOL candidates is reported truncated', () => {
+  const list = buttons(C.MENU_POOL, (i) => `Item ${i + 1}`);
+  page(list);
+  stubPool(list.slice());
+  const menu = build({ cap: 64 });
+  assert.equal(menu.entries.length, 64);
+  assert.equal(menu.truncated, true);
+  const few = buttons(C.MENU_POOL, (i) => (i < 10 ? `Item ${i + 1}` : ''));
+  page(few);
+  stubPool(few.slice());
+  const fewMenu = build({ cap: 48 });
+  assert.equal(fewMenu.entries.length, 10);
+  assert.equal(fewMenu.truncated, true, 'the pool itself may have been cut');
+});
+
+check('cap values outside 32..64 clamp into range', () => {
+  const list = buttons(70, (i) => `Item ${i + 1}`);
+  page(list);
+  stubPool(list.slice());
+  assert.equal(build({ cap: 10 }).entries.length, 32);
+  assert.equal(build({ cap: 1000 }).entries.length, 64);
+  assert.equal(build({ cap: 40.7 }).entries.length, 40);
+  assert.equal(build({ cap: 'many' }).entries.length, 48);
+  assert.equal(build({ cap: NaN }).entries.length, 48);
+});
+
+check('main frame only: a framed document returns not_main_frame', () => {
+  const list = buttons(2, (i) => `Item ${i + 1}`);
+  page(list);
+  stubPool(list);
+  const realTop = ctx.window.top;
+  ctx.window.top = { other: true };
+  try {
+    assert.deepEqual(build(), { success: false, reason: 'not_main_frame' });
+  } finally {
+    ctx.window.top = realTop;
+  }
+  assert.equal(build().success, true);
+});
+
+check('entries are in-viewport first, then the rest, each group in document order', () => {
+  const offA = el({ tag: 'button', attrs: { type: 'button' }, text: 'Off A', rect: { left: 20, top: 2000, width: 100, height: 20 } });
+  const inB = el({ tag: 'button', attrs: { type: 'button' }, text: 'In B', rect: inView(100) });
+  const offC = el({ tag: 'button', attrs: { type: 'button' }, text: 'Off C', rect: { left: 20, top: -300, width: 100, height: 20 } });
+  const inD = el({ tag: 'button', attrs: { type: 'button' }, text: 'In D', rect: inView(50) });
+  page([offA, inB, offC, inD]);
+  stubPool([offA, offC, inB, inD]);
+  const menu = build();
+  assert.deepEqual(menu.entries.map((e) => e.label), ['In B', 'In D', 'Off A', 'Off C']);
+  assert.deepEqual(menu.entries.map((e) => e.inViewport), [true, true, false, false]);
+  assert.deepEqual(menu.entries.map((e) => e.handle), ['j1', 'j2', 'j3', 'j4']);
+});
+
+check('entry shape and fastEligible: ops, risk null, in viewport, not text entry, not vault-filled', () => {
+  const go = el({ tag: 'button', attrs: { type: 'button' }, text: 'Show details', rect: inView(10) });
+  const far = el({ tag: 'button', attrs: { type: 'button' }, text: 'Far away', rect: { left: 20, top: 5000, width: 100, height: 20 } });
+  const field = el({ tag: 'input', attrs: { type: 'email', 'aria-label': 'Email', autocomplete: 'email' }, rect: inView(40) });
+  const save = el({ tag: 'button', attrs: { type: 'button' }, text: 'Save', rect: inView(70) });
+  const vaulted = el({ tag: 'button', attrs: { type: 'button' }, text: 'Open', rect: inView(100) });
+  const ticked = el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': 'Alpha' }, checked: true, rect: inView(130) });
+  const unticked = el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': 'Bravo' }, rect: inView(160) });
+  const search = el({ tag: 'input', attrs: { type: 'search', 'aria-label': 'Search' }, rect: inView(190) });
+  const select = el({ tag: 'select', attrs: { 'aria-label': 'Country' }, children: [el({ tag: 'option', text: 'SECRET-OPT-Z' })], rect: inView(220) });
+  page([go, far, field, save, vaulted, ticked, unticked, search, select]);
+  F.noteVaultFilled(vaulted);
+  stubPool([go, far, field, save, vaulted, ticked, unticked, search, select]);
+  const menu = build();
+  const byLabel = Object.fromEntries(menu.entries.map((e) => [e.label, e]));
+  const keys = ['handle', 'role', 'label', 'ops', 'inputType', 'autocomplete', 'purpose', 'hidden', 'risk', 'fastEligible', 'vaultFilled', 'state', 'inViewport'];
+  for (const entry of menu.entries) assert.deepEqual(Object.keys(entry).sort(), keys.slice().sort());
+  assert.deepEqual(byLabel['Show details'], {
+    handle: 'j1', role: 'button', label: 'Show details', ops: ['click', 'hover'], inputType: null, autocomplete: null,
+    purpose: { sensitive: false, danger: false, intent: 'interact' }, hidden: false, risk: null, fastEligible: true,
+    vaultFilled: false, state: { checked: null, expanded: null, selected: null, pressed: null }, inViewport: true,
+  });
+  assert.equal(byLabel['Far away'].fastEligible, false, 'off-viewport');
+  assert.equal(byLabel.Email.fastEligible, false, 'text entry');
+  assert.deepEqual(byLabel.Email.ops, ['click']);
+  assert.equal(byLabel.Email.inputType, 'email');
+  assert.equal(byLabel.Email.autocomplete, 'email');
+  assert.equal(byLabel.Save.fastEligible, false, 'risk');
+  assert.equal(byLabel.Save.risk, 'commit_word');
+  assert.equal(byLabel.Open.vaultFilled, true);
+  assert.equal(byLabel.Open.fastEligible, false, 'vault-filled');
+  assert.deepEqual(byLabel.Alpha.ops, []);
+  assert.equal(byLabel.Alpha.state.checked, true);
+  assert.equal(byLabel.Alpha.fastEligible, false, 'checked box');
+  assert.deepEqual(byLabel.Bravo.ops, ['check_box']);
+  assert.equal(byLabel.Bravo.fastEligible, true);
+  assert.deepEqual(byLabel.Search.ops, ['press_enter']);
+  assert.equal(byLabel.Search.fastEligible, true);
+  assert.deepEqual(byLabel.Country.ops, ['click']);
+  assert.equal(byLabel.Country.fastEligible, false, 'select');
+  for (const entry of menu.entries) {
+    assert.equal(entry.ops.includes('type_text'), false);
+    assert.equal(entry.ops.includes('select_option'), false);
+  }
+});
+
+check('FSB overlay nodes, canvas pseudo-elements and unlabelled candidates are skipped', () => {
+  const real = el({ tag: 'button', attrs: { type: 'button' }, text: 'Real', rect: inView(10) });
+  const overlay = el({ tag: 'button', attrs: { type: 'button', 'data-fsb-id': 'x' }, text: 'Overlay', rect: inView(40) });
+  const canvas = el({ tag: 'div', attrs: { role: 'button' }, dataset: { fsbRole: 'document-body', fsbLabel: 'Doc' }, text: 'Doc body', rect: inView(70) });
+  const blank = el({ tag: 'button', attrs: { type: 'button' }, text: '   ', rect: inView(100) });
+  page([real, overlay, canvas, blank]);
+  stubPool([real, overlay, canvas, blank]);
+  const menu = build();
+  assert.deepEqual(menu.entries.map((e) => e.label), ['Real']);
+});
+
+check('kept entries are registered in FSB.jevRefMap in output order; FSB.refMap is untouched', () => {
+  const list = buttons(4, (i) => `Item ${i + 1}`);
+  page(list);
+  F.refMap.reset();
+  list.slice(0, 3).forEach((node, i) => F.refMap.register(node, `#b${i + 1}`, 'button', `Item ${i + 1}`));
+  const generationBefore = F.refMap.generationId;
+  stubPool(list.slice().reverse());
+  const before = F.jevRefMap.generation.split('-');
+  const menu = build();
+  const after = F.jevRefMap.generation.split('-');
+  assert.equal(after[0], before[0], 'same per-document nonce');
+  assert.equal(Number(after[1]), Number(before[1]) + 1, 'one reset per menu');
+  assert.equal(menu.generation, F.jevRefMap.generation);
+  menu.entries.forEach((entry, i) => {
+    assert.equal(entry.handle, `j${i + 1}`);
+    const registered = F.jevRefMap.get(entry.handle);
+    assert.equal(registered.element.deref(), list[i]);
+    assert.equal(registered.role, entry.role);
+    assert.equal(registered.name, entry.label);
+  });
+  assert.equal(F.refMap.generationId, generationBefore);
+  assert.equal(F.refMap.size, 3);
+  assert.equal(F.refMap.resolve('e2').element, list[1]);
+});
+
+check('url, title and moreBelow come from the page; moreBelow needs more than MORE_BELOW_PX below', () => {
+  const list = buttons(2, (i) => `Item ${i + 1}`);
+  ctx.window.location.href = 'https://example.test/list?x=1';
+  page(list, { title: 'List page', scrollHeight: 3000 });
+  ctx.window.scrollY = 0;
+  stubPool(list);
+  let menu = build();
+  assert.equal(menu.url, 'https://example.test/list?x=1');
+  assert.equal(menu.title, 'List page');
+  assert.equal(menu.moreBelow, true);
+  page(list, { title: 'List page', scrollHeight: 1000 });
+  menu = build();
+  assert.equal(menu.moreBelow, false, '1000 - 800 is not more than 200');
+  page(list, { title: 'List page', scrollHeight: 3000 });
+  ctx.window.scrollY = 2100;
+  menu = build();
+  assert.equal(menu.moreBelow, false, 'scrolled to the bottom');
+  ctx.window.scrollY = 0;
+});
+
+check('signature: stable for an unchanged page; changes with a checkbox flip, the title or a new entry', () => {
+  const box = el({ tag: 'input', attrs: { type: 'checkbox', 'aria-label': 'Alpha' }, rect: inView(10) });
+  const next = el({ tag: 'button', attrs: { type: 'button' }, text: 'Next', rect: inView(40) });
+  const extra = el({ tag: 'button', attrs: { type: 'button' }, text: 'More', rect: inView(70) });
+  page([box, next, extra], { title: 'Form' });
+  stubPool([box, next]);
+  const first = build();
+  const second = build();
+  assert.match(first.signature, /^[0-9a-f]{8}$/);
+  assert.equal(second.signature, first.signature);
+  box.checked = true;
+  const flipped = build();
+  assert.notEqual(flipped.signature, first.signature, 'checked state flip');
+  box.checked = false;
+  assert.equal(build().signature, first.signature);
+  page([box, next, extra], { title: 'Form (2)' });
+  assert.notEqual(build().signature, first.signature, 'title change');
+  page([box, next, extra], { title: 'Form' });
+  stubPool([box, next, extra]);
+  assert.notEqual(build().signature, first.signature, 'added entry');
+});
+
+check('recentHandles: selector, ref (through FSB.refMap.resolve) and a unique role+name resolve; anything else is null', () => {
+  const list = buttons(4, (i) => ['Alpha', 'Bravo', 'Dup', 'Dup'][i]);
+  const outside = el({ tag: 'button', attrs: { type: 'button', id: 'gone' }, text: 'Not offered', rect: inView(400) });
+  page(list.concat([outside]));
+  F.refMap.reset();
+  F.refMap.register(list[3], '#b4', 'button', 'Dup');
+  F.refMap.register(list[1], '#b2', 'button', 'Bravo');
+  const refGeneration = F.refMap.generationId;
+  F.querySelectorWithShadow = (selector) => ({ '#b1': list[0], '#gone': outside }[selector] || null);
+  stubPool(list);
+  const menu = build({
+    recent: [
+      { selector: '#b1' },
+      { ref: 'e2' },
+      { role: 'button', name: 'Alpha' },
+      { role: 'button', name: 'Dup' },
+      { selector: '#gone' },
+      { selector: '#missing' },
+      { ref: 'e9' },
+      {},
+      'junk',
+      null,
+      { selector: '#b1' },
+    ],
+  });
+  assert.deepEqual(menu.recentHandles, ['j1', 'j2', 'j1', null, null, null, null, null, null, null]);
+  assert.equal(F.refMap.generationId, refGeneration, 'refMap not reset');
+  assert.equal(F.refMap.size, 2);
+  F.querySelectorWithShadow = () => null;
+  assert.deepEqual(build().recentHandles, []);
+});
+
+check('no value: a whole menu never reads the value property and carries no field content', () => {
+  const c = labelCases();
+  const draft = el({ tag: 'div', attrs: { contenteditable: 'true', 'aria-label': 'Message' }, text: 'SECRET-DRAFT-1', rect: inView(10) });
+  const typed = el({ tag: 'input', attrs: { type: 'text', 'aria-label': 'City' }, value: 'SECRET-TYPED', rect: inView(40) });
+  const submit = el({ tag: 'input', attrs: { type: 'submit', value: 'Delete' }, value: 'Delete', rect: inView(70) });
+  const heading = el({ tag: 'h1', text: 'Welcome' });
+  for (const node of [c.bioArea, c.countrySelect, c.nameField, c.innerField, c.notesField, c.editor, c.roleOption]) node.setRect(inView(100));
+  const body = el({
+    tag: 'body',
+    children: [heading, draft, typed, submit].concat(c.doc.body.childNodes.slice()),
+  });
+  const doc = kit.makeDocument(body, { selectorMap: { 'label[for="n"]': [] } });
+  ctx.setDocument(doc);
+  stubPool([draft, typed, submit, c.bioArea, c.countrySelect, c.nameField, c.innerField, c.notesField, c.editor, c.roleOption]);
+  kit.resetValueReads();
+  const menu = F.buildJevMenu({ recent: [{ role: 'textbox', name: 'City' }] });
+  assert.deepEqual(kit.valueReads, []);
+  const serialized = JSON.stringify(menu);
+  for (const secret of SECRET_MARKERS.concat(['SECRET-DRAFT-1', 'SECRET-TYPED'])) {
+    assert.equal(serialized.includes(secret), false, `${secret} leaked`);
+  }
+  assert.ok(menu.visibleText.includes('Welcome'));
+  const labels = menu.entries.map((e) => e.label);
+  assert.ok(labels.includes('Message') && labels.includes('Bio') && labels.includes('Delete'));
+});
+
+check('jevVisibleText skips fields, editable regions, hidden nodes, scripts, svg and FSB overlay nodes', () => {
+  const textarea = el({ tag: 'textarea', text: 'SECRET-DRAFT-2' });
+  const body = el({
+    tag: 'body',
+    children: [
+      el({ tag: 'h1', text: 'Welcome' }),
+      el({ tag: 'p', children: ['Hello ', el({ tag: 'b', text: 'world' }), '.'] }),
+      el({ tag: 'div', text: 'Alpha' }),
+      el({ tag: 'div', text: 'Bravo' }),
+      el({ tag: 'div', attrs: { contenteditable: 'true' }, text: 'SECRET-DRAFT-1' }),
+      el({ tag: 'label', children: ['Bio ', textarea] }),
+      el({ tag: 'select', children: [el({ tag: 'option', text: 'SECRET-OPT-A' })] }),
+      el({ tag: 'input', attrs: { value: 'SECRET-VAL' } }),
+      el({ tag: 'div', attrs: { role: 'textbox' }, text: 'SECRET-ROLE-TEXTBOX' }),
+      el({ tag: 'div', attrs: { role: 'combobox' }, text: 'SECRET-ROLE-COMBOBOX' }),
+      el({ tag: 'div', attrs: { role: 'searchbox' }, text: 'SECRET-ROLE-SEARCHBOX' }),
+      el({ tag: 'div', attrs: { 'aria-hidden': 'true' }, text: 'SECRET-ARIA-HIDDEN' }),
+      el({ tag: 'div', attrs: { hidden: '' }, text: 'SECRET-HIDDEN-ATTR' }),
+      el({ tag: 'div', style: { display: 'none' }, text: 'SECRET-DISPLAY-NONE' }),
+      el({ tag: 'div', style: { visibility: 'hidden' }, text: 'SECRET-VISIBILITY' }),
+      el({ tag: 'script', text: 'SECRET-SCRIPT' }),
+      el({ tag: 'style', text: 'SECRET-STYLE' }),
+      el({ tag: 'noscript', text: 'SECRET-NOSCRIPT' }),
+      el({ tag: 'template', text: 'SECRET-TEMPLATE' }),
+      el({ tag: 'svg', children: [el({ tag: 'title', text: 'SECRET-SVG' })] }),
+      el({ tag: 'div', attrs: { 'data-fsb-id': 'overlay' }, text: 'SECRET-OVERLAY' }),
+      el({ tag: 'p', text: 'Goodbye' }),
+    ],
+  });
+  ctx.setDocument(kit.makeDocument(body));
+  kit.resetValueReads();
+  const text = F.jevVisibleText(2000);
+  assert.deepEqual(kit.valueReads, []);
+  assert.equal(text, 'Welcome Hello world. Alpha Bravo Bio Goodbye');
+  assert.equal(/SECRET/.test(text), false);
+  assert.equal(Array.from(F.jevVisibleText(7)).length, 7);
+});
+
+check('jevVisibleText returns nothing for an editable body', () => {
+  ctx.setDocument(kit.makeDocument(el({ tag: 'body', attrs: { contenteditable: 'true' }, children: ['SECRET-BODY-DRAFT'] })));
+  assert.equal(F.jevVisibleText(2000), '');
+});
+
+// Slice method of 68-SYNC-RECHECK.md item h: from `function <name>(` through
+// the brace that closes its body, the body brace being the first `{` after the
+// parameter list's matching `)`. Hashes copied from item h at P68_START.
+function sliceFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  if (start < 0) return null;
+  let i = source.indexOf('(', start);
+  for (let depth = 0; i < source.length; i++) {
+    if (source[i] === '(') depth++;
+    else if (source[i] === ')' && --depth === 0) break;
+  }
+  let j = source.indexOf('{', i);
+  for (let depth = 0; j < source.length; j++) {
+    if (source[j] === '{') depth++;
+    else if (source[j] === '}' && --depth === 0) break;
+  }
+  return source.slice(start, j + 1);
+}
+
+check('byte identity: buildMarkdownSnapshot and formatInlineRef match their P68_START hashes; getMarkdownSnapshot stays absent', () => {
+  const pinned = {
+    buildMarkdownSnapshot: '820fa063ca1215a99e1bf1617f3b6959ef468d14466d4bcc16d551cd6205dc61',
+    formatInlineRef: '4c7dae4c52a820cb3092c6b65e58a35cda7345b9d992ca5afd3973478565f8e1',
+  };
+  for (const [name, hash] of Object.entries(pinned)) {
+    const text = sliceFunction(domAnalysisSource, name);
+    assert.ok(text, `${name} present`);
+    assert.equal(crypto.createHash('sha256').update(text, 'utf8').digest('hex'), hash, name);
+  }
+  assert.equal(sliceFunction(domAnalysisSource, 'getMarkdownSnapshot'), null);
 });
 
 // ---------------------------------------------------------------------------
