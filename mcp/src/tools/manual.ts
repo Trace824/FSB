@@ -100,6 +100,18 @@ export function parseExpectArg(v: unknown): unknown {
 // non-empty, at-least-one-predicate and selector rules live in one
 // superRefine, which the SDK does not publish. `value` may be '' (the natural
 // check after clear_input), mirroring the extension's normalizeExpectSpec.
+//
+// timeout_ms: null means omitted (as D-14 treats a null expect), so the
+// default applies. Only numbers and non-blank strings reach Number(); any
+// other type (boolean, array, object, a blank string) becomes NaN and is
+// rejected instead of being coerced to 0 or 1. Same rule as the extension.
+function preprocessExpectTimeout(v: unknown): unknown {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string' && v.trim() !== '') return v;
+  return NaN;
+}
+
 const expectObject = z.object({
   url_includes: z.string().optional(),
   title_includes: z.string().optional(),
@@ -110,8 +122,8 @@ const expectObject = z.object({
   value: z.string().optional(),
   dialog_open: z.boolean().optional(),
   timeout_ms: z.preprocess(
-    (v) => (v === '' ? NaN : v),
-    z.coerce.number().int().finite(),
+    preprocessExpectTimeout,
+    z.coerce.number().int().finite().optional(),
   ).optional(),
 }).strict().superRefine((spec, ctx) => {
   const record = spec as Record<string, unknown>;

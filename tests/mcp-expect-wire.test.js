@@ -178,6 +178,10 @@ const REJECTED_EXPECTS = Object.freeze([
   ['state outside the enum', { selector: '#a', state: 'bogus' }],
   ['unparseable string', '{not json'],
   ['fractional timeout_ms', { text_visible: 'a', timeout_ms: 1.5 }],
+  // 69-REVIEW WR-02: Number() would turn these into 1 / 0 ms.
+  ['boolean timeout_ms', { text_visible: 'a', timeout_ms: true }],
+  ['whitespace-only timeout_ms', { text_visible: 'a', timeout_ms: '   ' }],
+  ['array timeout_ms', { text_visible: 'a', timeout_ms: [] }],
 ]);
 
 // Order-insensitive deep equality through sorted-key JSON.
@@ -495,6 +499,14 @@ function unsupportedResult(checks, timeoutMs) {
         'click with expect as a JSON object string: payload.expect is the parsed object (D-14)');
     }
     {
+      const golden = goldenByName.get('click');
+      const outcome = await call('click', { ...golden.args, expect: { text_visible: 'Saved', timeout_ms: null } });
+      const sent = outcome.dispatches[0];
+      check(outcome.error === null && sent && sameValue(sent.message.payload.expect, { text_visible: 'Saved' })
+        && JSON.parse(JSON.stringify(sent.message.payload)).expect.timeout_ms === undefined,
+        'click with expect.timeout_ms null: forwarded without timeout_ms, so the 2000 ms default applies (WR-02)');
+    }
+    {
       const golden = goldenByName.get('clear_input');
       const spec = { selector: '#q', value: '' };
       const outcome = await call('clear_input', { ...golden.args, expect: spec });
@@ -552,6 +564,7 @@ function unsupportedResult(checks, timeoutMs) {
       ['no timeout_ms', { url_includes: '/a' }, 8500],
       ['timeout_ms -5', { url_includes: '/a', timeout_ms: -5 }, 6500],
       ['timeout_ms "3000"', { url_includes: '/a', timeout_ms: '3000' }, 9500],
+      ['timeout_ms null (omitted: the 2000 ms default)', { url_includes: '/a', timeout_ms: null }, 8500],
     ]) {
       const outcome = await call('back', { expect: spec });
       const sent = outcome.dispatches[0];

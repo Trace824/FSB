@@ -214,6 +214,16 @@ check('every predicate yields kinds in the fixed order; timeoutMs is clamped', (
   assert.equal(av.normalizeExpectSpec({ text_visible: 'a', timeout_ms: -50 }).spec.timeoutMs, 0);
 });
 
+check('timeout_ms null is omitted (default 2000); booleans, blank strings and arrays are rejected (WR-02)', () => {
+  const n = av.normalizeExpectSpec({ text_visible: 'a', timeout_ms: null });
+  assert.equal(n.ok, true, 'null is accepted as omitted');
+  assert.equal(n.spec.timeoutMs, 2000);
+  invalid({ text_visible: 'a', timeout_ms: true }, 'timeout_ms true');
+  invalid({ text_visible: 'a', timeout_ms: false }, 'timeout_ms false');
+  invalid({ text_visible: 'a', timeout_ms: '   ' }, 'whitespace timeout_ms');
+  invalid({ text_visible: 'a', timeout_ms: [500] }, 'array timeout_ms');
+});
+
 check('a value check on a sensitive-looking selector carries sensitiveHint', () => {
   const pw = av.normalizeExpectSpec({ selector: 'input[type="password"]', value: 'x' });
   assert.equal(pw.spec.checks[0].sensitiveHint, true);

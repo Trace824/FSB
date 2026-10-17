@@ -826,9 +826,10 @@ function normalizeExpectSpec(raw) {
     return fail('state must be one of ' + EXPECT_STATES.join(', '));
   }
   if (has('dialog_open') && typeof raw.dialog_open !== 'boolean') return fail('dialog_open must be a boolean');
-  if (has('timeout_ms')) {
+  if (has('timeout_ms') && raw.timeout_ms !== null) {
     // Mirrors MCP's coerced integer form: a finite integer, as a number or a
     // non-empty numeric string. Out-of-range values are clamped, not rejected.
+    // null means omitted (the default applies), as on the MCP side.
     const t = raw.timeout_ms;
     let n = NaN;
     if (typeof t === 'number') n = t;

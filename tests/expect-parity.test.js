@@ -130,6 +130,13 @@ const VALIDATOR_ROWS = Object.freeze([
   { label: 'empty timeout_ms string', input: { text_visible: 'a', timeout_ms: '' }, accept: false },
   { label: 'numeric timeout_ms string', input: { text_visible: 'a', timeout_ms: '3000' }, accept: true },
   { label: 'out-of-range timeout_ms (clamped, not rejected)', input: { text_visible: 'a', timeout_ms: 99999 }, accept: true },
+  // 69-REVIEW WR-02: null is omitted; nothing else non-numeric is coerced.
+  { label: 'timeout_ms null (omitted, the default applies)', input: { text_visible: 'a', timeout_ms: null }, accept: true },
+  { label: 'timeout_ms true', input: { text_visible: 'a', timeout_ms: true }, accept: false },
+  { label: 'timeout_ms false', input: { text_visible: 'a', timeout_ms: false }, accept: false },
+  { label: 'whitespace-only timeout_ms string', input: { text_visible: 'a', timeout_ms: '   ' }, accept: false },
+  { label: 'timeout_ms as an array', input: { text_visible: 'a', timeout_ms: [500] }, accept: false },
+  { label: 'timeout_ms as an empty array', input: { text_visible: 'a', timeout_ms: [] }, accept: false },
   { label: 'dialog_open as a string', input: { dialog_open: 'true' }, accept: false },
   { label: 'dialog_open false', input: { dialog_open: false }, accept: true },
   { label: '2,000-character text_visible (at the cap)', input: { text_visible: 'x'.repeat(2000) }, accept: true },
