@@ -619,6 +619,11 @@ async function importBuildTool(file) {
     'the change-report sentence never says "then retry."');
   check(d.MCP_EXPECT_DESCRIPTION.length <= 160,
     `MCP_EXPECT_DESCRIPTION is at most 160 characters (got ${d.MCP_EXPECT_DESCRIPTION.length})`);
+  // 69-REVIEW WR-06: the mcp:go-back route never attaches change_report, so
+  // back must not promise one.
+  const backText = mustKeepText('tool:back', liveByName, d);
+  check(typeof backText === 'string' && !/change_report/.test(backText),
+    'back does not promise change_report (the mcp:go-back route never returns one)');
 
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);

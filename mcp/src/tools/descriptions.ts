@@ -114,9 +114,9 @@ export const MCP_TOOL_DESCRIPTIONS: TextTable = Object.freeze({
   search_capabilities: 'Search the FSB capability catalog by intent; use it before DOM tools for first-party actions on the current site. Returns up to topN hits ranked toward the tab origin, each with slug, service, side-effect class (read, mutate or destructive), readiness and a params schema. Only t1-ready hits run as direct API calls.',
   invoke_capability: "Invoke a capability by slug from a search_capabilities hit, with params matching its schema. Ready capabilities call the service's real web API in your signed-in session, and mutating ones perform real side effects, so check the side-effect class first. On RECIPE_DOM_FALLBACK_PENDING, RECIPE_LEARN_PENDING or RECIPE_EXPIRED, continue the task with DOM tools.",
 
-  // --- back (agents.ts); it returns change_report, so the sentence is part of its text ---
-  back: "Go back one step in browser history on the agent's tab (single step, no count). It does not steal focus, so it works on background tabs. Returns status ok, no_history, cross_origin, bf_cache or fragment_only, with resultingUrl and historyDepth. "
-    + MCP_CHANGE_REPORT_SENTENCE,
+  // --- back (agents.ts); the mcp:go-back route returns no change_report, so
+  // only the inspect-before-retrying guidance is kept from that sentence ---
+  back: "Go back one step in browser history on the agent's tab (single step, no count). It does not steal focus, so it works on background tabs. Returns status ok, no_history, cross_origin, bf_cache or fragment_only, with resultingUrl and historyDepth; if the outcome is unknown, inspect the page before retrying.",
 
   // --- observability tools (observability.ts) ---
   list_sessions: 'List past FSB automation sessions with task, status, duration, action count and cost. Pass a session ID to get_session_detail to inspect it.',
