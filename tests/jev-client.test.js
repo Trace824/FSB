@@ -175,7 +175,7 @@ async function runOnce(answer, options) {
     return typeof answer === 'function' ? answer() : answer;
   });
   const client = C.createJevClient(Object.assign({ fetchImpl, endpoint: TEST_ENDPOINT, now: clock.now }, opts.client || {}));
-  const request = opts.request === undefined ? validRequest() : opts.request;
+  const request = Object.prototype.hasOwnProperty.call(opts, 'request') ? opts.request : validRequest();
   const result = await client.decide(request, opts.call);
   return { result, fetchImpl, clock, client };
 }
