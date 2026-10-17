@@ -2,8 +2,10 @@
  * Phase 67 (JEV-01, JEV-02, JEV-03, JEV-04, JEV-07) -- the /api/jev router.
  *
  * Integration suite for createJevRouter (showcase/server/src/routes/jev.js),
- * mounted on a real express app on 127.0.0.1:0 in front of the loopback fake
- * upstream (tests/fixtures/jev-fake-upstream.js). It proves:
+ * mounted on a real express app on 127.0.0.1:0 in production order (trust
+ * proxy, the global JSON parser, the /api/jev mount, the generic error
+ * handler) in front of the loopback fake upstream
+ * (tests/fixtures/jev-fake-upstream.js). It proves:
  *   - the open route: no hash key, a malformed key or an unknown key all get
  *     a typed decision; no per-key limit; only hash_key_present is stored;
  *   - the pipeline order and its typed refusals (disabled, not_configured,
@@ -40,6 +42,7 @@ const Database = require(require.resolve('better-sqlite3', { paths: [SERVER_NM] 
 const express = require(require.resolve('express', { paths: [SERVER_NM] }));
 
 const { initializeDatabase } = require(path.join(SERVER, 'src', 'db', 'schema'));
+const { createGlobalJsonParser } = require(path.join(SERVER, 'src', 'middleware', 'global-json-parser'));
 const { loadJevConfig } = require(path.join(SERVER, 'src', 'jev', 'config'));
 const { CONTRACT } = require(path.join(SERVER, 'src', 'jev', 'contract'));
 const { INSTRUMENT_VERSION, INSTRUMENT_HASH } = require(path.join(SERVER, 'src', 'jev', 'instrument'));
@@ -164,9 +167,14 @@ function testFaultMiddleware(req, res, next) {
 
 const openServers = [];
 
+/**
+ * Production order (server.js): trust proxy, the global 1 MB JSON parser (which
+ * must skip /api/jev), the /api/jev mount, then the generic error handler.
+ */
 async function startGateway(routerOptions, { faultMiddleware = false } = {}) {
   const app = express();
   app.set('trust proxy', 1);
+  app.use(createGlobalJsonParser());
   if (faultMiddleware) app.use(testFaultMiddleware);
   app.use('/api/jev', createJevRouter(routerOptions));
   // Must never fire: the Jev router terminates every error itself.
@@ -465,8 +473,12 @@ async function validationSection() {
   const oversize = baseRequest();
   oversize.page.text = 'x'.repeat(50 * 1024);
   const big = await decide(gw.port, oversize);
-  checkTyped('a body over 48 KB', big, 413, 'payload_too_large');
-  checkTyped('malformed JSON', await send(gw.port, { raw: '{"v": 1, "kinds": [' }), 400, 'invalid_request');
+  // Under the global parser's 1 MB limit: a 413 here proves the global parser
+  // skipped /api/jev and the router's own 48 KB parser answered.
+  checkTyped('a body over 48 KB (from the Jev router, not the global parser)', big, 413, 'payload_too_large');
+  checkTyped('malformed JSON (from the Jev router, not the global parser)',
+    await send(gw.port, { raw: '{"v": 1, "kinds": [' }), 400, 'invalid_request');
+  check('the generic error handler was not hit by the parser errors', genericHandlerHit === false);
   checkTyped('a non-JSON content type', await send(gw.port, { raw: JSON.stringify(baseRequest()), contentType: 'text/plain' }),
     400, 'invalid_request');
   checkTyped('GET /api/jev/decide', await send(gw.port, { method: 'GET' }), 404, 'invalid_request');
