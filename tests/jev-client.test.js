@@ -564,12 +564,666 @@ async function noLoggingSection() {
   check('no console method was called across ok, error and fallback paths', calls === 0, String(calls));
 }
 
+// ---------------------------------------------------------------------------
+// Task 2: deadline and caller abort, listener and timer hygiene, cool-down,
+// no persistence, never-rejects fuzzing
+// ---------------------------------------------------------------------------
+
+function abortError() {
+  const error = new Error('The operation was aborted.');
+  error.name = 'AbortError';
+  return error;
+}
+
+/** A fetch that never resolves but rejects once its signal aborts. */
+function hangingFetch() {
+  return makeFetch((url, init) => new Promise((resolve, reject) => {
+    if (init && init.signal) init.signal.addEventListener('abort', () => reject(abortError()), { once: true });
+  }));
+}
+
+/** setTimeout/clearTimeout spies; the deadline only fires when a test calls fire(). */
+function spyTimers() {
+  const armed = [];
+  const cleared = [];
+  let next = 1;
+  return {
+    armed,
+    cleared,
+    setTimeoutImpl(fn, ms) {
+      const handle = { id: next };
+      next += 1;
+      armed.push({ fn, ms, handle });
+      return handle;
+    },
+    clearTimeoutImpl(handle) { cleared.push(handle); },
+  };
+}
+
+/** A real AbortSignal whose add/removeEventListener calls are recorded. */
+function spySignal() {
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const adds = [];
+  const removes = [];
+  const add = signal.addEventListener.bind(signal);
+  const remove = signal.removeEventListener.bind(signal);
+  signal.addEventListener = (type, fn, opts) => { adds.push({ type, fn, opts }); return add(type, fn, opts); };
+  signal.removeEventListener = (type, fn, opts) => { removes.push({ type, fn }); return remove(type, fn, opts); };
+  return { controller, signal, adds, removes };
+}
+
+function settle(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function deadlineSection() {
+  console.log('\n--- deadline and caller abort (D-15, D-16) ---');
+  const f1 = hangingFetch();
+  let t0 = Date.now();
+  const r1 = await C.createJevClient({ fetchImpl: f1, endpoint: TEST_ENDPOINT }).decide(validRequest(), { timeoutMs: 50 });
+  let took = Date.now() - t0;
+  check('a hanging fetch with timeoutMs 50 -> timeout', r1.ok === false && r1.fallback === 'timeout' && r1.httpStatus === null
+    && r1.servedModel === null && isExactFallback(r1), show(r1));
+  check('the timeout arrives in under 500 ms', took >= 40 && took < 500, `${took} ms`);
+  check('timeout latencyMs is the measured wait', r1.latencyMs >= 40 && r1.latencyMs < 500, String(r1.latencyMs));
+  check('the deadline aborted the signal handed to fetch', f1.calls[0] && f1.calls[0].init.signal.aborted === true);
+
+  const f2 = hangingFetch();
+  const caller = new AbortController();
+  const abortTimer = setTimeout(() => caller.abort(), 20);
+  t0 = Date.now();
+  const r2 = await C.createJevClient({ fetchImpl: f2, endpoint: TEST_ENDPOINT }).decide(validRequest(), { signal: caller.signal });
+  took = Date.now() - t0;
+  clearTimeout(abortTimer);
+  check('a caller abort after 20 ms -> aborted', r2.ok === false && r2.fallback === 'aborted' && r2.httpStatus === null && isExactFallback(r2),
+    show(r2));
+  check('the caller abort resolves in under 500 ms', took < 500, `${took} ms`);
+  check("fetch gets the client's own signal, not the caller's", f2.calls[0] && f2.calls[0].init.signal !== caller.signal);
+  check("the caller abort aborted the client's signal", f2.calls[0] && f2.calls[0].init.signal.aborted === true);
+
+  const deaf = makeFetch(() => new Promise(() => {}));
+  const r3 = await C.createJevClient({ fetchImpl: deaf, endpoint: TEST_ENDPOINT }).decide(validRequest(), { timeoutMs: 30 });
+  check('a fetch that ignores its signal is still bounded by the deadline -> timeout', r3.fallback === 'timeout', show(r3));
+  const deafCaller = new AbortController();
+  const deafTimer = setTimeout(() => deafCaller.abort(), 10);
+  const r4 = await C.createJevClient({ fetchImpl: makeFetch(() => new Promise(() => {})), endpoint: TEST_ENDPOINT })
+    .decide(validRequest(), { signal: deafCaller.signal });
+  clearTimeout(deafTimer);
+  check('a fetch that ignores its signal still yields aborted on a caller abort', r4.fallback === 'aborted', show(r4));
+
+  const slowBody = makeFetch(async () => ({ status: 200, text: () => new Promise(() => {}) }));
+  const r5 = await C.createJevClient({ fetchImpl: slowBody, endpoint: TEST_ENDPOINT }).decide(validRequest(), { timeoutMs: 30 });
+  check('a body read that never ends -> timeout with the received status',
+    r5.fallback === 'timeout' && r5.httpStatus === 200 && isExactFallback(r5), show(r5));
+
+  const slowKey = makeFetch(async () => jsonResponse(200, okBody()));
+  const r6 = await C.createJevClient({ fetchImpl: slowKey, endpoint: TEST_ENDPOINT, getHashKey: () => new Promise(() => {}) })
+    .decide(validRequest(), { timeoutMs: 30 });
+  check('a hash-key read that never ends is bounded too -> timeout with no fetch', r6.fallback === 'timeout' && slowKey.calls.length === 0,
+    show(r6));
+
+  // Deadline clamp, through an injected setTimeoutImpl.
+  const clampCases = [
+    [undefined, C.DEFAULT_TIMEOUT_MS], [99999, C.DEFAULT_TIMEOUT_MS], [2501, C.DEFAULT_TIMEOUT_MS], [2500, 2500], [2499, 2499],
+    [50, 50], [1, 1], [0, C.DEFAULT_TIMEOUT_MS], [-5, C.DEFAULT_TIMEOUT_MS], [NaN, C.DEFAULT_TIMEOUT_MS],
+    [Infinity, C.DEFAULT_TIMEOUT_MS], ['100', C.DEFAULT_TIMEOUT_MS], [null, C.DEFAULT_TIMEOUT_MS],
+  ];
+  for (const [timeoutMs, expected] of clampCases) {
+    const timers = spyTimers();
+    const fetchImpl = makeFetch(async () => jsonResponse(200, okBody()));
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+    const result = await client.decide(validRequest(), { timeoutMs });
+    check(`timeoutMs ${String(timeoutMs)} arms one deadline of ${expected} ms and clears it once`,
+      result.ok === true && timers.armed.length === 1 && timers.armed[0].ms === expected
+      && timers.cleared.length === 1 && timers.cleared[0] === timers.armed[0].handle,
+      show({ armed: timers.armed.map((a) => a.ms), cleared: timers.cleared.length }));
+  }
+
+  // The first cause wins.
+  {
+    const timers = spyTimers();
+    const fetchImpl = hangingFetch();
+    const callerCtl = new AbortController();
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+    const pending = client.decide(validRequest(), { signal: callerCtl.signal });
+    check('the deadline is armed before decide() first yields', timers.armed.length === 1);
+    timers.armed[0].fn();
+    callerCtl.abort();
+    const result = await pending;
+    check('deadline first, then a caller abort -> timeout', result.fallback === 'timeout', show(result));
+  }
+  {
+    const timers = spyTimers();
+    const fetchImpl = hangingFetch();
+    const callerCtl = new AbortController();
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+    const pending = client.decide(validRequest(), { signal: callerCtl.signal });
+    callerCtl.abort();
+    if (timers.armed[0]) timers.armed[0].fn();
+    const result = await pending;
+    check('a caller abort first, then the deadline -> aborted', result.fallback === 'aborted', show(result));
+  }
+  {
+    // A late abort after the answer arrived changes nothing.
+    const timers = spyTimers();
+    const fetchImpl = makeFetch(async () => jsonResponse(200, okBody()));
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+    const result = await client.decide(validRequest(), {});
+    if (timers.armed[0]) timers.armed[0].fn();
+    check('a deadline firing after the answer leaves the ok result intact', result.ok === true, show(result));
+  }
+}
+
+async function listenerSection() {
+  console.log('\n--- listener and timer hygiene (D-15) ---');
+  const outcomes = [
+    ['ok', () => makeFetch(async () => jsonResponse(200, okBody())), null],
+    ['a gateway fallback body', () => makeFetch(async () => jsonResponse(503, fallbackBody('busy', 503))), null],
+    ['a status-only fallback', () => makeFetch(async () => response(502, '<html>')), null],
+    ['network_error', () => makeFetch(() => { throw new TypeError('offline'); }), null],
+    ['timeout', () => hangingFetch(), 'deadline'],
+    ['aborted', () => hangingFetch(), 'caller'],
+  ];
+  let armedTotal = 0;
+  let clearedTotal = 0;
+  for (const [label, makeImpl, trigger] of outcomes) {
+    const timers = spyTimers();
+    const spy = spySignal();
+    const fetchImpl = makeImpl();
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+    const pending = client.decide(validRequest(), { signal: spy.signal });
+    if (trigger === 'deadline' && timers.armed[0]) timers.armed[0].fn();
+    if (trigger === 'caller') spy.controller.abort();
+    const result = await pending;
+    armedTotal += timers.armed.length;
+    clearedTotal += timers.cleared.length;
+    check(`${label}: one abort listener added with once:true and the same one removed`,
+      spy.adds.length === 1 && spy.removes.length === 1 && spy.adds[0].type === 'abort'
+      && spy.adds[0].opts && spy.adds[0].opts.once === true && spy.removes[0].type === 'abort' && spy.removes[0].fn === spy.adds[0].fn,
+      show({ adds: spy.adds.length, removes: spy.removes.length, result }));
+    check(`${label}: one deadline armed and cleared once`,
+      timers.armed.length === 1 && timers.cleared.length === 1 && timers.cleared[0] === timers.armed[0].handle);
+    if (!trigger) {
+      spy.controller.abort();
+      check(`${label}: a caller abort after the call no longer reaches the client`,
+        fetchImpl.calls[0] && fetchImpl.calls[0].init.signal.aborted === false);
+    }
+  }
+  check('clearTimeoutImpl ran once per armed timer across all outcomes', armedTotal === outcomes.length && clearedTotal === armedTotal);
+
+  // Local exits arm nothing and attach nothing.
+  const localExits = [
+    ['an invalid request', null, () => ({})],
+    ['a secret goal', Object.assign(validRequest(), { goal: CARD_GOAL }), () => ({})],
+    ['a pre-aborted signal', validRequest(), (spy) => { spy.controller.abort(); return {}; }],
+  ];
+  for (const [label, request, prepare] of localExits) {
+    const timers = spyTimers();
+    const spy = spySignal();
+    prepare(spy);
+    const fetchImpl = makeFetch(async () => jsonResponse(200, okBody()));
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+    const result = await client.decide(request, { signal: spy.signal });
+    check(`${label}: no timer, no listener, no fetch`,
+      timers.armed.length === 0 && timers.cleared.length === 0 && spy.adds.length === 0 && fetchImpl.calls.length === 0 && isExactFallback(result),
+      show({ armed: timers.armed.length, adds: spy.adds.length, result }));
+  }
+
+  // A signal-like object that is not an EventTarget is ignored, not trusted.
+  const odd = makeFetch(async () => jsonResponse(200, okBody()));
+  const oddResult = await C.createJevClient({ fetchImpl: odd, endpoint: TEST_ENDPOINT }).decide(validRequest(), { signal: { aborted: false } });
+  check('a signal without addEventListener is ignored and the call still runs', oddResult.ok === true, show(oddResult));
+}
+
+async function cooldownSection() {
+  console.log('\n--- in-memory cool-down (D-16, Pitfall 11) ---');
+  const COOLING = ['disabled', 'not_configured', 'auth_error', 'upstream_billing', 'unavailable_model'];
+  check('precondition: NON_TRANSIENT_REASONS is the five plus spend_cap_reached',
+    deepEqual(S.CONTRACT.NON_TRANSIENT_REASONS.slice().sort(), COOLING.concat('spend_cap_reached').sort()));
+  const T0 = Date.UTC(2026, 9, 17, 12, 0, 0);
+
+  function cooled(reason) {
+    return fallbackOf(reason, null, 0);
+  }
+  function gatewayClient(reason, start, servedModel) {
+    const clock = manualClock(start);
+    const status = S.CONTRACT.HTTP_STATUS_BY_REASON[reason];
+    const fetchImpl = makeFetch(async () => jsonResponse(status, fallbackBody(reason, status, servedModel)));
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, now: clock.now });
+    return { clock, status, fetchImpl, client };
+  }
+
+  for (const reason of COOLING) {
+    const g = gatewayClient(reason, T0);
+    const first = await g.client.decide(validRequest());
+    check(`${reason}: the first call reaches the gateway`, deepEqual(first, fallbackOf(reason, g.status, 0)) && g.fetchImpl.calls.length === 1,
+      show(first));
+    g.clock.t = T0 + 1;
+    const second = await g.client.decide(validRequest());
+    check(`${reason}: the next call within COOLDOWN_MS returns the same fallback with httpStatus null and no fetch`,
+      deepEqual(second, cooled(reason)) && g.fetchImpl.calls.length === 1, show(second));
+    g.clock.t = T0 + C.COOLDOWN_MS - 1;
+    const edge = await g.client.decide(validRequest());
+    check(`${reason}: still cooling at COOLDOWN_MS - 1`, deepEqual(edge, cooled(reason)) && g.fetchImpl.calls.length === 1);
+    g.clock.t = T0 + C.COOLDOWN_MS;
+    const after = await g.client.decide(validRequest());
+    check(`${reason}: at COOLDOWN_MS the client fetches again`,
+      deepEqual(after, fallbackOf(reason, g.status, 0)) && g.fetchImpl.calls.length === 2, show(after));
+  }
+
+  // auth_error keeps the short 60 s cool-down (Pitfall 11: a 403 may be moderation, not a bad key).
+  const auth = gatewayClient('auth_error', T0, 'typesafe/jev-1.13');
+  await auth.client.decide(validRequest());
+  auth.clock.t = T0 + 1000;
+  const authCooled = await auth.client.decide(validRequest());
+  check('a cooled result carries no servedModel and no status', deepEqual(authCooled, cooled('auth_error')), show(authCooled));
+
+  // A cooled answer does not extend the cool-down.
+  const ext = gatewayClient('disabled', T0);
+  await ext.client.decide(validRequest());
+  ext.clock.t = T0 + 30000;
+  await ext.client.decide(validRequest());
+  ext.clock.t = T0 + C.COOLDOWN_MS;
+  await ext.client.decide(validRequest());
+  check('a cooled answer does not extend the cool-down', ext.fetchImpl.calls.length === 2);
+
+  // spend_cap_reached: until the next UTC midnight, at most MAX_SPEND_COOLDOWN_MS.
+  const spendCases = [
+    ['23:30 UTC cools until midnight (30 min)', Date.UTC(2026, 9, 17, 23, 30, 0), Date.UTC(2026, 9, 18, 0, 0, 0)],
+    ['23:00 UTC cools until midnight (exactly 1 h)', Date.UTC(2026, 9, 17, 23, 0, 0), Date.UTC(2026, 9, 18, 0, 0, 0)],
+    ['23:59:59.500 UTC cools for 500 ms', Date.UTC(2026, 9, 17, 23, 59, 59, 500), Date.UTC(2026, 9, 18, 0, 0, 0)],
+    ['10:00 UTC is capped at 1 h', Date.UTC(2026, 9, 17, 10, 0, 0), Date.UTC(2026, 9, 17, 11, 0, 0)],
+    ['00:00 UTC exactly is capped at 1 h', Date.UTC(2026, 9, 17, 0, 0, 0), Date.UTC(2026, 9, 17, 1, 0, 0)],
+  ];
+  for (const [label, start, until] of spendCases) {
+    const g = gatewayClient('spend_cap_reached', start);
+    await g.client.decide(validRequest());
+    g.clock.t = until - 1;
+    const before = await g.client.decide(validRequest());
+    g.clock.t = until;
+    await g.client.decide(validRequest());
+    check(`spend_cap_reached at ${label}`, deepEqual(before, cooled('spend_cap_reached')) && g.fetchImpl.calls.length === 2,
+      show({ before, calls: g.fetchImpl.calls.length }));
+  }
+  check('the spend cool-down never exceeds MAX_SPEND_COOLDOWN_MS', C.MAX_SPEND_COOLDOWN_MS === 60 * 60 * 1000);
+
+  // Transient reasons never cool down.
+  const transientBodies = S.CONTRACT.GATEWAY_FALLBACK_REASONS.filter((r) => !S.CONTRACT.NON_TRANSIENT_REASONS.includes(r));
+  for (const reason of transientBodies) {
+    const g = gatewayClient(reason, T0);
+    await g.client.decide(validRequest());
+    g.clock.t = T0 + 1;
+    const again = await g.client.decide(validRequest());
+    check(`transient ${reason} starts no cool-down`, g.fetchImpl.calls.length === 2 && again.httpStatus === g.status, show(again));
+  }
+  const clientTransients = [
+    ['network_error', () => makeFetch(() => { throw new TypeError('offline'); })],
+    ['status-only server_error', () => makeFetch(async () => response(502, '<html>'))],
+    ['status-only timeout', () => makeFetch(async () => response(504, ''))],
+    ['status-only rate_limited', () => makeFetch(async () => response(429, ''))],
+    ['status-only invalid_response', () => makeFetch(async () => response(200, 'garbage'))],
+  ];
+  for (const [label, makeImpl] of clientTransients) {
+    const fetchImpl = makeImpl();
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, now: () => T0 });
+    await client.decide(validRequest());
+    await client.decide(validRequest());
+    check(`client-side ${label} starts no cool-down`, fetchImpl.calls.length === 2);
+  }
+  {
+    const timers = spyTimers();
+    const fetchImpl = hangingFetch();
+    const client = C.createJevClient({ fetchImpl, endpoint: TEST_ENDPOINT, now: () => T0, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+    const pending = client.decide(validRequest());
+    timers.armed[0].fn();
+    const first = await pending;
+    const ctl = new AbortController();
+    const second = client.decide(validRequest(), { signal: ctl.signal });
+    ctl.abort();
+    const secondResult = await second;
+    const third = client.decide(validRequest());
+    timers.armed[timers.armed.length - 1].fn();
+    await third;
+    check('a client deadline (timeout) and a caller abort start no cool-down',
+      first.fallback === 'timeout' && secondResult.fallback === 'aborted' && fetchImpl.calls.length === 3, show({ first, secondResult }));
+  }
+
+  // resetCooldown().
+  const reset = gatewayClient('disabled', T0);
+  check('createJevClient() exposes resetCooldown', typeof reset.client.resetCooldown === 'function');
+  check('resetCooldown with nothing cooling is harmless', (() => { try { reset.client.resetCooldown(); return true; } catch (_e) { return false; } })());
+  await reset.client.decide(validRequest());
+  reset.clock.t = T0 + 1;
+  reset.client.resetCooldown();
+  const afterReset = await reset.client.decide(validRequest());
+  check('resetCooldown clears an active cool-down', reset.fetchImpl.calls.length === 2 && afterReset.httpStatus === 503, show(afterReset));
+
+  // Local checks still answer during a cool-down; the cool-down survives them.
+  const local = gatewayClient('disabled', T0);
+  await local.client.decide(validRequest());
+  local.clock.t = T0 + 1;
+  const pre = new AbortController();
+  pre.abort();
+  const duringInvalid = await local.client.decide({});
+  const duringSecret = await local.client.decide(Object.assign(validRequest(), { goal: CARD_GOAL }));
+  const duringAborted = await local.client.decide(validRequest(), { signal: pre.signal });
+  const stillCooled = await local.client.decide(validRequest());
+  check('during a cool-down an invalid request is still invalid_request', duringInvalid.fallback === 'invalid_request');
+  check('during a cool-down a secret goal is still sensitive_goal', duringSecret.fallback === 'sensitive_goal');
+  check('during a cool-down a pre-aborted signal is still aborted', duringAborted.fallback === 'aborted');
+  check('the cool-down survives those local answers', deepEqual(stillCooled, cooled('disabled')) && local.fetchImpl.calls.length === 1);
+
+  // Per instance, and a clock that goes backwards ends it.
+  const a = gatewayClient('disabled', T0);
+  const b = gatewayClient('disabled', T0);
+  await a.client.decide(validRequest());
+  a.clock.t = T0 + 1;
+  b.clock.t = T0 + 1;
+  await a.client.decide(validRequest());
+  await b.client.decide(validRequest());
+  check('a cool-down belongs to its own client instance', a.fetchImpl.calls.length === 1 && b.fetchImpl.calls.length === 1);
+  a.clock.t = T0 - 1;
+  await a.client.decide(validRequest());
+  check('a clock that moved backwards ends the cool-down', a.fetchImpl.calls.length === 2);
+}
+
+async function persistenceSection() {
+  console.log('\n--- memory only: no storage, no browser API (D-01, D-16) ---');
+  const source = fs.readFileSync(CLIENT_PATH, 'utf8');
+  check('the source names no localStorage, chrome., indexedDB, sessionStorage, caches. or document.cookie',
+    !/localStorage|chrome\.|indexedDB|sessionStorage|caches\.|document\.cookie/.test(source));
+
+  // Run a cool-down cycle inside a vm context whose storage globals record every read.
+  const touched = [];
+  const trap = (name) => new Proxy({}, { get(_t, key) { touched.push(`${name}.${String(key)}`); return undefined; } });
+  const sandbox = {
+    TextEncoder,
+    AbortController,
+    setTimeout,
+    clearTimeout,
+  };
+  for (const name of ['chrome', 'browser', 'localStorage', 'sessionStorage', 'indexedDB', 'caches']) {
+    const proxy = trap(name);
+    Object.defineProperty(sandbox, name, { configurable: true, enumerable: false, get() { touched.push(name); return proxy; } });
+  }
+  const context = vm.createContext(sandbox);
+  vm.runInContext('void chrome;', context);
+  check('precondition: the storage trap records a read of chrome', touched.length === 1 && touched[0] === 'chrome', show(touched));
+  touched.length = 0;
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'extension', 'ai', 'jev-state.js'), 'utf8'), context);
+  vm.runInContext(source, context, { filename: CLIENT_PATH });
+  const clock = manualClock(Date.UTC(2026, 9, 17, 12, 0, 0));
+  let calls = 0;
+  const client = context.FsbJevClient.createJevClient({
+    endpoint: TEST_ENDPOINT,
+    now: clock.now,
+    fetchImpl: async () => {
+      calls += 1;
+      return calls === 1 ? jsonResponse(503, fallbackBody('disabled', 503)) : jsonResponse(200, okBody());
+    },
+  });
+  const r1 = clone(await client.decide(validRequest()));
+  clock.t += 1;
+  const r2 = clone(await client.decide(validRequest()));
+  client.resetCooldown();
+  const r3 = clone(await client.decide(validRequest()));
+  check('in the vm context the cool-down cycle works (disabled, cooled, then ok after reset)',
+    r1.fallback === 'disabled' && r2.fallback === 'disabled' && r2.httpStatus === null && r3.ok === true && calls === 2, show({ r1, r2, r3 }));
+  check('no storage or browser global was read during load or any call', touched.length === 0, show(touched));
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function next() {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+async function fuzzSection() {
+  console.log('\n--- never rejects: 500 seeded cases (D-15, D-16) ---');
+  const SEED = 0x6708;
+  const CASES = 500;
+  const rng = mulberry32(SEED);
+  const pick = (list) => list[Math.floor(rng() * list.length)];
+  const int = (lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
+
+  const EXTRA_KEYS = ['authorize', 'skipConfirmation', 'approved', 'override', 'humanApproved', 'x', 'value', 'grant'];
+  const STATUSES = [200, 200, 200, 201, 204, 301, 400, 401, 404, 413, 429, 500, 502, 503, 504, 599, 0, 600, 99, '200', null, undefined, 200.5, NaN];
+
+  function randomJson(depth) {
+    const roll = rng();
+    if (depth > 2 || roll < 0.3) return pick([null, 0, 1, -1, 0.5, 1e300, true, false, '', 'x', 'none_of_the_above']);
+    if (roll < 0.6) return Array.from({ length: int(0, 3) }, () => randomJson(depth + 1));
+    const node = {};
+    for (let i = 0; i < int(0, 4); i += 1) node[pick(EXTRA_KEYS.concat(S.CONTRACT.KEYS.okResponse))] = randomJson(depth + 1);
+    return node;
+  }
+
+  function mutateOk(body) {
+    const roll = int(0, 8);
+    if (roll === 0) body[pick(EXTRA_KEYS)] = randomJson(1);
+    else if (roll === 1) body.decisions.operation.confidence = pick([2, -0.1, NaN, '0.5', null]);
+    else if (roll === 2) body.latencyMs = pick([-1, null, 'fast']);
+    else if (roll === 3) body.ok = pick(['true', 1, null]);
+    else if (roll === 4) body.calibration = pick([null, { status: 'calibrated' }, { status: 'approved', profileId: 'p' }]);
+    else if (roll === 5) body.decisions[pick(['completion', 'stuck'])] = { p: 0.5, threshold: null, meetsThreshold: false };
+    else if (roll === 6) body.decisions.risk.meetsThreshold = true;
+    else if (roll === 7) body.usage = { inputTokens: 0, source: 'unavailable' };
+    else body.decisions.target.probabilities[pick(['e7', 'approved', 'e-1'])] = 0.1;
+    return body;
+  }
+
+  function randomBodyText(request) {
+    const roll = int(0, 11);
+    const matching = request && Array.isArray(request.kinds) && request.kinds.length === 5 ? allKindsBody() : okBody();
+    if (roll <= 2) return JSON.stringify(matching);
+    if (roll === 3) return JSON.stringify(mutateOk(matching));
+    if (roll === 4) {
+      const reason = pick(S.CONTRACT.FALLBACK_REASONS);
+      return JSON.stringify(fallbackBody(reason, pick([null, 400, 413, 500, 502, 503, 504, 99]), pick([null, 'typesafe/jev-1.13', '', 7])));
+    }
+    if (roll === 5) return JSON.stringify(Object.assign(fallbackBody(pick(S.CONTRACT.GATEWAY_FALLBACK_REASONS), 503), { [pick(EXTRA_KEYS)]: true }));
+    if (roll === 6) return JSON.stringify(randomJson(0));
+    if (roll === 7) return pick(['', '<html>', '{', '}{', 'null', '\u0000￿', 'undefined', '{"ok":true']);
+    if (roll === 8) return JSON.stringify(matching).replace('{', '{"__proto__":{"approved":true},');
+    if (roll === 9) return 'x'.repeat(70000);
+    if (roll === 10) return JSON.stringify(Object.assign(matching, { latencyMs: 1 })) + pick(['', ' ', '\n', 'trailing']);
+    return JSON.stringify(randomJson(1));
+  }
+
+  function randomResponse(request) {
+    const status = pick(STATUSES);
+    const textKind = int(0, 9);
+    const text = randomBodyText(request);
+    let textFn;
+    if (textKind <= 5) textFn = async () => text;
+    else if (textKind === 6) textFn = () => Promise.reject(new Error('read failed'));
+    else if (textKind === 7) textFn = () => { throw new Error('read threw'); };
+    else if (textKind === 8) textFn = async () => pick([null, 42, {}, undefined]);
+    else textFn = 'not a function';
+    return { status, text: textFn };
+  }
+
+  // Returns {impl, hangs}: hangs is true when the case relies on a deadline or an abort.
+  function randomFetch(request) {
+    const roll = int(0, 13);
+    if (roll === 0) return { impl: () => { throw pick([new Error('x'), new TypeError('y'), 'str', undefined]); }, hangs: false };
+    if (roll === 1) return { impl: () => Promise.reject(pick([new TypeError('Failed to fetch'), abortError(), undefined, null])), hangs: false };
+    if (roll === 2) {
+      return {
+        impl: (url, init) => new Promise((resolve, reject) => {
+          if (init && init.signal) init.signal.addEventListener('abort', () => reject(abortError()), { once: true });
+        }),
+        hangs: true,
+      };
+    }
+    if (roll === 3) return { impl: () => new Promise(() => {}), hangs: true };
+    if (roll === 4) return { impl: () => pick([null, undefined, 7, 'response', {}, []]), hangs: false };
+    if (roll === 5) return { impl: () => ({ status: 200, text: () => new Promise(() => {}) }), hangs: true };
+    if (roll === 6) {
+      return {
+        impl: () => new Promise((resolve) => { setTimeout(() => resolve(randomResponse(request)), int(0, 3)); }),
+        hangs: false,
+      };
+    }
+    return { impl: () => Promise.resolve(randomResponse(request)), hangs: false };
+  }
+
+  function randomRequest() {
+    const roll = int(0, 19);
+    if (roll <= 10) return validRequest();
+    if (roll <= 13) return allKindsRequest();
+    if (roll === 14) return Object.assign(validRequest(), { goal: pick([CARD_GOAL, KEY_GOAL]) });
+    if (roll === 15) return Object.assign(validRequest(), { [pick(EXTRA_KEYS)]: true });
+    if (roll === 16) return pick([null, undefined, 42, 'request', [], {}]);
+    if (roll === 17) { const r = validRequest(); r.kinds = pick([[], ['approve'], 'operation', null]); return r; }
+    if (roll === 18) { const r = validRequest(); r.elements[0].value = 'secret'; return r; }
+    return randomJson(0);
+  }
+
+  const timers = [];
+  function randomCallOpts(hangs) {
+    const roll = int(0, 9);
+    let opts;
+    if (roll === 0) opts = undefined;
+    else if (roll === 1) opts = pick([null, 42, 'opts']);
+    else if (roll === 2) opts = {};
+    else if (roll === 3) opts = { timeoutMs: pick([5, 10, 15, 20, -1, 0, NaN, 'x', Infinity, 99999, undefined]) };
+    else if (roll === 4) { const c = new AbortController(); c.abort(); opts = { signal: c.signal }; }
+    else if (roll === 5 || roll === 6) {
+      const c = new AbortController();
+      timers.push(setTimeout(() => c.abort(), int(0, 15)));
+      opts = { signal: c.signal, timeoutMs: pick([undefined, 8, 20]) };
+    }
+    else if (roll === 7) opts = { signal: pick([{ aborted: false }, { aborted: true }, { addEventListener: 'x' }, 'signal', null]) };
+    else opts = { timeoutMs: int(1, 25) };
+    if (hangs) {
+      // Keep hanging cases short: a small deadline unless a caller abort is already scheduled.
+      const scheduled = opts && typeof opts === 'object' && opts.signal instanceof AbortSignal;
+      const small = opts && typeof opts === 'object' && typeof opts.timeoutMs === 'number' && opts.timeoutMs > 0 && opts.timeoutMs <= 25;
+      if (!scheduled && !small) opts = Object.assign({}, opts && typeof opts === 'object' ? opts : {}, { timeoutMs: int(3, 15) });
+      else if (scheduled && !small) opts.timeoutMs = 25;
+    }
+    return opts;
+  }
+
+  const unhandled = [];
+  const onUnhandled = (reason) => { unhandled.push(reason); };
+  process.on('unhandledRejection', onUnhandled);
+
+  const sharedClock = manualClock(Date.UTC(2026, 9, 17, 22, 0, 0));
+  let sharedImpl = () => null;
+  const shared = C.createJevClient({ fetchImpl: (url, init) => sharedImpl(url, init), endpoint: TEST_ENDPOINT, now: sharedClock.now });
+
+  const tally = {};
+  let rejected = 0;
+  let threw = 0;
+  let badShape = 0;
+  let localLeak = 0;
+  let cooledHits = 0;
+  let firstProblem = null;
+  const started = Date.now();
+
+  for (let i = 0; i < CASES; i += 1) {
+    const request = randomRequest();
+    const { impl, hangs } = randomFetch(request);
+    let fetchCalls = 0;
+    const counted = (url, init) => { fetchCalls += 1; return impl(url, init); };
+    const callOpts = randomCallOpts(hangs);
+    let client;
+    if (rng() < 0.3) {
+      sharedClock.t += int(0, 90000);
+      sharedImpl = counted;
+      client = shared;
+    } else {
+      const hashRoll = int(0, 5);
+      const getHashKey = hashRoll === 0 ? () => HASH_KEY
+        : hashRoll === 1 ? () => { throw new Error('no key'); }
+          : hashRoll === 2 ? () => Promise.resolve(pick([HASH_KEY, 'bad', null]))
+            : null;
+      const nowRoll = int(0, 7);
+      const now = nowRoll === 0 ? () => NaN : nowRoll === 1 ? () => { throw new Error('clock'); } : nowRoll === 2 ? () => 'later' : undefined;
+      client = C.createJevClient({ fetchImpl: counted, endpoint: TEST_ENDPOINT, now, getHashKey });
+    }
+
+    let result;
+    try {
+      const promise = client.decide(request, callOpts);
+      const settled = await promise.then((value) => ({ value }), (error) => ({ error }));
+      if ('error' in settled) {
+        rejected += 1;
+        if (!firstProblem) firstProblem = { i, problem: 'rejected', error: String(settled.error) };
+        continue;
+      }
+      result = settled.value;
+    } catch (error) {
+      threw += 1;
+      if (!firstProblem) firstProblem = { i, problem: 'threw', error: String(error) };
+      continue;
+    }
+
+    if (!isExactResult(result, request)) {
+      badShape += 1;
+      if (!firstProblem) firstProblem = { i, problem: 'shape', result: show(result) };
+    }
+    const requestOk = (() => { try { return S.validateRequest(request).ok === true; } catch (_e) { return false; } })();
+    if (!requestOk && (fetchCalls !== 0 || !(result && ['invalid_request', 'sensitive_goal'].includes(result.fallback)))) {
+      localLeak += 1;
+      if (!firstProblem) firstProblem = { i, problem: 'invalid request reached the network', result: show(result), fetchCalls };
+    }
+    if (result && result.ok === false && result.httpStatus === null && fetchCalls === 0
+      && S.CONTRACT.NON_TRANSIENT_REASONS.includes(result.fallback)) cooledHits += 1;
+    const key = result && result.ok === true ? 'ok' : result && result.fallback;
+    tally[key] = (tally[key] || 0) + 1;
+  }
+  for (const timer of timers) clearTimeout(timer);
+  await settle(30);
+  process.off('unhandledRejection', onUnhandled);
+
+  const elapsed = Date.now() - started;
+  console.log(`  fuzz: ${CASES} cases in ${elapsed} ms, seed 0x${SEED.toString(16)}; outcomes ${JSON.stringify(tally)}; cooled ${cooledHits}`);
+  check('no case rejected', rejected === 0, show(firstProblem));
+  check('no case threw synchronously', threw === 0, show(firstProblem));
+  check('every result is an exact D-15 shape with a D-16 reason', badShape === 0, show(firstProblem));
+  check('an invalid request never reached the network', localLeak === 0, show(firstProblem));
+  check('no unhandled rejection escaped', unhandled.length === 0, show(unhandled.map(String)));
+  const mustSee = ['ok', 'invalid_request', 'sensitive_goal', 'aborted', 'timeout', 'network_error', 'invalid_response',
+    'server_error', 'rate_limited', 'payload_too_large'];
+  const missing = mustSee.filter((reason) => !tally[reason]);
+  check('the fuzz reached every main outcome (not vacuous)', missing.length === 0, `missing ${missing.join(', ')}`);
+  check('the fuzz exercised gateway fallback bodies and cool-down hits',
+    Object.keys(tally).some((k) => S.CONTRACT.NON_TRANSIENT_REASONS.includes(k)) && cooledHits > 0, String(cooledHits));
+}
+
+async function timerHygieneSection() {
+  console.log('\n--- no timer outlives a call (D-17) ---');
+  await settle(5);
+  const pending = typeof process.getActiveResourcesInfo === 'function'
+    ? process.getActiveResourcesInfo().filter((resource) => resource === 'Timeout').length
+    : 0;
+  check('no Timeout handle is still active after every call has settled', pending === 0, String(pending));
+}
+
+let completed = false;
+// A decide() that never settles drains the event loop and ends the process
+// early; fail loudly instead of exiting 0 halfway through.
+process.exitCode = 1;
+process.on('exit', () => {
+  if (!completed) console.log('\n  FAIL: the suite did not finish (a decide() call never settled)');
+});
+
 async function main() {
   console.log('--- jev-client (JEV-01, JEV-02, JEV-06, JEV-07) ---');
   const loaded = loadSection();
   if (loaded) {
     const sections = [staticSection, okSection, fallbackBodySection, malformedBodySection, statusTableSection,
-      transportSection, localCheckSection, networkErrorSection, noLoggingSection];
+      transportSection, localCheckSection, networkErrorSection, noLoggingSection,
+      deadlineSection, listenerSection, cooldownSection, persistenceSection, fuzzSection, timerHygieneSection];
     for (const section of sections) {
       try { await section(); } catch (error) {
         failed += 1;
@@ -580,6 +1234,7 @@ async function main() {
   console.log(`\n=== jev-client results: ${passed} passed, ${failed} failed ===`);
   // No process.exit(): the process must exit on its own, so a dangling timer
   // shows up as a hang instead of being cut short.
+  completed = true;
   process.exitCode = failed > 0 ? 1 : 0;
 }
 
