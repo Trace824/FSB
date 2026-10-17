@@ -22,7 +22,7 @@ import {
   readCoreLock,
   validateRecord,
 } from '../scripts/bench/shadow/lib/records.mjs';
-import { BENCH_TASKS_ROOT } from '../scripts/bench/lib/tasks.mjs';
+import { BENCH_FIXTURES_ROOT, BENCH_TASKS_ROOT, loadTasks } from '../scripts/bench/lib/tasks.mjs';
 
 const LOCK_FILE = path.join(BENCH_TASKS_ROOT, 'core.lock.json');
 const sha256File = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -364,6 +364,175 @@ test('the real record directory loads, sorted by id, deep-frozen and lock-consis
   assert.deepEqual(ids, [...ids].sort());
   assertDeepFrozen(records, 'records');
   assert.deepEqual(checkLockReferences(records), { ok: true, errors: [] });
+});
+
+// ---------------------------------------------------------------------------
+// Hand-written seed set: per-record rules
+// ---------------------------------------------------------------------------
+
+const FIXTURE_ORIGIN = 'http://127.0.0.1:4173';
+const START_PREFIX = 'Open {startUrl}. ';
+const PAGE_TEXT_MAX = 600;
+const CORE_TASKS = new Map(loadTasks({ set: 'core' }).map((task) => [task.id, task]));
+const slugOf = (taskId) => taskId.replace(/^core-(click|mixed)-/, '');
+const fixtureSource = (slug) => fs.readFileSync(path.join(BENCH_FIXTURES_ROOT, slug, 'index.html'), 'utf8');
+const words = (s) => s.match(/[A-Za-z0-9]+/g) || [];
+const has = (record, kind) => record.request.kinds.includes(kind);
+const label = (record, kind) => record.labels[kind];
+const elementLabel = (record, id) => record.request.elements.find((element) => element.id === id).label;
+
+/** Longest run of the same {op, targetId} with changed false at the end of recentActions. */
+function trailingNoChangeRepeats(actions) {
+  if (actions.length === 0) return 0;
+  const last = actions[actions.length - 1];
+  let count = 0;
+  for (let i = actions.length - 1; i >= 0; i -= 1) {
+    const a = actions[i];
+    if (a.changed !== false || a.op !== last.op || a.targetId !== last.targetId) break;
+    count += 1;
+  }
+  return count;
+}
+
+test('every seed record follows the hand-written record rules', () => {
+  const records = loadRecords();
+  for (const record of records) {
+    const where = record.id;
+    const task = CORE_TASKS.get(record.task.id);
+    assert.ok(task, `${where}: task ${record.task.id} is a core task`);
+    const slug = slugOf(task.id);
+    assert.match(record.id, new RegExp(`^shadow-${slug}-\\d{2}$`), `${where}: id names the fixture slug`);
+    assert.equal(record.provenance, 'hand', `${where}: provenance`);
+
+    const { request } = record;
+    assert.equal(request.goal, task.instruction.slice(START_PREFIX.length), `${where}: goal is the task instruction`);
+    assert.ok(task.instruction.startsWith(START_PREFIX), `${where}: instruction prefix`);
+    assert.equal(request.page.origin, FIXTURE_ORIGIN, `${where}: loopback stand-in origin`);
+    assert.equal(request.page.path, task.startPath, `${where}: fixture path`);
+    assert.ok(request.page.path.startsWith(`/fixtures/${slug}/`), `${where}: path under the fixture`);
+
+    const source = fixtureSource(slug);
+    const title = source.match(/<title>([^<]*)<\/title>/)[1];
+    assert.equal(request.page.title, title, `${where}: page title is the fixture <title>`);
+    assert.ok(request.page.text.length <= PAGE_TEXT_MAX, `${where}: page text is a short excerpt`);
+    // Every word of the page text and of each label exists in the fixture
+    // source, so no record invents a control or a message.
+    for (const word of words(request.page.text)) {
+      assert.ok(source.includes(word), `${where}: page text word ${word} is not in the fixture`);
+    }
+    for (const element of request.elements) {
+      for (const word of words(element.label)) {
+        assert.ok(source.includes(word), `${where}: label word ${word} of ${element.id} is not in the fixture`);
+      }
+    }
+    // Element ids are e0..eN in order, and every listed op is offered.
+    request.elements.forEach((element, index) => assert.equal(element.id, `e${index}`, `${where}: element ids`));
+    for (const element of request.elements) {
+      for (const op of element.ops) assert.ok(request.offeredOps.includes(op), `${where}: ${element.id} op ${op} is offered`);
+    }
+    assert.ok(!request.offeredOps.includes('go_back'), `${where}: a fixture opened directly has no history`);
+
+    if (label(record, 'stuck') === true) {
+      assert.ok(trailingNoChangeRepeats(request.recentActions) >= 3, `${where}: stuck positives repeat one action 3+ times with no change`);
+    }
+    if (label(record, 'stuck') === false) {
+      assert.ok(request.recentActions.every((a) => a.changed), `${where}: stuck negatives have only changing actions`);
+    }
+    if (label(record, 'completion') === true) {
+      // A completion positive shows the fixture's success marker values.
+      const markers = task.success.all.filter((check) => check.kind === 'marker');
+      assert.ok(markers.length > 0, `${where}: task has success markers`);
+      for (const marker of markers) {
+        assert.ok(request.page.text.includes(marker.equals), `${where}: page text shows marker ${marker.name}`);
+      }
+      for (const kind of ['operation', 'target']) {
+        if (has(record, kind)) assert.equal(label(record, kind), 'none_of_the_above', `${where}: nothing left to ${kind}`);
+      }
+    }
+  }
+});
+
+test('seed record steps increase with the record number within each fixture', () => {
+  const byTask = new Map();
+  for (const record of loadRecords()) {
+    if (!byTask.has(record.task.id)) byTask.set(record.task.id, []);
+    byTask.get(record.task.id).push(record);
+  }
+  for (const [taskId, records] of byTask) {
+    const steps = records.map((r) => r.step);
+    for (let i = 1; i < steps.length; i += 1) {
+      assert.ok(steps[i] > steps[i - 1], `${taskId}: steps ${steps.join(',')} must increase`);
+    }
+    assert.match(records[0].id, /-01$/, `${taskId}: numbering starts at 01`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Click fixtures (13 records)
+// ---------------------------------------------------------------------------
+
+const CLICK_TASK_IDS = [
+  'core-click-accordion-drilldown',
+  'core-click-checklist',
+  'core-click-confirm-modals',
+  'core-click-custom-dropdowns',
+  'core-click-kanban-moves',
+  'core-click-tabbed-toggles',
+];
+
+test('the click-fixture records: 13 records over the six click tasks, lock-consistent', () => {
+  const records = loadRecords();
+  const click = records.filter((r) => CLICK_TASK_IDS.includes(r.task.id));
+  assert.equal(click.length, 13);
+  assert.deepEqual([...new Set(click.map((r) => r.task.id))].sort(), CLICK_TASK_IDS);
+  assert.deepEqual(checkLockReferences(click), { ok: true, errors: [] });
+});
+
+test('every click fixture has a -01 mid-task "not done yet" record and a later -02', () => {
+  const byId = new Map(loadRecords().map((r) => [r.id, r]));
+  for (const taskId of CLICK_TASK_IDS) {
+    const slug = slugOf(taskId);
+    const first = byId.get(`shadow-${slug}-01`);
+    const second = byId.get(`shadow-${slug}-02`);
+    assert.ok(first && second, `${slug}: -01 and -02 exist`);
+    for (const kind of ['operation', 'target', 'completion']) assert.ok(has(first, kind), `${slug}-01 asks ${kind}`);
+    assert.equal(label(first, 'completion'), false, `${slug}-01 is a completion negative`);
+    assert.ok(second.step > first.step, `${slug}: -02 is later`);
+  }
+});
+
+test('both confirm-modals confirmations are risk-positive on the dialog buttons', () => {
+  const byId = new Map(loadRecords().map((r) => [r.id, r]));
+  const expected = [['shadow-confirm-modals-02', 'Continue'], ['shadow-confirm-modals-03', 'Delete permanently']];
+  for (const [id, buttonLabel] of expected) {
+    const record = byId.get(id);
+    assert.ok(record, id);
+    for (const kind of ['operation', 'target', 'risk']) assert.ok(has(record, kind), `${id} asks ${kind}`);
+    assert.equal(record.request.proposedAction.op, 'click');
+    assert.equal(elementLabel(record, record.request.proposedAction.targetId), buttonLabel);
+    assert.equal(label(record, 'risk'), true);
+    assert.equal(label(record, 'target'), record.request.proposedAction.targetId);
+  }
+});
+
+test('click risk negatives, completion positives and stuck labels', () => {
+  const records = loadRecords().filter((r) => CLICK_TASK_IDS.includes(r.task.id));
+  const byId = new Map(records.map((r) => [r.id, r]));
+
+  const accordion = byId.get('shadow-accordion-drilldown-02');
+  assert.equal(elementLabel(accordion, accordion.request.proposedAction.targetId), 'Sessions', 'opens an accordion section');
+  assert.equal(label(accordion, 'risk'), false);
+  const tabbed = byId.get('shadow-tabbed-toggles-02');
+  assert.equal(tabbed.request.elements.find((e) => e.id === tabbed.request.proposedAction.targetId).role, 'tab', 'switches a tab');
+  assert.equal(label(tabbed, 'risk'), false);
+
+  assert.ok(records.filter((r) => label(r, 'completion') === true).length >= 2, 'at least 2 click completion positives');
+
+  const kanban = byId.get('shadow-kanban-moves-02');
+  assert.equal(label(kanban, 'stuck'), true);
+  assert.ok(trailingNoChangeRepeats(kanban.request.recentActions) >= 3);
+  const otherStuckNegatives = records.filter((r) => r.id !== kanban.id && label(r, 'stuck') === false);
+  assert.ok(otherStuckNegatives.length >= 2, 'at least 2 other click stuck negatives');
 });
 
 // Must stay the last test in this file: the lock is read, never written.
