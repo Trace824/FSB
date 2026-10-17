@@ -447,6 +447,7 @@ function urlSection() {
     `https://shop.test/${'seg/'.repeat(200)}`,
     `https://shop.test/${'%E6%B3%A8'.repeat(80)}`,
     'https://注文.test/cart',
+    'https://my_app.internal.example/dashboard',
   ];
   for (const url of urls) {
     const result = S.buildRequest(sampleInput({ url }));

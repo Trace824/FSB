@@ -318,7 +318,7 @@
   var ELEMENT_ID_RE = new RegExp(CONTRACT.ELEMENT_ID_PATTERN);
   // Scheme, host (bracketed IPv6 or a DNS/IPv4 host) and an optional port.
   // Nothing after the authority (D-20).
-  var ORIGIN_RE = /^https?:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:[0-9]{1,5})?$/;
+  var ORIGIN_RE = /^https?:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._-]+)(:[0-9]{1,5})?$/;
 
   /** Length in Unicode code points (never UTF-16 code units). Non-strings are 0. */
   function codePointLength(s) {

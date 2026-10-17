@@ -29,7 +29,7 @@ const { KEYS, CAPS, KINDS, OPERATIONS, SCHEMA_VERSION } = CONTRACT;
 const ELEMENT_ID_RE = new RegExp(CONTRACT.ELEMENT_ID_PATTERN);
 // Scheme, host (bracketed IPv6 or a DNS/IPv4 host) and an optional port.
 // Nothing after the authority: no path, query or fragment (D-20).
-const ORIGIN_RE = /^https?:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:[0-9]{1,5})?$/;
+const ORIGIN_RE = /^https?:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._-]+)(:[0-9]{1,5})?$/;
 
 function codePointLength(s) {
   return Array.from(s).length;

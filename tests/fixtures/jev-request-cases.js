@@ -95,6 +95,8 @@ const VALID_CASES = [
   valid('empty title and text', (r) => { r.page.title = ''; r.page.text = ''; }),
   valid('IPv6 loopback origin with port', (r) => { r.page.origin = 'http://[::1]:8080'; }),
   valid('loopback origin with port', (r) => { r.page.origin = 'http://127.0.0.1:4173'; }),
+  // WHATWG URL keeps '_' in a host, so toOriginPath can emit it (IN-03).
+  valid('origin whose host holds an underscore', (r) => { r.page.origin = 'https://my_app.internal.example'; }),
   valid('recentAction targetId null', (r) => { r.recentActions = [{ op: 'go_back', targetId: null, changed: false }]; }),
   valid('proposedAction targetId null with op scroll', (r) => { r.proposedAction = { op: 'scroll', targetId: null }; }),
   valid('element with an empty label', (r) => { r.elements[1].label = ''; }),
