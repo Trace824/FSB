@@ -5,7 +5,7 @@
 **Date:** 2026-10-15
 **Phase:** 71-comparative-gate-and-release
 **Mode:** assumptions + auto. There was no user to confirm. Every Likely or Unclear item was auto-resolved to the option that best fits the owner's stated direction, and every Confident item was locked as stated.
-**HEAD analyzed:** `e1e6439c` on branch `Jev` (planning worktree `/tmp/fsb-plan68-wt`).
+**HEAD analyzed:** `e1e6439c` on branch `Jev` (planning worktree `the repository root`).
 - Main-tree progress was read without writing to it: Phase 66.1 has executed (up to `f978e989`) and Phase 69 is at 69-03 (`32d072e5`).
 - Phases 67 and 68 are planned but have not executed. Phase 70 has no plans.
 - `scripts/bench/` is byte-identical between `8a058bdf` and `e1e6439c`.

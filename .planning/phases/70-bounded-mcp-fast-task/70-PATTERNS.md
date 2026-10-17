@@ -4,7 +4,7 @@
 **Files analyzed:** 20 (4 source files modified, 1 optional bench lib file, 6 new test or fixture files, 5 upstream test or fixture files extended, 2 registration files, 3 planning artifacts)
 **Analogs found:** 18 / 20 (the classifier and the goal normaliser have no in-tree behavioral analog; see "No Analog Found")
 
-All in-tree line numbers were read at `e1e6439c` in `/tmp/fsb-plan68-wt`. Phase 67, 68 and 69 files do not exist in this tree yet. Their analogs are quoted from their PLANs with line numbers, and 70-01's sync re-check (D-24) must confirm them before any Phase 70 source edit.
+All in-tree line numbers were read at `e1e6439c` in `the repository root`. Phase 67, 68 and 69 files do not exist in this tree yet. Their analogs are quoted from their PLANs with line numbers, and 70-01's sync re-check (D-24) must confirm them before any Phase 70 source edit.
 
 ## File Classification
 

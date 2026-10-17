@@ -3,7 +3,7 @@
 **Mapped:** 2026-10-15
 **Files analyzed:** 41 new or modified files (the docs and locale sites are grouped in one row set)
 **Analogs found:** 38 / 41
-**Trees read:** the planning worktree `/tmp/fsb-plan68-wt` at `e1e6439c`, and read-only the main tree at `ae39c486` for the 66.1/69 files that exist only there.
+**Trees read:** the planning worktree `the repository root` at `e1e6439c`, and read-only the main tree at `ae39c486` for the 66.1/69 files that exist only there.
 - **Byte-identical in both trees:** `scripts/bench/**`, `scripts/sync-product-version.mjs`, `tests/version-sync.test.js` and `tests/bench-report.test.mjs`.
 - **Differs between the trees:** `tests/mcp-version-parity.test.js`. The main tree adds `mcp:get-settings` and `mcp:set-setting` at `:370-371`.
 - **Main tree only:** `scripts/mcp/**`, `tests/helpers/mcp-in-process.mjs` and `tests/mcp-tools-list-shape-freeze.test.js`.

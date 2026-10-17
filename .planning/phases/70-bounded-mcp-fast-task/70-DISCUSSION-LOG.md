@@ -5,7 +5,7 @@
 **Date:** 2026-10-15
 **Phase:** 70-bounded-mcp-fast-task
 **Mode:** assumptions + auto. There was no user to confirm. Every Likely or Unclear item was auto-resolved to the option that best fits the owner's stated direction, and every Confident item was locked as stated.
-**HEAD analyzed:** `e1e6439c` on the planning worktree `/tmp/fsb-plan68-wt` (branch `Jev`, detached). Phases 66.1 and 69 are being executed in the main tree, Phase 67 is next and Phase 68 follows it. None of their code is in this tree, so their interfaces are quoted from their PLANs with line numbers.
+**HEAD analyzed:** `e1e6439c` on the planning worktree `the repository root` (branch `Jev`, detached). Phases 66.1 and 69 are being executed in the main tree, Phase 67 is next and Phase 68 follows it. None of their code is in this tree, so their interfaces are quoted from their PLANs with line numbers.
 **Areas analyzed:**
 1. Activation gate and loop mechanics
 2. Budgets: actions, Jev calls and wall clock

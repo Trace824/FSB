@@ -5,7 +5,7 @@
 **Date:** 2026-10-15
 **Phase:** 68-autopilot-fast-mode
 **Mode:** assumptions + auto. There was no user to confirm, so every Likely or Unclear item was auto-resolved to the option that best fits the owner's stated direction, and every Confident item was locked as stated.
-**HEAD analyzed:** `e1e6439c` on branch `Jev` (planning worktree `/tmp/fsb-plan68-wt`). Phases 66.1, 67 and 69 are not in this tree, so their interfaces are quoted from their PLANs.
+**HEAD analyzed:** `e1e6439c` on branch `Jev` (planning worktree `the repository root`). Phases 66.1, 67 and 69 are not in this tree, so their interfaces are quoted from their PLANs.
 **Areas analyzed:**
 1. The setting, its scope, and "off means pre-milestone FSB" (AUTO-01)
 2. Where the fast step lives in the agent loop (AUTO-02, AUTO-03)

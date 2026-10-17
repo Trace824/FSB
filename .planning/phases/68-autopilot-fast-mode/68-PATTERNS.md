@@ -1,7 +1,7 @@
 # Phase 68: Autopilot Fast Mode - Pattern Map
 
 **Mapped:** 2026-10-15
-**Worktree:** `/tmp/fsb-plan68-wt` at `e1e6439c` (Phases 66.1, 67, 69 are planned, not present; their interfaces are quoted from PLANs)
+**Worktree:** `the repository root` at `e1e6439c` (Phases 66.1, 67, 69 are planned, not present; their interfaces are quoted from PLANs)
 **Files analyzed:** 30 (9 new, 21 modified)
 **Analogs found:** 28 / 30 (2 partial-only: the `runAgentIteration` end-to-end harness and the union risk classifier)
 

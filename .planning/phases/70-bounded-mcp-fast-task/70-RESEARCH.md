@@ -2,7 +2,7 @@
 
 **Researched:** 2026-10-15
 **Domain:** MV3 service-worker `run_task` settle path (extension/ws/mcp-bridge-client.js), the Phase 68 fast loop (`FsbFastPath`), the agent-loop hook pipeline, the MCP success wire (`mapFSBError`), and the bench raw record
-**Confidence:** MEDIUM-HIGH. Every FSB code anchor below was read at `e1e6439c` in `/tmp/fsb-plan68-wt`. Phase 67, 68 and 69 interfaces come from their PLANs because none of their code is in this tree; anything that depends on how they are implemented is MEDIUM until the 70-01 sync re-check (D-24).
+**Confidence:** MEDIUM-HIGH. Every FSB code anchor below was read at `e1e6439c` in `the repository root`. Phase 67, 68 and 69 interfaces come from their PLANs because none of their code is in this tree; anything that depends on how they are implemented is MEDIUM until the 70-01 sync re-check (D-24).
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
