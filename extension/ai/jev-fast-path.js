@@ -1550,8 +1550,25 @@
     }
   }
 
-  /** Tag the loop's actionHistory event for this step (same iteration and tool) decisionSource 'jev' (D-23). */
-  function tagActionHistory(session, step) {
+  /** The selector the content resolver chose for this step (jevSelector), or null. */
+  function replaySelectorOf(toolResult) {
+    var nested = isObject(toolResult) && isObject(toolResult.result) ? toolResult.result : null;
+    var selector = nested !== null ? nested.jevSelector : null;
+    return typeof selector === 'string' && selector.length > 0 && selector.length <= SELECTOR_MAX && !LLM_REF_RE.test(selector)
+      ? selector
+      : null;
+  }
+
+  /**
+   * Tag the loop's actionHistory event for this step (same iteration and
+   * tool) decisionSource 'jev' (D-23). When the content script reported the
+   * selector its strict resolver chose, the event's params become a
+   * replayable copy {selector, visual_reason} (check_box adds checked:true):
+   * the one-time handle and generation can never resolve again, so a replay
+   * of the recorded handle would always fail (WR-05). The call's own args,
+   * which the meta-attempt key reads, are not changed.
+   */
+  function tagActionHistory(session, step, toolResult) {
     var history = isObject(session._actionHistory) && Array.isArray(session._actionHistory.events)
       ? session._actionHistory.events
       : (Array.isArray(session.actionHistory) ? session.actionHistory : null);
@@ -1560,6 +1577,12 @@
       var event = history[i];
       if (isObject(event) && event.iteration === step.iteration && event.tool === step.name) {
         event.decisionSource = 'jev';
+        var selector = replaySelectorOf(toolResult);
+        if (selector !== null && isObject(event.params) && typeof event.params.jevHandle === 'string') {
+          var params = { selector: selector, visual_reason: constants.FAST_VISUAL_REASON };
+          if (step.op === 'check_box') params.checked = true;
+          event.params = params;
+        }
         return;
       }
     }
@@ -1641,7 +1664,7 @@
         var command = indexOrNull(step.command) !== null ? step.command : jevFast.command;
         addCommandTotals(session, command, { fastSteps: 1, escalation: escalation === null ? undefined : escalation });
       }
-      tagActionHistory(session, step);
+      tagActionHistory(session, step, toolResult);
       // No result for this call id: the step may have run, and the loop and
       // this module disagree about it, so fast mode stops for the session.
       if (!lookup.found) latchOff(session, 'exception');

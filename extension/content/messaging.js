@@ -1168,7 +1168,13 @@
                 sendResponse({
                   ...result,
                   tool: tool,
-                  executionTime: Date.now() - startTime
+                  executionTime: Date.now() - startTime,
+                  // Phase 68 (WR-05): a fast-mode call reports the selector the
+                  // strict resolver chose, so its replay record can target the
+                  // element instead of a one-time handle. Other calls: unchanged.
+                  ...(params && params.jevHandle !== undefined && typeof params.selector === 'string'
+                    ? { jevSelector: params.selector }
+                    : {})
                 });
               }
             } catch (actionError) {

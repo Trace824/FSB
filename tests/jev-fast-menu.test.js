@@ -2135,6 +2135,23 @@ check('getJevMenu: the real builder resets only the fast-mode registry and arms 
   F._jevCaptureArm = null;
 });
 
+check('WR-05: only a fast-mode call adds jevSelector (the resolved selector) to the executeAction success response', () => {
+  assert.equal(messagingSource.split('jevSelector').length - 1, 1, 'jevSelector is named once');
+  const caseAt = messagingSource.indexOf(EXECUTE_CASE);
+  const handlerAt = messagingSource.indexOf('if (FSB.tools[tool]) {', caseAt);
+  const unknownAt = messagingSource.indexOf("sendResponse({ success: false, error: `Unknown tool: ${tool}` });", handlerAt);
+  const block = messagingSource.slice(handlerAt, unknownAt);
+  assert.ok(handlerAt > caseAt && unknownAt > handlerAt, 'the tool-handler block of executeAction');
+  assert.match(block, /sendResponse\(\{\n\s*\.\.\.result,\n\s*tool: tool,\n\s*executionTime: Date\.now\(\) - startTime,\n(?:\s*\/\/[^\n]*\n)*\s*\.\.\.\(params && params\.jevHandle !== undefined && typeof params\.selector === 'string'\n\s*\? \{ jevSelector: params\.selector \}\n\s*: \{\}\)\n\s*\}\);/,
+    'the success response spreads jevSelector only when the call carried jevHandle');
+  // The spread adds nothing for any other call, so their responses are unchanged.
+  const spread = (params) => ({ ...(params && params.jevHandle !== undefined && typeof params.selector === 'string' ? { jevSelector: params.selector } : {}) });
+  assert.deepEqual(spread({ selector: '#next' }), {});
+  assert.deepEqual(spread({ ref: 'e2', selector: '#next' }), {});
+  assert.deepEqual(spread(undefined), {});
+  assert.deepEqual(spread({ jevHandle: 'j1', selector: '#next' }), { jevSelector: '#next' });
+});
+
 check('getJevMenu is routed by the synchronous message switch, next to executeAction', () => {
   const syncAt = messagingSource.indexOf('function handleBackgroundMessage(');
   const caseAt = messagingSource.indexOf("case 'getJevMenu': {");

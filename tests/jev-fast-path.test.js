@@ -2132,6 +2132,44 @@ async function afterProgress() {
   plain.r.session.actionHistory = [{ tool: plain.step.name, iteration: plain.step.iteration, timestamp: 3 }];
   FsbFastPath.afterStep(plain.r.session, plain.step, resultsFor(plain.step, result));
   check(plain.r.session.actionHistory[0].decisionSource === 'jev', 'without _actionHistory the session.actionHistory event is tagged');
+
+  // WR-05: the selector the content resolver chose makes the recorded step
+  // replayable; the one-time handle is dropped from the record, never from the call.
+  const replay = require(path.join(ROOT, 'extension', 'utils', 'lattice-replay.js'));
+  const sel = await acted();
+  const argsBefore = JSON.stringify(sel.out.toolCall.args);
+  const withSelector = await realResult('click', reply({ success: true, verification: { verified: true, changes: ['dom'] }, jevSelector: '#next' }));
+  FsbFastPath.afterStep(sel.r.session, sel.step, resultsFor(sel.step, withSelector));
+  const recorded = sel.r.session._actionHistory.events[1];
+  check(recorded.decisionSource === 'jev' && sameJson(recorded.params, { selector: '#next', visual_reason: 'Fast mode: simple step' }),
+    'WR-05: with a reported selector the actionHistory params become {selector, visual_reason} (' + JSON.stringify(recorded.params) + ')');
+  check(JSON.stringify(sel.out.toolCall.args) === argsBefore && sel.out.toolCall.args.jevHandle === 'j1',
+    'WR-05: the call args (read by the meta-attempt key) are unchanged');
+  const replayable = replay.classifyReplayEntry({ tool: 'click', arguments: recorded.params, success: true });
+  check(replayable.availability === 'approval-once' && replayable.risk === 'write',
+    'WR-05: the recorded fast click classifies as an ordinary replayable click (' + JSON.stringify(replayable) + ')');
+
+  const box = await acted({ op: 'check_box', label: 'Alpha' });
+  const boxResult = await realResult('check_box', reply({ success: true, checked: true, jevSelector: '#alpha' }));
+  FsbFastPath.afterStep(box.r.session, box.step, resultsFor(box.step, boxResult));
+  check(sameJson(box.r.session._actionHistory.events[1].params, { selector: '#alpha', visual_reason: 'Fast mode: simple step', checked: true }),
+    'WR-05: a recorded check_box keeps checked:true, so a replay only ever ticks');
+
+  for (const [label, response] of [
+    ['no reported selector', { success: true, verification: { verified: true, changes: ['dom'] } }],
+    ['a ref-shaped selector', { success: true, jevSelector: 'e5' }],
+    ['an over-long selector', { success: true, jevSelector: '#' + 'x'.repeat(260) }],
+    ['a non-string selector', { success: true, jevSelector: { css: '#next' } }]
+  ]) {
+    const kept = await acted();
+    const before = JSON.stringify(kept.r.session._actionHistory.events[1].params);
+    FsbFastPath.afterStep(kept.r.session, kept.step, resultsFor(kept.step, await realResult('click', reply(response))));
+    const event = kept.r.session._actionHistory.events[1];
+    const verdict = replay.classifyReplayEntry({ tool: 'click', arguments: event.params, success: true });
+    check(JSON.stringify(event.params) === before && event.decisionSource === 'jev' && verdict.availability === 'unsupported'
+      && verdict.reason === 'Fast-mode step recorded against a one-time page handle',
+    'WR-05: ' + label + ' keeps the handle params, and replay marks the step unsupported with a clear reason');
+  }
 }
 
 async function afterEscalations() {

@@ -1589,6 +1589,31 @@ async function lostStepCase() {
   }
 }
 
+async function replayRecordCase() {
+  section('replay record: a fast step is recorded with the selector its resolver chose (WR-05)');
+  const replay = require(path.join(ROOT, 'extension', 'utils', 'lattice-replay.js'));
+  const run = loopRun({
+    answers: [clickNthItem, catchAll],
+    content: { action: () => ({ success: true, jevSelector: '#item-1', verification: { verified: true, changes: ['content'], confidence: 'high' } }) }
+  });
+  try {
+    await runSteps(run, 2);
+    const history = run.h.session.actionHistory;
+    const fastEvent = history.find((e) => e && e.iteration === 2 && e.tool === 'click');
+    check(run.steps[1].fast === 1 && fastEvent && fastEvent.decisionSource === 'jev'
+      && util.isDeepStrictEqual(fastEvent.params, { selector: '#item-1', visual_reason: 'Fast mode: simple step' }),
+    'replay record: the loop\'s actionHistory event for the fast click holds {selector, visual_reason} and no handle');
+    const record = replay.createLegacyReplayRecord({ sessionId: 's-replay', startUrl: 'https://wizard.example/wizard/step-2', actionHistory: history });
+    const step = record.manifest.steps.find((s) => s.tool === 'click' && s.arguments && s.arguments.selector === '#item-1');
+    check(step && step.replay.availability !== 'unsupported' && !('jevHandle' in step.arguments),
+      'replay record: the replay manifest step targets #item-1 and is not unsupported (' + JSON.stringify(step && step.replay) + ')');
+    check(Object.keys(run.h.session._metaAttempts || {}).some((k) => /^jev:button:[0-9a-f]{8}$/.test(k)),
+      'replay record: the meta-attempt key still comes from the unchanged call args');
+  } finally {
+    finish(run);
+  }
+}
+
 async function stopCase() {
   section('outcomes, pairing and containment: a stop during an in-flight decision (F21)');
   const run = loopRun({ answers: [() => new Promise(() => {})] });
@@ -1832,6 +1857,7 @@ async function main() {
   await collapseCase();
   await exceptionCases();
   await lostStepCase();
+  await replayRecordCase();
   await stopCase();
   await switchOffCase();
   // Plan 68-08 Task 1: recorded-llm capture through the real loop.
