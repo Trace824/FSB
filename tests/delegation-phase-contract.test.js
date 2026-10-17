@@ -172,6 +172,20 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node tests/expect-parity.test.js',
   'node --test tests/mcp-expect-caller.test.mjs',
   'node --test tests/expect-outcome-browser.test.mjs',
+  'node tests/jev-gateway-contract.test.js',
+  'node tests/jev-gateway-config.test.js',
+  'node tests/jev-gateway-upstream.test.js',
+  'node tests/jev-instrument.test.js',
+  'node tests/jev-calibration-profile.test.js',
+  'node tests/jev-gateway-ledger.test.js',
+  'node tests/jev-gateway-router.test.js',
+  'node tests/jev-gateway-log-hygiene.test.js',
+  'node tests/jev-state.test.js',
+  'node tests/jev-contract-parity.test.js',
+  'node tests/jev-client.test.js',
+  'node tests/jev-policy-tighten-only.test.js',
+  'node tests/jev-extension-boundary.test.js',
+  'node --test tests/jev-shadow-score.test.mjs tests/jev-shadow-select.test.mjs tests/jev-shadow-records.test.mjs tests/jev-shadow-harness.test.mjs',
 ]);
 
 const PHASE64_RETAINED_ROOT_COMMANDS = Object.freeze([
