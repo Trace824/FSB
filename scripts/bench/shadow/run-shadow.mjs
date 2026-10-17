@@ -200,7 +200,7 @@ export function parseArgs(argv, { now } = {}) {
  * served model is outside the pin's family. The profile passes the server's
  * validateProfile; anything else throws, so a bad profile is never written.
  */
-function buildCandidateProfile({ selection, pin, servedModel, instrumentVersion, instrumentHash } = {}) {
+export function buildCandidateProfile({ selection, pin, servedModel, instrumentVersion, instrumentHash } = {}) {
   if (typeof pin !== 'string' || !servedModelInFamily(servedModel, pin)) return null;
   if (selection === null || typeof selection !== 'object') return null;
   if (!KINDS.some((kind) => hasOwn(selection, kind) && selection[kind] && selection[kind].status === 'fit')) return null;
