@@ -822,6 +822,37 @@ async function captureSections() {
     failingDeps.noteCaptureDrop('target_unknown').then(() => after.push('next'));
     await settle();
     check(after.length === 1, 'a failed write never blocks the chain for later writes');
+
+    // IN-02: a write slower than any deadline is awaited in full, so the next
+    // change reads its result instead of racing it.
+    const slow = makeStore({});
+    let release = null;
+    let slowSets = 0;
+    const slowLocal = {
+      get: slow.local.get,
+      set(items) {
+        slowSets += 1;
+        if (slowSets > 1) return slow.local.set(items);
+        return new Promise((resolve) => {
+          release = () => { Object.assign(slow.data, JSON.parse(JSON.stringify(items))); resolve(); };
+        });
+      }
+    };
+    const slowDeps = makeContext({ chrome: { storage: { local: slowLocal } }, setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout })
+      .fsbCreateFastPathDeps();
+    let slowDone = 0;
+    slowDeps.appendCaptureRecord({ n: 'a' }).then(() => { slowDone += 1; });
+    slowDeps.appendCaptureRecord({ n: 'b' }).then(() => { slowDone += 1; });
+    await settleUntil(() => release !== null);
+    timers.fireAll();
+    await settle();
+    const doneWhileHeld = slowDone;
+    const setsWhileHeld = slowSets;
+    release();
+    await settleUntil(() => slowDone === 2);
+    check(doneWhileHeld === 0 && setsWhileHeld === 1 && slowDone === 2
+      && json(slow.data.fsbJevCaptureRing.records) === json([{ n: 'a' }, { n: 'b' }]),
+    'a ring write slower than the deadline is awaited, so the next write waits for it and nothing is lost or reordered');
   }
 
   // -------------------------------------------------------------------------

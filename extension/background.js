@@ -4043,7 +4043,10 @@ function fsbFastPathWithDeadline(promise, ms) {
  * other. The ring is {v:1, records:[...], drops:{<reason>: n}} under an
  * internal storage key that is not a setting and is never sent anywhere; it
  * keeps the newest 200 records. A failed or late read skips the change
- * rather than overwrite the ring. Resolves undefined and never rejects.
+ * rather than overwrite the ring. The write itself is awaited in full, with
+ * no deadline, so a slow write can never be overtaken by the next change
+ * (a later write landing first and then being overwritten). Resolves
+ * undefined and never rejects.
  * @param {function(Object): void} change - Mutates the ring in place
  * @returns {Promise<void>}
  */
@@ -4059,7 +4062,7 @@ function fsbFastPathCaptureWrite(change) {
       : { v: 1, records: [], drops: {} };
     change(ring);
     if (ring.records.length > 200) ring.records.splice(0, ring.records.length - 200);
-    await fsbFastPathWithDeadline(chrome.storage.local.set({ fsbJevCaptureRing: ring }), 3000);
+    await chrome.storage.local.set({ fsbJevCaptureRing: ring });
   };
   const previous = fsbFastPathCaptureWrite.tail || Promise.resolve();
   const next = previous.then(apply).catch(() => {});
