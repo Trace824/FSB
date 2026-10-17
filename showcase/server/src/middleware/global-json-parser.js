@@ -2,12 +2,18 @@
 
 const express = require('express');
 
+// Express mounts routers case-insensitively by default, so /API/JEV/decide
+// reaches the Jev router. The skip checks compare case-insensitively too, or
+// a case variant would be parsed here first and bypass the route-local cap
+// and error handler.
 function isTelemetryPath(reqPath) {
-  return reqPath === '/api/telemetry' || reqPath.startsWith('/api/telemetry/');
+  const p = String(reqPath).toLowerCase();
+  return p === '/api/telemetry' || p.startsWith('/api/telemetry/');
 }
 
 function isJevPath(reqPath) {
-  return reqPath === '/api/jev' || reqPath.startsWith('/api/jev/');
+  const p = String(reqPath).toLowerCase();
+  return p === '/api/jev' || p.startsWith('/api/jev/');
 }
 
 /**

@@ -479,6 +479,18 @@ async function validationSection() {
   checkTyped('malformed JSON (from the Jev router, not the global parser)',
     await send(gw.port, { raw: '{"v": 1, "kinds": [' }), 400, 'invalid_request');
   check('the generic error handler was not hit by the parser errors', genericHandlerHit === false);
+
+  // Express matches the mount case-insensitively, so case variants reach the
+  // Jev router; the global parser must skip them too (WR-01).
+  const caseOversize = baseRequest();
+  caseOversize.page.text = 'x'.repeat(50 * 1024);
+  for (const variant of ['/API/JEV/decide', '/Api/Jev/decide', '/api/JEV/DECIDE']) {
+    checkTyped(`malformed JSON at ${variant} (from the Jev router, not the global parser)`,
+      await send(gw.port, { path: variant, raw: '{"goal": SECRET-sk-' }), 400, 'invalid_request');
+    checkTyped(`a body over 48 KB at ${variant} (the route-local cap still applies)`,
+      await send(gw.port, { path: variant, body: caseOversize }), 413, 'payload_too_large');
+  }
+  check('the generic error handler was not hit by the case-variant parser errors', genericHandlerHit === false);
   checkTyped('a non-JSON content type', await send(gw.port, { raw: JSON.stringify(baseRequest()), contentType: 'text/plain' }),
     400, 'invalid_request');
   checkTyped('GET /api/jev/decide', await send(gw.port, { method: 'GET' }), 404, 'invalid_request');
