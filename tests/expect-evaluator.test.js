@@ -455,6 +455,20 @@ check('text_visible matches lowercased, whitespace-collapsed body text', () => {
   assert.equal(r.textTruncated, false);
 });
 
+check('the probe reports document.readyState, or null when the document has none', () => {
+  const { win, doc } = stubPage({ bodyText: '' });
+  doc.readyState = 'loading';
+  const priorWindow = global.window;
+  const priorDocument = global.document;
+  global.window = win; global.document = doc;
+  let r;
+  try { r = av._fsbExpectProbeInPage(probeSpec([{ kind: 'text_gone', expected: 'Error' }])); }
+  finally { global.window = priorWindow; global.document = priorDocument; }
+  assert.equal(r.ok, true);
+  assert.equal(r.readyState, 'loading');
+  assert.equal(runProbe({ bodyText: 'x' }, [{ kind: 'text_visible', expected: 'x' }]).readyState, null);
+});
+
 check('text checks include open shadow-root text', () => {
   const shadowRoot = {
     childNodes: [{ nodeType: 1, tagName: 'SPAN', innerText: 'Shadow  Greeting', textContent: 'Shadow  Greeting' }],
@@ -935,6 +949,85 @@ checkAsync('a still-loading tab with a pendingUrl turns would-be unmet checks in
   assert.equal(r.status, 'uncertain');
   assert.equal(r.reason, 'still_loading');
   assert.equal(r.checks[0].status, 'uncertain');
+});
+
+// CR-01 (69-REVIEW): an empty, still-parsing document satisfies every negative
+// predicate; such probes must not settle a negative check as met.
+function probeRs(observations, readyState) {
+  return { ok: true, documentId: 'doc-1', result: { ok: true, textTruncated: false, observations, readyState } };
+}
+
+checkAsync('negative checks do not settle on a loading document whose body is still empty', async () => {
+  // The review repro: tab loading, body '' for two probes, then 'Error banner'.
+  const loadingTab = { url: 'https://e.test/b', title: '', status: 'loading' };
+  for (const raw of [{ text_gone: 'Error' }, { selector: '#err', state: 'gone' }]) {
+    const kind = raw.text_gone ? 'text_gone' : 'state';
+    const d = makeDeps({
+      tab: (n) => (n <= 2 ? loadingTab : Object.assign({}, loadingTab, { status: 'complete' })),
+      probe: (n) => probeOk([n <= 2 ? met(kind, { observed: 'absent' }) : miss(kind, { observed: kind === 'state' ? 'visible' : 'present' })])
+    });
+    const r = await av.evaluateExpectation({ tabId: 7, spec: spec(raw), deps: d.deps });
+    assertShape(r);
+    assert.notEqual(r.status, 'verified', `${JSON.stringify(raw)} must not verify on an empty loading document`);
+    assert.equal(r.status, 'unmet', JSON.stringify(raw));
+    assert.ok(d.calls.probe >= 3, 'the loop kept probing past the loading probes');
+  }
+});
+
+checkAsync('readyState loading gates negative checks; two settled probes after it verify', async () => {
+  const { deps, calls } = makeDeps({
+    tab: { url: 'https://e.test/b', title: 'B', status: 'loading' },
+    probe: (n) => probeRs([met('text_gone')], n <= 2 ? 'loading' : 'interactive')
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_gone: 'Error' }), deps });
+  assert.equal(r.status, 'verified');
+  assert.equal(calls.probe, 4, 'two loading probes, then two settled ones');
+  assert.equal(r.waited_ms, 600);
+});
+
+checkAsync('a negative check that holds only while loading ends uncertain still_loading', async () => {
+  const always = makeDeps({
+    tab: { url: 'https://e.test/b', title: 'B', status: 'loading' },
+    probe: () => probeRs([met('text_gone'), met('dialog_open')], 'loading')
+  });
+  const r = await av.evaluateExpectation({
+    tabId: 7, spec: spec({ text_gone: 'Error', dialog_open: false, timeout_ms: 400 }), deps: always.deps
+  });
+  assertShape(r);
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'still_loading');
+  assert.deepEqual(r.checks.map((c) => c.status), ['uncertain', 'uncertain']);
+  assert.ok(r.checks.every((c) => c.observed === null));
+
+  const zero = makeDeps({ tab: { url: 'https://e.test/b', title: 'B', status: 'loading' }, probe: () => probeOk([met('text_gone')]) });
+  const rz = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_gone: 'Error', timeout_ms: 0 }), deps: zero.deps });
+  assert.equal(rz.status, 'uncertain', 'timeout_ms 0: one loading probe cannot verify a negative check');
+  assert.equal(rz.reason, 'still_loading');
+});
+
+checkAsync('a pending navigation makes the outgoing document unsettled even when it is complete', async () => {
+  const { deps } = makeDeps({
+    tab: { url: 'https://e.test/a', title: 'A', status: 'loading', pendingUrl: 'https://e.test/b' },
+    probe: () => probeRs([met('text_gone')], 'complete')
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_gone: 'Error', timeout_ms: 400 }), deps });
+  assert.equal(r.status, 'uncertain');
+  assert.equal(r.reason, 'still_loading');
+});
+
+checkAsync('a parsed document on a tab still fetching subresources settles negative checks normally', async () => {
+  const { deps, calls } = makeDeps({
+    tab: { url: 'https://e.test/b', title: 'B', status: 'loading' },
+    probe: () => probeRs([met('text_gone')], 'interactive')
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_gone: 'Error' }), deps });
+  assert.equal(r.status, 'verified');
+  assert.equal(calls.probe, 2);
+  // Positive checks are not gated: one holding probe still verifies.
+  const pos = makeDeps({ tab: { url: 'https://e.test/b', title: 'B', status: 'loading' }, probe: () => probeRs([met('text_visible')], 'loading') });
+  const rp = await av.evaluateExpectation({ tabId: 7, spec: spec({ text_visible: 'Saved' }), deps: pos.deps });
+  assert.equal(rp.status, 'verified');
+  assert.equal(pos.calls.probe, 1);
 });
 
 checkAsync('pageUnresponsive skips the probe; tab-level checks are still judged', async () => {

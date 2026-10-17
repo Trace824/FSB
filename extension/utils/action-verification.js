@@ -985,8 +985,10 @@ function buildUncertainExpectResult(spec, reason) {
 // echoed even though no vault-filled marker exists to detect it.
 //
 // probeSpec = { checks, textScanMax, shadowHostBudget, observedMax, redacted, sensitiveNameSource }
-// returns { ok: true, observations: [{ kind, observable, holds, observed, redact, reason? }], textTruncated }
+// returns { ok: true, observations: [{ kind, observable, holds, observed, redact, reason? }], textTruncated, readyState }
 //      or { ok: false, error }
+// readyState is document.readyState (null when unreadable); the loop uses it
+// so a document that is still parsing cannot settle a negative check.
 // -----------------------------------------------------------------------------
 function _fsbExpectProbeInPage(probeSpec) {
   try {
@@ -1276,7 +1278,9 @@ function _fsbExpectProbeInPage(probeSpec) {
         observations.push(unobservable(kind, 'probe_failed', null));
       }
     }
-    return { ok: true, observations: observations, textTruncated: textTruncated };
+    let readyState = null;
+    try { readyState = (typeof doc.readyState === 'string') ? doc.readyState : null; } catch (e) { readyState = null; }
+    return { ok: true, observations: observations, textTruncated: textTruncated, readyState: readyState };
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e) };
   }
@@ -1297,6 +1301,14 @@ function _fsbExpectProbeInPage(probeSpec) {
 //     false) need two consecutive holding probes before an early exit
 //     (RESEARCH Pitfall 5: the spinner may not have appeared yet). The rule
 //     gates only the early exit; at the deadline the final probe decides.
+//   - A negative predicate also holds trivially on a document that is still
+//     parsing (an empty body has no error text and no dialog) and on a
+//     document that a pending navigation is about to replace. Such a probe
+//     is "unsettled": it does not count toward the two-probe streak, and a
+//     negative check whose last holding probe was unsettled ends as
+//     uncertain still_loading instead of met. Unsettled means the tab has a
+//     pendingUrl while loading, or the probed document.readyState is
+//     'loading' (the tab's own loading status when readyState is unknown).
 //   - Navigation checks are not judged until the commit is seen, and DOM
 //     observations count only from the committed document (Pitfall 1).
 //   - Overall reason = the first uncertain check's reason.
@@ -1377,7 +1389,7 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
   const checks = spec.checks;
   const timeoutMs = clampExpectTimeoutMs(spec.timeoutMs);
   const commit = (commitArg && commitArg.required === true) ? commitArg : null;
-  const states = checks.map(() => ({ status: 'uncertain', reason: 'probe_failed', observed: null, streak: 0, sawPlain: false, sawRedact: false }));
+  const states = checks.map(() => ({ status: 'uncertain', reason: 'probe_failed', observed: null, streak: 0, sawPlain: false, sawRedact: false, unsettled: false }));
   const tabIdx = [];
   const domIdx = [];
   checks.forEach((c, i) => {
@@ -1404,6 +1416,7 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
     st.reason = null;
     st.observed = observed;
     st.streak = holds ? st.streak + 1 : 0;
+    st.unsettled = false;
   }
   function setUncertain(i, reason) {
     const st = states[i];
@@ -1411,6 +1424,7 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
     st.reason = reason;
     st.observed = null;
     st.streak = 0;
+    st.unsettled = false;
   }
 
   const start = deps.now();
@@ -1462,6 +1476,12 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
             } else if (!result || result.ok !== true || !Array.isArray(result.observations)) {
               domReason = 'probe_failed';
             } else {
+              // Unsettled probe (see the planner notes above): a navigation
+              // is pending, or this document is still parsing.
+              const readyState = (typeof result.readyState === 'string') ? result.readyState : null;
+              const navPending = tab.status === 'loading' && typeof tab.pendingUrl === 'string' && tab.pendingUrl.length > 0;
+              const docLoading = readyState !== null ? readyState === 'loading' : tab.status === 'loading';
+              const unsettled = navPending || docLoading;
               for (let k = 0; k < domIdx.length; k++) {
                 const i = domIdx[k];
                 const c = checks[i];
@@ -1476,6 +1496,10 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
                   continue;
                 }
                 setResult(i, o.holds === true, _fsbExpectSanitizeObserved(c, o));
+                if (unsettled && states[i].status === 'met' && _fsbExpectIsNegative(c)) {
+                  states[i].streak = 0;
+                  states[i].unsettled = true;
+                }
               }
             }
           }
@@ -1503,6 +1527,11 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
     for (let i = 0; i < states.length; i++) {
       if (states[i].status === 'unmet') setUncertain(i, 'still_loading');
     }
+  }
+  // A negative check last seen holding only on an unsettled probe was never
+  // observed on a settled document: report it as still loading, not met.
+  for (let i = 0; i < states.length; i++) {
+    if (states[i].status === 'met' && states[i].unsettled === true) setUncertain(i, 'still_loading');
   }
 
   const out = checks.map((c, i) => _fsbExpectBuildCheck(c, states[i]));
