@@ -85,6 +85,8 @@ const T0 = Date.now();
 const DAY = dayUtcKey(FIXED_DAY_MS);
 const NEXT_DAY = dayUtcKey(FIXED_DAY_MS + ONE_DAY_MS);
 const DECISION_PREFIX = '[jev] decision ';
+const CLIENT_TIMEOUT_MS = 5000;
+const SUITE_WATCHDOG_MS = 60000;
 
 let unhandledRejections = 0;
 process.on('unhandledRejection', () => { unhandledRejections += 1; });
@@ -214,7 +216,17 @@ function send(port, opts) {
       });
       res.on('error', reject);
     });
-    req.on('error', reject);
+    // A response that never comes fails its checks instead of hanging the suite.
+    req.setTimeout(CLIENT_TIMEOUT_MS, () => {
+      req.destroy();
+      const result = { status: 0, headers: {}, text: '', body: null };
+      seen.push({ body: null, request: null, text: '' });
+      resolve(result);
+    });
+    req.on('error', (error) => {
+      if (req.destroyed && error && error.code === 'ECONNRESET') return;
+      reject(error);
+    });
     if (payload !== null) req.write(payload);
     req.end();
   });
@@ -996,6 +1008,11 @@ async function main() {
 }
 
 const suiteStarted = Date.now();
+setTimeout(() => {
+  console.log(`  FAIL: suite watchdog fired after ${SUITE_WATCHDOG_MS} ms`);
+  console.log(`\n=== jev-gateway-router results: ${passed} passed, ${failed + 1} failed ===`);
+  process.exit(1);
+}, SUITE_WATCHDOG_MS).unref();
 main()
   .catch((error) => {
     failed += 1;
