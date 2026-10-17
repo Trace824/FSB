@@ -4517,6 +4517,121 @@
       recentHandles: recent.map((descriptor) => jevRecentHandle(descriptor, keptElements, entries))
     };
   }
+
+  // Strict target resolution for fast-mode actions (plan 68-03: AUTO-02,
+  // AUTO-05, D-14, D-19, F15-F17). executeAction receives the registry tool's
+  // content verb (tool-executor.js sends tool._contentVerb), so the verb is
+  // mapped to its menu op here; any other verb, including an op name such as
+  // 'check_box', is refused.
+  const jevContentVerbOps = Object.freeze({
+    click: 'click',
+    toggleCheckbox: 'check_box',
+    pressEnter: 'press_enter',
+    hover: 'hover'
+  });
+  const jevHandlePattern = /^j[1-9][0-9]{0,2}$/;
+  const jevHiddenReasons = ['display:none', 'visibility:hidden', 'opacity:0'];
+  const jevDisabledReasons = ['disabled', 'aria-disabled', 'fieldset-disabled'];
+  const jevOccludedReasons = ['obscured'];
+
+  function jevRefuse(reason) {
+    return { ok: false, reason };
+  }
+
+  // accessibility.js isElementActionable, mapped to one reason code (null when
+  // actionable). It checks occlusion only when the centre is in the viewport,
+  // so the caller checks the centre separately (F15).
+  function jevActionabilityReason(el) {
+    const check = FSB.isElementActionable;
+    if (typeof check !== 'function') return 'not_actionable';
+    let verdict;
+    try {
+      verdict = check(el);
+    } catch (_e) {
+      return 'not_actionable';
+    }
+    if (!verdict || typeof verdict !== 'object') return 'not_actionable';
+    if (verdict.actionable === true) return null;
+    const reasons = Array.isArray(verdict.reasons) ? verdict.reasons : [];
+    if (reasons.some((reason) => jevHiddenReasons.includes(reason))) return 'hidden';
+    if (reasons.some((reason) => jevDisabledReasons.includes(reason))) return 'disabled';
+    if (reasons.some((reason) => jevOccludedReasons.includes(reason))) return 'occluded';
+    return 'not_actionable';
+  }
+
+  // The first CSS candidate from FSB.generateSelectors that matches exactly
+  // this element in the document. XPath candidates are skipped and no
+  // caller-supplied selector is ever used.
+  function jevUniqueSelector(el) {
+    const generate = FSB.generateSelectors;
+    if (typeof generate !== 'function') return null;
+    let candidates;
+    try {
+      candidates = generate(el);
+    } catch (_e) {
+      return null;
+    }
+    if (!candidates || typeof candidates.length !== 'number') return null;
+    for (let i = 0; i < candidates.length; i++) {
+      const item = candidates[i];
+      const sel = typeof item === 'string' ? item : (item && typeof item.selector === 'string' ? item.selector : '');
+      if (!sel || sel !== sel.trim() || sel.charAt(0) === '/') continue;
+      let matches;
+      try {
+        matches = document.querySelectorAll(sel);
+      } catch (_e) {
+        continue;
+      }
+      if (matches && matches.length === 1 && matches[0] === el) return sel;
+    }
+    return null;
+  }
+
+  /**
+   * Resolve a fast-mode target strictly. params carry jevHandle, jevGeneration,
+   * expectedRole and expectedName (only fast-mode calls carry them); tool is
+   * the executeAction content verb. Returns {ok:true, element, selector} or
+   * {ok:false, reason}. There is no fallback of any kind: a stale, changed,
+   * risky, hidden, disabled, occluded or ambiguous target is refused and the
+   * caller dispatches nothing.
+   */
+  function resolveJevHandle(params, tool) {
+    const p = params && typeof params === 'object' ? params : {};
+    if (p.selector !== undefined || p.ref !== undefined) return jevRefuse('conflicting_target');
+    if (typeof p.jevHandle !== 'string' || !jevHandlePattern.test(p.jevHandle)) return jevRefuse('bad_handle');
+    const registry = FSB.jevRefMap;
+    if (!registry || typeof registry.get !== 'function') return jevRefuse('unavailable');
+    if (typeof p.jevGeneration !== 'string' || p.jevGeneration !== registry.generation) {
+      return jevRefuse('generation_mismatch');
+    }
+    const entry = registry.get(p.jevHandle);
+    if (!entry) return jevRefuse('unknown_handle');
+    let el = null;
+    try {
+      el = entry.element && typeof entry.element.deref === 'function' ? entry.element.deref() : null;
+    } catch (_e) {
+      el = null;
+    }
+    if (!el || el.isConnected !== true) return jevRefuse('detached');
+    const role = jevMenuRole(el);
+    if (role !== entry.role || role !== p.expectedRole) return jevRefuse('role_changed');
+    const label = jevMenuLabel(el);
+    if (label !== entry.name || label !== p.expectedName) return jevRefuse('name_changed');
+    // The verb's op must still be one of the element's code-derived ops, so a
+    // control that turned "on" since the menu is never toggled off (T-68-01).
+    const op = typeof tool === 'string' && Object.prototype.hasOwnProperty.call(jevContentVerbOps, tool)
+      ? jevContentVerbOps[tool]
+      : null;
+    if (!op || !jevElementOps(el, {}).includes(op)) return jevRefuse('op_not_available');
+    // Risk is checked again at execution, not only when the menu was built (D-19).
+    if (classifyJevRisk(el, {}) !== null) return jevRefuse('risk_excluded');
+    const blocked = jevActionabilityReason(el);
+    if (blocked) return jevRefuse(blocked);
+    if (!jevCentreInViewport(el)) return jevRefuse('out_of_viewport');
+    const selector = jevUniqueSelector(el);
+    if (!selector) return jevRefuse('selector_not_unique');
+    return { ok: true, element: el, selector };
+  }
   // ==== Phase 68 fast-mode element menu (end) ====
 
   // ============================================================================
@@ -4555,6 +4670,8 @@
   FSB.jevElementOps = jevElementOps;
   FSB.jevVisibleText = jevVisibleText;
   FSB.buildJevMenu = buildJevMenu;
+  FSB.jevContentVerbOps = jevContentVerbOps;
+  FSB.resolveJevHandle = resolveJevHandle;
   FSB.findElementByStrategies = findElementByStrategies;
   FSB.buildMarkdownSnapshot = buildMarkdownSnapshot;
   FSB.findMainContentRoot = findMainContentRoot;

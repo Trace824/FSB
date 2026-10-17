@@ -207,11 +207,25 @@ function makeDocument(body, options = {}) {
   let order = 0;
   walk(root, (node) => { node._order = ++order; });
   const selectorMap = options.selectorMap || {};
+  // matchSelectors: selectors absent from the map are matched against the
+  // live tree with the simple matcher (bare tag, '#id', '[attr]', '[attr="v"]'),
+  // so a node moved or added after the document was built is still found.
+  const matchSelectors = options.matchSelectors === true;
   const scrollHeight = options.scrollHeight === undefined ? 800 : options.scrollHeight;
   root.scrollHeight = scrollHeight;
+  const lookup = (selector) => {
+    if (Object.prototype.hasOwnProperty.call(selectorMap, selector)) return selectorMap[selector].slice();
+    if (!matchSelectors) return [];
+    const found = [];
+    walk(root, (node) => {
+      if (node.nodeType === 1 && matchesSimple(node, selector)) found.push(node);
+    });
+    return found;
+  };
   const doc = {
     nodeType: 9,
     body: root,
+    activeElement: null,
     title: options.title === undefined ? 'Stub page' : options.title,
     documentElement: { scrollHeight, clientHeight: options.clientHeight === undefined ? 800 : options.clientHeight },
     getElementById(id) {
@@ -222,10 +236,10 @@ function makeDocument(body, options = {}) {
       return found;
     },
     querySelectorAll(selector) {
-      return (selectorMap[selector] || []).slice();
+      return lookup(selector);
     },
     querySelector(selector) {
-      const list = selectorMap[selector] || [];
+      const list = lookup(selector);
       return list.length ? list[0] : null;
     },
     renumber() {

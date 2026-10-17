@@ -5,7 +5,11 @@
 // Covers the content-side half of the fast-mode menu:
 //   - the separate fast-mode registry in dom-state.js (FSB.jevRefMap) and the
 //     vault-fill marks (FSB.vaultFilledElements / FSB.noteVaultFilled);
-//   - the guarded vault-fill mark calls in actions.js.
+//   - the guarded vault-fill mark calls in actions.js;
+//   - (plan 68-03) the strict resolver FSB.resolveJevHandle and the content
+//     verb table FSB.jevContentVerbOps, the getJevMenu message case and the jev
+//     branch of executeAction in messaging.js, and the real executeTool
+//     dispatch path from extension/ai/tool-executor.js into that branch.
 //
 // Plain Node script: check() counters, a results line and an exit code.
 // Node 20 compatible; binds no port.
@@ -34,6 +38,15 @@ function check(label, fn) {
 
 function section(title) {
   console.log(`\n--- ${title} ---`);
+}
+
+// Async cases are queued and run in order after every synchronous case.
+const asyncChecks = [];
+function checkAsync(label, fn) {
+  asyncChecks.push({ label, fn, title: null });
+}
+function sectionAsync(title) {
+  asyncChecks.push({ label: null, fn: null, title });
 }
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -1331,5 +1344,755 @@ check('byte identity: buildMarkdownSnapshot and formatInlineRef match their P68_
 });
 
 // ---------------------------------------------------------------------------
-console.log(`\njev fast menu: ${passed} PASS / ${failed} FAIL`);
-process.exit(failed > 0 ? 1 : 0);
+section('resolveJevHandle: strict fast-mode target resolution (plan 68-03; D-14, D-19, F15-F17)');
+
+// Resolver environment. Selectors come from the id and the aria-label, with an
+// XPath candidate first so the "never an XPath" rule is exercised; the document
+// matches simple selectors against the live stub tree; the hit test returns
+// hitTarget (null = nothing on top) and composedContains follows parent links.
+let hitTarget = null;
+F.deepElementFromPoint = () => hitTarget;
+F.composedContains = (outer, inner) => {
+  for (let node = inner; node; node = node.parentElement) {
+    if (node === outer) return true;
+  }
+  return false;
+};
+function generateSelectorsStub(node) {
+  const out = [{ selector: '//body/*[1]' }];
+  const id = node.getAttribute('id');
+  if (id) out.push('#' + id);
+  const aria = node.getAttribute('aria-label');
+  if (aria) out.push({ selector: `[aria-label="${aria}"]` });
+  return out;
+}
+F.generateSelectors = generateSelectorsStub;
+
+function resolverPage(children, selectorMap) {
+  const body = el({ tag: 'body', children });
+  const doc = kit.makeDocument(body, { matchSelectors: true, selectorMap: selectorMap || {} });
+  ctx.setDocument(doc);
+  return doc;
+}
+
+function menuOver(nodes) {
+  stubPool(nodes.slice());
+  const menu = F.buildJevMenu({});
+  assert.equal(menu.success, true, 'menu built');
+  return menu;
+}
+
+function entryOf(menu, label) {
+  const entry = Array.from(menu.entries).find((item) => item.label === label);
+  assert.ok(entry, `menu entry ${label}`);
+  return entry;
+}
+
+function jevParams(menu, label, extra) {
+  const entry = entryOf(menu, label);
+  return Object.assign({
+    jevHandle: entry.handle,
+    jevGeneration: menu.generation,
+    expectedRole: entry.role,
+    expectedName: entry.label,
+  }, extra || {});
+}
+
+function resolve(params, verb) {
+  const verdict = F.resolveJevHandle(params, verb);
+  assert.ok(verdict && typeof verdict === 'object', 'verdict object');
+  if (verdict.ok === true) return { ok: true, selector: verdict.selector, element: verdict.element };
+  assert.deepEqual(Object.keys(verdict).sort(), ['ok', 'reason']);
+  return { ok: false, reason: verdict.reason };
+}
+
+function refused(params, verb) {
+  const verdict = resolve(params, verb);
+  assert.equal(verdict.ok, false, 'refused');
+  return verdict.reason;
+}
+
+// One page with one fast-eligible element per content verb plus a few extras.
+function freshFixture() {
+  hitTarget = null;
+  const next = el({ tag: 'button', attrs: { type: 'button', id: 'next' }, text: 'Next', rect: inView(10) });
+  const alpha = el({ tag: 'input', attrs: { type: 'checkbox', id: 'alpha', 'aria-label': 'Alpha' }, rect: inView(40) });
+  const search = el({ tag: 'input', attrs: { type: 'search', id: 'q', 'aria-label': 'Search' }, rect: inView(70) });
+  const docs = el({ tag: 'a', attrs: { href: '/docs', id: 'docs' }, text: 'Docs', rect: inView(100) });
+  const summary = el({ tag: 'summary', attrs: { id: 'more' }, text: 'More', rect: inView(130) });
+  const details = el({ tag: 'details', children: [summary] });
+  const nick = el({ tag: 'input', attrs: { type: 'text', id: 'nick', 'aria-label': 'Nickname' }, rect: inView(160) });
+  const doc = resolverPage([next, alpha, search, docs, details, nick]);
+  const menu = menuOver([next, alpha, search, docs, summary, nick]);
+  return { doc, menu, next, alpha, search, docs, summary, details, nick };
+}
+
+// Move a stub node under a new parent (the kit keeps parent links by hand).
+function moveUnder(node, parent) {
+  const old = node.parentElement;
+  if (old) {
+    const index = old.childNodes.indexOf(node);
+    if (index >= 0) old.childNodes.splice(index, 1);
+  }
+  parent.appendChild(node);
+}
+
+check('FSB.resolveJevHandle and FSB.jevContentVerbOps are exported next to the menu helpers', () => {
+  assert.equal(typeof F.resolveJevHandle, 'function');
+  const exportsAt = domAnalysisSource.indexOf('  FSB.getFilteredElements = getFilteredElements;');
+  const tail = domAnalysisSource.slice(exportsAt);
+  assert.ok(tail.includes('FSB.jevContentVerbOps = jevContentVerbOps;'));
+  assert.ok(tail.includes('FSB.resolveJevHandle = resolveJevHandle;'));
+});
+
+check('the verb table is defined once inside the menu block and maps content verbs to ops', () => {
+  const block = menuBlock();
+  assert.equal(block.split("toggleCheckbox: 'check_box'").length - 1, 1);
+  assert.ok(block.includes("pressEnter: 'press_enter'"));
+  assert.ok(block.includes('function resolveJevHandle('));
+  assert.equal(block.includes('resolveRef('), false, 'no ref resolution (it falls back to CSS)');
+});
+
+check('verb table parity: frozen, exactly four content verbs, each the _contentVerb of its registry tool', () => {
+  const table = F.jevContentVerbOps;
+  assert.ok(table && Object.isFrozen(table), 'frozen');
+  assert.deepEqual(Object.keys(table).sort(), ['click', 'hover', 'pressEnter', 'toggleCheckbox']);
+  const defs = require('../extension/ai/tool-definitions.js');
+  const { CONTRACT } = require('../extension/ai/jev-state.js');
+  for (const op of ['click', 'check_box', 'press_enter', 'hover']) {
+    const tool = defs.getToolByName(op);
+    assert.ok(tool, `registry tool ${op}`);
+    assert.equal(tool._route, 'content', `${op} route`);
+    assert.equal(typeof tool._contentVerb, 'string', `${op} content verb`);
+    assert.equal(table[tool._contentVerb], op, `${tool._contentVerb} -> ${op}`);
+    assert.ok(CONTRACT.OPERATIONS.includes(op), `${op} is a contract operation`);
+  }
+  assert.deepEqual(Object.values(table).sort(), ['check_box', 'click', 'hover', 'press_enter']);
+});
+
+check('success, one case per content verb: click, toggleCheckbox, pressEnter, hover', () => {
+  const f = freshFixture();
+  const cases = [
+    ['click', 'Next', f.next, '#next'],
+    ['toggleCheckbox', 'Alpha', f.alpha, '#alpha'],
+    ['pressEnter', 'Search', f.search, '#q'],
+    ['hover', 'Docs', f.docs, '#docs'],
+  ];
+  for (const [verb, label, node, selector] of cases) {
+    const verdict = resolve(jevParams(f.menu, label), verb);
+    assert.equal(verdict.ok, true, `${verb} on ${label}`);
+    assert.equal(verdict.selector, selector, `${verb} selector`);
+    assert.equal(verdict.element, node, `${verb} element`);
+  }
+  assert.equal(entryOf(f.menu, 'Alpha').role, 'checkbox');
+  assert.equal(entryOf(f.menu, 'Search').role, 'searchbox');
+});
+
+check('conflicting_target: jevHandle together with selector or ref', () => {
+  const f = freshFixture();
+  assert.equal(refused(jevParams(f.menu, 'Next', { selector: '#next' }), 'click'), 'conflicting_target');
+  assert.equal(refused(jevParams(f.menu, 'Next', { ref: 'e1' }), 'click'), 'conflicting_target');
+  assert.equal(refused(jevParams(f.menu, 'Next', { selector: null }), 'click'), 'conflicting_target');
+});
+
+check('bad_handle: anything but j1..j999', () => {
+  const f = freshFixture();
+  for (const handle of ['e1', 'j0', 'j01', 'j1000', 'J1', 'j1 ', '', null, 7, 'j-1']) {
+    assert.equal(refused(jevParams(f.menu, 'Next', { jevHandle: handle }), 'click'), 'bad_handle', String(handle));
+  }
+});
+
+check('generation_mismatch: a generation from a previous reset, or none at all', () => {
+  const f = freshFixture();
+  const stale = jevParams(f.menu, 'Next');
+  const again = menuOver([f.next, f.alpha, f.search, f.docs, f.summary, f.nick]);
+  assert.notEqual(again.generation, f.menu.generation);
+  assert.equal(entryOf(again, 'Next').handle, stale.jevHandle, 'same handle number in the new menu');
+  assert.equal(refused(stale, 'click'), 'generation_mismatch');
+  assert.equal(refused(jevParams(again, 'Next', { jevGeneration: undefined }), 'click'), 'generation_mismatch');
+  assert.equal(resolve(jevParams(again, 'Next'), 'click').ok, true, 'the current generation still resolves');
+});
+
+check('generation_mismatch: a recycled handle number on a new registry instance (new document, F16)', () => {
+  const f = freshFixture();
+  const stale = jevParams(f.menu, 'Next');
+  const saved = F.jevRefMap;
+  try {
+    F.jevRefMap = new F.JevRefRegistry();
+    const fresh = menuOver([f.next, f.alpha, f.search, f.docs, f.summary, f.nick]);
+    assert.equal(entryOf(fresh, 'Next').handle, stale.jevHandle);
+    assert.notEqual(fresh.generation.split('-')[0], stale.jevGeneration.split('-')[0], 'new nonce');
+    assert.equal(refused(stale, 'click'), 'generation_mismatch');
+  } finally {
+    F.jevRefMap = saved;
+  }
+});
+
+check('unknown_handle: a well-formed handle the current menu never issued', () => {
+  const f = freshFixture();
+  assert.equal(refused(jevParams(f.menu, 'Next', { jevHandle: 'j99' }), 'click'), 'unknown_handle');
+});
+
+check('detached: a node removed from the DOM, or a WeakRef that no longer derefs', () => {
+  const f = freshFixture();
+  f.next.isConnected = false;
+  assert.equal(refused(jevParams(f.menu, 'Next'), 'click'), 'detached');
+  F.jevRefMap.map.set('j50', { element: { deref: () => undefined }, role: 'button', name: 'Gone' });
+  assert.equal(refused({ jevHandle: 'j50', jevGeneration: f.menu.generation, expectedRole: 'button', expectedName: 'Gone' }, 'click'), 'detached');
+});
+
+check('role_changed: the element changed role since the menu, or the call expects another role', () => {
+  const f = freshFixture();
+  assert.equal(refused(jevParams(f.menu, 'Next', { expectedRole: 'link' }), 'click'), 'role_changed');
+  assert.equal(refused(jevParams(f.menu, 'Next', { expectedRole: undefined }), 'click'), 'role_changed');
+  const params = jevParams(f.menu, 'Next');
+  f.next.setAttribute('role', 'tab');
+  assert.equal(refused(params, 'click'), 'role_changed');
+});
+
+check('name_changed: a re-rendered element whose label changed, or a call expecting another name', () => {
+  const f = freshFixture();
+  assert.equal(refused(jevParams(f.menu, 'Next', { expectedName: 'Back' }), 'click'), 'name_changed');
+  const box = jevParams(f.menu, 'Alpha');
+  f.alpha.setAttribute('aria-label', 'Bravo');
+  assert.equal(refused(box, 'toggleCheckbox'), 'name_changed');
+  const button = jevParams(f.menu, 'Next');
+  f.next.childNodes.length = 0;
+  f.next.appendChild(kit.makeText('Back'));
+  assert.equal(refused(button, 'click'), 'name_changed');
+});
+
+check('risk_excluded: a button moved into an alertdialog since the menu', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Next');
+  const dialog = el({ tag: 'div', attrs: { role: 'alertdialog' } });
+  f.doc.body.appendChild(dialog);
+  moveUnder(f.next, dialog);
+  assert.equal(F.classifyJevRisk(f.next, {}), 'alertdialog');
+  assert.equal(refused(params, 'click'), 'risk_excluded');
+});
+
+check('risk_excluded: an element marked vault-filled since the menu', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Nickname');
+  assert.equal(resolve(params, 'click').ok, true, 'resolves before the mark');
+  F.noteVaultFilled(f.nick);
+  assert.equal(refused(params, 'click'), 'risk_excluded');
+});
+
+check('op_not_available: a checkbox checked since the menu (toggleCheckbox never switches it off)', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Alpha');
+  f.alpha.checked = true;
+  assert.equal(refused(params, 'toggleCheckbox'), 'op_not_available');
+});
+
+check('op_not_available: the summary of a details opened since the menu', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'More');
+  assert.equal(resolve(params, 'click').ok, true, 'closed summary resolves');
+  f.details.setAttribute('open', '');
+  assert.equal(refused(params, 'click'), 'op_not_available');
+});
+
+check('op_not_available: a search field moved into a form with a second text input (pressEnter)', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Search');
+  const other = el({ tag: 'input', attrs: { type: 'text', name: 'other' } });
+  const form = el({ tag: 'form', children: [other] });
+  f.doc.body.appendChild(form);
+  moveUnder(f.search, form);
+  assert.equal(f.search.form, form);
+  assert.equal(refused(params, 'pressEnter'), 'op_not_available');
+});
+
+check('op_not_available: verbs outside the table (type, selectOption, keyPress, __proto__, none)', () => {
+  const f = freshFixture();
+  for (const verb of ['type', 'selectOption', 'keyPress', 'scroll', '__proto__', 'constructor', 'toString', undefined, null, 5]) {
+    assert.equal(refused(jevParams(f.menu, 'Next'), verb), 'op_not_available', String(verb));
+  }
+});
+
+check('op_not_available: Jev op names are not content verbs, even on elements offering those ops', () => {
+  const f = freshFixture();
+  assert.deepEqual(ops(f.alpha), ['check_box']);
+  assert.deepEqual(ops(f.search), ['press_enter']);
+  assert.equal(refused(jevParams(f.menu, 'Alpha'), 'check_box'), 'op_not_available');
+  assert.equal(refused(jevParams(f.menu, 'Search'), 'press_enter'), 'op_not_available');
+  assert.equal(refused(jevParams(f.menu, 'Alpha'), 'click'), 'op_not_available', 'click is not an op of a native checkbox');
+});
+
+check('hidden: display:none, visibility:hidden or opacity:0 since the menu', () => {
+  for (const style of [{ display: 'none' }, { visibility: 'hidden' }, { opacity: '0' }]) {
+    const f = freshFixture();
+    const params = jevParams(f.menu, 'Next');
+    Object.assign(f.next.style, style);
+    assert.equal(refused(params, 'click'), 'hidden', JSON.stringify(style));
+  }
+});
+
+check('disabled: disabled or aria-disabled since the menu', () => {
+  let f = freshFixture();
+  let params = jevParams(f.menu, 'Next');
+  f.next.disabled = true;
+  assert.equal(refused(params, 'click'), 'disabled');
+  f = freshFixture();
+  params = jevParams(f.menu, 'Next');
+  f.next.setAttribute('aria-disabled', 'true');
+  assert.equal(refused(params, 'click'), 'disabled');
+});
+
+check('occluded: another element on top at the centre (FSB overlays do not count)', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Next');
+  hitTarget = el({ tag: 'div', attrs: { id: 'cookie-wall' } });
+  assert.equal(refused(params, 'click'), 'occluded');
+  hitTarget = el({ tag: 'div', attrs: { 'data-fsb-id': 'overlay' } });
+  assert.equal(resolve(params, 'click').ok, true, 'an FSB overlay on top is ignored');
+  hitTarget = null;
+});
+
+check('not_actionable: other actionability failures (pointer-events:none, zero size)', () => {
+  let f = freshFixture();
+  let params = jevParams(f.menu, 'Next');
+  f.next.style.pointerEvents = 'none';
+  assert.equal(refused(params, 'click'), 'not_actionable');
+  f = freshFixture();
+  params = jevParams(f.menu, 'Next');
+  f.next.setRect({ width: 0, height: 0 });
+  assert.equal(refused(params, 'click'), 'not_actionable');
+});
+
+check('out_of_viewport: a centre below the viewport (occlusion is not checked there, F15)', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Next');
+  hitTarget = el({ tag: 'div', attrs: { id: 'cover' } });
+  f.next.setRect({ top: 5000 });
+  assert.equal(refused(params, 'click'), 'out_of_viewport');
+  hitTarget = null;
+});
+
+check('selector_not_unique: two elements match every generated selector, or only an XPath is offered', () => {
+  hitTarget = null;
+  const one = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Dup' }, rect: inView(10) });
+  const two = el({ tag: 'button', attrs: { type: 'button', 'aria-label': 'Dup' }, rect: inView(40) });
+  resolverPage([one, two]);
+  const menu = menuOver([one, two]);
+  const first = Array.from(menu.entries)[0];
+  const params = { jevHandle: first.handle, jevGeneration: menu.generation, expectedRole: 'button', expectedName: 'Dup' };
+  assert.equal(refused(params, 'click'), 'selector_not_unique');
+  // The XPath candidate would match exactly this element if it were tried.
+  const lone = el({ tag: 'button', attrs: { type: 'button' }, text: 'Lone', rect: inView(10) });
+  const loneDoc = resolverPage([lone], { '//body/*[1]': [lone] });
+  assert.deepEqual(loneDoc.querySelectorAll('//body/*[1]'), [lone]);
+  const loneMenu = menuOver([lone]);
+  assert.equal(refused(jevParams(loneMenu, 'Lone'), 'click'), 'selector_not_unique', 'XPath candidates are skipped');
+});
+
+check('a unique selector that matches a different element is never used', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Next');
+  const saved = F.generateSelectors;
+  try {
+    F.generateSelectors = () => ['#docs', '#next'];
+    const verdict = resolve(params, 'click');
+    assert.equal(verdict.ok, true);
+    assert.equal(verdict.selector, '#next');
+    F.generateSelectors = () => { throw new Error('boom'); };
+    assert.equal(refused(params, 'click'), 'selector_not_unique');
+  } finally {
+    F.generateSelectors = saved;
+  }
+});
+
+check('the resolver reads no value and refuses when the registry is unavailable', () => {
+  const f = freshFixture();
+  kit.resetValueReads();
+  assert.equal(resolve(jevParams(f.menu, 'Nickname'), 'click').ok, true);
+  assert.equal(resolve(jevParams(f.menu, 'Search'), 'pressEnter').ok, true);
+  assert.deepEqual(kit.valueReads, []);
+  const saved = F.jevRefMap;
+  try {
+    F.jevRefMap = undefined;
+    assert.equal(refused(jevParams(f.menu, 'Next'), 'click'), 'unavailable');
+  } finally {
+    F.jevRefMap = saved;
+  }
+});
+
+// ---------------------------------------------------------------------------
+section('messaging.js: getJevMenu and the jev branch of executeAction (plan 68-03; D-14, F17)');
+
+const MESSAGING_PATH = path.join(repoRoot, 'extension', 'content', 'messaging.js');
+const messagingSource = fs.readFileSync(MESSAGING_PATH, 'utf8');
+const EXECUTE_CASE = "case 'executeAction':";
+
+// The executeAction case text from its label to the `if (FSB.tools[tool]) {`
+// line: logging, overlays, the jev branch, COMPACT REF RESOLUTION and the
+// REF-LESS fallback. It runs inside a function with stubbed inputs; 'continued'
+// means the code fell through to the tool handler.
+function executeActionPrelude() {
+  const start = messagingSource.indexOf(EXECUTE_CASE);
+  assert.ok(start > 0, 'executeAction case present');
+  const body = start + EXECUTE_CASE.length;
+  const stop = messagingSource.indexOf('if (FSB.tools[tool]) {', body);
+  assert.ok(stop > body, 'tool handler guard present');
+  return messagingSource.slice(body, stop);
+}
+
+let preludeRunner = null;
+function runPrelude(request, harness) {
+  if (!preludeRunner) {
+    preludeRunner = vm.runInContext(
+      `(function (request, FSB, sendResponse, document, logger) {${executeActionPrelude()}\nreturn 'continued';\n})`,
+      ctx.sandbox,
+      { filename: 'messaging.js#executeAction-prelude' }
+    );
+  }
+  return preludeRunner(request, harness.fsb, harness.sendResponse, harness.doc, harness.logger);
+}
+
+// FSB for the slice: inherits the vm-loaded namespace (so FSB.resolveJevHandle
+// is the real resolver) with spies for the cache, tools and overlays.
+function messagingHarness(options = {}) {
+  const calls = { responses: [], cacheSets: [], warnings: [] };
+  const cache = {
+    set(selector, element) { calls.cacheSets.push({ selector, element }); },
+    get() { return null; },
+  };
+  F.elementCache = cache;
+  const fsb = Object.create(F);
+  fsb.sessionId = 'test-session';
+  fsb.tools = { click() {}, toggleCheckbox() {}, pressEnter() {}, hover() {}, type() {}, keyPress() {} };
+  fsb.viewportGlow = { show() {}, setState() {} };
+  fsb.progressOverlay = { create() {}, update() {}, show() {} };
+  Object.assign(fsb, options.fsb || {});
+  const doc = options.document || ctx.sandbox.document;
+  if (options.focused !== undefined) doc.activeElement = options.focused;
+  return {
+    fsb,
+    doc,
+    calls,
+    sendResponse: (response) => calls.responses.push(response),
+    logger: {
+      logActionExecution() {},
+      debug() {},
+      info() {},
+      error() {},
+      warn(message) { calls.warnings.push(message); },
+    },
+  };
+}
+
+check('the jev branch is the first target-resolution branch and the menu case exists once', () => {
+  const jevAt = messagingSource.indexOf('params.jevHandle !== undefined');
+  const compactAt = messagingSource.indexOf('// COMPACT REF RESOLUTION');
+  const refLessAt = messagingSource.indexOf('// REF-LESS ACTION FALLBACK');
+  assert.ok(jevAt > 0 && compactAt > jevAt && refLessAt > compactAt, 'jev branch before COMPACT REF and REF-LESS');
+  assert.equal(messagingSource.split("case 'getJevMenu'").length - 1, 1);
+  const branch = messagingSource.slice(jevAt, compactAt);
+  assert.equal(branch.includes('resolveRef'), false);
+  assert.match(branch, /refStale: true[\s\S]*?\n\s*return;/);
+});
+
+check('non-jev: a stale e-ref still answers with the existing refStale text and dispatches nothing', () => {
+  const h = messagingHarness({
+    fsb: {
+      resolveRef: () => null,
+      refMap: { getInfo: () => ({ role: 'button', name: 'Next', selector: '#next' }) },
+    },
+  });
+  const params = { ref: 'e5' };
+  const outcome = runPrelude({ action: 'executeAction', tool: 'click', params }, h);
+  assert.equal(outcome, undefined, 'returned before the handler');
+  assert.deepEqual(plain(h.calls.responses), [{
+    success: false,
+    error: 'Element ref "e5" (button "Next") is stale. The page has changed. Use elements from the current snapshot.',
+    tool: 'click',
+    refStale: true,
+  }]);
+  assert.equal(params.selector, undefined);
+  const unknown = messagingHarness({ fsb: { resolveRef: () => null, refMap: { getInfo: () => null } } });
+  runPrelude({ action: 'executeAction', tool: 'click', params: { ref: 'e9' } }, unknown);
+  assert.deepEqual(plain(unknown.calls.responses), [{
+    success: false,
+    error: 'Unknown ref "e9". Use refs from the latest page snapshot.',
+    tool: 'click',
+    refStale: true,
+  }]);
+});
+
+check('non-jev: an e-ref that resolves sets its selector and caches the element, as before', () => {
+  const target = el({ tag: 'button', attrs: { id: 'next' }, text: 'Next' });
+  const h = messagingHarness({
+    fsb: {
+      resolveRef: () => target,
+      refMap: { getInfo: () => ({ role: 'button', name: 'Next', selector: '#next' }) },
+    },
+  });
+  const params = { ref: 'e2' };
+  const outcome = runPrelude({ action: 'executeAction', tool: 'click', params }, h);
+  assert.equal(outcome, 'continued');
+  assert.equal(params.selector, '#next');
+  assert.equal(h.calls.cacheSets.length, 1);
+  assert.equal(h.calls.cacheSets[0].selector, '#next');
+  assert.equal(h.calls.cacheSets[0].element, target);
+  assert.equal(h.calls.responses.length, 0);
+});
+
+check('non-jev: a selector-less pressEnter still targets the focused field, as before', () => {
+  const field = el({ tag: 'input', attrs: { type: 'text', id: 'focused' } });
+  resolverPage([field]);
+  const h = messagingHarness({ focused: field, fsb: { generateSelectors: () => ['//input', '#focused'] } });
+  const params = {};
+  const outcome = runPrelude({ action: 'executeAction', tool: 'pressEnter', params }, h);
+  assert.equal(outcome, 'continued');
+  assert.equal(params.selector, '#focused');
+  assert.equal(h.calls.cacheSets.length, 1);
+  assert.equal(h.calls.cacheSets[0].element, field);
+  assert.equal(h.calls.responses.length, 0);
+});
+
+check('jev: a failing pressEnter with a focused field answers refStale once and never targets the focused field', () => {
+  const f = freshFixture();
+  const stale = jevParams(f.menu, 'Search');
+  menuOver([f.next, f.alpha, f.search, f.docs, f.summary, f.nick]);
+  const h = messagingHarness({ focused: f.nick, fsb: { generateSelectors: () => ['#nick'] } });
+  const outcome = runPrelude({ action: 'executeAction', tool: 'pressEnter', params: stale }, h);
+  assert.equal(outcome, undefined, 'returned before the REF-LESS fallback');
+  assert.deepEqual(plain(h.calls.responses), [{
+    success: false,
+    error: 'Fast-mode target is no longer current (generation_mismatch).',
+    tool: 'pressEnter',
+    refStale: true,
+    reason: 'generation_mismatch',
+  }]);
+  assert.equal(stale.selector, undefined, 'no selector from the focused field');
+  assert.equal(h.calls.cacheSets.length, 0);
+  // Control: the same call without the jev params would have pressed Enter on the focused field.
+  const control = messagingHarness({ focused: f.nick, fsb: { generateSelectors: () => ['#nick'] } });
+  const plainParams = {};
+  assert.equal(runPrelude({ action: 'executeAction', tool: 'pressEnter', params: plainParams }, control), 'continued');
+  assert.equal(plainParams.selector, '#nick');
+});
+
+check('jev: a detached target and a missing resolver both refuse before any fallback', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Search');
+  f.search.isConnected = false;
+  const h = messagingHarness({ focused: f.nick, fsb: { generateSelectors: () => ['#nick'] } });
+  assert.equal(runPrelude({ action: 'executeAction', tool: 'pressEnter', params }, h), undefined);
+  assert.equal(h.calls.responses.length, 1);
+  assert.equal(h.calls.responses[0].reason, 'detached');
+  assert.equal(params.selector, undefined);
+  const g = freshFixture();
+  const missing = messagingHarness({ focused: g.nick, fsb: { resolveJevHandle: undefined, generateSelectors: () => ['#nick'] } });
+  const params2 = jevParams(g.menu, 'Next');
+  assert.equal(runPrelude({ action: 'executeAction', tool: 'click', params: params2 }, missing), undefined);
+  assert.deepEqual(plain(missing.calls.responses), [{
+    success: false,
+    error: 'Fast-mode target is no longer current (unavailable).',
+    tool: 'click',
+    refStale: true,
+    reason: 'unavailable',
+  }]);
+});
+
+check('jev: a succeeding click sets params.selector, caches the element once and sends nothing', () => {
+  const f = freshFixture();
+  const params = jevParams(f.menu, 'Next');
+  const h = messagingHarness({ focused: null });
+  assert.equal(runPrelude({ action: 'executeAction', tool: 'click', params }, h), 'continued');
+  assert.equal(params.selector, '#next');
+  assert.equal(h.calls.cacheSets.length, 1);
+  assert.equal(h.calls.cacheSets[0].selector, '#next');
+  assert.equal(h.calls.cacheSets[0].element, f.next);
+  assert.equal(h.calls.responses.length, 0);
+});
+
+check('jev: a succeeding toggleCheckbox and pressEnter target the resolved element, not the focused one', () => {
+  for (const [verb, label, key, selector] of [['toggleCheckbox', 'Alpha', 'alpha', '#alpha'], ['pressEnter', 'Search', 'search', '#q']]) {
+    const f = freshFixture();
+    const params = jevParams(f.menu, label, verb === 'toggleCheckbox' ? { checked: true } : {});
+    const h = messagingHarness({ focused: f.nick, fsb: { generateSelectors: () => ['#nick'] } });
+    assert.equal(runPrelude({ action: 'executeAction', tool: verb, params }, h), 'continued', verb);
+    assert.equal(params.selector, selector, `${verb} selector`);
+    assert.equal(h.calls.cacheSets.length, 1, `${verb} cache set once`);
+    assert.equal(h.calls.cacheSets[0].element, f[key], `${verb} element`);
+    assert.equal(h.calls.responses.length, 0, `${verb} sends nothing`);
+  }
+});
+
+// The getJevMenu case text, from its label through the brace that closes it.
+function getJevMenuCase() {
+  const start = messagingSource.indexOf("case 'getJevMenu': {");
+  assert.ok(start > 0, 'getJevMenu case present');
+  let i = messagingSource.indexOf('{', start);
+  for (let depth = 0; i < messagingSource.length; i++) {
+    if (messagingSource[i] === '{') depth++;
+    else if (messagingSource[i] === '}' && --depth === 0) break;
+  }
+  return messagingSource.slice(start, i + 1);
+}
+
+let menuCaseRunner = null;
+function runMenuCase(request, fsb) {
+  if (!menuCaseRunner) {
+    menuCaseRunner = vm.runInContext(
+      `(function (request, FSB, sendResponse) { switch (request.action) { ${getJevMenuCase()} } })`,
+      ctx.sandbox,
+      { filename: 'messaging.js#getJevMenu' }
+    );
+  }
+  const responses = [];
+  menuCaseRunner(request, fsb, (response) => responses.push(response));
+  return responses;
+}
+
+check('getJevMenu: returns the buildJevMenu result and passes only cap and recent', () => {
+  const seen = [];
+  const result = { success: true, generation: 'abcd1234-3', entries: [] };
+  const fsb = { buildJevMenu: (options) => { seen.push(options); return result; } };
+  const responses = runMenuCase({ action: 'getJevMenu', options: { cap: 40, recent: [{ role: 'button', name: 'Next' }] } }, fsb);
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0], result);
+  assert.deepEqual(plain(seen), [{ cap: 40, recent: [{ role: 'button', name: 'Next' }] }]);
+  assert.equal(fsb._jevCaptureArm, null, 'no capture requested: disarmed');
+  const bare = runMenuCase({ action: 'getJevMenu' }, fsb);
+  assert.equal(bare[0], result);
+  assert.deepEqual(plain(seen[1]), {});
+});
+
+check('getJevMenu: capture:true arms one observation with the generation; capture absent clears it', () => {
+  const fsb = { buildJevMenu: () => ({ success: true, generation: 'abcd1234-3', entries: [] }) };
+  runMenuCase({ action: 'getJevMenu', options: { capture: true } }, fsb);
+  assert.deepEqual(plain(fsb._jevCaptureArm), { generation: 'abcd1234-3' });
+  runMenuCase({ action: 'getJevMenu', options: {} }, fsb);
+  assert.equal(fsb._jevCaptureArm, null);
+  runMenuCase({ action: 'getJevMenu', options: { capture: 'yes' } }, fsb);
+  assert.equal(fsb._jevCaptureArm, null, 'only the boolean true arms');
+  fsb.buildJevMenu = () => ({ success: false, reason: 'not_main_frame' });
+  fsb._jevCaptureArm = { generation: 'old' };
+  const failed = runMenuCase({ action: 'getJevMenu', options: { capture: true } }, fsb);
+  assert.deepEqual(plain(failed), [{ success: false, reason: 'not_main_frame' }]);
+  assert.equal(fsb._jevCaptureArm, null, 'a failed menu never arms');
+});
+
+check('getJevMenu: an error inside buildJevMenu answers menu_error and disarms', () => {
+  const fsb = { buildJevMenu: () => { throw new Error('boom'); }, _jevCaptureArm: { generation: 'x' } };
+  const responses = runMenuCase({ action: 'getJevMenu', options: { capture: true } }, fsb);
+  assert.deepEqual(plain(responses), [{ success: false, reason: 'menu_error' }]);
+  assert.equal(fsb._jevCaptureArm, null);
+  const missing = runMenuCase({ action: 'getJevMenu', options: {} }, {});
+  assert.deepEqual(plain(missing), [{ success: false, reason: 'menu_error' }]);
+});
+
+check('getJevMenu: the real builder resets only the fast-mode registry and arms with its generation', () => {
+  freshFixture();
+  const responses = runMenuCase({ action: 'getJevMenu', options: { capture: true } }, F);
+  assert.equal(responses.length, 1);
+  assert.equal(responses[0].success, true);
+  assert.equal(F._jevCaptureArm.generation, responses[0].generation);
+  assert.equal(F.jevRefMap.generation, responses[0].generation);
+  F._jevCaptureArm = null;
+});
+
+check('getJevMenu is routed by the synchronous message switch, next to executeAction', () => {
+  const syncAt = messagingSource.indexOf('function handleBackgroundMessage(');
+  const caseAt = messagingSource.indexOf("case 'getJevMenu': {");
+  assert.ok(syncAt > 0 && caseAt > syncAt, 'in handleBackgroundMessage');
+  const router = messagingSource.slice(syncAt, messagingSource.indexOf('switch (request.action)', syncAt));
+  assert.equal(router.includes('getJevMenu'), false, 'the async router line is unchanged');
+});
+
+// ---------------------------------------------------------------------------
+sectionAsync('dispatch path: executeTool -> executeAction content verb -> jev branch (plan 68-03, AUTO-02)');
+
+const dispatched = [];
+function loadToolExecutor() {
+  global.chrome = {
+    tabs: {
+      sendMessage: async (tabId, message) => {
+        dispatched.push({ tabId, message });
+        return { success: true };
+      },
+      get: async () => ({ url: 'https://example.test/page' }),
+    },
+  };
+  return require('../extension/ai/tool-executor.js');
+}
+
+async function dispatchAndResolve(op, verb, label, args) {
+  const { executeTool } = loadToolExecutor();
+  const f = freshFixture();
+  const entry = entryOf(f.menu, label);
+  dispatched.length = 0;
+  const callArgs = Object.assign({
+    jevHandle: entry.handle,
+    jevGeneration: f.menu.generation,
+    expectedRole: entry.role,
+    expectedName: entry.label,
+    visual_reason: 'Fast mode: simple step',
+  }, args);
+  const result = await executeTool(op, callArgs, 1);
+  assert.equal(result.success, true, `${op} dispatched`);
+  assert.equal(dispatched.length, 1, `${op} sends one message`);
+  const { tabId, message } = dispatched[0];
+  assert.equal(tabId, 1);
+  assert.equal(message.action, 'executeAction');
+  assert.equal(message.tool, verb, `${op} -> ${verb}`);
+  // The content script receives a structured clone of the params.
+  const params = JSON.parse(JSON.stringify(message.params));
+  const h = messagingHarness({ focused: f.nick, fsb: { generateSelectors: () => ['#nick'] } });
+  const outcome = runPrelude({ action: 'executeAction', tool: message.tool, params }, h);
+  return { f, params, h, outcome, message };
+}
+
+checkAsync("executeTool('check_box') sends toggleCheckbox and the jev branch resolves it", async () => {
+  const run = await dispatchAndResolve('check_box', 'toggleCheckbox', 'Alpha', { expectedRole: 'checkbox', expectedName: 'Alpha', checked: true });
+  assert.equal(run.message.params.checked, true);
+  assert.equal(run.outcome, 'continued');
+  assert.equal(run.params.selector, '#alpha');
+  assert.equal(run.h.calls.cacheSets.length, 1);
+  assert.equal(run.h.calls.cacheSets[0].element, run.f.alpha);
+  assert.equal(run.h.calls.responses.length, 0);
+});
+
+checkAsync("executeTool('press_enter') sends pressEnter and the jev branch resolves it", async () => {
+  const run = await dispatchAndResolve('press_enter', 'pressEnter', 'Search', { expectedRole: 'searchbox', expectedName: 'Search' });
+  assert.equal(run.outcome, 'continued');
+  assert.equal(run.params.selector, '#q');
+  assert.equal(run.h.calls.cacheSets.length, 1);
+  assert.equal(run.h.calls.cacheSets[0].element, run.f.search);
+  assert.equal(run.h.calls.responses.length, 0);
+});
+
+checkAsync("executeTool('click') and executeTool('hover') send their own verbs and resolve", async () => {
+  const click = await dispatchAndResolve('click', 'click', 'Next', {});
+  assert.equal(click.outcome, 'continued');
+  assert.equal(click.params.selector, '#next');
+  const hover = await dispatchAndResolve('hover', 'hover', 'Docs', {});
+  assert.equal(hover.outcome, 'continued');
+  assert.equal(hover.params.selector, '#docs');
+});
+
+// ---------------------------------------------------------------------------
+(async () => {
+  for (const item of asyncChecks) {
+    if (item.title) {
+      section(item.title);
+      continue;
+    }
+    try {
+      await item.fn();
+      passed++;
+      console.log('  PASS:', item.label);
+    } catch (err) {
+      failed++;
+      console.error('  FAIL:', item.label);
+      console.error('    ', err && err.message ? err.message : err);
+    }
+  }
+  console.log(`\njev fast menu: ${passed} PASS / ${failed} FAIL`);
+  process.exit(failed > 0 ? 1 : 0);
+})();
