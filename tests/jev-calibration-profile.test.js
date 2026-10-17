@@ -356,6 +356,7 @@ function validateSection(cal) {
     ['an empty profileId', calibratedProfile({ profileId: '' })],
     ['a profileId with a space', calibratedProfile({ profileId: 'has space' })],
     ['a 129-character profileId', calibratedProfile({ profileId: 'p'.repeat(129) })],
+    ['a 65-character profileId (over CONTRACT.CAPS.profileIdChars)', calibratedProfile({ profileId: 'p'.repeat(65) })],
     ['a non-string profileId', calibratedProfile({ profileId: 7 })],
     ['a non-string note', calibratedProfile({ note: null })],
     ['an over-long note', calibratedProfile({ note: 'n'.repeat(2001) })],
@@ -389,6 +390,9 @@ function validateSection(cal) {
   const echoed = [v(calibratedProfile({ MARKERKEY: 1 })), v(calibratedProfile({ status: 'MARKERSTATUS' }))]
     .some((r) => r.errors.some((e) => /MARKER/.test(e)));
   check('errors never echo profile keys or values', !echoed);
+  const atCap = v(calibratedProfile({ profileId: 'p'.repeat(CONTRACT.CAPS.profileIdChars) }));
+  check(`accepts a profileId of exactly CONTRACT.CAPS.profileIdChars (${CONTRACT.CAPS.profileIdChars}) characters`,
+    atCap && atCap.ok === true, show(atCap));
 }
 
 function loadSection(cal) {

@@ -119,7 +119,8 @@
     NOUL_DIRECTION: { completion: 'veto_when_low', stuck: 'flag_when_high', risk: 'flag_when_high' },
 
     // Code points unless noted. 254 elements plus the catch-all fit Choice's
-    // 255-option cap (D-11).
+    // 255-option cap (D-11). profileIdChars bounds the calibration profileId
+    // here and in the server's profile validator alike.
     CAPS: {
       goalChars: 1000,
       originChars: 256,
@@ -130,7 +131,8 @@
       roleChars: 32,
       opsPerElement: 8,
       elements: 254,
-      recentActions: 10
+      recentActions: 10,
+      profileIdChars: 64
     },
 
     // UTF-8 bytes (D-12).
@@ -570,7 +572,7 @@
     var calibration = body.calibration;
     if (!hasExactKeys(calibration, KEYS.calibration, KEYS.calibration)) return false;
     if (CONTRACT.CALIBRATION_STATUSES.indexOf(calibration.status) === -1) return false;
-    if (!isStringBetween(calibration.profileId, 1, 64)) return false;
+    if (!isStringBetween(calibration.profileId, 1, CAPS.profileIdChars)) return false;
     if (!isPlainObject(request) || !validKinds(request.kinds)) return false;
     if (!validDecisions(body.decisions, request, calibration.status === 'calibrated')) return false;
     if (!validUsage(body.usage) || !validCost(body.cost)) return false;

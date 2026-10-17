@@ -49,9 +49,12 @@ const PROFILE_KEYS = ['schemaVersion', 'profileId', 'status', 'note', 'model', '
 const PROFILE_STATUSES = ['uncalibrated', 'calibrated'];
 const MAX_PROFILE_FILE_BYTES = 64 * 1024;
 const MAX_NOTE_CHARS = 2000;
-// profileId, model, snapshot and instrumentVersion: 1-128 printable ASCII
-// characters, no spaces.
+// model, snapshot and instrumentVersion: 1-128 printable ASCII characters, no
+// spaces. profileId is the same character class, bounded by
+// CONTRACT.CAPS.profileIdChars (64), the bound the extension enforces on every
+// ok response's calibration.profileId.
 const TOKEN_RE = /^[\x21-\x7e]{1,128}$/;
+const PROFILE_ID_MAX_CHARS = CONTRACT.CAPS.profileIdChars;
 const HASH_RE = /^[0-9a-f]{64}$/;
 const SNAPSHOT_SUFFIX_RE = /^-[0-9]{8}$/;
 
@@ -99,8 +102,9 @@ function validateProfile(profile) {
   if (errors.length > 0) return { ok: false, errors };
 
   if (profile.schemaVersion !== 1) errors.push('schemaVersion must be 1');
-  if (typeof profile.profileId !== 'string' || !TOKEN_RE.test(profile.profileId)) {
-    errors.push('profileId must be 1-128 printable ASCII characters without spaces');
+  if (typeof profile.profileId !== 'string' || !TOKEN_RE.test(profile.profileId)
+    || profile.profileId.length > PROFILE_ID_MAX_CHARS) {
+    errors.push(`profileId must be 1-${PROFILE_ID_MAX_CHARS} printable ASCII characters without spaces`);
   }
   if (!PROFILE_STATUSES.includes(profile.status)) errors.push('status must be uncalibrated or calibrated');
   if (typeof profile.note !== 'string' || profile.note.length > MAX_NOTE_CHARS) {

@@ -433,6 +433,47 @@ function validatorSection(sides) {
     tally.ok >= 20 && tally.invalid_request >= 100 && tally.sensitive_goal >= 3, show(tally));
 }
 
+// A bound the server's producer accepts must also pass the extension's
+// response validator (WR-03): a profileId valid in calibration.js is carried
+// in every ok body, so a looser server bound would turn every ok answer into
+// invalid_response on the client.
+function responseBoundSection(sides) {
+  console.log('\n--- Producer/validator bound parity: calibration.profileId (WR-03) ---');
+  const { ext } = sides;
+  const { CONTRACT } = sides.serverContract;
+  const cal = require(path.join(JEV_DIR, 'calibration.js'));
+  const { baseRequest } = require('./fixtures/jev-request-cases');
+  const request = baseRequest();
+  const decisions = {};
+  for (const kind of request.kinds) {
+    decisions[kind] = CONTRACT.CHOICE_KINDS.includes(kind)
+      ? { choice: CONTRACT.RESERVED_OPTION_KEY, confidence: 1, probabilities: { [CONTRACT.RESERVED_OPTION_KEY]: 1 },
+        threshold: null, meetsThreshold: false }
+      : { p: 0.5, threshold: null, meetsThreshold: false };
+  }
+  const okBodyWith = (profileId) => ({
+    ok: true,
+    decisionId: 'jd_0123456789abcdef',
+    instrumentVersion: 'fsb-jev-1',
+    servedModel: 'typesafe/jev-1.13',
+    calibration: { status: 'uncalibrated', profileId },
+    decisions,
+    usage: { inputTokens: null, source: 'unavailable' },
+    cost: { usd: null, source: 'unavailable' },
+    latencyMs: 1,
+  });
+  const profileWith = (profileId) => Object.assign(JSON.parse(JSON.stringify(cal.UNCALIBRATED_PROFILE)), { profileId });
+  const cap = CONTRACT.CAPS.profileIdChars;
+  check('CONTRACT.CAPS.profileIdChars is 64 on both sides', cap === 64 && ext.CONTRACT.CAPS.profileIdChars === 64);
+  for (const length of [1, cap - 1, cap, cap + 1, 100, 128]) {
+    const id = 'p'.repeat(length);
+    const server = cal.validateProfile(profileWith(id)).ok === true;
+    const client = ext.validateGatewayResponse(okBodyWith(id), request).ok === true;
+    check(`a ${length}-character profileId: server profile ${server ? 'valid' : 'invalid'}, client ok body ${client ? 'valid' : 'invalid'} (they agree)`,
+      server === client && server === (length <= cap));
+  }
+}
+
 function main() {
   console.log('--- jev-contract-parity (JEV-03, JEV-06, JEV-07) ---');
   const sides = loadSides();
@@ -442,6 +483,7 @@ function main() {
     const extracted = patternSection(sides);
     scrubberSection(sides, extracted);
     validatorSection(sides);
+    responseBoundSection(sides);
   }
   console.log(`\n=== jev-contract-parity results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);

@@ -113,7 +113,10 @@ const CONTRACT = deepFreeze({
   NOUL_DIRECTION: { completion: 'veto_when_low', stuck: 'flag_when_high', risk: 'flag_when_high' },
 
   // Field caps, in code points unless noted. 254 elements plus the catch-all
-  // fit Choice's 255-option cap (D-11).
+  // fit Choice's 255-option cap (D-11). profileIdChars bounds the calibration
+  // profileId both where a profile is validated (calibration.js) and where an
+  // ok response is validated (the extension), so a valid profile can never
+  // turn every ok answer into invalid_response.
   CAPS: {
     goalChars: 1000,
     originChars: 256,
@@ -125,6 +128,7 @@ const CONTRACT = deepFreeze({
     opsPerElement: 8,
     elements: 254,
     recentActions: 10,
+    profileIdChars: 64,
   },
 
   // UTF-8 bytes (D-12). The upstream budget keeps every request under

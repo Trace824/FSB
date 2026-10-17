@@ -98,6 +98,7 @@ const EXPECTED_CONTRACT = {
     opsPerElement: 8,
     elements: 254,
     recentActions: 10,
+    profileIdChars: 64,
   },
   BUDGETS: { bodyLimitBytes: 49152, requestByteBudget: 20000, upstreamByteBudget: 28000 },
   KEYS: {
