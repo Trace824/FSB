@@ -1055,6 +1055,23 @@ checkAsync('url_includes is a case-sensitive substring; title_includes is normal
   assert.equal(r2.status, 'verified');
 });
 
+checkAsync('url_includes matches the full URL but echoes it without userinfo, query or fragment (CR-02)', async () => {
+  const { deps } = makeDeps({
+    tab: { url: 'https://alice:pw@app.test/cb?code=SECRETCODE123&state=s#access_token=FRAG', title: 't', status: 'complete' },
+    probe: () => probeOk([])
+  });
+  const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: 'code=', timeout_ms: 0 }), deps });
+  assert.equal(r.status, 'verified', 'matching still sees the query');
+  assert.equal(r.checks[0].observed, 'https://app.test/cb');
+  for (const secret of ['SECRETCODE123', 'FRAG', 'alice', 'pw@']) {
+    assert.ok(!JSON.stringify(r).includes(secret), `${secret} is not echoed`);
+  }
+  const bad = makeDeps({ tab: { url: 'not a url', title: 't', status: 'complete' }, probe: () => probeOk([]) });
+  const rb = await av.evaluateExpectation({ tabId: 7, spec: spec({ url_includes: 'url', timeout_ms: 0 }), deps: bad.deps });
+  assert.equal(rb.checks[0].status, 'met');
+  assert.equal(rb.checks[0].observed, null, 'an unparseable URL is not echoed');
+});
+
 checkAsync('a redacted value check reports both expected and observed as [redacted]', async () => {
   const { deps } = makeDeps({ probe: () => probeOk([met('value', { observed: '[redacted]', redact: true })]) });
   const r = await av.evaluateExpectation({ tabId: 7, spec: spec({ selector: '#pw', value: 'hunter2' }), deps });

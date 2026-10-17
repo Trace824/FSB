@@ -298,6 +298,17 @@
       /(?:^|[_-])(?:url|uri|href)$/i.test(key);
   }
 
+  // Generic echo keys whose string values are sometimes whole URLs:
+  // expect_result.checks[].observed / expected (url_includes) and
+  // change_report url.before / url.after. Only values that start with an
+  // http(s) scheme go through the URL sanitizer; benign URLs stay byte-exact.
+  var URL_ECHO_KEY_PATTERN = /^(observed|expected|before|after)$/;
+  var HTTP_URL_VALUE_PATTERN = /^https?:\/\//i;
+
+  function _valueIsEchoedHttpUrl(key, value) {
+    return URL_ECHO_KEY_PATTERN.test(key) && typeof value === 'string' && HTTP_URL_VALUE_PATTERN.test(value);
+  }
+
   function _urlValueLooksTokenShaped(value) {
     if (typeof value !== 'string' || value.length === 0) return false;
     var candidate = value;
@@ -446,7 +457,7 @@
       var key = keys[k];
       if (SENSITIVE_KEY_PATTERN.test(key) || (sensitiveTarget && SENSITIVE_TEXT_KEY_PATTERN.test(key))) {
         node[key] = REDACTED_VALUE;
-      } else if (_keyLooksUrlLike(key) && typeof node[key] === 'string') {
+      } else if ((_keyLooksUrlLike(key) && typeof node[key] === 'string') || _valueIsEchoedHttpUrl(key, node[key])) {
         node[key] = _sanitizeUrlForPersistence(node[key]) || REDACTED_VALUE;
       } else {
         _redactSensitiveValuesInPlace(node[key], sensitiveTarget);

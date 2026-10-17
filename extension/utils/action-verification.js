@@ -1337,6 +1337,24 @@ function _fsbExpectNormText(value) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+// url_includes observed value: the tab URL without userinfo, query or
+// fragment, so OAuth codes, magic-link tokens and signed parameters never
+// ride expect_result into logs or session recordings. Matching still runs on
+// the full URL; only the echo is reduced. null when the URL cannot be parsed.
+function _fsbExpectSafeUrl(url) {
+  if (typeof url !== 'string' || url.length === 0) return null;
+  try {
+    const u = new URL(url);
+    u.username = '';
+    u.password = '';
+    u.search = '';
+    u.hash = '';
+    return u.toString();
+  } catch (_) {
+    return null;
+  }
+}
+
 function _fsbExpectIsNegative(check) {
   if (!check) return false;
   if (check.kind === 'text_gone') return true;
@@ -1451,7 +1469,7 @@ async function _fsbExpectRun(tabId, spec, deps, commitArg, pageUnresponsive, clo
         const c = checks[i];
         if (c.kind === 'url_includes') {
           if (typeof tab.url !== 'string') setUncertain(i, 'restricted_page');
-          else setResult(i, tab.url.indexOf(c.expected) !== -1, tab.url);
+          else setResult(i, tab.url.indexOf(c.expected) !== -1, _fsbExpectSafeUrl(tab.url));
         } else if (typeof tab.title !== 'string') {
           setUncertain(i, 'restricted_page');
         } else {
