@@ -7,6 +7,8 @@
 
 All line numbers below were read at `e1e6439c`. Upstream phases will shift them; the executor must re-grep the quoted anchor text, never trust the number alone.
 
+**Post-67 sync (2026-10-17, c7a7d66f).** Phases 66.1, 67 and 69 are code-complete here. `background.js` lines after :818 moved by +3 (three 67-11 load lines at :819-821); `options.js`, `config.js` and `mcp-tool-dispatcher.js` moved (each plan's interfaces block has the verified numbers); `agent-loop.js`, `tool-executor.js`, `tool-definitions.js`, `control_panel.html`, `init-config.js`, `automation-logger.js` and every content script are unchanged. The 67-11 boundary suite scans text files under `extension/ui` and `extension/config` for the SUBSTRING `jev` (so the switch key trips it), allows `/jev/i` in `background.js` only on the jev-*.js load lines, and allows exactly one `<scheme>://` literal across all jev-*.js files; the plans narrow it with explicit allowlists (68-01, 68-04, 68-06, 68-08, 68-12). See 68-CONTEXT.md "Post-67 sync" for the full list.
+
 ## File Classification
 
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
@@ -85,7 +87,7 @@ All line numbers below were read at `e1e6439c`. Upstream phases will shift them;
 
 **Lazy upstream resolution** (copy the 67-08 rule, line 102): resolve `root.FsbJevState`, `root.FsbJevClient`, `root.FsbJevPolicy` inside each call, else `typeof require === 'function' ? require('./jev-state.js') : null`. Missing module => decline, never throw.
 
-**Hard naming rules (67-11 boundary suite, RESEARCH F12):** no `JEV_[A-Z_]+` identifier anywhere under `extension/`; no `https://`, `chrome.storage`, `localStorage`, `serverUrl` or the word `importScripts` in any `extension/ai/jev-*.js` file (comments included). The switch reader, capture-store reader/writer and content messenger are injected deps (created in background.js), never read from `chrome.*` here.
+**Hard naming rules (67-11 boundary suite, RESEARCH F12 as corrected by the post-67 sync):** no `JEV_[A-Z_]+` identifier anywhere under `extension/`; no `<scheme>://` literal of any kind (the suite allows exactly one across all jev-*.js files, the endpoint in jev-client.js), `chrome.storage`, `localStorage`, `serverUrl` in any letter case or the word `importScripts` in any `extension/ai/jev-*.js` file (comments included). The module joins the suite as a fourth enumerated module (68-04). The switch reader, capture-store reader/writer and content messenger are injected deps (created in background.js), never read from `chrome.*` here.
 
 **Upstream calls to quote exactly (67 PLANs):** `FsbJevState.buildRequest(input, {byteBudget})` -> `{ok, request, idMap, stats}` | `{ok:false, reason}`; `FsbJevClient.createJevClient({endpoint, fetchImpl, now, getHashKey, setTimeoutImpl, clearTimeoutImpl})` -> `{decide, resetCooldown}`; `decide(request, {signal, timeoutMs})` never rejects, `DEFAULT_TIMEOUT_MS = 2500`; `FsbJevPolicy.accept(result, kind)` with reasons `not_ok`, `not_calibrated`, `kind_absent`, `threshold_null`, `below_threshold`, `catch_all`, `malformed`; `CONTRACT.FALLBACK_REASONS`, `CONTRACT.NON_TRANSIENT_REASONS`.
 
@@ -195,7 +197,7 @@ Plain form, no comment line containing the word `importScripts`.
       allowedTabs: initialAllowedTabs,
       ...(requestAgentId ? { agentId: requestAgentId } : {}),
 ```
-=> `...(storedSettings.<key> === true && source !== 'mcp' ? { fastMode: { enabled: true, stored: true, source: source || null } } : {})`. `source` is destructured at `:13733`; the agent-kind early return at `:13747-13755` stays first.
+=> `...(storedSettings.<key> === true && source !== 'mcp' ? { fastMode: { enabled: true, stored: true, source: source || null } } : {})`. (Superseded by 68-06: `fsbFastModeSessionField` returns `{enabled: source !== 'mcp', stored: true, source}` whenever the stored value is true, so a `run_task` session carries `enabled:false` for D-22 capture.) `source` is destructured at `:13733` (`:13736` at c7a7d66f); the agent-kind early return at `:13747-13755` (`:13751-13758`) stays first.
 
 **Follow-up reactivation** (`:13806-13859`) reads no settings today (F8). The new one-key `getStorageWithTimeout` read and the `fastMode` recompute go after `reactivateSession(existingSession, task);` (`:13808`) and before `createSessionHooks(sessionId)` (`:13844`):
 ```javascript
@@ -221,9 +223,9 @@ When the stored value is not `true`, `delete existingSession.fastMode` so the fi
 ```
 Note the `case` body declares `const tabId` without braces; a new case must wrap its body in `{ }` to avoid a duplicate-declaration error in the shared switch.
 
-**In-SW dispatch** (gotcha 4): `globalThis.fsbDispatchInternalMessage` is assigned at `:13586`; any SW-to-SW call from the module goes through it, never `chrome.runtime.sendMessage`.
+**In-SW dispatch** (gotcha 4): `globalThis.fsbDispatchInternalMessage` is assigned at `:13586` (`:13589` at c7a7d66f); any SW-to-SW call from the module goes through it, never `chrome.runtime.sendMessage`.
 
-**Pins:** `tests/lattice-provider-bridge-smoke.test.js:634-636` (`importScriptsCount`, 334 at e1e6439c, ledger comment above it) and `:682-684` (`importScriptsCallSites`, 330). Read the values 66.1/67/69 leave, set N+1 / M+1, extend both ledger comments in the same commit.
+**Pins:** `tests/lattice-provider-bridge-smoke.test.js:634-636` (`importScriptsCount`, 334 at e1e6439c, ledger comment above it) and `:682-684` (`importScriptsCallSites`, 330). At c7a7d66f they are `:636-637` (337) and `:685-686` (333); set 338 / 334 and extend both ledger comments in the same commit. The 67-11 boundary suite's background.js check (`tests/jev-extension-boundary.test.js:250-259`) is narrowed in the same commit: four adjacent load lines and exact word-bounded tokens (68-06).
 
 ---
 
@@ -245,7 +247,7 @@ Note the `case` body declares `const tabId` without braces; a new case must wrap
   animatedActionHighlights: true,
   showSidepanelProgress: false,
 ```
-Add `fsbJevFastModeEnabled: false,` in both. No comment containing the word "Jev" (67-11 `/\bjev\b/i` ban on `extension/config`, F12; the identifier itself has no word boundary and passes).
+Add `fsbJevFastModeEnabled: false,` in both. No comment containing "Jev" or any `jev` substring. Correction (post-67 sync): the 67-11 suite scans text files under `extension/config` and `extension/ui` for the case-insensitive SUBSTRING `jev`, so the identifier itself trips it; 68-01 adds a word-bounded token allowlist for exactly `fsbJevFastModeEnabled` in the same commit. At c7a7d66f `Config.defaults` holds `animatedActionHighlights` at `:45` and `showSidepanelProgress` at `:46`, and the schema entries end at `:433`.
 
 ---
 
@@ -282,9 +284,9 @@ saveSettings, inside `const settings = {` (`:2329`), next to `:2375`:
 ```javascript
     fsbChangeReportsEnabled: elements.fsbChangeReportsEnabled?.checked ?? true,
 ```
-**Panel sync (66.1-04):** `FSBSettingsSync.keyForElementId(id)` returns the id itself when it is a schema key, so `id="fsbJevFastModeEnabled"` needs no alias; whether `applyToForm` refreshes a plain checkbox without an explicit mapping line is RESEARCH A1 - verify in the sync re-check and add one mapping line in the same commit if needed. Comments in this file must not contain the word "Jev" (F12).
+**Panel sync (66.1-04):** `FSBSettingsSync.keyForElementId(id)` returns the id itself when it is a schema key, so `id="fsbJevFastModeEnabled"` needs no alias. RESEARCH A1 is resolved by the post-67 sync: the real sync applies and refreshes only keys with a `FIELD_REFRESHERS` entry (~`:9668`), so add `fsbJevFastModeEnabled: (value, deps) => setControlChecked(deps, 'fsbJevFastModeEnabled', value === true),` after the fsbChangeReportsEnabled refresher (~`:9734`) in the same commit. At c7a7d66f the fsbChangeReportsEnabled sites are `:45`, `:327`, `:1004-1008`, `:2047-2049` and `:2384` (`const settings = {` at `:2338`). Comments in this file must not contain "Jev" or any other `jev` substring (F12 as corrected).
 
-**Pins:** `tests/delegation-phase-contract.test.js:2704, :2726, :2904, :3533` read options.js; re-grep for occurrence counts before editing.
+**Pins:** `tests/delegation-phase-contract.test.js:2704, :2726, :2904, :3533` read options.js (`:2732, :2754, :2932, :3561` at c7a7d66f); re-grep for occurrence counts before editing.
 
 ---
 
@@ -319,7 +321,7 @@ saveSettings, inside `const settings = {` (`:2329`), next to `:2375`:
               </div>
             </div>
 ```
-New card: no `checked` attribute; title/subtitle/label/desc from CONTEXT `<specifics>` (D-06 required content: recipients FSB server + TypeSafe AI, sent list, never-sent list, secrets scrubbed, experimental/inactive until calibrated, provider still plans/types/reads, server keeps no page content). The copy contains "Jev", so this file is the one explicit allowlist entry in the narrowed boundary suite. Occurrence pins: `tests/delegation-phase-contract.test.js:728, :1042, :2080, :3520-3546`.
+New card: no `checked` attribute; title/subtitle/label/desc from CONTEXT `<specifics>` (D-06 required content: recipients FSB server + TypeSafe AI, sent list, never-sent list, secrets scrubbed, experimental/inactive until calibrated, provider still plans/types/reads, server keeps no page content). The copy contains "Jev", so this file gets the marker-bounded card range in the narrowed boundary suite (68-12; the 68-01 token allowlist also gains this file). Scope every sent and never-sent claim to what fast mode sends to FSB's server (post-67 sync, sync issue 1). Occurrence pins: `tests/delegation-phase-contract.test.js:728, :1042, :2080, :3520-3546` (`:756, :1070, :2108, :3548+` at c7a7d66f).
 
 ---
 
@@ -749,11 +751,11 @@ Named IIFE over `root`, one `root.Fsb* = api`, `module.exports` guard, nothing a
 **Apply to:** `afterStep` evidence mapping; `hadEffect` is never evidence; `bfCacheDetected` = may have executed.
 
 ### Test registration
-**Source:** `tests/delegation-phase-contract.test.js:129-161` (`REFINEMENT_ROOT_TEST_COMMANDS`, frozen array, last entry is the `node --test tests/bench-*.test.mjs` group) and the root `package.json` `test` chain.
+**Source:** `tests/delegation-phase-contract.test.js:129-161` (`REFINEMENT_ROOT_TEST_COMMANDS`, frozen array; at e1e6439c the last entry was the `node --test tests/bench-*.test.mjs` group, and at c7a7d66f it is `node --test tests/jev-shadow-score.test.mjs tests/jev-shadow-select.test.mjs tests/jev-shadow-records.test.mjs tests/jev-shadow-harness.test.mjs`) and the root `package.json` `test` chain.
 **Apply to:** every new suite, same commit, appended once; never touch `PRE_PHASE6x` hashes. Upstream phases 66.1/67/69 append first; append after them.
 
 ### Source-pin discipline
-**Source:** `tests/lattice-provider-bridge-smoke.test.js:614-636`, `:637-684` (ledger comment + exact count), `tests/agent-loop-iterator-guard.test.js:49-69`.
+**Source:** `tests/lattice-provider-bridge-smoke.test.js:614-636`, `:637-684` (ledger comment + exact count; the count asserts sit at `:636-637` and `:685-686` at c7a7d66f), `tests/agent-loop-iterator-guard.test.js:49-69`, and the 67-11 boundary suite `tests/jev-extension-boundary.test.js` (substring ui/config scan, background.js load-line check, enumerated modules).
 **Apply to:** every commit touching `background.js`, `agent-loop.js`, `options.js`, `control_panel.html`, `messaging.js`, `dom-*.js`, `mcp-tool-dispatcher.js`, the privacy page. Grep `tests/` for `.match(`, `.includes(`, `indexOf(`, `readFileSync`, `sha256(` on the file first (D-24). Reference counts at e1e6439c: control_panel.html 17 test files, options.js 11, mcp-tool-dispatcher.js 38, messaging.js 8, automation-logger.js 5, config.js 4, dom-state.js 2, dom-analysis.js 1, init-config.js 1, privacy page 1.
 
 ---
