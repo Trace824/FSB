@@ -539,6 +539,9 @@
     isLine: isLine,
     saveOverride: saveOverride,
     onChange: onChange,
+    // Re-applies the active locale to an extension page and runs onChange
+    // callbacks, so a page can bring script-built copy in line after boot().
+    refresh: notifyLocaleChange,
     mountSelect: mountSelect,
     boot: boot,
     parseMessages: parseMessages,

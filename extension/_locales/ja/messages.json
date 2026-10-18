@@ -2110,6 +2110,9 @@
   "entry_pause_replay": {
     "message": "再生を一時停止"
   },
+  "entry_play_replay": {
+    "message": "再生を開始"
+  },
   "entry_replay_position": {
     "message": "再生位置。先へだけ移動できます"
   },

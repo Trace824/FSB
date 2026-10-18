@@ -433,6 +433,11 @@ async function asyncChecks() {
   await locale.saveOverride(null);
   check(select.value === '', 'the picker follows a return to the browser language');
 
+  let refreshed = 0;
+  locale.onChange(function () { refreshed += 1; });
+  locale.refresh();
+  check(refreshed === 1, 'refresh runs onChange callbacks so pages can sync after boot');
+
   // Content scripts are re-injected into live tabs. The second run must keep
   // the booted instance and its override.
   locale.setOverride('de');

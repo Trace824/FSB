@@ -2110,6 +2110,9 @@
   "entry_pause_replay": {
     "message": "Wiedergabe pausieren"
   },
+  "entry_play_replay": {
+    "message": "Wiedergabe starten"
+  },
   "entry_replay_position": {
     "message": "Wiedergabeposition, nur vorwärts"
   },

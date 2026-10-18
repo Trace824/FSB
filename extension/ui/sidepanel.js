@@ -6707,9 +6707,8 @@ function renderMcpReplayApproval(approval) {
   const approve = document.createElement('button');
   approve.type = 'button';
   approve.className = 'replay-decision-btn retry';
-  approve.textContent = (globalThis.fsbUiLocale && fsbUiLocale.markExact)
-    ? fsbUiLocale.markExact(approve, 'Approve replay')
-    : 'Approve replay';
+  approve.textContent = 'Approve replay';
+  if (globalThis.fsbUiLocale && fsbUiLocale.markExact) fsbUiLocale.markExact(approve, 'Approve replay');
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'replay-decision-btn stop';

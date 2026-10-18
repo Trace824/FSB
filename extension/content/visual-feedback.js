@@ -31,6 +31,8 @@
     if (!root || typeof root.querySelector !== 'function') return;
     var title = root.querySelector('.fsb-title');
     if (title && ownedText(title.textContent, 'entry_automating', 'FSB Automating')) title.textContent = ov('entry_automating', 'FSB Automating');
+    var crawlTitle = root.querySelector('.fsb-crawl-title');
+    if (crawlTitle && ownedText(crawlTitle.textContent, 'entry_crawl_title', 'FSB Crawling')) crawlTitle.textContent = ov('entry_crawl_title', 'FSB Crawling');
     var stop = root.querySelector('.fsb-stop');
     if (stop && ownedText(stop.getAttribute('aria-label'), 'entry_stop', 'Stop')) stop.setAttribute('aria-label', ov('entry_stop', 'Stop'));
     var step = root.querySelector('.fsb-step-number');
@@ -42,6 +44,7 @@
     }
     var pause = root.querySelector('.fsb-replay-toggle');
     if (pause && ownedText(pause.getAttribute('aria-label'), 'entry_pause_replay', 'Pause replay')) pause.setAttribute('aria-label', ov('entry_pause_replay', 'Pause replay'));
+    else if (pause && ownedText(pause.getAttribute('aria-label'), 'entry_play_replay', 'Play replay')) pause.setAttribute('aria-label', ov('entry_play_replay', 'Play replay'));
     var scrubber = root.querySelector('.fsb-replay-scrubber');
     if (scrubber && ownedText(scrubber.getAttribute('aria-label'), 'entry_replay_position', 'Replay position, forward seek only')) {
       scrubber.setAttribute('aria-label', ov('entry_replay_position', 'Replay position, forward seek only'));
@@ -1871,7 +1874,7 @@
       var toggle = this.container.querySelector('.fsb-replay-toggle');
       var showPlay = replay.status === 'paused' || awaitingDecision;
       toggle.textContent = showPlay ? '\u25B6' : '\u2161';
-      toggle.setAttribute('aria-label', showPlay ? 'Play replay' : 'Pause replay');
+      toggle.setAttribute('aria-label', showPlay ? ov('entry_play_replay', 'Play replay') : ov('entry_pause_replay', 'Pause replay'));
       toggle.disabled = terminal || awaitingDecision;
 
       var scrubber = this.container.querySelector('.fsb-replay-scrubber');

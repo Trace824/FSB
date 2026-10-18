@@ -266,6 +266,11 @@ function initializeDashboard() {
   // reflects the persisted setting when the widget reads its initial state.
   initFsbSelects();
 
+  // The widget copies option text once, so re-copy it whenever the locale
+  // translates the hidden native options (after boot and on every change).
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.onChange === 'function') fsbUiLocale.onChange(refreshFsbSelectOptions);
+  refreshFsbSelectOptions();
+
   // Initialize sections
   initializeSections();
 
@@ -1525,6 +1530,13 @@ function initSidebarProximity() {
     if (!sp || sp.querySelector('.nav-label')) return;
     const lab = document.createElement('span');
     lab.className = 'nav-label';
+    // apply() skips keyed nodes that hold child markup, so the locale key
+    // moves with the text onto the new leaf.
+    const key = sp.getAttribute('data-i18n');
+    if (key) {
+      lab.setAttribute('data-i18n', key);
+      sp.removeAttribute('data-i18n');
+    }
     while (sp.firstChild) { lab.appendChild(sp.firstChild); }
     sp.appendChild(lab);
   });
@@ -1608,6 +1620,23 @@ let _fsbSelectOutsideClickBound = false;
 // dirtying the settings form on page load.
 function syncFsbSelectLabels() {
   document.querySelectorAll('.form-select[data-enh="1"], .chart-select[data-enh="1"]').forEach((sel) => {
+    if (typeof sel._fsbSyncLabel === 'function') sel._fsbSyncLabel();
+  });
+}
+
+// Re-copies each native option's text into its custom menu item, matched by
+// value, then re-syncs the button label. The locale translates only the hidden
+// native <option>s, so the widget needs this after boot and on language change.
+function refreshFsbSelectOptions() {
+  document.querySelectorAll('.form-select[data-enh="1"], .chart-select[data-enh="1"]').forEach((sel) => {
+    const menu = sel.parentNode && sel.parentNode.querySelector('.fsb-select__menu');
+    if (!menu) return;
+    const labels = {};
+    Array.prototype.forEach.call(sel.options, (o) => { labels[o.value] = o.textContent; });
+    Array.prototype.forEach.call(menu.children, (li) => {
+      const value = li.getAttribute('data-value');
+      if (Object.prototype.hasOwnProperty.call(labels, value)) li.textContent = labels[value];
+    });
     if (typeof sel._fsbSyncLabel === 'function') sel._fsbSyncLabel();
   });
 }

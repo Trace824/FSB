@@ -2110,6 +2110,9 @@
   "entry_pause_replay": {
     "message": "Pause replay"
   },
+  "entry_play_replay": {
+    "message": "Play replay"
+  },
   "entry_replay_position": {
     "message": "Replay position, forward seek only"
   },

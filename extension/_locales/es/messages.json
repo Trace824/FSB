@@ -2110,6 +2110,9 @@
   "entry_pause_replay": {
     "message": "Pausar la repetición"
   },
+  "entry_play_replay": {
+    "message": "Reproducir la repetición"
+  },
   "entry_replay_position": {
     "message": "Posición de la repetición, solo avance"
   },

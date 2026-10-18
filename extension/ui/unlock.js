@@ -10,6 +10,13 @@ function unlockText(key, english) {
   return english;
 }
 
+// fill() records the key, so text written before the locale boot finishes is
+// re-translated in place once it does.
+function unlockFill(node, key, english) {
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.fill === 'function') fsbUiLocale.fill(node, key, english);
+  else node.textContent = english;
+}
+
 let pinInput = null;
 let submitting = false;
 
@@ -75,7 +82,7 @@ chrome.runtime.sendMessage({ action: 'getCredentialVaultStatus' }).then(response
     pinInput.focus();
   } else {
     // No vault configured
-    errorMsg.textContent = unlockText('entry_no_vault', 'No vault configured. Please run setup first.');
+    unlockFill(errorMsg, 'entry_no_vault', 'No vault configured. Please run setup first.');
     errorMsg.style.display = 'block';
   }
 }).catch(() => {

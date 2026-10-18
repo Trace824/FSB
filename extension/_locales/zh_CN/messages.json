@@ -2110,6 +2110,9 @@
   "entry_pause_replay": {
     "message": "暂停重放"
   },
+  "entry_play_replay": {
+    "message": "播放重放"
+  },
   "entry_replay_position": {
     "message": "重放位置，只能向前拖动"
   },

@@ -14,6 +14,9 @@
     if (typeof locale.mountSelect === 'function') {
       locale.mountSelect(document.getElementById('fsbUiLocaleSelect'));
     }
-    locale.apply(document);
+    // refresh() applies the catalog and also runs page callbacks registered
+    // with onChange (the control panel's custom dropdowns, for one).
+    if (typeof locale.refresh === 'function') locale.refresh();
+    else locale.apply(document);
   });
 })();
