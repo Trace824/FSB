@@ -486,6 +486,68 @@ function wireTextOf(value) {
   return JSON.stringify({ success: true, ...value }, null, 2);
 }
 
+// ---- Switch-on helpers (plan 70-06) -----------------------------------------
+
+// The session field fsbFastModeSessionField gives an MCP start when the
+// Advanced Settings switch is on (plan 70-02).
+const FAST_MODE_FIELD = deepFreeze({ enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' });
+
+// What the bridge reports when the builder cannot run (D-19, RESEARCH F4).
+const CLASSIFIER_ERROR_BLOCK = deepFreeze({
+  outcome: 'ambiguous',
+  reason: 'classifier_error',
+  uncertain_unobserved: null,
+  human_gate: null,
+  budget_profile: null,
+  jev: null
+});
+
+function omitKey(value, key) {
+  const out = {};
+  Object.keys(value).forEach((k) => { if (k !== key) out[k] = value[k]; });
+  return out;
+}
+
+// A switched-on session: the 70-01 seed plus the fast-mode field (and any
+// extra non-heartbeat fields), with the 70-03 run evidence record unless
+// withEvidence is false. Returns { session, handlers }.
+function makeFastSession(fastPathModule, { withEvidence = true, extra = {} } = {}) {
+  const session = makeSeededSession(Object.assign({ fastMode: jsonClone(FAST_MODE_FIELD) }, extra));
+  const handlers = withEvidence ? fastPathModule.createRunEvidenceHandlers(session, { startUrl: null }) : null;
+  return { session, handlers };
+}
+
+function dispatchBus(harness, eventName, message) {
+  harness.exports.lifecycleBus.dispatchEvent(new CustomEvent(eventName, { detail: jsonClone(message) }));
+}
+
+// Starts a run_task on a fresh harness. hooks.beforeStart(harness) runs before
+// the start call, hooks.between(harness) while the task runs, and
+// hooks.settle(harness) replaces the named settle path when given.
+async function runWithHarness(pathName, opts = {}, hooks = {}) {
+  const harness = buildWireHarness(opts);
+  if (typeof hooks.beforeStart === 'function') hooks.beforeStart(harness);
+  const promise = harness.client._handleStartAutomation({ task: RUN_TASK_TEXT }, MCP_MSG_ID);
+  await flushMicrotasks();
+  if (typeof hooks.between === 'function') await hooks.between(harness);
+  if (typeof hooks.settle === 'function') await hooks.settle(harness);
+  else await driveSettle(harness, pathName);
+  const value = await promise;
+  await flushMicrotasks();
+  return { value, storeWrites: harness.writeSnapshotCalls, sent: harness.sent, harness };
+}
+
+// A switched-on run with the real FsbFastPath loaded (variant V3 shape).
+async function runSwitchOn(pathName, fastPathModule, { withEvidence = true, extra = {}, between = null, settle = null } = {}) {
+  const fast = makeFastSession(fastPathModule, { withEvidence, extra });
+  const run = await runWithHarness(pathName, { variant: 'V3', fastPathModule, session: fast.session }, {
+    between: between ? (harness) => between(harness, fast) : null,
+    settle
+  });
+  run.fast = fast;
+  return run;
+}
+
 // ---- Suite ------------------------------------------------------------------
 
 async function runTest(name, fn) {
@@ -557,6 +619,192 @@ async function main() {
   // -------------------------------------------------------------------------
   // switch-on cases (plan 70-06)
   // -------------------------------------------------------------------------
+  //
+  // D-17, D-19, D-20: a run_task whose session had fastMode at start settles
+  // with its switch-off value plus one key, fast_mode, appended last. Every
+  // session here comes from makeSeededSession and carries no heartbeat-read
+  // field, so everything but the block equals the 70-01 golden.
+
+  const BLOCK_KEYS = Array.from(fastPathModule.FAST_MODE_BLOCK_KEYS);
+  const SUMMARY_KEYS = Array.from(fastPathModule.FAST_MODE_SUMMARY_KEYS);
+
+  await runTest('switch-off unchanged after edit', async () => {
+    let matches = 0;
+    for (const pathName of SETTLE_PATHS) {
+      const expected = golden.paths[pathName];
+      for (const variant of VARIANTS) {
+        const opts = { variant };
+        if (variant === 'V3') opts.fastPathModule = fastPathModule;
+        const run = await runSettlePath(pathName, opts);
+        if (plainEqual(run.value, expected.value) && plainEqual(run.storeWrites, expected.storeWrites)
+          && wireTextOf(run.value) === expected.wireText && !('fast_mode' in run.value)) matches++;
+      }
+      // fastMode present but not set (never produced by background.js, which
+      // spreads the field only when it is an object) still gives no block.
+      const nullField = await runSettlePath(pathName, {
+        variant: 'V3', fastPathModule, session: makeSeededSession({ fastMode: null })
+      });
+      if (plainEqual(nullField.value, expected.value) && plainEqual(nullField.storeWrites, expected.storeWrites)) matches++;
+    }
+    check(matches === SETTLE_PATHS.length * (VARIANTS.length + 1),
+      'switch-off unchanged after edit (' + matches + '/' + (SETTLE_PATHS.length * (VARIANTS.length + 1)) + ' golden runs)');
+  });
+
+  const onRuns = {};
+  for (const pathName of SETTLE_PATHS) {
+    await runTest('switch-on ' + pathName, async () => {
+      const expected = golden.paths[pathName];
+      const run = await runSwitchOn(pathName, fastPathModule);
+      onRuns[pathName] = run;
+      const on = run.value;
+      const off = expected.value;
+      const added = Object.keys(on).filter((k) => !Object.keys(off).includes(k));
+      const block = on && on.fast_mode;
+      const additive = plainEqual(added, ['fast_mode'])
+        && Object.keys(on).at(-1) === 'fast_mode'
+        && plainEqual(omitKey(on, 'fast_mode'), off)
+        && Object.is(on.success, off.success)
+        && Object.is(on.status, off.status)
+        && block && typeof block === 'object'
+        && plainEqual(Object.keys(block), BLOCK_KEYS)
+        && block.budget_profile === 'run_task'
+        && block.jev && plainEqual(Object.keys(block.jev), SUMMARY_KEYS);
+      if (!additive) console.error('    on:', JSON.stringify(on));
+      check(additive, 'additive ' + pathName);
+
+      const wire = { success: true, ...on };
+      const parsed = JSON.parse(JSON.stringify(wire, null, 2));
+      check(JSON.stringify(omitKey(parsed, 'fast_mode'), null, 2) === expected.wireText
+        && Object.keys(parsed).at(-1) === 'fast_mode'
+        && plainEqual(parsed.fast_mode, block), 'wire bytes ' + pathName);
+
+      // The terminal write is the last one; every earlier write (subscribe,
+      // heartbeats, the safety net's partial write) equals the golden's.
+      const writes = run.storeWrites;
+      const goldenWrites = expected.storeWrites;
+      const last = writes.length - 1;
+      const earlierMatch = writes.length === goldenWrites.length
+        && writes.slice(0, last).every((w, i) => plainEqual(w, goldenWrites[i]));
+      const terminal = writes[last];
+      const goldenTerminal = goldenWrites[last];
+      const terminalMatch = terminal && goldenTerminal
+        && terminal.taskId === goldenTerminal.taskId
+        && plainEqual(omitKey(terminal.snapshot, 'final_result'), omitKey(goldenTerminal.snapshot, 'final_result'))
+        && plainEqual(terminal.snapshot.final_result, on)
+        && plainEqual(goldenTerminal.snapshot.final_result, off);
+      check(earlierMatch && terminalMatch, 'store carries block ' + pathName);
+    });
+  }
+
+  await runTest('isolation', async () => {
+    const throwingBuilder = { buildFastModeBlock() { throw new Error('builder failed'); } };
+    const cyclicBuilder = {
+      buildFastModeBlock() {
+        const block = { outcome: 'done', reason: 'complete_task' };
+        block.self = block;
+        return block;
+      }
+    };
+    const subCases = [
+      { name: 'no module', variant: 'V2', module: null, getterThrows: false },
+      { name: 'throwing getter', variant: 'V2', module: null, getterThrows: true },
+      { name: 'throwing builder', variant: 'V3', module: throwingBuilder, getterThrows: false },
+      { name: 'cyclic block', variant: 'V3', module: cyclicBuilder, getterThrows: false }
+    ];
+    for (const sub of subCases) {
+      let ok = 0;
+      for (const pathName of SETTLE_PATHS) {
+        const fast = makeFastSession(fastPathModule);
+        const opts = { variant: sub.variant, session: fast.session };
+        if (sub.module) opts.fastPathModule = sub.module;
+        const run = await runWithHarness(pathName, opts, {
+          beforeStart: (harness) => {
+            if (!sub.getterThrows) return;
+            Object.defineProperty(harness.context, 'FsbFastPath', {
+              configurable: true,
+              enumerable: true,
+              get() { throw new Error('FsbFastPath getter failed'); }
+            });
+          }
+        });
+        let serialisable = true;
+        try { JSON.stringify(run.value); } catch (_e) { serialisable = false; }
+        const block = run.value && run.value.fast_mode;
+        if (block && plainEqual(block, CLASSIFIER_ERROR_BLOCK)
+          && plainEqual(Object.keys(block), BLOCK_KEYS)
+          && Object.keys(run.value).at(-1) === 'fast_mode'
+          && plainEqual(omitKey(run.value, 'fast_mode'), golden.paths[pathName].value)
+          && serialisable
+          && run.harness.clock.activeIntervalCount() === 0) ok++;
+        else console.error('    ' + sub.name + ' ' + pathName + ':', serialisable ? JSON.stringify(run.value) : '(not serialisable)');
+      }
+      check(ok === SETTLE_PATHS.length, 'isolation ' + sub.name + ' (' + ok + '/' + SETTLE_PATHS.length + ' paths)');
+    }
+  });
+
+  await runTest('released at settle', async () => {
+    for (const pathName of SETTLE_PATHS) {
+      const fast = makeFastSession(fastPathModule);
+      // reads counts every property read; blockReads only those of fields
+      // the heartbeat never reads, so it shows the settle-time block read the
+      // captured reference (the heartbeat reads the map entry itself).
+      let reads = 0;
+      let blockReads = 0;
+      const spied = new Proxy(fast.session, {
+        get(target, key, receiver) {
+          reads++;
+          if (typeof key === 'string' && !HEARTBEAT_READ_FIELDS.includes(key)) blockReads++;
+          return Reflect.get(target, key, receiver);
+        }
+      });
+      let blockReadsBeforeSettle = 0;
+      const run = await runWithHarness(pathName, { variant: 'V3', fastPathModule, session: spied }, {
+        between: () => { blockReadsBeforeSettle = blockReads; }
+      });
+      const readsAtSettle = reads;
+      const blockReadsAtSettle = blockReads - blockReadsBeforeSettle;
+      const writesAtSettle = run.storeWrites.length;
+      const sentAtSettle = run.sent.length;
+      const valueAtSettle = jsonClone(run.value);
+      // A second ending of every kind, and the clock past both timers.
+      run.harness.chrome.runtime.onMessage._emit(jsonClone(COMPLETE_MESSAGE));
+      dispatchBus(run.harness, 'automationComplete', COMPLETE_MESSAGE);
+      dispatchBus(run.harness, 'automationError', ERROR_MESSAGE);
+      dispatchBus(run.harness, 'automationComplete', STOP_MESSAGE);
+      await run.harness.clock.advance(SAFETY_NET_MS + HEARTBEAT_MS);
+      await flushMicrotasks();
+      check(blockReadsAtSettle > 0 && reads === readsAtSettle
+        && run.value.fast_mode && run.value.fast_mode.budget_profile === 'run_task'
+        && run.storeWrites.length === writesAtSettle
+        && run.sent.length === sentAtSettle
+        && plainEqual(jsonClone(run.value), valueAtSettle)
+        && run.harness.clock.activeIntervalCount() === 0
+        && run.harness.clock.pendingCount() === 0,
+      'released at settle ' + pathName + ' (block reads at settle ' + blockReadsAtSettle + ', session reads after settle '
+        + (reads - readsAtSettle) + ')');
+    }
+  });
+
+  await runTest('no extra read', async () => {
+    for (const variant of ['V2', 'V3', 'V4']) {
+      let gets = 0;
+      const opts = { variant };
+      if (variant === 'V3') opts.fastPathModule = fastPathModule;
+      const harness = buildWireHarness(opts);
+      const realGet = harness.activeSessions.get;
+      harness.activeSessions.get = function spyGet(key) { gets++; return realGet.call(this, key); };
+      const promise = harness.client._handleStartAutomation({ task: RUN_TASK_TEXT }, MCP_MSG_ID);
+      await flushMicrotasks();
+      const getsBeforeHeartbeat = gets;
+      await harness.clock.advance(HEARTBEAT_MS);
+      await flushMicrotasks();
+      const getsAfterHeartbeat = gets;
+      dispatchBus(harness, 'automationComplete', COMPLETE_MESSAGE);
+      const value = await promise;
+      check(getsBeforeHeartbeat === 1 && getsAfterHeartbeat === 2 && !('fast_mode' in value),
+        'no extra read ' + variant + ' (start path ' + getsBeforeHeartbeat + ', with first heartbeat ' + getsAfterHeartbeat + ')');
+    }
+  });
 
   console.log('\n--- Phase 70 run_task fast-mode wire summary ---');
   console.log('  passed:', passed);

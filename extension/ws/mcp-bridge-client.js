@@ -2670,6 +2670,17 @@ class MCPBridgeClient {
 
     const sessionId = response.sessionId;
 
+    // Phase 70 (D-19): keep the session only when fast mode was on at start,
+    // so settle can report the typed fast-mode outcome. This is the same
+    // guarded map read fireHeartbeat does, done once; a stopped session has
+    // already left the map by settle time, so the read happens here.
+    let fastModeSession = null;
+    try {
+      const fastStartSessions = (typeof activeSessions !== 'undefined') ? activeSessions : null;
+      const fastStartSession = (fastStartSessions && typeof fastStartSessions.get === 'function') ? fastStartSessions.get(sessionId) : null;
+      fastModeSession = (fastStartSession && fastStartSession.fastMode) ? fastStartSession : null;
+    } catch (_e) { fastModeSession = null; }
+
     // Listen for automation completion via message listener
     //
     // Phase 225-01: chrome.runtime.sendMessage() does NOT loop back to
@@ -2750,7 +2761,7 @@ class MCPBridgeClient {
         } catch (_e) { /* best-effort persistence */ }
       };
 
-      const settle = (value, source) => {
+      const settle = (value, source, terminal) => {
         if (settled) return;
         settled = true;
         clearTimeout(timeout);
@@ -2759,6 +2770,39 @@ class MCPBridgeClient {
         if (lifecycleBus && typeof lifecycleBus.removeEventListener === 'function') {
           lifecycleBus.removeEventListener('automationComplete', busCompleteHandler);
           lifecycleBus.removeEventListener('automationError', busErrorHandler);
+        }
+
+        // Phase 70 (D-17, D-19): a run_task that started with fast mode on
+        // gets one more key, fast_mode, appended last; every other key stays
+        // as it is. The block is built here, synchronously, from the session
+        // captured at start, which is released now. Any failure gives the
+        // classifier_error block, and if even that fails the value goes out
+        // unchanged, so resolve below is always reached. The JSON round trip
+        // keeps the block plain data for the stored snapshot and the wire.
+        let finalValue = value;
+        if (fastModeSession) {
+          const fastSessionRef = fastModeSession;
+          fastModeSession = null;
+          let fastBlock = null;
+          try {
+            const fastPath = (typeof globalThis !== 'undefined') ? globalThis.FsbFastPath : null;
+            const fastKind = (terminal && terminal.kind) || (source === 'safety_net_600s' ? 'safety_net' : null);
+            const built = fastPath.buildFastModeBlock(fastSessionRef, { source, kind: fastKind, message: terminal ? terminal.message : undefined });
+            const plain = JSON.parse(JSON.stringify(built));
+            if (plain && typeof plain === 'object' && !Array.isArray(plain)) fastBlock = plain;
+          } catch (_e) { fastBlock = null; }
+          try {
+            finalValue = Object.assign({}, value, {
+              fast_mode: fastBlock || {
+                outcome: 'ambiguous',
+                reason: 'classifier_error',
+                uncertain_unobserved: null,
+                human_gate: null,
+                budget_profile: null,
+                jev: null,
+              },
+            });
+          } catch (_e) { finalValue = value; }
         }
 
         // Phase 239 plan 02 -- D-04 terminal write (state transition to
@@ -2782,7 +2826,7 @@ class MCPBridgeClient {
               current_step: heartbeatTickCount,
               ai_cycle_count: heartbeatTickCount,
               last_dom_hash: null,
-              final_result: value,
+              final_result: finalValue,
             }).catch(() => { /* best-effort */ });
           }
         } catch (_e) { /* never block resolve on persistence */ }
@@ -2797,7 +2841,7 @@ class MCPBridgeClient {
             source
           }));
         } catch (_e) { /* logging never blocks resolution */ }
-        resolve(value);
+        resolve(finalValue);
       };
 
       // Phase 239 plan 03 -- raise 300s ceiling to 600s safety net per D-06
@@ -2892,7 +2936,7 @@ class MCPBridgeClient {
           sessionId,
           status: message.outcome || message.result?.status || (message.partial ? 'partial' : 'completed'),
           result: message.result || {},
-        }, source);
+        }, source, { kind: 'complete', message });
       };
 
       const handleError = (message, source) => {
@@ -2900,7 +2944,7 @@ class MCPBridgeClient {
           sessionId,
           status: 'error',
           error: message.error || 'Unknown automation error',
-        }, source);
+        }, source, { kind: 'error', message });
       };
 
       const runtimeListener = (message) => {
