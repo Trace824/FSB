@@ -28,7 +28,9 @@
  *     budgetsFor) and the D-05 inversions: a switched-on run_task session
  *     captures and attempts exactly like an autopilot session; the capture
  *     mechanics cases run on a hand-built stored, disabled field
- *     (CAPTURE_ONLY_FIELD) so no fast attempt mixes in.
+ *     (CAPTURE_ONLY_FIELD) so no fast attempt mixes in; run_task parity
+ *     over every fallback reason through the real client, the uncalibrated
+ *     latch and the switch turned off mid-run.
  *
  * No network, no ports, no real timers. Node 20-safe.
  *
@@ -3276,6 +3278,126 @@ async function runTaskNoDirectBudgetRead() {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 70 (70-02 Task 3): run_task parity (SC3, D-06, D-11)
+// ---------------------------------------------------------------------------
+
+/**
+ * The gateway answer that makes the real FsbJevClient return `reason`: the
+ * contract status with fallbackBody(reason); a transport error for
+ * network_error; for aborted, the in-flight decide is aborted through
+ * abortInFlight while the session keeps running.
+ */
+function fallbackResponder(reason, ref) {
+  if (reason === 'network_error') return () => new Error('Failed to fetch');
+  if (reason === 'aborted') {
+    return () => {
+      FsbFastPath.abortInFlight(ref.session);
+      return Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' });
+    };
+  }
+  return () => ({ status: CONTRACT.HTTP_STATUS_BY_REASON[reason] || 503, body: gateway.fallbackBody(reason) });
+}
+
+/** One fallback attempt under `field`; `calibrated` marks a calibrated answer earlier in the session (WR-04). */
+async function fallbackRun(field, reason, calibrated) {
+  const ref = { session: null };
+  const r = rig({ session: { fastMode: copyJson(field) }, responder: fallbackResponder(reason, ref) });
+  ref.session = r.session;
+  await primed(r);
+  if (calibrated) fp(r.session).calibratedSeen = true;
+  const out = await r.turn(2);
+  const j = jf(r.session);
+  const f = fp(r.session);
+  const attempts = r.session.jevMeasurement ? r.session.jevMeasurement.attempts : [];
+  return copyJson({
+    out,
+    off: f.off,
+    offReason: f.offReason,
+    latched: j.latched,
+    consecutiveEscalations: j.consecutiveEscalations,
+    calibratedSeen: f.calibratedSeen,
+    status: r.session.status,
+    log: r.log,
+    decides: r.client.calls.length,
+    fallback: attempts.length > 0 ? attempts[attempts.length - 1].fallback : null,
+    messages: r.session.messages
+  });
+}
+
+/** The latch scope a fallback run left: session, command, iteration, or none. */
+function latchScopeOf(t, reason) {
+  if (t.off === true && t.offReason === reason) return 'session';
+  if (t.off !== true && t.latched === reason) return 'command';
+  if (t.off !== true && t.latched === null && t.consecutiveEscalations === 1) return 'iteration';
+  return 'none';
+}
+
+async function runTaskFallbackParity() {
+  check(CONTRACT.FALLBACK_REASONS.length === 19, 'run_task fallback parity: the contract holds 19 fallback reasons');
+  for (const reason of CONTRACT.FALLBACK_REASONS) {
+    const expected = FsbFastPath.classifyFallback(reason).latch;
+    const after = await fallbackRun(RUN_TASK_PROFILE_FIELD, reason, true);
+    const afterAutopilot = await fallbackRun(AUTOPILOT_FIELD, reason, true);
+    const before = await fallbackRun(RUN_TASK_PROFILE_FIELD, reason, false);
+    const beforeAutopilot = await fallbackRun(AUTOPILOT_FIELD, reason, false);
+    const scopes = [latchScopeOf(after, reason), latchScopeOf(before, reason)];
+    check(after.fallback === reason && before.fallback === reason && after.out.decline === reason && before.out.decline === reason
+      && scopes[0] === expected && scopes[1] === 'session' && after.decides === 1 && before.decides === 1
+      && after.status === 'running' && before.status === 'running'
+      && sameJson(after, afterAutopilot) && sameJson(before, beforeAutopilot),
+    'run_task fallback parity: ' + reason + ' hands the iteration to the LLM with its ' + expected + ' latch (a session latch before any calibrated answer, WR-04), '
+      + 'and the decline, latch state and call log equal the autopilot field (' + JSON.stringify(scopes) + ')');
+  }
+}
+
+async function runTaskUncalibratedOnce() {
+  const runs = {};
+  for (const [name, field] of [['run_task', RUN_TASK_PROFILE_FIELD], ['autopilot', AUTOPILOT_FIELD]]) {
+    const r = rig({ session: { fastMode: copyJson(field) }, responder: (request) => ({ body: gateway.uncalibratedBody(request) }) });
+    await primed(r);
+    const outs = [];
+    for (let i = 2; i <= 7; i += 1) {
+      outs.push((await r.turn(i)).decline || 'act');
+      FsbFastPath.observeTools(r.session, [llmCall('u' + i, 'get_page_snapshot')], [loopResult('u' + i, 'get_page_snapshot', OK_RESULT())]);
+    }
+    runs[name] = copyJson({ outs, log: r.log, decides: r.client.calls.length, off: fp(r.session).off, offReason: fp(r.session).offReason,
+      status: r.session.status, measurement: r.session.jevMeasurement || null });
+  }
+  const t = runs.run_task;
+  check(t.log.requestMenu.length === 1 && t.decides === 1 && t.log.readSwitch === 1 && t.outs.every((o) => o === 'not_calibrated')
+    && t.off === true && t.offReason === 'not_calibrated' && t.status === 'running',
+  'run_task uncalibrated once: over 6 eligible iterations an uncalibrated gateway costs one menu and one decide, then the session latch holds (D-11) ('
+    + JSON.stringify([t.log.requestMenu.length, t.decides, t.outs]) + ')');
+  check(sameJson(runs.run_task, runs.autopilot), 'run_task uncalibrated once: the run equals the autopilot-field run');
+}
+
+async function runTaskSwitchOffMidRun() {
+  const runs = {};
+  for (const [name, field] of [['run_task', RUN_TASK_PROFILE_FIELD], ['autopilot', AUTOPILOT_FIELD]]) {
+    let reads = 0;
+    const r = rig({ session: { fastMode: copyJson(field) }, readSwitch: () => { reads += 1; return Promise.resolve(reads < 2); } });
+    await primed(r);
+    const outs = [];
+    const acted = await r.turn(2);
+    outs.push(acted.toolCall ? 'act' : acted.decline);
+    if (acted.toolCall) FsbFastPath.afterStep(r.session, acted.step, resultsFor(acted.step, PROGRESS_RESULT));
+    const menusBefore = r.log.requestMenu.length;
+    const decidesBefore = r.client.calls.length;
+    outs.push((await r.turn(3)).decline);
+    FsbFastPath.observeTools(r.session, [llmCall('s3', 'get_page_snapshot')], [loopResult('s3', 'get_page_snapshot', OK_RESULT())]);
+    outs.push((await r.turn(4)).decline);
+    runs[name] = copyJson({ outs, reads, log: r.log, decides: r.client.calls.length, noMoreCalls: r.log.requestMenu.length === menusBefore && r.client.calls.length === decidesBefore,
+      off: fp(r.session).off, offReason: fp(r.session).offReason, handoffs: handoffs(r.session).length, status: r.session.status });
+  }
+  const t = runs.run_task;
+  check(sameJson(t.outs, ['act', 'switch_off', 'switch_off']) && t.off === true && t.offReason === 'switch_off' && t.noMoreCalls && t.reads === 2
+    && t.handoffs === 1 && t.status === 'running',
+  'run_task switch off mid-run: a switch read false on the second attempt latches the session switch_off, with no further menu, decide or switch read ('
+    + JSON.stringify(t.outs) + ')');
+  check(sameJson(runs.run_task, runs.autopilot), 'run_task switch off mid-run: the run equals the autopilot-field run');
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -3347,6 +3469,9 @@ async function main() {
     await section('70-02 run_task budget profile: escalation latch (D-08)', runTaskEscalationLatch);
     await section('70-02 run_task budget profile: the selected profile is the one enforced (D-08)', runTaskProfileDrivesEnforcement);
     await section('70-02 run_task budget profile: no direct budget read (D-08)', runTaskNoDirectBudgetRead);
+    await section('70-02 run_task parity: every fallback reason (SC3, D-06)', runTaskFallbackParity);
+    await section('70-02 run_task parity: an uncalibrated gateway costs one call (D-11)', runTaskUncalibratedOnce);
+    await section('70-02 run_task parity: the switch turned off mid-run (68 D-05)', runTaskSwitchOffMidRun);
   }
 
   console.log('\n--- Summary ---');

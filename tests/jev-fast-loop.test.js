@@ -36,7 +36,10 @@
  *   - run_task (Phase 70, D-04/D-05): a session whose fastMode is the real
  *     fsbFastModeSessionField(true, 'mcp') output takes an accepted fast step
  *     exactly like an autopilot session; built from (false, 'mcp') or
- *     (undefined, 'mcp') it has no field and equals the golden;
+ *     (undefined, 'mcp') it has no field and equals the golden; and under
+ *     that field an uncertain fast click is dispatched once, a risky or
+ *     text-field pick never acts and a permission denial still blocks, each
+ *     run equal to the autopilot-field run (run_task safety parity);
  *   - containment: a throwing or rejecting beforeTurn, a throwing afterStep or
  *     observeTools never reaches the API-error path, and a stop during the
  *     decision ends the iteration with no provider call and no schedule.
@@ -816,7 +819,8 @@ function llmSnapshotScript() {
  * (signatureMenuContent options; ITEM_ENTRIES by default), clock (a fake
  * clock for the deps and the client), fast (false: no session.fastMode, the
  * switch-off session), maxIterations (40), task, providerScript,
- * providerKey, sessionPatch.
+ * providerKey, sessionPatch, field (the session.fastMode value when fast is
+ * not false; FAST_FIELD by default, Phase 70 passes the run_task field).
  */
 function loopRun(opts) {
   const o = opts || {};
@@ -826,7 +830,7 @@ function loopRun(opts) {
   if (o.clock) deps.now = o.clock.now;
   const rec = H.recordingJevClient(gw.responder, { now: deps.now });
   const sessionPatch = Object.assign({ maxIterations: o.maxIterations || 40 }, o.sessionPatch || {});
-  if (o.fast !== false) sessionPatch.fastMode = Object.assign({}, FAST_FIELD);
+  if (o.fast !== false) sessionPatch.fastMode = Object.assign({}, o.field || FAST_FIELD);
   const harnessOptions = {
     loadFastPath: true,
     storage: { fsbJevFastModeEnabled: o.fast !== false },
@@ -1754,6 +1758,133 @@ async function switchOffCase() {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 70 (70-02 Task 3): run_task safety parity through the real loop
+// (SC3, D-06). Every case runs a session whose fastMode is the real
+// fsbFastModeSessionField(true, 'mcp') output, and the same script with the
+// autopilot field; the two runs must match.
+// ---------------------------------------------------------------------------
+
+// A fixed clock for the deps and the client, so the budget counters match across runs.
+const PARITY_CLOCK = Object.freeze({ now: () => 1789639200000 });
+// Next, a commit-word control and a text field: the last two are never fast-acted.
+const RISK_ENTRIES = [
+  entry('j1', { label: 'Next' }),
+  entry('j2', { label: 'Pay now', risk: 'commit_word', fastEligible: false }),
+  entry('j3', { role: 'textbox', label: 'Name', ops: ['click'], inputType: 'text', fastEligible: false })
+];
+
+/**
+ * loopRun under `field`, run for n steps; returns a JSON trace and the
+ * recorded facts the checks read. The fast call's toolResult is read where
+ * the module reads it: afterStep is wrapped, as in the permission denial
+ * case, and the loop's own (abridged) actionHistory result is kept as well.
+ */
+async function parityLoopRun(field, opts, n) {
+  const run = loopRun(Object.assign({ field, clock: PARITY_CLOCK }, opts));
+  const stepResults = [];
+  const real = run.h.fastPath;
+  globalThis.FsbFastPath = Object.assign({}, real, {
+    afterStep(session, step, toolResults) {
+      const own = (toolResults || []).find((t) => t && step && t.callId === step.callId);
+      stepResults.push(JSON.parse(JSON.stringify(own ? own.result : null)));
+      return real.afterStep(session, step, toolResults);
+    }
+  });
+  try {
+    await runSteps(run, n);
+    const fastEvent = (run.h.session.actionHistory || []).find((e) => e.decisionSource === 'jev') || null;
+    return {
+      steps: JSON.parse(JSON.stringify(run.steps)),
+      fastExecuteActions: contentActions(run.h.events, 'executeAction').filter((e) => e.message.params && e.message.params.jevHandle).length,
+      executeActions: contentActions(run.h.events, 'executeAction').length,
+      stepResults,
+      fastResult: fastEvent ? JSON.parse(JSON.stringify(fastEvent.result)) : null,
+      handoffs: handoffMessages(run.h.session.messages).map((m) => m.content),
+      attempts: JSON.parse(JSON.stringify((run.h.session.jevMeasurement && run.h.session.jevMeasurement.attempts) || [])),
+      running: stillRunning(run),
+      latched: jevFastOf(run).latched,
+      off: fastStateOf(run).off === true
+    };
+  } finally {
+    finish(run);
+  }
+}
+
+async function runTaskSafetyParityCases() {
+  section('run_task safety parity: one dispatch, risk exclusion and permission denial under the real run_task field (Phase 70 SC3, D-06)');
+  const runTaskField = Object.assign({}, loadSessionFieldHelper()(true, 'mcp'));
+  check(JSON.stringify(runTaskField) === JSON.stringify({ enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' }),
+    'run_task safety parity: the session field is the real helper output for (true, "mcp")');
+
+  // An uncertain fast click is dispatched once and escalated once (D-18).
+  // The content answers are raw content-script answers: executeContentTool
+  // wraps the first as result, and turns the thrown "Receiving end does not
+  // exist" into {success:true, result:{bfCacheDetected:true, currentUrl}}.
+  const uncertain = [
+    ['unknown outcome / mayHaveExecuted', () => ({ success: false, outcome: 'unknown', mayHaveExecuted: true }),
+      (r) => r && r.success === false && r.result && r.result.outcome === 'unknown' && r.result.mayHaveExecuted === true,
+      (r) => r && r.success === false && r.error === null],
+    ['bfCacheDetected', () => { throw new Error('Receiving end does not exist'); },
+      (r) => r && r.success === true && r.result && r.result.bfCacheDetected === true,
+      (r) => r && r.success === true && r.error === null]
+  ];
+  for (const [name, action, shape, recorded] of uncertain) {
+    const opts = { content: { entries: NEXT_ENTRIES, action }, answers: [calibratedPick('click', 'Next'), catchAll] };
+    const t = await parityLoopRun(runTaskField, opts, 4);
+    const a = await parityLoopRun(FAST_FIELD, opts, 4);
+    check(t.fastExecuteActions === 1 && t.executeActions === 1 && t.steps[1].fast === 1,
+      'run_task no second dispatch (' + name + '): the accepted fast click produced exactly one executeAction in the whole run');
+    check(t.stepResults.length === 1 && shape(t.stepResults[0]) && recorded(t.fastResult)
+      && t.attempts.length >= 1 && t.attempts[0].stepOutcome === 'uncertain',
+    'run_task no second dispatch (' + name + '): afterStep read the executor\'s result and classified the step uncertain (' + JSON.stringify(t.stepResults[0]) + ')');
+    const it3 = t.steps[2];
+    const text = t.handoffs.length === 1 ? t.handoffs[0] : '';
+    check(it3.provider === 1 && it3.menus === 0 && it3.decides === 0 && it3.fast === 0 && handoffsIn(it3).length === 1
+      && text.indexOf(MAY_HAVE_EXECUTED) !== -1 && text.indexOf('not permitted') === -1,
+    'run_task no second dispatch (' + name + '): the next iteration runs the LLM with one hand-off saying the step "' + MAY_HAVE_EXECUTED + '"');
+    check(t.steps[3].fast === 0 && t.running, 'run_task no second dispatch (' + name + '): no second dispatch afterwards and the session keeps running');
+    check(JSON.stringify(t) === JSON.stringify(a), 'run_task no second dispatch (' + name + '): the run equals the autopilot-field run step for step');
+  }
+
+  // A calibrated pick of a control fast mode never acts on (D-19).
+  for (const [name, label, reason] of [['a commit-word control', 'Pay now', 'risk_excluded'], ['a text field', 'Name', 'not_fast_eligible']]) {
+    const opts = { content: { entries: RISK_ENTRIES }, answers: [calibratedPick('click', label)] };
+    const t = await parityLoopRun(runTaskField, opts, 3);
+    const a = await parityLoopRun(FAST_FIELD, opts, 3);
+    const it2 = t.steps[1];
+    check(t.executeActions === 0 && t.steps.every((s) => s.fast === 0) && it2.decides === 1 && it2.provider === 1
+      && t.attempts.length >= 1 && t.attempts[0].escalationReason === reason && t.running,
+    'run_task risk excluded (' + name + '): the calibrated pick escalates ' + reason + ', no executeAction is sent and the LLM takes the iteration');
+    check(JSON.stringify(t) === JSON.stringify(a), 'run_task risk excluded (' + name + '): the run equals the autopilot-field run step for step');
+  }
+
+  // A permission denial still blocks the fast call (D-19).
+  const denied = {};
+  for (const [key, fastMode] of [['run_task', runTaskField], ['autopilot', Object.assign({}, FAST_FIELD)]]) {
+    const { h, decideRequests } = fastHarness({ harness: { providerScript: [LLM_SNAPSHOT, LLM_DONE], permissionDenies: ['click'], sessionPatch: { fastMode } } });
+    try {
+      await h.step();
+      await h.step();
+      await h.step();
+      denied[key] = { events: JSON.parse(JSON.stringify(h.events)), decides: decideRequests.length, messages: JSON.parse(JSON.stringify(h.session.messages)) };
+    } finally {
+      h.dispose();
+    }
+  }
+  const d = denied.run_task;
+  const it2 = stepEvents(d.events, 2);
+  const it3 = stepEvents(d.events, 3);
+  const requests3 = ofType(it3, 'provider');
+  const deniedHandoffs = requests3.length === 1 ? handoffMessages(requests3[0].requestBody.messages) : [];
+  check(d.decides === 1 && ofType(it2, 'provider').length === 0 && contentActions(d.events, 'executeAction').length === 0,
+    'run_task permission denial: the accepted fast click is refused by the real permission hook and no executeAction is sent');
+  check(requests3.length === 1 && deniedHandoffs.length === 1 && deniedHandoffs[0].content.indexOf('not permitted, so nothing ran') !== -1
+    && deniedHandoffs[0].content.indexOf('not run: not permitted') !== -1 && contentActions(it3, 'getJevMenu').length === 0,
+  'run_task permission denial: the next LLM request carries one hand-off saying the step was not permitted, with no other fast attempt first');
+  check(util.isDeepStrictEqual(denied.run_task, denied.autopilot), 'run_task permission denial: the run equals the autopilot-field run event for event');
+}
+
+// ---------------------------------------------------------------------------
 // Plan 68-08 Task 1: recorded-llm capture through the real loop (D-22)
 // ---------------------------------------------------------------------------
 
@@ -1941,6 +2072,8 @@ async function main() {
   await metricsRowCase();
   await stopCase();
   await switchOffCase();
+  // Phase 70 (70-02 Task 3): run_task safety parity.
+  await runTaskSafetyParityCases();
   // Plan 68-08 Task 1: recorded-llm capture through the real loop.
   await captureLoopCases();
   terminalToolChecks();
