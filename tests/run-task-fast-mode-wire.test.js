@@ -502,6 +502,50 @@ const CLASSIFIER_ERROR_BLOCK = deepFreeze({
   jev: null
 });
 
+// agent-loop.js notifySidepanel for partial_task with reason manual_approval
+// (createTerminalOutcome('partial', { reason: 'manual_approval', ... })).
+const APPROVAL_SUMMARY = 'Stopped before paying: the order needs the user to approve it.';
+const APPROVAL_MESSAGE = deepFreeze({
+  action: 'automationComplete',
+  sessionId: SESSION_ID,
+  tabId: TAB_ID,
+  conversationId: null,
+  historySessionId: SESSION_ID,
+  result: APPROVAL_SUMMARY,
+  partial: true,
+  stopped: false,
+  error: null,
+  reason: 'manual_approval',
+  outcome: 'partial',
+  blocker: 'Payment needs approval',
+  nextStep: 'Approve the payment, then run the task again',
+  outcomeDetails: {
+    outcome: 'partial',
+    reason: 'manual_approval',
+    summary: APPROVAL_SUMMARY,
+    blocker: 'Payment needs approval',
+    nextStep: 'Approve the payment, then run the task again',
+    result: APPROVAL_SUMMARY,
+    error: null
+  },
+  task: RUN_TASK_TEXT
+});
+
+// background.js handleStartAutomation's content-script-not-ready abort: it
+// broadcasts before the evidence registration line, with no outcome and no
+// reason (70-SYNC-RECHECK item o).
+const CONNECT_ERROR_TEXT = 'Could not connect to the page. Please refresh the page and try again. If the problem persists, reload the extension from chrome://extensions.';
+const CONNECT_ABORT_MESSAGE = deepFreeze({
+  action: 'automationError',
+  sessionId: SESSION_ID,
+  error: CONNECT_ERROR_TEXT,
+  task: RUN_TASK_TEXT
+});
+
+// Executor-level tool results handed to the evidence afterTool handler.
+const VERIFIED_CLICK_RESULT = deepFreeze({ success: true, result: { verification: { verified: true } } });
+const UNKNOWN_CLICK_RESULT = deepFreeze({ success: false, result: { outcome: 'unknown', mayHaveExecuted: true } });
+
 function omitKey(value, key) {
   const out = {};
   Object.keys(value).forEach((k) => { if (k !== key) out[k] = value[k]; });
@@ -804,6 +848,182 @@ async function main() {
       check(getsBeforeHeartbeat === 1 && getsAfterHeartbeat === 2 && !('fast_mode' in value),
         'no extra read ' + variant + ' (start path ' + getsBeforeHeartbeat + ', with first heartbeat ' + getsAfterHeartbeat + ')');
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // Bridge-level outcomes (plan 70-06 Task 2; SC2 at the wire, D-13)
+  // -------------------------------------------------------------------------
+  //
+  // The evidence handlers are driven between the start and the ending, as
+  // the session's hook pipeline would; the bridge then reports the typed
+  // outcome while every existing key keeps its switch-off value.
+
+  function outcomeMatches(run, want, label) {
+    const block = run.value && run.value.fast_mode;
+    const ok = !!block
+      && plainEqual(Object.keys(block), BLOCK_KEYS)
+      && Object.keys(run.value).at(-1) === 'fast_mode'
+      && block.outcome === want.outcome
+      && block.reason === want.reason
+      && (!('uncertain_unobserved' in want) || block.uncertain_unobserved === want.uncertain_unobserved)
+      && (!('human_gate' in want) || block.human_gate === want.human_gate)
+      && block.budget_profile === 'run_task';
+    if (!ok) console.error('    ' + label + ':', JSON.stringify(run.value));
+    return ok;
+  }
+
+  function clickInFlight(_harness, fast) {
+    fast.handlers.beforeTool({ toolName: 'click', origin: '', sessionId: SESSION_ID, iteration: 1 });
+  }
+
+  function clickWith(toolResult) {
+    return (_harness, fast) => {
+      fast.handlers.beforeTool({ toolName: 'click', origin: '', sessionId: SESSION_ID, iteration: 1 });
+      fast.handlers.afterTool({ toolName: 'click', toolResult: jsonClone(toolResult), sessionId: SESSION_ID, iteration: 1 });
+      fast.handlers.afterIteration({ sessionId: SESSION_ID, iteration: 1 });
+      // The LLM's complete_task: a terminal tool is never marked in flight.
+      fast.handlers.beforeTool({ toolName: 'complete_task', origin: '', sessionId: SESSION_ID, iteration: 2 });
+    };
+  }
+
+  await runTest('wire outcome stop in flight', async () => {
+    const run = await runSwitchOn('bus-stop', fastPathModule, { between: clickInFlight });
+    check(outcomeMatches(run, { outcome: 'ambiguous', reason: 'uncertain_action', uncertain_unobserved: true }, 'stop in flight')
+      && run.value.status === 'stopped'
+      && plainEqual(omitKey(run.value, 'fast_mode'), golden.paths['bus-stop'].value), 'wire outcome stop in flight');
+  });
+
+  await runTest('wire outcome clean stop', async () => {
+    const run = await runSwitchOn('bus-stop', fastPathModule);
+    check(outcomeMatches(run, { outcome: 'blocked', reason: 'user_stopped', uncertain_unobserved: false, human_gate: null }, 'clean stop')
+      && run.value.status === 'stopped'
+      && plainEqual(omitKey(run.value, 'fast_mode'), golden.paths['bus-stop'].value), 'wire outcome clean stop');
+  });
+
+  await runTest('wire outcome safety net', async () => {
+    const run = await runSwitchOn('safety-net', fastPathModule);
+    const expected = golden.paths['safety-net'].value;
+    check(outcomeMatches(run, { outcome: 'ambiguous', reason: 'safety_net_timeout' }, 'safety net')
+      && run.value.success === expected.success
+      && run.value.partial_outcome === expected.partial_outcome
+      && plainEqual(run.value.partial_state, expected.partial_state)
+      && run.value.hint === expected.hint
+      && plainEqual(omitKey(run.value, 'fast_mode'), expected), 'wire outcome safety net');
+  });
+
+  await runTest('wire outcome manual approval', async () => {
+    const run = await runSwitchOn('bus-complete', fastPathModule, {
+      settle: (harness) => dispatchBus(harness, 'automationComplete', APPROVAL_MESSAGE)
+    });
+    check(outcomeMatches(run, { outcome: 'needs_confirmation', reason: 'manual_approval', human_gate: 'manual_approval' }, 'manual approval')
+      && plainEqual(omitKey(run.value, 'fast_mode'), { sessionId: SESSION_ID, status: 'partial', result: APPROVAL_SUMMARY }),
+    'wire outcome manual approval');
+  });
+
+  await runTest('wire outcome done', async () => {
+    const run = await runSwitchOn('bus-complete', fastPathModule, { between: clickWith(VERIFIED_CLICK_RESULT) });
+    check(outcomeMatches(run, { outcome: 'done', reason: 'complete_task', uncertain_unobserved: false, human_gate: null }, 'done')
+      && plainEqual(omitKey(run.value, 'fast_mode'), golden.paths['bus-complete'].value), 'wire outcome done');
+  });
+
+  await runTest('wire outcome uncertain complete', async () => {
+    const run = await runSwitchOn('bus-complete', fastPathModule, { between: clickWith(UNKNOWN_CLICK_RESULT) });
+    const wire = { success: true, ...run.value };
+    check(outcomeMatches(run, { outcome: 'ambiguous', reason: 'uncertain_action', uncertain_unobserved: true, human_gate: null }, 'uncertain complete')
+      && wire.success === true
+      && run.value.status === golden.paths['bus-complete'].value.status
+      && run.value.status === 'success'
+      && plainEqual(omitKey(run.value, 'fast_mode'), golden.paths['bus-complete'].value), 'wire outcome uncertain complete');
+  });
+
+  await runTest('wire outcome error', async () => {
+    const run = await runSwitchOn('bus-error', fastPathModule);
+    check(outcomeMatches(run, { outcome: 'blocked', reason: 'error', uncertain_unobserved: false, human_gate: null }, 'error')
+      && run.value.status === 'error'
+      && plainEqual(omitKey(run.value, 'fast_mode'), golden.paths['bus-error'].value), 'wire outcome error');
+  });
+
+  await runTest('wire outcome no evidence', async () => {
+    const run = await runSwitchOn('bus-complete', fastPathModule, { withEvidence: false });
+    check(!Object.prototype.hasOwnProperty.call(run.fast.session, '_fastRunEvidence')
+      && outcomeMatches(run, { outcome: 'ambiguous', reason: 'evidence_unavailable', uncertain_unobserved: null, human_gate: null }, 'no evidence')
+      && plainEqual(omitKey(run.value, 'fast_mode'), golden.paths['bus-complete'].value), 'wire outcome no evidence');
+  });
+
+  await runTest('wire outcome error without evidence', async () => {
+    const run = await runSwitchOn('bus-error', fastPathModule, {
+      withEvidence: false,
+      settle: (harness) => dispatchBus(harness, 'automationError', CONNECT_ABORT_MESSAGE)
+    });
+    const rest = omitKey(run.value, 'fast_mode');
+    check(!Object.prototype.hasOwnProperty.call(run.fast.session, '_fastRunEvidence')
+      && outcomeMatches(run, { outcome: 'blocked', reason: 'error', uncertain_unobserved: null, human_gate: null }, 'error without evidence')
+      && plainEqual(Object.keys(rest), ['sessionId', 'status', 'error'])
+      && plainEqual(rest, { sessionId: SESSION_ID, status: 'error', error: CONNECT_ERROR_TEXT }), 'wire outcome error without evidence');
+  });
+
+  await runTest('wire marker scan', async () => {
+    const MARK = 'P70WIRE_MARKER';
+    const markRe = /p70wire/i;
+    const markedComplete = Object.assign(jsonClone(COMPLETE_MESSAGE), {
+      result: MARK + '_RESULT',
+      outcomeDetails: Object.assign(jsonClone(COMPLETE_MESSAGE.outcomeDetails), { summary: MARK + '_SUMMARY', result: MARK + '_RESULT' }),
+      task: MARK + '_TASK'
+    });
+    const markedError = Object.assign(jsonClone(ERROR_MESSAGE), {
+      result: MARK + '_RESULT',
+      error: MARK + '_ERROR',
+      outcomeDetails: Object.assign(jsonClone(ERROR_MESSAGE.outcomeDetails), { result: MARK + '_RESULT', error: MARK + '_ERROR' }),
+      task: MARK + '_TASK'
+    });
+    const markedStop = Object.assign(jsonClone(STOP_MESSAGE), { task: MARK + '_TASK' });
+    const extra = {
+      task: MARK + '_TASK',
+      jevMeasurement: {
+        v: 1,
+        attempts: [{ calibrationStatus: MARK + '_CALIBRATION', op: MARK + '_OP' }],
+        commands: [{ command: 0, fastSteps: 1, jevCalls: 1, jevMs: 5, escalations: { [MARK + '_ESC']: 1 } }]
+      }
+    };
+    const drive = (_harness, fast) => {
+      fast.handlers.beforeTool({ toolName: 'click', origin: '', sessionId: SESSION_ID, iteration: 1, args: { selector: MARK + '_SELECTOR' } });
+      fast.handlers.afterTool({
+        toolName: 'click',
+        sessionId: SESSION_ID,
+        iteration: 1,
+        toolResult: { success: true, result: { verification: { verified: true }, text: MARK + '_CLICK', url: 'https://p70wire-marker.example/a' } }
+      });
+      fast.handlers.beforeTool({ toolName: 'get_text', origin: '', sessionId: SESSION_ID, iteration: 1 });
+      fast.handlers.afterTool({
+        toolName: 'get_text',
+        sessionId: SESSION_ID,
+        iteration: 1,
+        toolResult: { success: true, result: { text: MARK + '_PAGE_TEXT', title: MARK + '_TITLE' } }
+      });
+      fast.handlers.afterIteration({ sessionId: SESSION_ID, iteration: 1 });
+    };
+    const settles = {
+      'runtime-complete': (harness) => { harness.chrome.runtime.onMessage._emit(jsonClone(markedComplete)); },
+      'bus-complete': (harness) => dispatchBus(harness, 'automationComplete', markedComplete),
+      'bus-error': (harness) => dispatchBus(harness, 'automationError', markedError),
+      'bus-stop': (harness) => dispatchBus(harness, 'automationComplete', markedStop),
+      'safety-net': null
+    };
+    const escalationCodes = Array.from(fastPathModule.FAST_MODE_ESCALATION_CODES);
+    let clean = 0;
+    let markersReachedValue = 0;
+    for (const pathName of SETTLE_PATHS) {
+      const run = await runSwitchOn(pathName, fastPathModule, { extra, between: drive, settle: settles[pathName] });
+      const block = run.value.fast_mode;
+      const blockText = JSON.stringify(block);
+      if (block && plainEqual(Object.keys(block), BLOCK_KEYS) && !markRe.test(blockText)
+        && block.jev && Object.keys(block.jev.escalations).every((code) => escalationCodes.includes(code))) clean++;
+      else console.error('    marker scan ' + pathName + ':', blockText);
+      // The markers did reach the session and the value, so the scan is not vacuous.
+      if (markRe.test(JSON.stringify(omitKey(run.value, 'fast_mode'))) || markRe.test(String(run.fast.session.task))) markersReachedValue++;
+    }
+    check(clean === SETTLE_PATHS.length && markersReachedValue === SETTLE_PATHS.length,
+      'wire marker scan (' + clean + '/' + SETTLE_PATHS.length + ' blocks free of markers)');
   });
 
   console.log('\n--- Phase 70 run_task fast-mode wire summary ---');
