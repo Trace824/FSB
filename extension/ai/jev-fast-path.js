@@ -2153,6 +2153,15 @@
     }
   }
 
+  // --- run_task outcome (Phase 70) ---
+  // ---------------------------------------------------------------------------
+  // The only part of this module that may name the three tools that end a
+  // task (PD-70-03): Phase 70 reads what a task did and how it ended. Nothing
+  // here builds a tool call, so fast mode still never ends a task (D-17).
+  // ---------------------------------------------------------------------------
+
+  // --- end run_task outcome ---
+
   var api = {
     constants: constants,
     BUDGET_PROFILES: BUDGET_PROFILES,

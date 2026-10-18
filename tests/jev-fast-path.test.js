@@ -188,6 +188,26 @@ function pick(op, handle, extra) {
 // Task 1
 // ---------------------------------------------------------------------------
 
+// PD-70-03: the one marked section of the module that may name a terminal tool.
+const PHASE70_SECTION_START = '// --- run_task outcome (Phase 70) ---';
+const PHASE70_SECTION_END = '// --- end run_task outcome ---';
+const TERMINAL_NAME_RE = /complete_task|partial_task|fail_task/;
+// The functions that choose, build, run and hand off a fast step.
+const FAST_STEP_FUNCTIONS = ['beforeTurn', 'attemptStep', 'evaluateDecision', 'buildStaticCall', 'afterStep',
+  'observeTools', 'deliverPending', 'flushHandoff'];
+
+/** {inside, outside} of the marked Phase 70 section, or null unless each marker appears once, start first. */
+function phase70Section(source) {
+  const start = source.indexOf(PHASE70_SECTION_START);
+  const end = source.indexOf(PHASE70_SECTION_END);
+  if (start < 0 || end < 0 || end < start) return null;
+  if (source.indexOf(PHASE70_SECTION_START, start + 1) >= 0 || source.indexOf(PHASE70_SECTION_END, end + 1) >= 0) return null;
+  return {
+    inside: source.slice(start, end + PHASE70_SECTION_END.length),
+    outside: source.slice(0, start) + source.slice(end + PHASE70_SECTION_END.length)
+  };
+}
+
 async function moduleShape() {
   check(loadError === null && FsbFastPath !== null && typeof FsbFastPath === 'object',
     'extension/ai/jev-fast-path.js loads under Node and exports an object' + (loadError ? ' (' + loadError.message + ')' : ''));
@@ -208,10 +228,23 @@ async function moduleShape() {
     ['a JEV_* identifier', /\bJEV_[A-Z_]+\b/],
     ['meetsThreshold (D-20)', /meetsThreshold/],
     ['probabilities (D-20)', /probabilities/],
-    ['.threshold (D-20)', /\.threshold\b/],
-    ['a terminal tool name', /complete_task|partial_task|fail_task/]
+    ['.threshold (D-20)', /\.threshold\b/]
   ];
   for (const [name, re] of bans) check(source.length > 0 && !re.test(source), 'the module source contains no ' + name);
+  // PD-70-03 (70-SYNC-RECHECK Drift substitution 9): the terminal tool names
+  // may appear only inside the one marked Phase 70 section, which reads how a
+  // task ended and builds no tool call; every fast-step function names none.
+  const marked = phase70Section(source);
+  check(marked !== null, 'the Phase 70 section markers appear exactly once each, start before end');
+  check(marked !== null && !TERMINAL_NAME_RE.test(marked.outside),
+    'the module source contains no terminal tool name outside the marked Phase 70 section');
+  check(marked !== null && marked.inside.indexOf('buildStaticCall(') === -1 && !/\btoolCall\b/.test(marked.inside),
+    'the marked Phase 70 section builds no tool call (no buildStaticCall( and no toolCall)');
+  for (const name of FAST_STEP_FUNCTIONS) {
+    const slice = functionSlice(source, name);
+    check(typeof slice === 'string' && slice.length > 0 && !TERMINAL_NAME_RE.test(slice),
+      name + ' names no terminal tool');
+  }
   check(!/^(const|let|class|function) /m.test(source), 'no top-level const, let, class or function');
   check(/^\(function initFsbFastPath\(root\) \{\n  'use strict';/m.test(source), 'one named IIFE over root with use strict');
   check((source.match(/root\.FsbFastPath = api;/g) || []).length === 1, 'exactly one root.FsbFastPath = api assignment');

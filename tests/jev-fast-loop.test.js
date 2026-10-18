@@ -1393,7 +1393,20 @@ function terminalToolChecks() {
   const slice = sliceFunction(source, 'buildStaticCall');
   check(typeof slice === 'string' && slice.length > 0 && TERMINAL_TOOLS.every((name) => slice.indexOf(name) === -1),
     'jev-fast-path.js buildStaticCall names none of complete_task, partial_task or fail_task');
-  check(TERMINAL_TOOLS.every((name) => source.indexOf(name) === -1), 'jev-fast-path.js names no terminal tool anywhere');
+  // PD-70-03 (70-SYNC-RECHECK Drift substitution 9): Phase 70 reads how a
+  // task ended inside one marked section of the module, which builds no tool
+  // call; the names stay banned everywhere else.
+  const start = source.indexOf('// --- run_task outcome (Phase 70) ---');
+  const end = source.indexOf('// --- end run_task outcome ---');
+  const marked = start >= 0 && end > start && source.indexOf('// --- run_task outcome (Phase 70) ---', start + 1) === -1
+    && source.indexOf('// --- end run_task outcome ---', end + 1) === -1;
+  const inside = marked ? source.slice(start, end) : '';
+  const outside = marked ? source.slice(0, start) + source.slice(end) : source;
+  check(marked, 'jev-fast-path.js holds the marked Phase 70 section exactly once');
+  check(marked && TERMINAL_TOOLS.every((name) => outside.indexOf(name) === -1),
+    'jev-fast-path.js names no terminal tool outside the marked Phase 70 section');
+  check(marked && inside.indexOf('buildStaticCall(') === -1 && !/\btoolCall\b/.test(inside),
+    'the marked Phase 70 section of jev-fast-path.js builds no tool call');
 }
 
 // ---------------------------------------------------------------------------
