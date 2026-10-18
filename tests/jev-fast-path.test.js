@@ -2864,6 +2864,350 @@ async function captureNeverRejects() {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 70 (70-02 Task 1): the run_task budget profile (D-08, D-09, D-10)
+// ---------------------------------------------------------------------------
+
+// The literal the real helper returns for (true, 'mcp'); plan 70-02 Task 2
+// proves fsbFastModeSessionField returns exactly this.
+const RUN_TASK_PROFILE_FIELD = Object.freeze({ enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' });
+const AUTOPILOT_FIELD = Object.freeze({ enabled: true, stored: true, source: null });
+const RUN_TASK_PROFILE_LITERAL = Object.freeze({ maxSteps: 12, maxCalls: 16, wallBudgetMs: 20000, maxConsecutive: 3, escalationLatch: 3, basis: 'uncalibrated' });
+const BUDGET_NAMES = ['FAST_MAX_STEPS', 'FAST_MAX_CALLS', 'FAST_WALL_BUDGET_MS', 'FAST_MAX_CONSECUTIVE', 'FAST_ESCALATION_LATCH'];
+// Loop results for an acted step (the executor wraps the content answer as result).
+const PROGRESS_RESULT = Object.freeze({ success: true, hadEffect: true, error: null, navigationTriggered: false,
+  result: { success: true, verification: { verified: true, changes: ['dom'] } } });
+const FAILED_RESULT = Object.freeze({ success: false, hadEffect: false, error: 'Content tool click failed: Element not found', navigationTriggered: false,
+  result: { success: false, error: 'Element not found' } });
+const BELOW_THRESHOLD = () => answer('click', 'Next', { operation: { choice: 'click', confidence: 0.5, threshold: 0.9 } });
+
+/** The source text with the first `opener ... });` literal cut out; null when the opener is missing or not unique. */
+function cutLiteral(source, opener) {
+  const start = source.indexOf(opener);
+  if (start < 0 || source.indexOf(opener, start + 1) >= 0) return null;
+  let depth = 0;
+  let i = source.indexOf('{', start);
+  for (; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) break;
+    }
+  }
+  const close = source.indexOf(';', i);
+  return close < 0 ? null : source.slice(0, start) + source.slice(close + 1);
+}
+
+/** `function <name>(...) { ... }` out of the source (brace matcher), or null. */
+function functionSlice(source, name) {
+  const start = source.indexOf('function ' + name + '(');
+  if (start < 0) return null;
+  let depth = 0;
+  for (let i = source.indexOf('{', start); i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Drive one command of a session whose fast-mode field is `field`. Every
+ * decline is followed by one LLM turn (observeTools), as the loop runs one;
+ * every acted step gets script.stepResult(k) (a verified effect by default),
+ * and decide call k gets script.answers(k) (a calibrated click on Next by
+ * default). Each menu has its own signature, so no page state repeats. Stops
+ * one turn after a command or session latch, or after script.maxTurns.
+ */
+async function driveCommand(field, script, api) {
+  const fast = api || FsbFastPath;
+  const s = script || {};
+  let menus = 0;
+  let decides = 0;
+  const r = rig({
+    session: { fastMode: copyJson(field) },
+    menuMs: s.menuMs || 0,
+    decideMs: s.decideMs || 0,
+    menu: (options) => {
+      menus += 1;
+      const menu = copyJson(decisionMenu({ signature: 'sig-' + menus }));
+      menu.recentHandles = (options && Array.isArray(options.recent) ? options.recent : []).map(() => null);
+      return Promise.resolve(menu);
+    },
+    responder: (request, info) => {
+      const k = decides;
+      decides += 1;
+      return (s.answers ? s.answers(k) : answer('click', 'Next'))(request, info);
+    }
+  });
+  if (typeof s.prepare === 'function') s.prepare(r);
+  const outcomes = [];
+  const results = [];
+  let acts = 0;
+  let latchedTurns = 0;
+  const maxTurns = s.maxTurns || 80;
+  for (let i = 1; i <= maxTurns && latchedTurns < 2; i += 1) {
+    const out = await fast.beforeTurn(r.session, r.ctx(i));
+    results.push(out);
+    if (out && out.toolCall) {
+      outcomes.push('act:' + out.toolCall.name);
+      const k = acts;
+      acts += 1;
+      fast.afterStep(r.session, out.step, resultsFor(out.step, s.stepResult ? s.stepResult(k) : PROGRESS_RESULT));
+    } else {
+      outcomes.push(out ? out.decline : 'none');
+      fast.observeTools(r.session, [llmCall('llm-' + i, 'get_page_snapshot')], [loopResult('llm-' + i, 'get_page_snapshot', OK_RESULT())]);
+    }
+    const j = jf(r.session);
+    if ((j && typeof j.latched === 'string' && j.latched.length > 0) || (fp(r.session) && fp(r.session).off === true)) latchedTurns += 1;
+  }
+  return { r, outcomes, results, acts, menus, decides };
+}
+
+/** Everything a budget run leaves behind that two fields must share. */
+function transcriptOf(run) {
+  const s = run.r.session;
+  const j = jf(s) || {};
+  const f = fp(s) || {};
+  return {
+    outcomes: run.outcomes,
+    latched: j.latched,
+    off: f.off,
+    offReason: f.offReason,
+    steps: j.steps,
+    calls: j.calls,
+    jevMs: j.jevMs,
+    consecutiveFast: j.consecutiveFast,
+    consecutiveEscalations: j.consecutiveEscalations,
+    status: s.status,
+    log: run.r.log,
+    decideRequests: run.r.client.calls.map((c) => c.request),
+    decideDeadlines: run.r.client.timers.entries.map((e) => e.delay),
+    messages: s.messages,
+    measurement: s.jevMeasurement || null
+  };
+}
+
+/** Every beforeTurn result is a decline or one non-terminal element or page step, and the task keeps running (D-10). */
+function noTerminal(run) {
+  const C = FsbFastPath.constants;
+  const ops = C.ELEMENT_OPS.concat(C.PAGE_OPS);
+  return run.r.session.status === 'running' && run.results.every((out) => out && (typeof out.decline === 'string'
+    || (out.toolCall && ops.includes(out.toolCall.name) && !hasOwn(out, 'terminal'))));
+}
+
+/** Run one budget script under the run_task field and the autopilot field. */
+async function budgetPair(script) {
+  const runTask = await driveCommand(RUN_TASK_PROFILE_FIELD, script);
+  const autopilot = await driveCommand(AUTOPILOT_FIELD, script);
+  return { runTask, autopilot, same: sameJson(transcriptOf(runTask), transcriptOf(autopilot)) };
+}
+
+async function runTaskProfilePins() {
+  const P = FsbFastPath.BUDGET_PROFILES;
+  const C = FsbFastPath.constants;
+  check(P !== null && typeof P === 'object' && Object.isFrozen(P), 'run_task profile pins: FsbFastPath.BUDGET_PROFILES is a frozen object');
+  check(sameJson(sortedKeys(P), ['autopilot', 'run_task']), 'run_task profile pins: exactly the autopilot and run_task profiles');
+  const r = P.run_task;
+  const a = P.autopilot;
+  check(JSON.stringify(r) === JSON.stringify(RUN_TASK_PROFILE_LITERAL),
+    'run_task profile pins: run_task is {maxSteps:12, maxCalls:16, wallBudgetMs:20000, maxConsecutive:3, escalationLatch:3, basis:"uncalibrated"} (' + JSON.stringify(r) + ')');
+  check(Object.isFrozen(r) && Object.isFrozen(a) && r !== a, 'run_task profile pins: both profiles are frozen, separate objects');
+  check(a.maxSteps === C.FAST_MAX_STEPS && a.maxCalls === C.FAST_MAX_CALLS && a.wallBudgetMs === C.FAST_WALL_BUDGET_MS
+    && a.maxConsecutive === C.FAST_MAX_CONSECUTIVE && a.escalationLatch === C.FAST_ESCALATION_LATCH && a.basis === 'uncalibrated',
+  'run_task profile pins: autopilot holds the constants values and is marked uncalibrated');
+  check(JSON.stringify(Object.keys(a)) === JSON.stringify(Object.keys(r)) && sameJson(a, r),
+    'run_task profile pins: the run_task profile equals the autopilot profile at ship (D-08), key for key');
+  check(!hasOwn(C, 'BUDGET_PROFILES') && !hasOwn(C, 'run_task') && !hasOwn(C, 'autopilot'), 'run_task profile pins: the profiles are a sibling export, never inside constants');
+  check(typeof FsbFastPath.budgetsFor === 'function' && typeof FsbFastPath.budgetProfileName === 'function',
+    'run_task profile pins: budgetsFor and budgetProfileName are exported');
+}
+
+async function runTaskBudgetsForFallback() {
+  const P = FsbFastPath.BUDGET_PROFILES;
+  const forField = (fastMode) => ({ fastMode });
+  check(FsbFastPath.budgetsFor(forField(Object.assign({}, RUN_TASK_PROFILE_FIELD))) === P.run_task && FsbFastPath.budgetProfileName(forField(Object.assign({}, RUN_TASK_PROFILE_FIELD))) === 'run_task',
+    'budgetsFor fallback: the run_task field selects the run_task profile');
+  const fallbacks = [
+    ['the autopilot field (no budgetProfile)', forField(Object.assign({}, AUTOPILOT_FIELD))],
+    ['budgetProfile "autopilot"', forField({ enabled: true, stored: true, source: null, budgetProfile: 'autopilot' })],
+    ['budgetProfile "nope"', forField({ enabled: true, budgetProfile: 'nope' })],
+    ['budgetProfile "__proto__"', forField({ enabled: true, budgetProfile: '__proto__' })],
+    ['budgetProfile "constructor"', forField({ enabled: true, budgetProfile: 'constructor' })],
+    ['budgetProfile "toString"', forField({ enabled: true, budgetProfile: 'toString' })],
+    ['budgetProfile "hasOwnProperty"', forField({ enabled: true, budgetProfile: 'hasOwnProperty' })],
+    ['budgetProfile "RUN_TASK" (case matters)', forField({ enabled: true, budgetProfile: 'RUN_TASK' })],
+    ['a non-string budgetProfile', forField({ enabled: true, budgetProfile: { run_task: true } })],
+    ['source "mcp" without budgetProfile (source is never read)', forField({ enabled: true, stored: true, source: 'mcp' })],
+    ['a null fastMode', forField(null)],
+    ['a missing fastMode', {}],
+    ['a null session', null],
+    ['an undefined session', undefined]
+  ];
+  for (const [name, session] of fallbacks) {
+    check(FsbFastPath.budgetsFor(session) === P.autopilot && FsbFastPath.budgetProfileName(session) === 'autopilot',
+      'budgetsFor fallback: ' + name + ' gets the autopilot profile');
+  }
+  check(FsbFastPath.budgetsFor(forField({ enabled: true, stored: true, source: 'dashboard', budgetProfile: 'run_task' })) === P.run_task,
+    'budgetsFor fallback: only budgetProfile selects (a run_task name with another source still gets run_task)');
+}
+
+async function runTaskStepBudget() {
+  const { runTask, autopilot, same } = await budgetPair({});
+  const t = transcriptOf(runTask);
+  const firstLatch = t.outcomes.indexOf('step_budget');
+  const actsBefore = t.outcomes.slice(0, firstLatch).filter((o) => o.indexOf('act:') === 0).length;
+  check(runTask.acts === 12 && actsBefore === 12 && t.latched === 'step_budget' && t.off === false && t.steps === 12,
+    'run_task step budget: after 12 acted steps the next eligible beforeTurn latches the command step_budget (' + JSON.stringify(t.outcomes) + ')');
+  check(t.outcomes.slice(firstLatch).every((o) => o === 'step_budget') && runTask.menus === 12 && runTask.decides === 12,
+    'run_task step budget: the latch holds and makes no further menu or decide');
+  check(noTerminal(runTask) && t.status === 'running', 'run_task step budget: the task keeps running and nothing ends it (D-10)');
+  check(same, 'run_task step budget: the run_task run equals the autopilot run (outcomes, latch, call log)');
+  check(autopilot.acts === 12, 'run_task step budget: the autopilot field stops at the same step');
+}
+
+async function runTaskCallBudget() {
+  const script = { answers: (k) => (k % 2 === 0 ? answer('click', 'Next') : BELOW_THRESHOLD()) };
+  const { runTask, same } = await budgetPair(script);
+  const t = transcriptOf(runTask);
+  check(t.calls === 16 && runTask.decides === 16 && t.steps === 8 && t.latched === 'call_budget' && t.off === false,
+    'run_task call budget: after 16 decide calls the next beforeTurn latches the command call_budget (' + JSON.stringify(t.outcomes) + ')');
+  check(t.outcomes[t.outcomes.length - 1] === 'call_budget' && runTask.menus === 16, 'run_task call budget: the latch holds with no 17th menu or decide');
+  check(noTerminal(runTask), 'run_task call budget: the task keeps running and nothing ends it (D-10)');
+  check(same, 'run_task call budget: the run_task run equals the autopilot run');
+}
+
+async function runTaskTimeBudget() {
+  const script = { menuMs: 1000, decideMs: 1000 };
+  const { runTask, same } = await budgetPair(script);
+  const t = transcriptOf(runTask);
+  check(t.jevMs === 20000 && t.latched === 'time_budget' && t.off === false && t.steps === 10 && t.calls === 10,
+    'run_task time budget: 20 000 ms of measured menu-plus-Jev time latches the command time_budget (' + JSON.stringify([t.jevMs, t.steps, t.calls, t.latched]) + ')');
+  check(t.decideDeadlines.length === 10 && t.decideDeadlines.every((d) => d <= 2500) && t.decideDeadlines[9] === 1000,
+    'run_task time budget: every decide deadline is min(2500, time left), the last 1000 (' + JSON.stringify(t.decideDeadlines) + ')');
+  check(t.outcomes[t.outcomes.length - 1] === 'time_budget' && noTerminal(runTask), 'run_task time budget: the latch holds and the task keeps running (D-10)');
+  check(same, 'run_task time budget: the run_task run equals the autopilot run');
+}
+
+async function runTaskDecideTimeout() {
+  const deadlines = {};
+  for (const [name, field] of [['run_task', RUN_TASK_PROFILE_FIELD], ['autopilot', AUTOPILOT_FIELD]]) {
+    const used = rig({ session: { fastMode: copyJson(field) } });
+    await primed(used);
+    jf(used.session).jevMs = 18500;
+    const out = await used.turn(2);
+    const fresh = rig({ session: { fastMode: copyJson(field) } });
+    await primed(fresh);
+    const second = await fresh.turn(2);
+    deadlines[name] = [Boolean(out.toolCall), used.client.timers.lastDelay(), Boolean(second.toolCall), fresh.client.timers.lastDelay()];
+  }
+  check(sameJson(deadlines.run_task, [true, 1500, true, 2500]),
+    'run_task decide timeout: with 18 500 ms used the decide gets 1500 ms, with none used 2500 and never more (' + JSON.stringify(deadlines.run_task) + ')');
+  check(sameJson(deadlines.run_task, deadlines.autopilot), 'run_task decide timeout: the run_task deadlines equal the autopilot ones');
+}
+
+async function runTaskConsecutiveCap() {
+  const runs = {};
+  for (const [name, field] of [['run_task', RUN_TASK_PROFILE_FIELD], ['autopilot', AUTOPILOT_FIELD]]) {
+    let menus = 0;
+    const r = rig({
+      session: { fastMode: copyJson(field) },
+      menu: (options) => {
+        menus += 1;
+        const menu = copyJson(decisionMenu({ signature: 'sig-' + menus }));
+        menu.recentHandles = (options && Array.isArray(options.recent) ? options.recent : []).map(() => null);
+        return Promise.resolve(menu);
+      }
+    });
+    await r.turn(1);
+    FsbFastPath.observeTools(r.session, [llmCall('l1', 'get_page_snapshot')], [loopResult('l1', 'get_page_snapshot', OK_RESULT())]);
+    const outcomes = [];
+    for (let i = 2; i <= 4; i += 1) {
+      const out = await r.turn(i);
+      outcomes.push(out.toolCall ? 'act' : out.decline);
+      if (out.toolCall) FsbFastPath.afterStep(r.session, out.step, resultsFor(out.step, PROGRESS_RESULT));
+    }
+    const switchReads = r.log.readSwitch;
+    const menuCount = r.log.requestMenu.length;
+    outcomes.push((await r.turn(5)).decline);
+    outcomes.push((await r.turn(6)).decline);
+    const noCallWhileCapped = r.log.readSwitch === switchReads && r.log.requestMenu.length === menuCount && jf(r.session).latched === null;
+    FsbFastPath.observeTools(r.session, [llmCall('l7', 'get_page_snapshot')], [loopResult('l7', 'get_page_snapshot', OK_RESULT())]);
+    const after = await r.turn(8);
+    outcomes.push(after.toolCall ? 'act' : after.decline);
+    runs[name] = { outcomes, noCallWhileCapped, status: r.session.status, log: r.log, decides: r.client.calls.length };
+  }
+  const t = runs.run_task;
+  check(sameJson(t.outcomes, ['act', 'act', 'act', 'consecutive_cap', 'consecutive_cap', 'act']) && t.noCallWhileCapped && t.status === 'running',
+    'run_task consecutive cap: after 3 consecutive fast steps every call declines consecutive_cap (no latch, no call) until observeTools records an LLM turn ('
+    + JSON.stringify(t.outcomes) + ')');
+  check(sameJson(runs.run_task, runs.autopilot), 'run_task consecutive cap: the run_task run equals the autopilot run');
+}
+
+async function runTaskEscalationLatch() {
+  // Three escalations from the decision itself (applyEscalation).
+  const decided = await budgetPair({ answers: () => BELOW_THRESHOLD() });
+  const d = transcriptOf(decided.runTask);
+  check(sameJson(d.outcomes, ['first_llm_turn', 'operation_below_threshold', 'operation_below_threshold', 'operation_below_threshold', 'escalation_latch'])
+    && d.latched === 'escalation_latch' && d.off === false && decided.runTask.decides === 3,
+  'run_task escalation latch: 3 consecutive escalations latch the command escalation_latch (' + JSON.stringify(d.outcomes) + ')');
+  check(noTerminal(decided.runTask) && decided.same, 'run_task escalation latch: the task keeps running, and the run equals the autopilot run');
+
+  // Three escalations counted by afterStep (failed fast steps).
+  const stepped = await budgetPair({ stepResult: () => FAILED_RESULT });
+  const s = transcriptOf(stepped.runTask);
+  check(sameJson(s.outcomes, ['first_llm_turn', 'act:click', 'failed', 'act:click', 'failed', 'act:click', 'escalation_latch'])
+    && s.latched === 'escalation_latch' && s.consecutiveEscalations === 3 && stepped.runTask.decides === 3,
+  'run_task escalation latch: a third escalation counted by afterStep latches the command at the run_task escalationLatch (' + JSON.stringify(s.outcomes) + ')');
+  check(noTerminal(stepped.runTask) && stepped.same, 'run_task escalation latch: afterStep escalations keep the task running and equal the autopilot run');
+}
+
+async function runTaskProfileDrivesEnforcement() {
+  // A vm copy whose run_task profile allows 2 steps: the run_task field must
+  // latch at 2 while the autopilot field in the same copy still takes a third.
+  const source = fs.readFileSync(MODULE_PATH, 'utf8');
+  const marker = 'run_task: Object.freeze({';
+  const at = source.indexOf(marker);
+  const steps = at < 0 ? -1 : source.indexOf('maxSteps: 12,', at);
+  check(at > 0 && steps > at && steps - at < 80, 'budgetsFor drives enforcement: the run_task literal is found in the source');
+  if (!(at > 0 && steps > at)) return;
+  const mutated = source.slice(0, steps) + 'maxSteps: 2,' + source.slice(steps + 'maxSteps: 12,'.length);
+  const FsbJevClient = require(path.join(ROOT, 'extension', 'ai', 'jev-client.js'));
+  const context = vm.createContext({ console, URL, AbortController, FsbJevState, FsbJevPolicy, FsbJevClient });
+  vm.runInContext(mutated, context, { filename: 'jev-fast-path.mutated.js' });
+  const copy = context.FsbFastPath;
+  check(copy.BUDGET_PROFILES.run_task.maxSteps === 2 && copy.BUDGET_PROFILES.autopilot.maxSteps === 12, 'budgetsFor drives enforcement: the copy holds run_task maxSteps 2');
+  const runTask = await driveCommand(RUN_TASK_PROFILE_FIELD, { maxTurns: 8 }, copy);
+  const autopilot = await driveCommand(AUTOPILOT_FIELD, { maxTurns: 8 }, copy);
+  check(sameJson(runTask.outcomes.slice(0, 4), ['first_llm_turn', 'act:click', 'act:click', 'step_budget']) && jf(runTask.r.session).latched === 'step_budget',
+    'budgetsFor drives enforcement: the run_task field latches step_budget at its own profile (' + JSON.stringify(runTask.outcomes) + ')');
+  check(sameJson(autopilot.outcomes.slice(0, 5), ['first_llm_turn', 'act:click', 'act:click', 'act:click', 'consecutive_cap']) && jf(autopilot.r.session).latched === null,
+    'budgetsFor drives enforcement: the autopilot field in the same copy keeps the autopilot profile (' + JSON.stringify(autopilot.outcomes) + ')');
+}
+
+async function runTaskNoDirectBudgetRead() {
+  const source = fs.readFileSync(MODULE_PATH, 'utf8');
+  const withoutConstants = cutLiteral(source, 'var constants = deepFreeze({');
+  const rest = withoutConstants === null ? null : cutLiteral(withoutConstants, 'var BUDGET_PROFILES = Object.freeze({');
+  check(withoutConstants !== null && rest !== null, 'no direct budget read: the constants literal and the BUDGET_PROFILES literal each appear once');
+  if (rest === null) return;
+  for (const name of BUDGET_NAMES) {
+    const count = (source.match(new RegExp('\\b' + name + '\\b', 'g')) || []).length;
+    check(!new RegExp('\\b' + name + '\\b').test(rest) && count === 2,
+      'no direct budget read: ' + name + ' appears only in the constants literal and the autopilot profile (' + count + ' in the module)');
+  }
+  check(!/fastMode\.source|fastMode\[\s*['"]source['"]\s*\]/.test(source), 'no direct budget read: the module never reads fastMode.source (D-04, D-08)');
+  const selectors = ['budgetsFor', 'budgetProfileName'].map((name) => functionSlice(source, name));
+  check(selectors.every((slice) => slice !== null && !/\bsource\b/.test(slice)), 'no direct budget read: the budgetsFor and budgetProfileName slices contain no source token');
+  const enforcing = ['attemptStep', 'afterStep', 'applyEscalation', 'budgetReason'].map((name) => functionSlice(source, name) || '');
+  check(/budgetsFor\(session\)/.test(enforcing[0]) && /budgetsFor\(session\)/.test(enforcing[1])
+    && (enforcing[0].match(/budgetsFor\(/g) || []).length === 1 && (enforcing[1].match(/budgetsFor\(/g) || []).length === 1,
+  'no direct budget read: attemptStep and afterStep each compute budgetsFor(session) once');
+  check(enforcing.every((slice) => slice.length > 0 && !/constants\.FAST_/.test(slice)), 'no direct budget read: attemptStep, afterStep, applyEscalation and budgetReason read no FAST_* constant');
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -2925,6 +3269,16 @@ async function main() {
     await section('68-08 capture drops at the menu', captureMenuDrops);
     await section('68-08 noteCaptureObservation', captureObservationShape);
     await section('68-08 capture never affects the session (F13)', captureNeverRejects);
+    await section('70-02 run_task budget profile: pins (D-08)', runTaskProfilePins);
+    await section('70-02 run_task budget profile: budgetsFor fallback (D-08)', runTaskBudgetsForFallback);
+    await section('70-02 run_task budget profile: step budget (D-10)', runTaskStepBudget);
+    await section('70-02 run_task budget profile: call budget (D-10)', runTaskCallBudget);
+    await section('70-02 run_task budget profile: time budget (D-09, D-10)', runTaskTimeBudget);
+    await section('70-02 run_task budget profile: decide timeout (D-08)', runTaskDecideTimeout);
+    await section('70-02 run_task budget profile: consecutive cap (D-08)', runTaskConsecutiveCap);
+    await section('70-02 run_task budget profile: escalation latch (D-08)', runTaskEscalationLatch);
+    await section('70-02 run_task budget profile: the selected profile is the one enforced (D-08)', runTaskProfileDrivesEnforcement);
+    await section('70-02 run_task budget profile: no direct budget read (D-08)', runTaskNoDirectBudgetRead);
   }
 
   console.log('\n--- Summary ---');

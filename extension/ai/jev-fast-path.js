@@ -6,6 +6,8 @@
  * through its existing tool loop. This file holds the pure half of that:
  *
  * - constants: the menu cap, the per-command budgets and the fixed strings.
+ * - BUDGET_PROFILES / budgetsFor: the per-command budgets as frozen named
+ *   profiles; the session field's budgetProfile picks one (Phase 70, D-08).
  * - classifyFallback: every Jev fallback reason latches the session, the
  *   command or one iteration (D-16, F9). Unknown reasons fail closed.
  * - toBuilderInput: a content menu becomes a FsbJevState.buildRequest input
@@ -57,6 +59,34 @@
     SUMMARY_PREFIX: 'FAST MODE HAND-OFF',
     SNAPSHOT_HEADER: 'Current page snapshot (these refs replace any earlier refs):',
     SNAPSHOT_COLLAPSED: '(Snapshot removed: a later fast-mode hand-off carries the current page.)'
+  });
+
+  // ---------------------------------------------------------------------------
+  // Budget profiles (Phase 70, D-08): every per-command budget the fast path
+  // enforces comes from one frozen profile, picked by the session field's
+  // budgetProfile; an absent or unknown name gets the autopilot profile.
+  // run_task's numbers are written out on their own, so a later autopilot
+  // change cannot move them. Both are uncalibrated until V3/V4 (M-68-04,
+  // M-70-03).
+  // ---------------------------------------------------------------------------
+
+  var BUDGET_PROFILES = Object.freeze({
+    autopilot: Object.freeze({
+      maxSteps: constants.FAST_MAX_STEPS,
+      maxCalls: constants.FAST_MAX_CALLS,
+      wallBudgetMs: constants.FAST_WALL_BUDGET_MS,
+      maxConsecutive: constants.FAST_MAX_CONSECUTIVE,
+      escalationLatch: constants.FAST_ESCALATION_LATCH,
+      basis: 'uncalibrated'
+    }),
+    run_task: Object.freeze({
+      maxSteps: 12,
+      maxCalls: 16,
+      wallBudgetMs: 20000,
+      maxConsecutive: 3,
+      escalationLatch: 3,
+      basis: 'uncalibrated'
+    })
   });
 
   var ELEMENT_OPS = constants.ELEMENT_OPS;
@@ -1109,10 +1139,25 @@
     return jevFast.latched;
   }
 
-  function budgetReason(jevFast) {
-    if (jevFast.steps >= constants.FAST_MAX_STEPS) return 'step_budget';
-    if (jevFast.calls >= constants.FAST_MAX_CALLS) return 'call_budget';
-    if (jevFast.jevMs >= constants.FAST_WALL_BUDGET_MS) return 'time_budget';
+  /**
+   * The BUDGET_PROFILES name the session field picks: its budgetProfile when
+   * that is an own key of BUDGET_PROFILES, else 'autopilot'. Never throws.
+   */
+  function budgetProfileName(session) {
+    var field = isObject(session) ? session.fastMode : null;
+    var name = isObject(field) ? field.budgetProfile : null;
+    return typeof name === 'string' && hasOwn(BUDGET_PROFILES, name) ? name : 'autopilot';
+  }
+
+  /** The frozen budget profile this session runs under (D-08). */
+  function budgetsFor(session) {
+    return BUDGET_PROFILES[budgetProfileName(session)];
+  }
+
+  function budgetReason(jevFast, budgets) {
+    if (jevFast.steps >= budgets.maxSteps) return 'step_budget';
+    if (jevFast.calls >= budgets.maxCalls) return 'call_budget';
+    if (jevFast.jevMs >= budgets.wallBudgetMs) return 'time_budget';
     return null;
   }
 
@@ -1238,14 +1283,14 @@
   }
 
   /** What one escalation costs: the session, the command or this iteration (D-16, D-18). */
-  function applyEscalation(session, state, jevFast, reason, latch) {
+  function applyEscalation(session, state, jevFast, reason, latch, budgets) {
     if (latch === 'session') {
       latchOff(session, reason);
     } else if (latch === 'command') {
       latchCommand(jevFast, reason);
     } else {
       jevFast.consecutiveEscalations += 1;
-      if (jevFast.consecutiveEscalations >= constants.FAST_ESCALATION_LATCH) latchCommand(jevFast, 'escalation_latch');
+      if (jevFast.consecutiveEscalations >= budgets.escalationLatch) latchCommand(jevFast, 'escalation_latch');
     }
     state.stopReason = reason;
   }
@@ -1260,11 +1305,12 @@
    * on the LLM. Never rejects.
    *
    * In order: a session without fastMode.enabled declines not_enabled before
-   * any dependency call (run_task, D-03); latches; the LLM's first turn of
-   * the command (D-09); a forced LLM turn after an uncertain step; the run of
-   * consecutive fast steps; the four budgets (D-12); a vault flow; the stored
-   * switch (D-05); one menu; no progress (D-17); never re-roll (D-18); the
-   * request (sync issue 6: a local refusal latches the command); one decide
+   * any dependency call; latches; the LLM's first turn of the command
+   * (D-09); a forced LLM turn after an uncertain step; the run of
+   * consecutive fast steps; the four budgets of the session's profile (D-12,
+   * budgetsFor); a vault flow; the stored switch (D-05); one menu; no
+   * progress (D-17); never re-roll (D-18); the request (sync issue 6: a
+   * local refusal latches the command); one decide
    * bounded by the time left; the decision. After every await the attempt
    * stops when the session is no longer running (F21).
    *
@@ -1313,6 +1359,7 @@
       var state = fastPathOf(session);
       var jevFast = commandStateOf(session, state);
       if (!isObject(session.fastMode) || session.fastMode.enabled !== true) return { decline: 'not_enabled' };
+      var budgets = budgetsFor(session);
       if (!depsUsable(deps)) {
         deps = null;
         latchOff(session, 'unavailable');
@@ -1325,8 +1372,8 @@
         jevFast.yieldToLlm = false;
         return await declineWith(session, deps, state.stopReason || 'yield_to_llm');
       }
-      if (jevFast.consecutiveFast >= constants.FAST_MAX_CONSECUTIVE) return await declineWith(session, deps, 'consecutive_cap');
-      var budget = budgetReason(jevFast);
+      if (jevFast.consecutiveFast >= budgets.maxConsecutive) return await declineWith(session, deps, 'consecutive_cap');
+      var budget = budgetReason(jevFast, budgets);
       if (budget !== null) return await declineWith(session, deps, latchCommand(jevFast, budget));
       if (jevFast.vaultFlow === true) return await declineWith(session, deps, latchCommand(jevFast, 'vault_flow'));
 
@@ -1401,7 +1448,7 @@
         return await declineWith(session, deps, latchCommand(jevFast, refusal));
       }
 
-      var remaining = constants.FAST_WALL_BUDGET_MS - jevFast.jevMs;
+      var remaining = budgets.wallBudgetMs - jevFast.jevMs;
       if (!(remaining > 0)) return await declineWith(session, deps, latchCommand(jevFast, 'time_budget'));
       var client = clientFor(deps);
       if (client === null) {
@@ -1474,7 +1521,7 @@
       if (isObject(result) && result.ok === true) jevFast.answeredStates.push(stateKey);
       if (decision === null) return stoppedDecline();
       if (escalated) {
-        applyEscalation(session, state, jevFast, decision.reason, decision.latch);
+        applyEscalation(session, state, jevFast, decision.reason, decision.latch, budgets);
         return await declineWith(session, deps, decision.reason);
       }
 
@@ -1607,6 +1654,7 @@
     try {
       var state = fastPathOf(session);
       var jevFast = commandStateOf(session, state);
+      var budgets = budgetsFor(session);
       if (!isObject(step)) {
         latchOff(session, 'exception');
         return;
@@ -1661,7 +1709,7 @@
         state.stopReason = verdict.reason;
         if (outcome === 'uncertain') state.uncertain = true;
         jevFast.consecutiveEscalations += 1;
-        if (jevFast.consecutiveEscalations >= constants.FAST_ESCALATION_LATCH) latchCommand(jevFast, 'escalation_latch');
+        if (jevFast.consecutiveEscalations >= budgets.escalationLatch) latchCommand(jevFast, 'escalation_latch');
       }
 
       markStepOutcome(session, step, outcome);
@@ -1785,8 +1833,8 @@
   // Capture records what fast mode would have offered before an LLM turn and
   // what the LLM then did, so V3 can calibrate on realistic labels. It never
   // asks Jev and never acts. It runs only when all of these hold:
-  //   - session.fastMode.stored is true (also on run_task sessions, whose
-  //     fastMode.enabled is false: capture keys on the page, not the source);
+  //   - session.fastMode.stored is true, whatever fastMode.enabled says
+  //     (capture keys on the page, never on how the task started);
   //   - the iteration runs on the LLM path;
   //   - the internal arm key is set (deps.readCaptureArm, read at most once
   //     per command and cached on the command state);
@@ -2107,6 +2155,9 @@
 
   var api = {
     constants: constants,
+    BUDGET_PROFILES: BUDGET_PROFILES,
+    budgetsFor: budgetsFor,
+    budgetProfileName: budgetProfileName,
     classifyFallback: classifyFallback,
     toBuilderInput: toBuilderInput,
     evaluateDecision: evaluateDecision,
