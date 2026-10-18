@@ -639,8 +639,8 @@ async function runTaskCase() {
       await h.step();
       runs[name] = { h, decideRequests, events: JSON.parse(JSON.stringify(h.events)), messages: JSON.parse(JSON.stringify(h.session.messages)),
         status: h.session.status,
-        // actionHistory timestamps are the loop's wall clock; everything else must match.
-        actionHistory: JSON.parse(JSON.stringify(h.session.actionHistory || [])).map((event) => Object.assign(event, { timestamp: null })),
+        // actionHistory timestamp and durationMs are the loop's wall clock; everything else must match.
+        actionHistory: JSON.parse(JSON.stringify(h.session.actionHistory || [])).map((event) => Object.assign(event, { timestamp: null, durationMs: null })),
         measurement: wallClockFree(h.session.jevMeasurement) };
     } finally {
       h.dispose();
