@@ -1,0 +1,591 @@
+'use strict';
+
+/**
+ * Phase 70 plan 70-01 Task 3 -- the run_task wire with fast mode off.
+ *
+ * D-01 and D-20: with the Advanced Settings switch off, a run_task call must
+ * settle with exactly the value, MCP wire text, FsbMcpTaskStore writes and
+ * heartbeat payload it produced before any Phase 70 edit. Those were captured
+ * once from the unedited bridge into tests/fixtures/run-task-wire-golden.json
+ * (never hand-written, never regenerated). This suite drives every settle
+ * path of MCPBridgeClient._handleStartAutomation in a vm, the same way
+ * tests/run-task-resolve-discipline.test.js does, and compares each one with
+ * that golden under four variants:
+ *
+ *   V1  the vm context has no activeSessions binding;
+ *   V2  activeSessions holds the seeded session, set inside the start
+ *       dispatch before it resolves (background.js sets the map before
+ *       sendResponse; 70-SYNC-RECHECK item o);
+ *   V3  V2 with FsbFastPath loaded into the context;
+ *   V4  activeSessions exists but is empty.
+ *
+ * The seeded session carries no field the bridge reads from a session
+ * (70-SYNC-RECHECK item n), so all four variants produce the same golden.
+ * Plan 70-06 adds the switch-on cases in the marked section below and builds
+ * every switch-on session with makeSeededSession({ fastMode: ... }).
+ *
+ * The suite reads only the golden fixture and extension files. It never
+ * imports mcp/build (plan 70-07 owns the in-process wire check), binds no
+ * port and uses a virtual clock.
+ *
+ * Run: node tests/run-task-fast-mode-wire.test.js
+ */
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const BRIDGE_PATH = path.join(__dirname, '..', 'extension', 'ws', 'mcp-bridge-client.js');
+const FAST_PATH_PATH = path.join(__dirname, '..', 'extension', 'ai', 'jev-fast-path.js');
+const GOLDEN_PATH = path.join(__dirname, 'fixtures', 'run-task-wire-golden.json');
+
+// ---- Fixed inputs (reused by plan 70-06) -----------------------------------
+
+const SESSION_ID = 'sess_p70_wire';
+const MCP_MSG_ID = 'mcp_p70_wire';
+const CLOCK_START_MS = 1760000000000;
+const RUN_TASK_TEXT = 'Open the checklist and tick Alpha.';
+const TAB_ID = 4242;
+const SAFETY_NET_MS = 600000;
+const HEARTBEAT_MS = 30000;
+
+const SETTLE_PATHS = Object.freeze(['runtime-complete', 'bus-complete', 'bus-error', 'bus-stop', 'safety-net']);
+const VARIANTS = Object.freeze(['V1', 'V2', 'V3', 'V4']);
+
+// Session fields fireHeartbeat reads (70-SYNC-RECHECK item n). The seeded
+// session must carry none of them, or the heartbeat payloads and the
+// in_progress snapshots would differ between the null-session variants (V1,
+// V4) and the seeded ones (V2, V3).
+const HEARTBEAT_READ_FIELDS = Object.freeze(['iterationCount', 'lastKnownUrl', '_lastActionSummary', 'tabId', 'lastDOMHash']);
+
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    Object.keys(value).forEach((key) => deepFreeze(value[key]));
+  }
+  return value;
+}
+
+// agent-loop.js notifySidepanel for a complete_task success
+// (createTerminalOutcome('success', { summary, reason: 'complete_task' })).
+const COMPLETE_SUMMARY = 'Ticked Alpha on the checklist.';
+const COMPLETE_MESSAGE = deepFreeze({
+  action: 'automationComplete',
+  sessionId: SESSION_ID,
+  tabId: TAB_ID,
+  conversationId: null,
+  historySessionId: SESSION_ID,
+  result: COMPLETE_SUMMARY,
+  partial: false,
+  stopped: false,
+  error: null,
+  reason: 'complete_task',
+  outcome: 'success',
+  blocker: null,
+  nextStep: null,
+  outcomeDetails: {
+    outcome: 'success',
+    reason: 'complete_task',
+    summary: COMPLETE_SUMMARY,
+    blocker: null,
+    nextStep: null,
+    result: COMPLETE_SUMMARY,
+    error: null
+  },
+  task: RUN_TASK_TEXT
+});
+
+// agent-loop.js notifySidepanel for the terminal API error
+// (createTerminalOutcome('error', { error, reason: 'error' })).
+const ERROR_TEXT = 'API call failed: provider returned 500';
+const ERROR_MESSAGE = deepFreeze({
+  action: 'automationError',
+  sessionId: SESSION_ID,
+  tabId: TAB_ID,
+  conversationId: null,
+  historySessionId: SESSION_ID,
+  result: ERROR_TEXT,
+  partial: false,
+  stopped: false,
+  error: ERROR_TEXT,
+  reason: 'error',
+  outcome: 'error',
+  blocker: null,
+  nextStep: null,
+  outcomeDetails: {
+    outcome: 'error',
+    reason: 'error',
+    summary: null,
+    blocker: null,
+    nextStep: null,
+    result: ERROR_TEXT,
+    error: ERROR_TEXT
+  },
+  task: RUN_TASK_TEXT
+});
+
+// background.js handleStopAutomation's lifecycle broadcast, field for field.
+const STOP_MESSAGE = deepFreeze({
+  action: 'automationComplete',
+  sessionId: SESSION_ID,
+  tabId: TAB_ID,
+  conversationId: null,
+  historySessionId: SESSION_ID,
+  outcome: 'stopped',
+  reason: 'user_stopped',
+  stopped: true,
+  timestamp: CLOCK_START_MS + 1000
+});
+
+// ---- Check counters ---------------------------------------------------------
+
+let passed = 0;
+let failed = 0;
+
+function check(cond, msg) {
+  if (cond) { passed++; console.log('  PASS:', msg); }
+  else { failed++; console.error('  FAIL:', msg); }
+}
+
+function flushMicrotasks() {
+  return Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve());
+}
+
+// Structural equality that ignores realm (vm objects have their own
+// prototypes) and key order, and treats a key holding undefined as present.
+function plainEqual(a, b) {
+  if (Object.is(a, b)) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  const aIsArray = Array.isArray(a);
+  if (aIsArray !== Array.isArray(b)) return false;
+  if (aIsArray) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!plainEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+    if (!plainEqual(a[key], b[key])) return false;
+  }
+  return true;
+}
+
+function jsonClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+// ---- Shared chrome / clock / store builders (copied from
+// tests/run-task-resolve-discipline.test.js; the clock takes a start time) ---
+
+function createStorageArea(initial = {}) {
+  const store = { ...initial };
+  return {
+    async get(keys) {
+      if (keys == null) return { ...store };
+      if (Array.isArray(keys)) {
+        const out = {};
+        keys.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(store, key)) out[key] = store[key];
+        });
+        return out;
+      }
+      if (typeof keys === 'string') {
+        return Object.prototype.hasOwnProperty.call(store, keys) ? { [keys]: store[keys] } : {};
+      }
+      if (typeof keys === 'object') {
+        const out = {};
+        Object.keys(keys).forEach((key) => {
+          out[key] = Object.prototype.hasOwnProperty.call(store, key) ? store[key] : keys[key];
+        });
+        return out;
+      }
+      return { ...store };
+    },
+    async set(values) { Object.assign(store, values); },
+    async remove(keys) {
+      const list = Array.isArray(keys) ? keys : [keys];
+      list.forEach((key) => { delete store[key]; });
+    },
+    _dump() { return { ...store }; }
+  };
+}
+
+function createOnMessageMock() {
+  const listeners = [];
+  return {
+    addListener(fn) { listeners.push(fn); },
+    removeListener(fn) {
+      const i = listeners.indexOf(fn);
+      if (i !== -1) listeners.splice(i, 1);
+    },
+    _emit(message, sender = {}, sendResponse = () => {}) {
+      for (const fn of [...listeners]) fn(message, sender, sendResponse);
+    },
+    _listeners() { return [...listeners]; }
+  };
+}
+
+function createChromeMock() {
+  const session = createStorageArea();
+  const local = createStorageArea();
+  const alarms = new Map();
+  return {
+    runtime: { id: 'phase-70-wire-test', onMessage: createOnMessageMock(), lastError: null },
+    storage: { session, local },
+    alarms: {
+      async create(name, options) { alarms.set(name, { name, ...options }); },
+      async clear(name) { alarms.delete(name); return true; },
+      async getAll() { return Array.from(alarms.values()); }
+    }
+  };
+}
+
+function createFakeWebSocketClass() {
+  const sockets = [];
+  class FakeWebSocket {
+    constructor(url) {
+      this.url = url;
+      this.readyState = 0;
+      this.sent = [];
+      sockets.push(this);
+    }
+    open() { this.readyState = 1; if (typeof this.onopen === 'function') this.onopen(); }
+    close() { this.readyState = 3; if (typeof this.onclose === 'function') this.onclose(); }
+    send(payload) { this.sent.push(payload); }
+  }
+  FakeWebSocket.CONNECTING = 0;
+  FakeWebSocket.OPEN = 1;
+  FakeWebSocket.CLOSED = 3;
+  FakeWebSocket._sockets = sockets;
+  return FakeWebSocket;
+}
+
+function createVirtualClock(startAt) {
+  let currentTime = Number(startAt) || 0;
+  let nextHandle = 1;
+  const pending = [];
+  let activeIntervalCount = 0;
+
+  function _enqueue(entry) {
+    pending.push(entry);
+    pending.sort((a, b) => a.fireAt - b.fireAt);
+    return entry.handle;
+  }
+
+  function virtualSetTimeout(fn, ms) {
+    return _enqueue({
+      fireAt: currentTime + (Number(ms) || 0),
+      fn, kind: 'timeout', handle: nextHandle++, cancelled: false
+    });
+  }
+  function virtualSetInterval(fn, ms) {
+    activeIntervalCount++;
+    return _enqueue({
+      fireAt: currentTime + (Number(ms) || 0),
+      fn, kind: 'interval', intervalMs: Number(ms) || 0,
+      handle: nextHandle++, cancelled: false
+    });
+  }
+  function virtualClear(handle) {
+    for (let i = 0; i < pending.length; i++) {
+      if (pending[i].handle === handle) {
+        if (pending[i].kind === 'interval') activeIntervalCount--;
+        pending[i].cancelled = true;
+        pending.splice(i, 1);
+        return;
+      }
+    }
+  }
+  async function advance(ms) {
+    const target = currentTime + (Number(ms) || 0);
+    while (pending.length > 0 && pending[0].fireAt <= target) {
+      const entry = pending.shift();
+      if (entry.cancelled) continue;
+      currentTime = entry.fireAt;
+      try {
+        const out = entry.fn();
+        if (out && typeof out.then === 'function') {
+          await out.catch(() => {});
+        }
+      } catch (_e) { /* swallow */ }
+      if (entry.kind === 'interval' && !entry.cancelled) {
+        entry.fireAt = currentTime + entry.intervalMs;
+        _enqueue(entry);
+      } else if (entry.kind === 'interval') {
+        activeIntervalCount--;
+      }
+      await Promise.resolve();
+    }
+    currentTime = target;
+    await Promise.resolve();
+  }
+
+  return {
+    advance,
+    now() { return currentTime; },
+    activeIntervalCount() { return activeIntervalCount; },
+    pendingCount() { return pending.length; },
+    setInterval: virtualSetInterval,
+    setTimeout: virtualSetTimeout,
+    clearInterval: virtualClear,
+    clearTimeout: virtualClear
+  };
+}
+
+function createTaskStoreStub(writeSnapshotCalls) {
+  const snapshots = {};
+  return {
+    writeSnapshot: (taskId, snap) => {
+      writeSnapshotCalls.push({ taskId, snapshot: snap });
+      snapshots[taskId] = snap;
+      return Promise.resolve();
+    },
+    readSnapshot: (taskId) => Promise.resolve(snapshots[taskId] || null),
+    deleteSnapshot: (taskId) => { delete snapshots[taskId]; return Promise.resolve(); },
+    listInFlightSnapshots: () => Promise.resolve(
+      Object.values(snapshots).filter((s) => s && s.status === 'in_progress')
+    ),
+    hydrate: () => Promise.resolve({ v: 1, records: { ...snapshots } })
+  };
+}
+
+// ---- Seeded session and the bridge harness ---------------------------------
+
+// The switch-off base session is {}: no fastMode key and no field the bridge
+// reads from a session. Plan 70-06 passes { fastMode: ... } as extra.
+function makeSeededSession(extra) {
+  return Object.assign({}, extra);
+}
+
+function buildWireHarness({ sessionId = SESSION_ID, variant = 'V2', fastPathModule = null, session = null } = {}) {
+  if (VARIANTS.indexOf(variant) === -1) throw new Error('unknown variant ' + variant);
+  const chromeMock = createChromeMock();
+  const FakeWebSocket = createFakeWebSocketClass();
+  const clock = createVirtualClock(CLOCK_START_MS);
+  const writeSnapshotCalls = [];
+  const taskStoreStub = createTaskStoreStub(writeSnapshotCalls);
+  const seededSession = session || makeSeededSession();
+  const activeSessions = variant === 'V1' ? null : new Map();
+  const dispatchCalls = [];
+
+  const FakeDate = class extends Date {
+    static now() { return clock.now(); }
+  };
+
+  const context = {
+    chrome: chromeMock,
+    WebSocket: FakeWebSocket,
+    console,
+    Math,
+    Date: FakeDate,
+    EventTarget,
+    CustomEvent,
+    setInterval: clock.setInterval,
+    setTimeout: clock.setTimeout,
+    clearInterval: clock.clearInterval,
+    clearTimeout: clock.clearTimeout,
+    Promise,
+    dispatchMcpMessageRoute: async (request) => {
+      dispatchCalls.push(request);
+      // background.js handleStartAutomation runs activeSessions.set before
+      // sendResponse, so the session is in the map when this resolves.
+      if (variant === 'V2' || variant === 'V3') activeSessions.set(sessionId, seededSession);
+      return { success: true, sessionId };
+    },
+    globalThis: {}
+  };
+  if (activeSessions) context.activeSessions = activeSessions;
+  context.globalThis = context;
+  context.fsbAutomationLifecycleBus = new EventTarget();
+  context.FsbMcpTaskStore = taskStoreStub;
+  if (variant === 'V3') context.FsbFastPath = fastPathModule || require(FAST_PATH_PATH);
+
+  const source = fs.readFileSync(BRIDGE_PATH, 'utf8');
+  const footer = `
+this.__phase70wire = {
+  MCPBridgeClient,
+  mcpBridgeClient,
+  lifecycleBus: typeof fsbAutomationLifecycleBus !== 'undefined' ? fsbAutomationLifecycleBus : null
+};
+`;
+  vm.runInNewContext(`${source}\n${footer}`, context, { filename: 'ws/mcp-bridge-client.js' });
+
+  const client = context.__phase70wire.mcpBridgeClient;
+  const sent = [];
+  client._send = (msg) => { sent.push(msg); };
+
+  return {
+    variant,
+    chrome: chromeMock,
+    clock,
+    sockets: FakeWebSocket._sockets,
+    writeSnapshotCalls,
+    taskStoreStub,
+    activeSessions,
+    seededSession,
+    dispatchCalls,
+    sent,
+    client,
+    context,
+    exports: context.__phase70wire
+  };
+}
+
+function driveSettle(harness, pathName) {
+  const bus = harness.exports.lifecycleBus;
+  switch (pathName) {
+    case 'runtime-complete':
+      harness.chrome.runtime.onMessage._emit(jsonClone(COMPLETE_MESSAGE));
+      return Promise.resolve();
+    case 'bus-complete':
+      bus.dispatchEvent(new CustomEvent('automationComplete', { detail: jsonClone(COMPLETE_MESSAGE) }));
+      return Promise.resolve();
+    case 'bus-error':
+      bus.dispatchEvent(new CustomEvent('automationError', { detail: jsonClone(ERROR_MESSAGE) }));
+      return Promise.resolve();
+    case 'bus-stop':
+      bus.dispatchEvent(new CustomEvent('automationComplete', { detail: jsonClone(STOP_MESSAGE) }));
+      return Promise.resolve();
+    case 'safety-net':
+      return harness.clock.advance(SAFETY_NET_MS);
+    default:
+      throw new Error('unknown settle path ' + pathName);
+  }
+}
+
+async function runSettlePath(pathName, opts = {}) {
+  const harness = buildWireHarness(opts);
+  const promise = harness.client._handleStartAutomation({ task: RUN_TASK_TEXT }, MCP_MSG_ID);
+  await flushMicrotasks();
+  await driveSettle(harness, pathName);
+  const value = await promise;
+  await flushMicrotasks();
+  return { value, storeWrites: harness.writeSnapshotCalls, sent: harness.sent, harness };
+}
+
+// First heartbeat progress payload, 30 s after subscribe, then a clean settle.
+async function captureHeartbeat(opts = {}) {
+  const harness = buildWireHarness(opts);
+  const promise = harness.client._handleStartAutomation({ task: RUN_TASK_TEXT }, MCP_MSG_ID);
+  await flushMicrotasks();
+  await harness.clock.advance(HEARTBEAT_MS);
+  await flushMicrotasks();
+  const progress = harness.sent.filter((m) => m && m.type === 'mcp:progress');
+  await driveSettle(harness, 'bus-complete');
+  await promise;
+  await flushMicrotasks();
+  return progress.length > 0 ? progress[0].payload : null;
+}
+
+function wireTextOf(value) {
+  return JSON.stringify({ success: true, ...value }, null, 2);
+}
+
+// ---- Suite ------------------------------------------------------------------
+
+async function runTest(name, fn) {
+  console.log('\n---', name, '---');
+  try {
+    await fn();
+  } catch (err) {
+    failed++;
+    console.error('  ERROR:', name, '--', err && err.message ? err.message : err);
+    if (err && err.stack) console.error(err.stack);
+  }
+}
+
+async function main() {
+  const golden = JSON.parse(fs.readFileSync(GOLDEN_PATH, 'utf8'));
+  const fastPathModule = require(FAST_PATH_PATH);
+
+  await runTest('golden fixture shape', async () => {
+    check(golden && /^[0-9a-f]{40}$/.test(golden.p70Start), 'golden carries the 40-hex P70_START');
+    check(golden.sessionId === SESSION_ID, 'golden was captured for ' + SESSION_ID);
+    check(SETTLE_PATHS.every((p) => golden.paths && golden.paths[p] && typeof golden.paths[p].wireText === 'string'
+      && Array.isArray(golden.paths[p].storeWrites)), 'golden holds all five settle paths');
+    check(golden.heartbeat && typeof golden.heartbeat === 'object', 'golden holds the first heartbeat payload');
+  });
+
+  await runTest('seeded session', async () => {
+    const seed = makeSeededSession();
+    check(HEARTBEAT_READ_FIELDS.every((f) => !Object.prototype.hasOwnProperty.call(seed, f))
+      && !Object.prototype.hasOwnProperty.call(seed, 'fastMode'), 'seed has no heartbeat-read field');
+  });
+
+  // -------------------------------------------------------------------------
+  // switch-off golden: every settle path under V1..V4
+  // -------------------------------------------------------------------------
+  const runs = {};
+  for (const pathName of SETTLE_PATHS) {
+    runs[pathName] = {};
+    await runTest('switch-off ' + pathName, async () => {
+      const expected = golden.paths[pathName];
+      for (const variant of VARIANTS) {
+        const opts = { variant };
+        if (variant === 'V3') opts.fastPathModule = fastPathModule;
+        const run = await runSettlePath(pathName, opts);
+        runs[pathName][variant] = run;
+        const valueMatches = plainEqual(run.value, expected.value);
+        const writesMatch = plainEqual(run.storeWrites, expected.storeWrites);
+        if (!valueMatches) console.error('    value:', JSON.stringify(run.value));
+        if (!writesMatch) console.error('    storeWrites differ (' + run.storeWrites.length + ' vs ' + expected.storeWrites.length + ')');
+        check(valueMatches && writesMatch, 'switch-off golden ' + pathName + ' ' + variant);
+      }
+      const variantRuns = VARIANTS.map((v) => runs[pathName][v]).filter(Boolean);
+      check(variantRuns.length === VARIANTS.length
+        && variantRuns.every((run) => wireTextOf(run.value) === expected.wireText), 'wire passthrough ' + pathName);
+      check(variantRuns.length === VARIANTS.length
+        && variantRuns.every((run) => plainEqual(jsonClone(run.value), run.value)
+          && plainEqual(jsonClone(run.storeWrites), run.storeWrites)), 'json safe ' + pathName);
+    });
+  }
+
+  await runTest('heartbeat', async () => {
+    for (const variant of VARIANTS) {
+      const opts = { variant };
+      if (variant === 'V3') opts.fastPathModule = fastPathModule;
+      const payload = await captureHeartbeat(opts);
+      check(payload !== null && plainEqual(payload, golden.heartbeat), 'heartbeat unchanged ' + variant);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // switch-on cases (plan 70-06)
+  // -------------------------------------------------------------------------
+
+  console.log('\n--- Phase 70 run_task fast-mode wire summary ---');
+  console.log('  passed:', passed);
+  console.log('  failed:', failed);
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+if (require.main !== module) {
+  module.exports = {
+    SESSION_ID,
+    MCP_MSG_ID,
+    CLOCK_START_MS,
+    RUN_TASK_TEXT,
+    TAB_ID,
+    SETTLE_PATHS,
+    VARIANTS,
+    HEARTBEAT_READ_FIELDS,
+    COMPLETE_MESSAGE,
+    ERROR_MESSAGE,
+    STOP_MESSAGE,
+    makeSeededSession,
+    buildWireHarness,
+    runSettlePath,
+    captureHeartbeat,
+    plainEqual
+  };
+} else {
+  main().catch((err) => {
+    console.error('FATAL:', err);
+    process.exit(2);
+  });
+}
