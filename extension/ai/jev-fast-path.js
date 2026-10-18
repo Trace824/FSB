@@ -13,6 +13,8 @@
  * - toBuilderInput: a content menu becomes a FsbJevState.buildRequest input
  *   holding only the documented element keys (D-11, D-13, D-15). A menu whose
  *   entries buildRequest would all drop declines before any request exists.
+ * - normaliseGoal: the goal sent to Jev drops one leading 'Open <address>.'
+ *   sentence that only restates a page FSB holds in code (Phase 70, D-22).
  * - evaluateDecision: a decide() result becomes one fast step or a typed
  *   escalation. Jev answers are read only through FsbJevPolicy.accept, which
  *   is necessary and never sufficient (D-16, D-17, D-20, F22).
@@ -335,6 +337,94 @@
       offeredOps: offeredOps.slice()
     };
     return { ok: true, input: input, entriesByHandle: entriesByHandle, offeredOps: offeredOps };
+  }
+
+  // ---------------------------------------------------------------------------
+  // normaliseGoal (Phase 70, D-22)
+  // ---------------------------------------------------------------------------
+
+  // The one leading sentence a bench or MCP task often opens with: 'Open ',
+  // an http(s) address and the sentence dot. The address runs to the last
+  // dot before whitespace or the end, so an address ending in '.html' keeps it.
+  var OPEN_SENTENCE_RE = /^Open (https?:\/\/\S+)\.(?=\s|$)/;
+
+  /** decodeURIComponent of `text`, or null when it does not decode. */
+  function decodedOrNull(text) {
+    try {
+      return decodeURIComponent(text);
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  /**
+   * True when FSB's address rule (FsbJevState.toOriginPath, one path segment
+   * at a time, percent-decoded segments included) leaves every segment of
+   * `parsed` as it is. Any doubt is false.
+   */
+  function pathSurvivesScrub(state, rawUrl, parsed) {
+    var segments = String(parsed.pathname).split('/');
+    for (var i = 0; i < segments.length; i += 1) {
+      var segment = segments[i];
+      if (state.scrubText(segment) !== segment) return false;
+      if (segment.indexOf('%') !== -1) {
+        var decoded = decodedOrNull(segment);
+        if (decoded === null || state.matchesSecret(decoded) !== false) return false;
+      }
+    }
+    if (typeof state.toOriginPath === 'function') {
+      var reduced = state.toOriginPath(rawUrl);
+      if (!isObject(reduced) || reduced.path !== parsed.pathname) return false;
+    }
+    return true;
+  }
+
+  /** True when the query or fragment of `parsed` holds a secret, raw or percent-decoded. Any doubt is true. */
+  function queryHoldsSecret(state, parsed) {
+    var parts = [parsed.search + parsed.hash, parsed.search, parsed.hash];
+    for (var i = 0; i < parts.length; i += 1) {
+      if (state.matchesSecret(parts[i]) !== false) return true;
+      var decoded = decodedOrNull(parts[i].replace(/\+/g, ' '));
+      if (decoded === null || state.matchesSecret(decoded) !== false) return true;
+    }
+    return false;
+  }
+
+  /**
+   * The goal sent to Jev (D-22): `task` without its one leading
+   * 'Open <http(s) address>.' sentence, only when that address names a page
+   * FSB already holds in code (its origin and path equal those of an entry
+   * of `pageUrls`: the current page or the page the task started on), it
+   * carries no user name or password, FSB's address rule would redact none
+   * of its path segments, and its query and fragment hold no secret. The
+   * request already carries that page as page.origin and page.path.
+   * Leading whitespace of the rest is dropped. Otherwise (no such sentence,
+   * an empty rest, a non-string task, FsbJevState unavailable, any doubt)
+   * `task` comes back unchanged. The result is always a suffix of `task`:
+   * nothing is added and nothing else is cut, and buildRequest still scans
+   * it for secrets. Never throws.
+   */
+  function normaliseGoal(task, pageUrls) {
+    try {
+      if (typeof task !== 'string' || !Array.isArray(pageUrls)) return task;
+      var match = OPEN_SENTENCE_RE.exec(task);
+      if (match === null) return task;
+      var rest = task.slice(match[0].length).replace(/^\s+/, '');
+      if (rest.length === 0) return task;
+      var state = resolveState();
+      if (!state || typeof state.scrubText !== 'function' || typeof state.matchesSecret !== 'function') return task;
+      var parsed = parseWebUrl(match[1]);
+      if (parsed === null || parsed.username !== '' || parsed.password !== '') return task;
+      var key = parsed.origin + parsed.pathname;
+      var onPage = false;
+      for (var i = 0; i < pageUrls.length && !onPage; i += 1) onPage = originPathOf(pageUrls[i]) === key;
+      if (!onPage) return task;
+      if (!pathSurvivesScrub(state, match[1], parsed)) return task;
+      if (queryHoldsSecret(state, parsed)) return task;
+      return rest;
+    } catch (_e) {
+      return task;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1429,7 +1519,7 @@
       var firstPath = originPathOf(jevFast.firstUrl);
       var menuPath = originPathOf(menu.url);
       var mapped = toBuilderInput(menu, {
-        goal: session.task,
+        goal: normaliseGoal(session.task, [menu.url, session._fastRunStartPage]),
         recentActions: recentActionsFor(recent, menu.recentHandles),
         navigatedInCommand: firstPath !== null && menuPath !== null && firstPath !== menuPath
       });
@@ -2353,6 +2443,7 @@
     budgetProfileName: budgetProfileName,
     classifyFallback: classifyFallback,
     toBuilderInput: toBuilderInput,
+    normaliseGoal: normaliseGoal,
     evaluateDecision: evaluateDecision,
     buildStaticCall: buildStaticCall,
     classifyStepEvidence: classifyStepEvidence,

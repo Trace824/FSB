@@ -36,6 +36,11 @@
  *     contexts shaped as agent-loop.js emits them, plus the act and hand-off
  *     markers; the terminal tool names live only in the one marked Phase 70
  *     section of the module (PD-70-03).
+ *   - Phase 70 (70-04): the goal normaliser (normaliseGoal, D-22): its rule
+ *     and declines, the suffix property, its call before buildRequest, the
+ *     re-pointed 68-05 bench-goal case with the two cases that still latch
+ *     sensitive_goal, and every core bench task against the 68-08 exporter's
+ *     goal under both run-token shapes.
  *
  * No network, no ports, no real timers. Node 20-safe.
  *
@@ -1223,9 +1228,25 @@ async function measurement() {
 // abortInFlight) over fake deps and the fake-gateway client (held timers).
 // ---------------------------------------------------------------------------
 
-// A bench goal holding a run token: the 67-01 high-entropy rule makes it sensitive_goal (F5).
+// A bench goal holding a run token: the 67-01 high-entropy rule makes the
+// whole text sensitive_goal (F5). Since 70-04 (D-22) its Open sentence is
+// dropped when the page is that address, so on its own page it is sent as
+// 'Tick Alpha.'; on any other page it still latches.
 const BENCH_GOAL = 'Open http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html. Tick Alpha.';
+const BENCH_URL = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
 const MENU_URL = 'https://example.test/wizard/step-2?token=abc#frag';
+// 70-04: today's bench run token (randomBytes(16) base64url, 22 characters)
+// and Phase 71 D-07's candidate (24 lowercase letters).
+const TOKEN_SHAPES = Object.freeze([
+  Object.freeze({ name: '22-character token', token: 'Ab3dEf9hIj2kLm5nOp8qRs' }),
+  Object.freeze({ name: '24-letter token', token: 'qwertyuiopasdfghjklzxcvb' })
+]);
+const SK_KEY = 'sk-' + 'a'.repeat(24);
+
+/** A bench fixture page address on the loopback fixture server. */
+function fixtureUrl(token, slug, port) {
+  return 'http://127.0.0.1:' + (port || 53211) + '/r/' + token + '/fixtures/' + (slug || 'checklist') + '/index.html';
+}
 
 function hasOwn(obj, key) {
   return Object.prototype.hasOwnProperty.call(obj, key);
@@ -1566,17 +1587,52 @@ async function orchFallbacks() {
     'decide fallback ' + reason + ' latches the session; no later menu or call (' + JSON.stringify(out) + ')');
   }
 
-  // sensitive_goal from buildRequest: a command latch, no decide.
-  let r = rig({ session: { task: BENCH_GOAL } });
+  // The 68-05 bench-goal case (68-05-PLAN.md:103), re-pointed by 70-04
+  // (D-22): on the page its Open sentence names, the bench goal drops that
+  // sentence and is sent. The sensitive_goal latch is now proven by an sk-
+  // key after the Open sentence and by a token in the Open URL's query.
+  let r = rig({ session: { task: BENCH_GOAL }, menu: decisionMenu({ url: BENCH_URL + '?view=edit#top' }) });
   await primed(r);
   let out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.calls.length === 1 && r.client.calls[0].request.goal === 'Tick Alpha.'
+    && !jf(r.session).latched && fp(r.session).off === false,
+  'bench goal normalises and is sent: one decide whose goal is "Tick Alpha." (' + JSON.stringify(out.decline || 'acted') + ')');
+  check(r.session.task === BENCH_GOAL && r.client.calls.length === 1
+    && JSON.stringify(r.client.calls[0].request).indexOf('Ab3dEf9hIj2kLm5nOp8qRs/fixtures') !== -1
+    && JSON.stringify(r.client.calls[0].request).indexOf('Open ') === -1,
+  'bench goal normalises and is sent: session.task is unchanged and the address travels only as the page origin and path');
+  // The same goal on a page other than its Open URL still latches (D-22 condition 1).
+  r = rig({ session: { task: BENCH_GOAL } });
+  await primed(r);
+  out = await r.turn(2);
   check(out.decline === 'sensitive_goal' && jf(r.session).latched === 'sensitive_goal' && fp(r.session).off === false && r.client.calls.length === 0,
-    'a bench-like goal holding a run token latches the command sensitive_goal with zero decide calls (' + JSON.stringify(out) + ')');
-  out = await r.turn(3);
-  check(out.decline === 'sensitive_goal' && r.log.requestMenu.length === 1, 'the sensitive_goal command latch holds for the rest of the command');
-  const local = r.session.jevMeasurement && r.session.jevMeasurement.attempts[0];
-  check(local && local.jevCalled === false && local.fallback === 'sensitive_goal' && local.outcome === 'declined'
-    && local.escalationReason === 'sensitive_goal', 'the sensitive_goal attempt is recorded with jevCalled false');
+    'bench goal on another page: the Open sentence stays and the command latches sensitive_goal with zero decide calls (' + JSON.stringify(out) + ')');
+
+  for (const shape of TOKEN_SHAPES) {
+    const url = fixtureUrl(shape.token);
+    // An sk- key after the Open sentence: the normalised goal still holds it.
+    r = rig({ session: { task: 'Open ' + url + '. Use ' + SK_KEY + ' to sign in, then tick Alpha.' }, menu: decisionMenu({ url }) });
+    await primed(r);
+    out = await r.turn(2);
+    check(out.decline === 'sensitive_goal' && jf(r.session).latched === 'sensitive_goal' && fp(r.session).off === false && r.client.calls.length === 0,
+      'sk- key after the Open sentence (' + shape.name + '): the command latches sensitive_goal with zero decide calls (' + JSON.stringify(out) + ')');
+    out = await r.turn(3);
+    check(out.decline === 'sensitive_goal' && r.log.requestMenu.length === 1 && r.client.calls.length === 0,
+      'sk- key after the Open sentence (' + shape.name + '): the sensitive_goal command latch holds for the rest of the command');
+    const local = r.session.jevMeasurement && r.session.jevMeasurement.attempts[0];
+    check(local && local.jevCalled === false && local.fallback === 'sensitive_goal' && local.outcome === 'declined'
+      && local.escalationReason === 'sensitive_goal', 'sk- key after the Open sentence (' + shape.name + '): the sensitive_goal attempt is recorded with jevCalled false');
+
+    // A token in the Open URL's query: the sentence stays (D-22 condition 3), so the scan sees the token.
+    const queryTask = 'Open ' + url + '?token=' + SK_KEY + '. Tick Alpha.';
+    check(FsbFastPath.normaliseGoal(queryTask, [url]) === queryTask,
+      'token in the Open URL query (' + shape.name + '): the normaliser returns the task unchanged');
+    r = rig({ session: { task: queryTask }, menu: decisionMenu({ url }) });
+    await primed(r);
+    out = await r.turn(2);
+    check(out.decline === 'sensitive_goal' && jf(r.session).latched === 'sensitive_goal' && fp(r.session).off === false && r.client.calls.length === 0,
+      'token in the Open URL query (' + shape.name + '): the command latches sensitive_goal with zero decide calls (' + JSON.stringify(out) + ')');
+  }
 
   // A local buildRequest invalid_request: a command latch, never a session latch (sync issue 6).
   const spy = wrapBuildRequest(() => ({ ok: false, reason: 'invalid_request' }));
@@ -3966,6 +4022,258 @@ async function runEvidenceContent() {
 }
 
 // ---------------------------------------------------------------------------
+// Plan 70-04 Task 1: the goal normaliser (D-22). One leading
+// 'Open <http(s) URL>.' sentence is dropped only when its origin and path
+// equal a code-held page (the menu page or session._fastRunStartPage), no
+// path segment would be redacted by FSB's address rule and its query and
+// fragment hold no secret. The output is always a suffix of the task text.
+// ---------------------------------------------------------------------------
+
+async function goalNormaliserRule() {
+  const n = FsbFastPath.normaliseGoal;
+  check(typeof n === 'function', 'FsbFastPath.normaliseGoal is a function');
+  if (typeof n !== 'function') return;
+  check(BENCH_GOAL === 'Open ' + BENCH_URL + '. Tick Alpha.', 'the 68-05 bench goal is "Open <BENCH_URL>. Tick Alpha."');
+
+  for (const shape of TOKEN_SHAPES) {
+    for (const port of [4173, 53211]) {
+      const u = fixtureUrl(shape.token, 'checklist', port);
+      const t = 'Open ' + u + '. Tick Alpha and Bravo.';
+      check(n(t, [u]) === 'Tick Alpha and Bravo.', 'normaliser: the Open sentence goes when the page is its URL (' + shape.name + ', port ' + port + ')');
+      check(n(t, [u + '?view=edit#top']) === 'Tick Alpha and Bravo.',
+        'normaliser: a page address with a query and fragment still matches on origin and path (' + shape.name + ', port ' + port + ')');
+      check(n(t, [null, undefined, 42, 'about:blank', 'not a url', u]) === 'Tick Alpha and Bravo.',
+        'normaliser: any pageUrls entry may match, entries that do not parse are skipped (' + shape.name + ', port ' + port + ')');
+      check(n(t, ['http://127.0.0.1:' + port + '/r/' + shape.token + '/fixtures/checklist/other.html']) === t,
+        'normaliser: another path on the same origin declines (' + shape.name + ', port ' + port + ')');
+    }
+  }
+  const u = fixtureUrl(TOKEN_SHAPES[1].token);
+  check(n('Open https://shop.example/cart. Pay the order.', ['https://shop.example/cart']) === 'Pay the order.', 'normaliser: an https Open URL');
+  check(n('Open http://shop.example/cart. Pay the order.', ['https://shop.example/cart']) === 'Open http://shop.example/cart. Pay the order.',
+    'normaliser: a different scheme is a different origin and declines');
+  check(n('Open http://h.example:80/p. Go on.', ['http://h.example/p']) === 'Go on.', 'normaliser: a default port equals no port');
+  check(n('Open https://h.example:443/p. Go on.', ['https://h.example/p?x=1']) === 'Go on.', 'normaliser: the https default port equals no port');
+  check(n('Open http://H.Example/p. Go on.', ['http://h.example/p']) === 'Go on.', 'normaliser: host case is equal');
+  check(n('Open http://h.example/P. Go on.', ['http://h.example/p']) === 'Open http://h.example/P. Go on.', 'normaliser: path case is not equal (declines)');
+  check(n('Open http://h.example:8080/p. Go on.', ['http://h.example/p']) === 'Open http://h.example:8080/p. Go on.', 'normaliser: another port declines');
+  check(n('Open ' + u + '. Open ' + u + '. Tick Alpha.', [u]) === 'Open ' + u + '. Tick Alpha.', 'normaliser: only one leading sentence is removed');
+  check(n('Open ' + u + '. Open https://shop.example/cart. Pay.', [u, 'https://shop.example/cart']) === 'Open https://shop.example/cart. Pay.',
+    'normaliser: "Open A. Open B. Do X." gives "Open B. Do X." even when both pages match');
+  const mid = 'Tick Alpha. Open ' + u + '. Tick Bravo.';
+  check(n(mid, [u]) === mid, 'normaliser: a mid-string Open sentence is untouched');
+  const lower = 'open ' + u + '. Tick Alpha.';
+  check(n(lower, [u]) === lower, 'normaliser: a lower-case "open" is untouched');
+  const noDot = 'Open ' + u + ' and tick Alpha.';
+  check(n(noDot, [u]) === noDot, 'normaliser: an Open URL without the sentence dot is untouched');
+  const glued = 'Open ' + u + '.Tick Alpha.';
+  check(n(glued, [u]) === glued, 'normaliser: a dot not followed by whitespace is not the sentence dot');
+  const leading = ' Open ' + u + '. Tick Alpha.';
+  check(n(leading, [u]) === leading, 'normaliser: the sentence must open the task (no leading whitespace)');
+  const caps = 'Open HTTP://h.example/p. Go on.';
+  check(n(caps, ['http://h.example/p']) === caps, 'normaliser: only a lower-case http or https scheme is read');
+  check(n('Open ' + u + '. Tick Alpha.', [u.replace(/\.html$/, '')]) === 'Open ' + u + '. Tick Alpha.',
+    'normaliser: the sentence dot is the last dot before whitespace, so the URL keeps ".html"');
+  check(n('Open ' + u + '.\n\n  Tick Alpha.  \n', [u]) === 'Tick Alpha.  \n', 'normaliser: leading whitespace of the rest goes, trailing whitespace stays');
+
+  // Declines: the task comes back unchanged.
+  const otherPage = 'Open ' + u + '. Tick Alpha.';
+  check(n(otherPage, ['https://example.test/wizard/step-2']) === otherPage, 'normaliser declines: no code-held page matches (condition 1)');
+  check(n(otherPage, []) === otherPage, 'normaliser declines: no page at all');
+  const longSegment = 'Ab3dEf9hIj2kLm5nOp8qRsTu1vWx2yZa3bCd4e';
+  check(longSegment.length === 38 && FsbJevState.scrubText(longSegment) !== longSegment, 'a 38-character mixed token segment is redacted by scrubText');
+  const tokenUrl = fixtureUrl(longSegment);
+  check(n('Open ' + tokenUrl + '. Tick Alpha.', [tokenUrl]) === 'Open ' + tokenUrl + '. Tick Alpha.',
+    'normaliser declines: a path segment scrubText changes (condition 2)');
+  const cardSegment = '4111%201111%201111%201111';
+  check(FsbJevState.scrubText(cardSegment) === cardSegment && FsbJevState.matchesSecret(decodeURIComponent(cardSegment)),
+    'a percent-encoded card segment passes scrubText raw and matches decoded');
+  const cardUrl = 'https://shop.example/pay/' + cardSegment;
+  check(n('Open ' + cardUrl + '. Pay.', [cardUrl]) === 'Open ' + cardUrl + '. Pay.',
+    'normaliser declines: a percent-encoded secret segment (FSB address rule, Drift substitution 10)');
+  const badPercent = 'https://shop.example/pay/%E0%A4%A';
+  check(n('Open ' + badPercent + '. Pay.', [badPercent]) === 'Open ' + badPercent + '. Pay.',
+    'normaliser declines: a segment that does not percent-decode fails closed');
+  const harmless = 'Open ' + u + '?view=edit#top. Tick Alpha.';
+  check(n(harmless, [u]) === 'Tick Alpha.', 'normaliser: a harmless query and fragment are removed with the sentence');
+  for (const [label, suffix] of [['query', '?token=' + SK_KEY], ['fragment', '#' + SK_KEY], ['query and fragment', '?a=1#k=' + SK_KEY],
+    ['percent-encoded query', '?card=4111%201111%201111%201111']]) {
+    const t = 'Open ' + u + suffix + '. Tick Alpha.';
+    check(n(t, [u]) === t, 'normaliser declines: a secret in the ' + label + ' (condition 3)');
+  }
+  const userinfo = 'Open http://user:pw@127.0.0.1:53211/r/x/fixtures/checklist/index.html. Tick Alpha.';
+  check(n(userinfo, ['http://127.0.0.1:53211/r/x/fixtures/checklist/index.html']) === userinfo,
+    'normaliser declines: an Open URL carrying credentials');
+  check(n('Open ' + u + '.', [u]) === 'Open ' + u + '.', 'normaliser declines: an empty remainder');
+  check(n('Open ' + u + '.  \n ', [u]) === 'Open ' + u + '.  \n ', 'normaliser declines: a whitespace-only remainder');
+  for (const value of [null, undefined, 42, true]) {
+    check(n(value, [u]) === value, 'normaliser declines: a non-string task (' + String(value) + ') comes back as it is');
+  }
+  const obj = { task: 'x' };
+  check(n(obj, [u]) === obj, 'normaliser declines: an object task comes back as the same object');
+  for (const pages of [undefined, null, u, {}]) {
+    check(n(otherPage, pages) === otherPage, 'normaliser declines: pageUrls that is not an array (' + JSON.stringify(pages) + ')');
+  }
+  const unparsable = 'Open http://[bad. Tick Alpha.';
+  check(n(unparsable, ['http://[bad']) === unparsable, 'normaliser declines: an Open URL that does not parse');
+
+  // FsbJevState unavailable, incomplete or throwing.
+  const alone = isolatedFastPath({ URL });
+  check(alone && typeof alone.normaliseGoal === 'function', 'the module loads alone without FsbJevState');
+  check(alone && alone.normaliseGoal(otherPage, [u]) === otherPage, 'normaliser declines: FsbJevState unavailable');
+  const partial = isolatedFastPath({ URL, FsbJevState: { matchesSecret: () => false } });
+  check(partial && partial.normaliseGoal(otherPage, [u]) === otherPage, 'normaliser declines: FsbJevState without scrubText');
+  const throwing = isolatedFastPath({ URL, FsbJevState: { scrubText: () => { throw new Error('boom'); }, matchesSecret: () => false } });
+  let threw = false;
+  let result = null;
+  try {
+    result = throwing.normaliseGoal(otherPage, [u]);
+  } catch (_e) {
+    threw = true;
+  }
+  check(!threw && result === otherPage, 'normaliser declines and never throws when FsbJevState throws');
+  const noUrl = isolatedFastPath({ FsbJevState });
+  check(noUrl && noUrl.normaliseGoal(otherPage, [u]) === otherPage, 'normaliser declines: URL unavailable');
+}
+
+/** A small deterministic generator (LCG) for the suffix property. */
+function lcg(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+async function goalNormaliserSuffix() {
+  const n = FsbFastPath.normaliseGoal;
+  if (typeof n !== 'function') {
+    check(false, 'normaliser output is a suffix: normaliseGoal exists');
+    return;
+  }
+  const u22 = fixtureUrl(TOKEN_SHAPES[0].token);
+  const u24 = fixtureUrl(TOKEN_SHAPES[1].token);
+  const pieces = ['Open ', 'open ', u22, u24, u24 + '?view=1', u24 + '#top', u24 + '?token=' + SK_KEY, 'https://shop.example/cart',
+    '.', '. ', '.\n', ' ', '  ', '\t', 'Tick Alpha', 'Tick Alpha.', SK_KEY, 'index.html', '..', 'Open', '\u{1F600}', ''];
+  const pageSets = [[u22], [u24], [], ['https://shop.example/cart'], [u24, null], [u22 + '?x=1', 'https://shop.example/cart']];
+  const rand = lcg(70040);
+  const pickOf = (list) => list[Math.floor(rand() * list.length)];
+  let changed = 0;
+  let unchanged = 0;
+  let bad = null;
+  for (let i = 0; i < 2000; i += 1) {
+    let task = rand() < 0.6 ? 'Open ' + pickOf([u22, u24, u24 + '?view=1', 'https://shop.example/cart']) + pickOf(['.', '. ', '.\n', ' ']) : '';
+    const count = 1 + Math.floor(rand() * 6);
+    for (let k = 0; k < count; k += 1) task += pickOf(pieces);
+    const pages = pickOf(pageSets);
+    const out = n(task, pages);
+    const ok = typeof out === 'string' && task.endsWith(out)
+      && (out === task || (out.length > 0 && out.length < task.length && !/^\s/.test(out) && task.slice(0, task.length - out.length).startsWith('Open ')));
+    if (out === task) unchanged += 1;
+    else changed += 1;
+    if (!ok && bad === null) bad = { task, pages, out };
+  }
+  check(bad === null, 'normaliser output is a suffix: 2000 generated tasks, each output is the task or a shorter suffix with no leading whitespace'
+    + (bad ? ' (' + JSON.stringify(bad) + ')' : ''));
+  check(changed > 100 && unchanged > 100, 'normaliser output is a suffix: the generated tasks exercise both paths (' + changed + ' changed, ' + unchanged + ' unchanged)');
+  for (const task of [BENCH_GOAL, 'Open ' + u24 + '. ', 'Tick Alpha.', '', 'Open ' + u24 + '. Tick Alpha.']) {
+    const out = n(task, [BENCH_URL, u24]);
+    check(typeof out === 'string' && task.endsWith(out), 'normaliser output is a suffix: ' + JSON.stringify(task).slice(0, 60));
+  }
+}
+
+async function goalNormaliserWiring() {
+  // 1. The menu page is the Open URL (the rig's menu is MENU_URL with a query).
+  const wizard = 'https://example.test/wizard/step-2';
+  let r = rig({ session: { task: 'Open ' + wizard + '. ' + GOAL } });
+  await primed(r);
+  let out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.calls.length === 1 && r.client.calls[0].request.goal === GOAL,
+    'wiring: the menu page is the Open URL, so the decide request carries the normalised goal');
+  check(r.session.task === 'Open ' + wizard + '. ' + GOAL && r.session.messages[1].content === GOAL, 'wiring: session.task and the messages are unchanged');
+
+  // 2. The start page is the Open URL; the menu is on another page.
+  const start = fixtureUrl(TOKEN_SHAPES[1].token);
+  r = rig({ session: { task: 'Open ' + start + '. ' + GOAL, _fastRunStartPage: start } });
+  await primed(r);
+  out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.calls.length === 1 && r.client.calls[0].request.goal === GOAL,
+    'wiring: session._fastRunStartPage is the Open URL, so the decide request carries the normalised goal');
+
+  // 3. Neither page matches: the task text is sent unchanged.
+  r = rig({ session: { task: 'Open ' + start + '. ' + GOAL } });
+  await primed(r);
+  out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.calls.length === 1 && r.client.calls[0].request.goal === 'Open ' + start + '. ' + GOAL,
+    'wiring: no code-held page matches, so the decide request carries session.task unchanged');
+  r = rig({ session: { task: 'Open ' + start + '. ' + GOAL, _fastRunStartPage: 'https://example.test/elsewhere' } });
+  await primed(r);
+  out = await r.turn(2);
+  check(Boolean(out.toolCall) && r.client.calls[0].request.goal === 'Open ' + start + '. ' + GOAL,
+    'wiring: a start page that differs from the Open URL changes nothing');
+
+  // 4. long goal (Drift substitution 7): buildRequest truncates, one decide, no latch.
+  const longRest = 'Tick Alpha. ' + 'Then tick Bravo \u{1F600} and Charlie again. '.repeat(40);
+  check(Array.from(longRest).length > 1000, 'long goal: the remainder is over 1000 code points (' + Array.from(longRest).length + ')');
+  r = rig({ session: { task: 'Open ' + start + '. ' + longRest }, menu: decisionMenu({ url: start }) });
+  await primed(r);
+  out = await r.turn(2);
+  const sent = r.client.calls.length === 1 ? r.client.calls[0].request.goal : null;
+  check(Boolean(out.toolCall) && r.client.calls.length === 1 && sent === Array.from(longRest).slice(0, 1000).join(''),
+    'long goal: a normalised goal over 1000 code points is sent as its first 1000 code points in one decide');
+  check(!jf(r.session).latched && fp(r.session).off === false, 'long goal: length alone latches neither the command nor the session');
+}
+
+/** One minimal capture-ring record on the core task's fixture page (the 68-08 capture shape). */
+function minimalCapture(task, index, token) {
+  return {
+    v: 1,
+    capturedAt: 1789639200000 + index,
+    command: 1,
+    iteration: 1,
+    url: 'http://127.0.0.1:53211/r/' + token + task.startPath,
+    menuCap: 48,
+    entryCount: 1,
+    builderInput: {
+      title: 'Fixture',
+      visibleText: 'Fixture page',
+      elements: [{ id: 'j1', role: 'button', label: 'Go', ops: ['click'], inputType: null, autocomplete: null, purpose: { sensitive: false }, hidden: false }],
+      vaultFilledIds: [],
+      recentActions: [],
+      offeredOps: ['click']
+    },
+    label: { op: 'click', target: 'j1' }
+  };
+}
+
+async function goalNormaliserCoreTasks() {
+  const { pathToFileURL } = require('url');
+  const tasksLib = await import(pathToFileURL(path.join(ROOT, 'scripts', 'bench', 'lib', 'tasks.mjs')).href);
+  const exporter = await import(pathToFileURL(path.join(ROOT, 'scripts', 'bench', 'shadow', 'export-capture.mjs')).href);
+  const recordsLib = await import(pathToFileURL(path.join(ROOT, 'scripts', 'bench', 'shadow', 'lib', 'records.mjs')).href);
+  const tasks = tasksLib.loadTasks({ set: 'core' });
+  check(tasks.length === 12 && tasks.every((task) => task.instruction.startsWith('Open {startUrl}. ')),
+    'core tasks: 12 tasks, each starting "Open {startUrl}. "');
+  const ring = { v: 1, records: tasks.map((task, i) => minimalCapture(task, i, TOKEN_SHAPES[1].token)), drops: {} };
+  const derived = exporter.deriveRecords(ring, { tasks, lock: recordsLib.readCoreLock(), run: 'p7004' });
+  check(sameJson(derived.drops, {}) && derived.records.length === 12, 'core tasks: the 68-08 exporter derives one record per task (' + JSON.stringify(derived.drops) + ')');
+  const goalById = new Map(derived.records.map((record) => [record.task.id, record.request.goal]));
+  let rawSensitive = 0;
+  for (const shape of TOKEN_SHAPES) {
+    for (const task of tasks) {
+      const startUrl = 'http://127.0.0.1:53211/r/' + shape.token + task.startPath;
+      const rendered = tasksLib.renderInstruction(task, startUrl);
+      if (FsbJevState.matchesSecret(rendered)) rawSensitive += 1;
+      const out = FsbFastPath.normaliseGoal(rendered, [startUrl]);
+      const expected = goalById.get(task.id);
+      check(typeof expected === 'string' && expected.length > 0 && out === expected && FsbJevState.matchesSecret(out) === false,
+        'core tasks equal exporter goals: ' + task.id + ' (' + shape.name + ')' + (out === expected ? '' : ' got ' + JSON.stringify(out)));
+    }
+  }
+  console.log('  INFO: rendered core tasks that matchesSecret before normalising: ' + rawSensitive + ' of ' + (tasks.length * TOKEN_SHAPES.length));
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -4047,6 +4355,10 @@ async function main() {
     await section('70-03 run evidence: unresolved uncertainty (D-14)', runEvidenceUnresolvedCases);
     await section('70-03 run evidence: the act and hand-off markers (F2, F14)', runEvidenceMarkers);
     await section('70-03 run evidence: no page content, no 68 state change (D-14, F12, F13, T-70-02)', runEvidenceContent);
+    await section('70-04 goal normaliser: the rule and its declines (D-22, T-70-03)', goalNormaliserRule);
+    await section('70-04 goal normaliser: normaliser output is a suffix (D-22)', goalNormaliserSuffix);
+    await section('70-04 goal normaliser: wired before buildRequest (D-22, Drift substitution 7)', goalNormaliserWiring);
+    await section('70-04 goal normaliser: core tasks equal exporter goals (D-22, M-70-04)', goalNormaliserCoreTasks);
   }
 
   console.log('\n--- Summary ---');
