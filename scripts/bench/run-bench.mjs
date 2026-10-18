@@ -61,6 +61,7 @@ import {
 } from './lib/cdp.mjs';
 import { buildBenchChildEnv, claudeVersion, loadProviderKeyNames, runClaudeTask, TOOL_SEARCH_MODES } from './lib/claude-arm.mjs';
 import { cursorVersion, runCursorTask } from './lib/cursor-arm.mjs';
+import { projectFastMode } from './lib/fast-mode.mjs';
 import { readFsbAgentPolicy, serializeFsbAgents } from './lib/host-stream.mjs';
 import { PINNED_AUTOPILOT_MODEL, WEB_STORE_EXTENSION_ID, evaluatePreflight, gitIdentity, sha256Hex } from './lib/identity.mjs';
 import {
@@ -576,6 +577,7 @@ export async function runAutopilotArm({ deps, client, task, startUrl, instructio
     swEvicted: !!(json && json.sw_evicted === true),
     sessionIdSource: timed.sessionIdSource || null,
   };
+  if (json && isPlainObject(json.fast_mode)) runTask.fastMode = projectFastMode(json.fast_mode);
   if (timed.aborted) {
     return { ...timed, startFailed: false, runTask, taskJson: json, sessionDetail: null };
   }
