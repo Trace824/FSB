@@ -23,6 +23,10 @@
  * - createRunEvidenceHandlers / runEvidenceUnresolved: a memory-only record
  *   of what each executed call of a fast-mode session did, from three
  *   synchronous hook handlers (Phase 70, D-14).
+ * - classifyRunTaskOutcome / summarizeFastMode / buildFastModeBlock: the
+ *   typed run_task outcome (done, ambiguous, blocked, needs_confirmation)
+ *   from task state and that record, never from a Jev answer, plus a
+ *   content-free summary of what fast mode did (Phase 70, D-12..D-19).
  *
  * Inert by design: loading this file reads no browser API, schedules nothing,
  * touches no storage and makes no network call. FsbJevState and FsbJevPolicy
@@ -2434,6 +2438,262 @@
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Typed run_task outcome (70-05; D-12, D-13, D-15, D-16, D-18, D-19).
+  // classifyRunTaskOutcome turns how a task ended (the settle path and the
+  // terminal lifecycle message's outcome and reason) plus the run evidence
+  // into one of four outcomes with one reason from a closed list. It reads
+  // no Jev answer, so nothing Jev says can make a task done.
+  // summarizeFastMode reports what fast mode did (attempts, latches, spent
+  // budgets, fallbacks) from the existing measurement and latch state; it
+  // never changes the outcome (D-16) and adds nothing to that state (F12).
+  // buildFastModeBlock assembles both into the fast_mode block and never
+  // throws. Every string in a block comes from a frozen list below; any
+  // other value becomes 'other'. The key lists are shared with the wire
+  // test and the bench mirror (producer/validator parity).
+  // ---------------------------------------------------------------------------
+
+  var OTHER_CODE = 'other';
+  var FAST_MODE_OUTCOMES = Object.freeze(['done', 'ambiguous', 'blocked', 'needs_confirmation']);
+  var FAST_MODE_HUMAN_GATES = Object.freeze(['manual_approval', 'payment_not_approved', 'site_consent_required']);
+  var FAST_MODE_REASONS = deepFreeze({
+    done: ['complete_task', 'end_turn', OTHER_CODE],
+    ambiguous: ['classifier_error', 'safety_net_timeout', 'uncertain_action', 'evidence_unavailable'],
+    blocked: ['blocked', 'auth_required', 'credentials_missing', 'user_skipped_login', 'credentials_failed', 'fail_task',
+      'error', 'iteration_limit_exceeded', 'cost_limit_exceeded', 'time_limit_exceeded', 'safety', 'meta_cognitive_loop_break',
+      'stuck_action_repetition', 'stuck_no_goal_progress', 'stuck_dom_hash', 'user_stopped', 'tab_closed',
+      'service_worker_restart', 'session_not_found', 'session_not_running', OTHER_CODE],
+    needs_confirmation: FAST_MODE_HUMAN_GATES.slice()
+  });
+  var FAST_MODE_BLOCK_KEYS = Object.freeze(['outcome', 'reason', 'uncertain_unobserved', 'human_gate', 'budget_profile', 'jev']);
+  var FAST_MODE_SUMMARY_KEYS = Object.freeze(['attempts', 'calls', 'fast_steps', 'jev_ms', 'calibration', 'latched',
+    'exhausted', 'escalations']);
+  // Every code fast mode records as an escalation, a decline or a latch: the
+  // describeEscalation table (which holds all 19 contract fallback reasons),
+  // operation_/target_ plus each accept reason, the declines that have no
+  // sentence of their own, and 'other'.
+  var FAST_MODE_ESCALATION_CODES = Object.freeze(Object.keys(ESCALATION_TEXT)
+    .concat(Object.keys(CHOICE_TEXT.operation).map(function operationCode(r) { return 'operation_' + r; }))
+    .concat(Object.keys(CHOICE_TEXT.target).map(function targetCode(r) { return 'target_' + r; }))
+    .concat(['not_enabled', 'first_llm_turn', 'yield_to_llm', 'stopped', OTHER_CODE]));
+
+  // The terminal outcomes a lifecycle message carries (createTerminalOutcome).
+  var TERMINAL_OUTCOMES = ['success', 'partial', 'stopped', 'error'];
+  // The human gates the run evidence can hold (D-15); manual_approval comes
+  // only from the terminal itself.
+  var EVIDENCE_GATES = ['payment_not_approved', 'site_consent_required'];
+  // Command latches that mean a budget was spent (D-10): reported as exhausted.
+  var BUDGET_LATCHES = ['step_budget', 'call_budget', 'time_budget'];
+  var SAFETY_NET_SOURCE = 'safety_net_600s';
+
+  /** `value` trimmed and lower-cased when it is in `list`, else 'other'. */
+  function closedCode(value, list) {
+    if (typeof value !== 'string') return OTHER_CODE;
+    var code = value.trim().toLowerCase();
+    return contains(list, code) ? code : OTHER_CODE;
+  }
+
+  /** The terminal: 'error' for an error settle, the message's outcome for a complete settle, else 'unknown'. */
+  function terminalOf(kind, message) {
+    if (kind === 'error') return 'error';
+    if (kind === 'complete' && typeof message.outcome === 'string' && contains(TERMINAL_OUTCOMES, message.outcome)) {
+      return message.outcome;
+    }
+    return 'unknown';
+  }
+
+  /** An uncleared evidence gate's code (D-15), else null. */
+  function openGateOf(ev) {
+    var gate = ev.gate;
+    if (!isObject(gate) || gate.cleared === true) return null;
+    return typeof gate.code === 'string' && contains(EVIDENCE_GATES, gate.code) ? gate.code : null;
+  }
+
+  /** D-13 row 7: the terminal reason in the blocked list; a reasonless error is 'error', a reasonless partial 'blocked'. */
+  function blockedReasonOf(terminal, reason) {
+    if (reason === null || reason.length === 0) {
+      if (terminal === 'error') return 'error';
+      if (terminal === 'partial') return 'blocked';
+      return OTHER_CODE;
+    }
+    return closedCode(reason, FAST_MODE_REASONS.blocked);
+  }
+
+  /**
+   * One typed outcome for how a run_task ended. input: {source, kind,
+   * message, evidence}, where kind is 'complete', 'error' or 'safety_net'
+   * and evidence is session._fastRunEvidence. Reads only message.outcome,
+   * message.reason and the evidence record. D-13 order, first match wins:
+   *   2 the safety net                         -> ambiguous/safety_net_timeout
+   *   3 a partial terminal with manual_approval, or a terminal that is not a
+   *     success with an uncleared evidence gate -> needs_confirmation/<gate>
+   *   4 unresolved uncertainty                 -> ambiguous/uncertain_action
+   *   5 a success with an evidence record      -> done/<reason>
+   *   6 a success with no evidence record      -> ambiguous/evidence_unavailable
+   *   7 anything else                          -> blocked/<mapped reason>
+   * (Row 1, classifier_error, is buildFastModeBlock's.) A missing record is
+   * "no evidence": no gate and no uncertainty is read from it, so
+   * uncertain_unobserved is null and the task keeps its terminal's row.
+   * Returns {outcome, reason, uncertain_unobserved, human_gate}.
+   */
+  function classifyRunTaskOutcome(input) {
+    var kind = input.kind;
+    var message = isObject(input.message) ? input.message : {};
+    var ev = isObject(input.evidence) ? input.evidence : null;
+    var terminal = terminalOf(kind, message);
+    var reason = typeof message.reason === 'string' ? message.reason.trim().toLowerCase() : null;
+    var success = terminal === 'success';
+    var unresolved = ev === null ? null : runEvidenceUnresolved(ev) === true;
+    var humanGate = null;
+    if (terminal === 'partial' && reason === 'manual_approval') humanGate = 'manual_approval';
+    else if (!success && ev !== null) humanGate = openGateOf(ev);
+
+    function verdict(outcome, code) {
+      return { outcome: outcome, reason: code, uncertain_unobserved: unresolved, human_gate: humanGate };
+    }
+
+    if (kind === 'safety_net' || input.source === SAFETY_NET_SOURCE) return verdict('ambiguous', 'safety_net_timeout');
+    if (humanGate !== null) return verdict('needs_confirmation', humanGate);
+    if (unresolved === true) return verdict('ambiguous', 'uncertain_action');
+    if (success) {
+      return ev !== null ? verdict('done', closedCode(reason, FAST_MODE_REASONS.done)) : verdict('ambiguous', 'evidence_unavailable');
+    }
+    return verdict('blocked', blockedReasonOf(terminal, reason));
+  }
+
+  /** The last non-null calibration status of the attempts, as a contract status or 'other'; null when none. */
+  function lastCalibrationOf(attempts) {
+    for (var i = attempts.length - 1; i >= 0; i -= 1) {
+      var status = isObject(attempts[i]) ? attempts[i].calibrationStatus : null;
+      if (status === null || status === undefined) continue;
+      var statuses = contractList('CALIBRATION_STATUSES', ['calibrated', 'uncalibrated', 'snapshot_changed']);
+      return typeof status === 'string' && contains(statuses, status) ? status : OTHER_CODE;
+    }
+    return null;
+  }
+
+  /**
+   * The compact fast-mode summary of a session (D-18), read from
+   * jevMeasurement (attempts and per-command totals), the session latch in
+   * _fastPath and the command latch in agentState.jevFast. A spent budget
+   * goes to exhausted, any other latch to latched (the session latch first).
+   * Codes outside FAST_MODE_ESCALATION_CODES become 'other'; counts are
+   * known values, so 0 is real; jev_ms is null until a decide was timed.
+   * Reads only; never creates or changes any of those structures (F12).
+   */
+  function summarizeFastMode(session) {
+    var measurement = session.jevMeasurement;
+    var attempts = isObject(measurement) && Array.isArray(measurement.attempts) ? measurement.attempts : [];
+    var commands = isObject(measurement) && Array.isArray(measurement.commands) ? measurement.commands : [];
+    var calls = 0;
+    var steps = 0;
+    var ms = null;
+    var escalations = {};
+    for (var i = 0; i < commands.length; i += 1) {
+      var totals = commands[i];
+      if (!isObject(totals)) continue;
+      var n = indexOrNull(totals.jevCalls);
+      if (n !== null) calls += n;
+      n = indexOrNull(totals.fastSteps);
+      if (n !== null) steps += n;
+      var t = countOrNull(totals.jevMs);
+      if (t !== null) ms = (ms === null ? 0 : ms) + t;
+      if (!isObject(totals.escalations)) continue;
+      var keys = Object.keys(totals.escalations);
+      for (var k = 0; k < keys.length; k += 1) {
+        var count = indexOrNull(totals.escalations[keys[k]]);
+        if (count === null) continue;
+        var code = closedCode(keys[k], FAST_MODE_ESCALATION_CODES);
+        escalations[code] = (hasOwn(escalations, code) ? escalations[code] : 0) + count;
+      }
+    }
+    var state = isObject(session._fastPath) ? session._fastPath : null;
+    var agentState = isObject(session.agentState) ? session.agentState : null;
+    var command = agentState !== null && isObject(agentState.jevFast) ? agentState.jevFast : null;
+    var commandLatch = command !== null && typeof command.latched === 'string' && command.latched.length > 0
+      ? closedCode(command.latched, FAST_MODE_ESCALATION_CODES)
+      : null;
+    var spent = commandLatch !== null && contains(BUDGET_LATCHES, commandLatch);
+    var latched = null;
+    if (state !== null && state.off === true) latched = closedCode(state.offReason, FAST_MODE_ESCALATION_CODES);
+    else if (commandLatch !== null && !spent) latched = commandLatch;
+    return {
+      attempts: attempts.length,
+      calls: calls,
+      fast_steps: steps,
+      jev_ms: ms !== null && isFinite(ms) ? ms : null,
+      calibration: lastCalibrationOf(attempts),
+      latched: latched,
+      exhausted: spent ? commandLatch : null,
+      escalations: escalations
+    };
+  }
+
+  /** True when a classifier verdict holds only closed values. */
+  function closedVerdict(v) {
+    return isObject(v) && contains(FAST_MODE_OUTCOMES, v.outcome) && contains(FAST_MODE_REASONS[v.outcome], v.reason)
+      && (v.uncertain_unobserved === true || v.uncertain_unobserved === false || v.uncertain_unobserved === null)
+      && (v.human_gate === null || contains(FAST_MODE_HUMAN_GATES, v.human_gate));
+  }
+
+  /**
+   * The fast_mode block for a run_task settle (D-17, D-18, D-19): the
+   * classifier's four fields, the session's budget profile name and its
+   * fast-mode summary, as a fresh object in FAST_MODE_BLOCK_KEYS order.
+   * settle: {source, kind, message}. Each part is computed in its own
+   * try/catch, so one failure never loses the others: a classifier failure
+   * (a null session, a throwing getter, a settle that is not an object)
+   * leaves ambiguous/classifier_error, a summary failure leaves jev null.
+   * Never throws.
+   */
+  function buildFastModeBlock(session, settle) {
+    var outcome = 'ambiguous';
+    var reason = 'classifier_error';
+    var uncertainUnobserved = null;
+    var humanGate = null;
+    var budgetProfile = null;
+    var jev = null;
+    try {
+      if (isObject(session)) budgetProfile = budgetProfileName(session);
+    } catch (_e) {
+      budgetProfile = null;
+    }
+    try {
+      if (isObject(session)) jev = summarizeFastMode(session);
+    } catch (_e) {
+      jev = null;
+    }
+    try {
+      if (isObject(settle)) {
+        var v = classifyRunTaskOutcome({
+          source: settle.source,
+          kind: settle.kind,
+          message: settle.message,
+          evidence: session._fastRunEvidence
+        });
+        if (closedVerdict(v)) {
+          outcome = v.outcome;
+          reason = v.reason;
+          uncertainUnobserved = v.uncertain_unobserved;
+          humanGate = v.human_gate;
+        }
+      }
+    } catch (_e) {
+      outcome = 'ambiguous';
+      reason = 'classifier_error';
+      uncertainUnobserved = null;
+      humanGate = null;
+    }
+    return {
+      outcome: outcome,
+      reason: reason,
+      uncertain_unobserved: uncertainUnobserved,
+      human_gate: humanGate,
+      budget_profile: budgetProfile,
+      jev: jev
+    };
+  }
+
   // --- end run_task outcome ---
 
   var api = {
@@ -2464,7 +2724,16 @@
     noteCaptureObservation: noteCaptureObservation,
     isPageObservationTool: isPageObservationTool,
     createRunEvidenceHandlers: createRunEvidenceHandlers,
-    runEvidenceUnresolved: runEvidenceUnresolved
+    runEvidenceUnresolved: runEvidenceUnresolved,
+    classifyRunTaskOutcome: classifyRunTaskOutcome,
+    summarizeFastMode: summarizeFastMode,
+    buildFastModeBlock: buildFastModeBlock,
+    FAST_MODE_OUTCOMES: FAST_MODE_OUTCOMES,
+    FAST_MODE_REASONS: FAST_MODE_REASONS,
+    FAST_MODE_HUMAN_GATES: FAST_MODE_HUMAN_GATES,
+    FAST_MODE_BLOCK_KEYS: FAST_MODE_BLOCK_KEYS,
+    FAST_MODE_SUMMARY_KEYS: FAST_MODE_SUMMARY_KEYS,
+    FAST_MODE_ESCALATION_CODES: FAST_MODE_ESCALATION_CODES
   };
   root.FsbFastPath = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
