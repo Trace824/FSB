@@ -4172,6 +4172,46 @@ async function fsbRecomputeFastModeForFollowUp(existingSession, source) {
   else delete existingSession.fastMode;
 }
 
+/**
+ * Fast mode (Phase 70, D-14): on a session that carries the fast-mode field,
+ * register the fast-path module's run evidence handlers on the session's hook
+ * pipeline, after the session hooks, in the order before-tool, after-tool,
+ * after-iteration. They record what every executed call did, including a call
+ * that runs before the terminal tool in the same turn; the record is memory
+ * only and is never persisted. Returns true when all three were registered.
+ * On any failure it removes what it added, so no partial record is left,
+ * and returns false. Never throws.
+ * @param {HookPipeline} pipeline - The session's hook pipeline
+ * @param {Object} session - The new session
+ * @param {string|undefined} startUrl - The code-held URL the task starts on
+ * @returns {boolean} Whether the handlers were registered
+ */
+function fsbRegisterFastRunEvidence(pipeline, session, startUrl) {
+  if (!session || !session.fastMode || !pipeline || typeof pipeline.register !== 'function') return false;
+  const fastPath = typeof globalThis !== 'undefined' ? globalThis.FsbFastPath : null;
+  if (!fastPath || typeof fastPath.createRunEvidenceHandlers !== 'function') return false;
+  const added = [];
+  try {
+    const handlers = fastPath.createRunEvidenceHandlers(session, { startUrl });
+    if (!handlers) throw new Error('run evidence unavailable');
+    added.push(pipeline.register(LIFECYCLE_EVENTS.BEFORE_TOOL_EXECUTION, handlers.beforeTool));
+    added.push(pipeline.register(LIFECYCLE_EVENTS.AFTER_TOOL_EXECUTION, handlers.afterTool));
+    added.push(pipeline.register(LIFECYCLE_EVENTS.AFTER_ITERATION, handlers.afterIteration));
+    return true;
+  } catch (_e) {
+    for (const remove of added) {
+      try {
+        if (typeof remove === 'function') remove();
+      } catch (_ignored) {
+        // Nothing more can be removed.
+      }
+    }
+    delete session._fastRunEvidence;
+    delete session._fastRunStartPage;
+    return false;
+  }
+}
+
 // PART 3: Helper function to format duration for session elapsed timer
 function formatDuration(ms) {
   const seconds = Math.floor(ms / 1000);
@@ -14468,6 +14508,7 @@ async function handleStartAutomation(request, sender, sendResponse) {
 
     // Start the modular agent loop (Phase 181, D-01/D-02)
     const sessionHooks = createSessionHooks(sessionId);
+    if (sessionData.fastMode) fsbRegisterFastRunEvidence(sessionHooks, sessionData, tabInfo && tabInfo.url);
     runAgentLoop(sessionId, {
       activeSessions,
       persistSession,

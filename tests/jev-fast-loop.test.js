@@ -60,6 +60,14 @@
  *     during an in-flight decision aborts it and dispatches nothing; turning
  *     the switch off mid-run latches fast mode off.
  *
+ * Plan 70-03 adds the run evidence (D-14) through the harness option
+ * registerRunEvidence, which registers the three handlers the way
+ * background.js does: an LLM call that runs before complete_task in the same
+ * turn is recorded (uncertain stays unresolved unless a page read follows,
+ * and report_progress is not a page read); a fast step that showed no effect
+ * is resolved only by a delivered hand-off snapshot; a permission-denied call
+ * is never left in flight; and a switch-off session never gets the fields.
+ *
  * Plan 68-08 adds recorded-llm capture through the same harness: on an armed
  * loopback fixture page with an uncalibrated gateway, one capture menu per
  * LLM-path iteration, labels from the LLM's own tool and the target the
@@ -170,6 +178,12 @@ function matchesGolden(record, label, quiet) {
   return ok;
 }
 
+/** A switch-off session never gets the Phase 70 run evidence fields (D-14). */
+function noRunEvidence(session) {
+  return !!session && !Object.prototype.hasOwnProperty.call(session, '_fastRunEvidence')
+    && !Object.prototype.hasOwnProperty.call(session, '_fastRunStartPage');
+}
+
 /** Fast-path dependencies that record every call (none may happen on the off path). */
 function recordingDeps() {
   const calls = [];
@@ -189,8 +203,9 @@ async function offGoldenCases() {
   section('off golden: module not loaded, no session.fastMode (D-01)');
   check(Array.isArray(GOLDEN.events) && GOLDEN.events.length > 0 && GOLDEN.final && GOLDEN.final.status === 'completed',
     'the golden holds a completed three-iteration run');
-  const { record } = await H.runGoldenScenario({ loadFastPath: false });
+  const { record, harness: runA } = await H.runGoldenScenario({ loadFastPath: false });
   check(matchesGolden(record, 'run A'), 'off golden: run A equals tests/fixtures/jev-fast-loop-off-golden.json event for event');
+  check(noRunEvidence(runA.session), 'switch-off untouched: run A has no _fastRunEvidence or _fastRunStartPage key (Phase 70 D-14)');
   const providerEvents = record.events.filter((e) => e.type === 'provider');
   check(providerEvents.length === 3, 'run A makes three provider requests');
   check(record.events.filter((e) => e.type === 'schedule').length === 2, 'run A schedules two follow-on iterations');
@@ -228,6 +243,7 @@ async function offThreeWayCases() {
   check(b.calls.length === 0, 'run B touched no fast-path dependency and made no decide call (' + b.calls.join(',') + ')');
   check(!runB.harness.contentMessages.some((m) => m.message && m.message.action === 'getJevMenu'), 'run B sent no getJevMenu message');
   check(!('_fastPath' in runB.harness.session) && !('jevMeasurement' in runB.harness.session), 'run B left no fast-path state on the session');
+  check(noRunEvidence(runB.harness.session), 'switch-off untouched: run B has no _fastRunEvidence or _fastRunStartPage key (Phase 70 D-14)');
 
   const field = fieldFor(false, undefined);
   check(field === null, 'fsbFastModeSessionField(false, undefined) is null, so session C has no fastMode field');
@@ -243,6 +259,7 @@ async function offThreeWayCases() {
   check(c.calls.length === 0, 'run C touched no fast-path dependency and made no decide call (' + c.calls.join(',') + ')');
   check(!runC.harness.contentMessages.some((m) => m.message && m.message.action === 'getJevMenu'), 'run C sent no getJevMenu message');
   check(runC.harness.session.messages.length === GOLDEN.final.messages.length, 'run C added no session.messages entry');
+  check(noRunEvidence(runC.harness.session), 'switch-off untouched: run C has no _fastRunEvidence or _fastRunStartPage key (Phase 70 D-14)');
   delete globalThis.FsbFastPath;
 }
 
@@ -688,6 +705,7 @@ async function runTaskCase() {
       'run_task switch off: ' + label + ' touches no fast-path dependency, requests no menu and makes no decide call');
     check(!record.events.some((e) => e.type === 'storage-set') && !('_fastPath' in harness.session) && !('jevMeasurement' in harness.session),
       'run_task switch off: ' + label + ' writes nothing to storage and leaves no fast-path state');
+    check(noRunEvidence(harness.session), 'switch-off untouched: the run_task switch-off run ' + label + ' has no _fastRunEvidence or _fastRunStartPage key (Phase 70 D-14)');
   }
   delete globalThis.FsbFastPath;
 }
@@ -1901,6 +1919,206 @@ async function runTaskSafetyParityCases() {
 // Plan 68-08 Task 1: recorded-llm capture through the real loop (D-22)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Plan 70-03 Task 2: the run evidence through the real loop (D-14, F1-F3,
+// F14; T-70-01, T-70-07). Every LLM click below is answered by the content
+// script itself, so executeContentTool wraps the answer as result: <answer>
+// exactly as in production (the fixture-shape rule of 68-07).
+// ---------------------------------------------------------------------------
+
+// The content script's answer to a click whose effect it could not confirm.
+const UNKNOWN_CLICK_ANSWER = Object.freeze({ success: false, outcome: 'unknown', mayHaveExecuted: true });
+const MAYBE_SELECTOR = '#maybe';
+const EVIDENCE_START_URL = 'https://wizard.example/start?step=1#top';
+
+function textResponse(id, text) {
+  return {
+    id,
+    object: 'chat.completion',
+    choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: text } }],
+    usage: { prompt_tokens: 1000, completion_tokens: 40, total_tokens: 1040 }
+  };
+}
+
+/**
+ * A run_task fast-mode run on the real loop with the evidence handlers
+ * registered through the harness option. opts: providerScript, answers
+ * (scripted gateway; catch-all by default, so no fast step acts), fastAction
+ * (the content answer to a fast click), snapshotAnswer (the content answer to
+ * getMarkdownSnapshot, when given), permissionDenies, registerRunEvidence
+ * (default {startUrl: EVIDENCE_START_URL}).
+ */
+function evidenceLoop(opts) {
+  const o = opts || {};
+  const content = H.signatureMenuContent({ entries: NEXT_ENTRIES, action: o.fastAction });
+  const respond = (message, options) => {
+    if (message && message.action === 'executeAction' && message.params && message.params.selector === MAYBE_SELECTOR) {
+      return Object.assign({}, UNKNOWN_CLICK_ANSWER);
+    }
+    if (message && message.action === 'getMarkdownSnapshot' && Object.prototype.hasOwnProperty.call(o, 'snapshotAnswer')) {
+      return o.snapshotAnswer;
+    }
+    return content.respond(message, options);
+  };
+  const gw = H.scriptedGateway(o.answers || [catchAll]);
+  const deps = createBackgroundDeps();
+  const rec = H.recordingJevClient(gw.responder, { now: deps.now });
+  const h = H.createHarness({
+    loadFastPath: true,
+    storage: { fsbJevFastModeEnabled: true },
+    sessionPatch: { maxIterations: 40, fastMode: loadSessionFieldHelper()(true, 'mcp') },
+    deps,
+    jevClient: rec.client,
+    contentResponder: respond,
+    providerScript: o.providerScript,
+    permissionDenies: o.permissionDenies || [],
+    registerRunEvidence: Object.prototype.hasOwnProperty.call(o, 'registerRunEvidence') ? o.registerRunEvidence : { startUrl: EVIDENCE_START_URL }
+  });
+  return { h, content, gw, rec, steps: [] };
+}
+
+function llmTurn(id, calls) {
+  return H.openAiToolResponse(id, calls.map((c, i) => ({ id: id + '_' + i, name: c.name, args: c.args || {} })));
+}
+
+const MAYBE_CLICK = Object.freeze({ name: 'click', args: { selector: MAYBE_SELECTOR } });
+const DONE_CALL = Object.freeze({ name: 'complete_task', args: { summary: 'Done' } });
+
+/** The executor result the loop recorded for the LLM's click on #maybe (actionHistory keeps an abridged copy). */
+function maybeClickRecorded(run) {
+  return (run.h.session.actionHistory || []).some((e) => e && e.tool === 'click' && e.params && e.params.selector === MAYBE_SELECTOR);
+}
+
+async function runEvidenceLoopCases() {
+  const fp = fastPathApi();
+  section('run evidence through the real loop: the same-turn gap before complete_task is closed (Phase 70 D-14, F1, F2)');
+  for (const [name, calls, expected] of [
+    ['same-turn uncertain then complete', [MAYBE_CLICK, DONE_CALL], true],
+    ['same-turn report_progress', [MAYBE_CLICK, { name: 'report_progress', args: { message: 'Clicked it' } }, DONE_CALL], true],
+    ['same-turn observed', [MAYBE_CLICK, { name: 'get_page_snapshot', args: {} }, DONE_CALL], false]
+  ]) {
+    const run = evidenceLoop({ providerScript: [llmTurn('resp_ev', calls)] });
+    const captured = [];
+    const pipelineCount = (event) => (run.h.pipeline._hooks[event] || []).length;
+    try {
+      const realAfter = run.h.pipeline._hooks.afterToolExecution ? run.h.pipeline._hooks.afterToolExecution.slice() : [];
+      run.h.pipeline.register('afterToolExecution', (ctx) => { captured.push({ toolName: ctx.toolName, toolResult: JSON.parse(JSON.stringify(ctx.toolResult)) }); });
+      await runSteps(run, 1);
+      const ev = run.h.session._fastRunEvidence;
+      check(realAfter.length === 1 && pipelineCount('beforeToolExecution') === 2 && pipelineCount('afterIteration') === 1,
+        name + ': the harness registered the evidence handlers after the permission hook (one after-tool, one after-iteration)');
+      const click = captured.find((c) => c.toolName === 'click');
+      check(click && click.toolResult.success === false && JSON.stringify(click.toolResult.result) === JSON.stringify(UNKNOWN_CLICK_ANSWER)
+        && fp.classifyStepEvidence('click', click.toolResult).outcome === 'uncertain',
+      name + ': the LLM click reached the hook as the executor shape {success:false, result:{outcome:unknown, mayHaveExecuted:true}}');
+      check(run.h.session.status === 'completed' && maybeClickRecorded(run) && !captured.some((c) => c.toolName === 'complete_task'),
+        name + ': complete_task ended the run in the same turn and emitted no after-tool event of its own');
+      check(ev && ev.pending === null && ev.lastUncertainSeq > 0 && fp.runEvidenceUnresolved(ev) === expected,
+        name + ': runEvidenceUnresolved is ' + expected + ' after the run (' + JSON.stringify(ev) + ')');
+    } finally {
+      finish(run);
+    }
+  }
+
+  section('run evidence through the real loop: a fast step is resolved only by a delivered hand-off (Phase 70 D-14, F14)');
+  for (const [name, snapshot, expected] of [
+    ['fast step handed off (snapshot delivered)', { success: true, markdownSnapshot: 'SNAP', elementCount: 1 }, false],
+    ['fast step handed off (snapshot unavailable)', null, true]
+  ]) {
+    const run = evidenceLoop({
+      providerScript: [LLM_CLICK, LLM_DONE],
+      answers: [calibratedPick('click', 'Next'), catchAll],
+      fastAction: () => ({ success: true }),
+      snapshotAnswer: snapshot
+    });
+    try {
+      await runSteps(run, 3);
+      const ev = run.h.session._fastRunEvidence;
+      const fastEvent = (run.h.session.actionHistory || []).find((e) => e.iteration === 2 && e.decisionSource === 'jev');
+      check(run.steps[1].fast === 1 && run.steps[1].provider === 0 && fastEvent && fastEvent.tool === 'click',
+        name + ': iteration 2 took one fast click through the real tool loop');
+      check(ev && ev.fastIteration === 2 && ev.fastUnobservedSeq === 4,
+        name + ': the act marker named iteration 2 and the unconfirmed fast click set fastUnobservedSeq');
+      const handoffs = handoffsIn(run.steps[2]);
+      check(handoffs.length === 1 && (snapshot ? handoffs[0].content.indexOf('SNAP') !== -1 : handoffs[0].content.indexOf('Snapshot unavailable') !== -1),
+        name + ': iteration 3 handed the step to the LLM ' + (snapshot ? 'with the snapshot' : 'without a snapshot'));
+      check(run.h.session.status === 'completed' && fp.runEvidenceUnresolved(ev) === expected,
+        name + ': the LLM completed and runEvidenceUnresolved is ' + expected + ' (' + JSON.stringify(ev) + ')');
+    } finally {
+      finish(run);
+    }
+  }
+
+  section('run evidence through the real loop: a permission-denied call is never left in flight (Phase 70 D-14, F3)');
+  {
+    const run = evidenceLoop({
+      providerScript: [llmTurn('resp_deny', [{ name: 'click', args: { selector: '#start' } }]), textResponse('resp_end', 'All done.')],
+      permissionDenies: ['click']
+    });
+    try {
+      await runSteps(run, 2);
+      const ev = run.h.session._fastRunEvidence;
+      check(contentActions(run.h.events, 'executeAction').length === 0, 'denied call not pending: the denied click never reached the content script');
+      check(run.h.session.status === 'completed' && run.h.session.outcomeDetails && run.h.session.outcomeDetails.reason === 'end_turn',
+        'denied call not pending: the next turn ended with end_turn');
+      check(ev && ev.pending === null && ev.seq === 1 && fp.runEvidenceUnresolved(ev) === false,
+        'denied call not pending: [denied click] then end_turn leaves pending null (' + JSON.stringify(ev) + ')');
+    } finally {
+      finish(run);
+    }
+  }
+  {
+    const run = evidenceLoop({
+      providerScript: [llmTurn('resp_deny_done', [{ name: 'click', args: { selector: '#start' } }, DONE_CALL])],
+      permissionDenies: ['click']
+    });
+    try {
+      await runSteps(run, 1);
+      const ev = run.h.session._fastRunEvidence;
+      check(run.h.session.status === 'completed' && ev && ev.pending === null && fp.runEvidenceUnresolved(ev) === false,
+        'denied call not pending: [denied click, complete_task] in one turn leaves pending null (' + JSON.stringify(ev) + ')');
+    } finally {
+      finish(run);
+    }
+  }
+
+  section('run evidence: the harness option is opt-in and follows the fast-mode field (Phase 70 D-14, T-70-07)');
+  {
+    const run = evidenceLoop({ providerScript: [llmTurn('resp_none', [MAYBE_CLICK, DONE_CALL])], registerRunEvidence: undefined });
+    try {
+      await runSteps(run, 1);
+      check(noRunEvidence(run.h.session) && (run.h.pipeline._hooks.afterIteration || []).length === 0,
+        'switch-off untouched: without the option nothing is registered and the session gets no evidence field');
+    } finally {
+      finish(run);
+    }
+    const { record, harness } = await H.runGoldenScenario({ loadFastPath: true, registerRunEvidence: true });
+    check(matchesGolden(record, 'golden with the option and no field') && noRunEvidence(harness.session),
+      'switch-off untouched: the option on a session without fastMode registers nothing and the run equals the golden');
+  }
+  {
+    // The real background.js helper on a switch-off golden session.
+    const code = '(function () {\n' + sliceFunction(backgroundSource, 'fsbRegisterFastRunEvidence') + '\nreturn fsbRegisterFastRunEvidence;\n})()';
+    let realRegister = null;
+    try { realRegister = vm.runInThisContext(code, { filename: 'background.js#fsbRegisterFastRunEvidence' }); } catch (_e) { realRegister = null; }
+    const rec = recordingDeps();
+    const h = H.createHarness({ providerScript: H.goldenProviderScript(), loadFastPath: true, deps: rec.deps });
+    let registered = null;
+    try {
+      const { LIFECYCLE_EVENTS } = require('../extension/ai/hook-pipeline.js');
+      globalThis.LIFECYCLE_EVENTS = LIFECYCLE_EVENTS;
+      registered = typeof realRegister === 'function' ? realRegister(h.pipeline, h.session, H.DEFAULTS.pageUrl) : 'missing';
+      for (let i = 0; i < 3; i += 1) await h.step();
+      check(registered === false && matchesGolden(h.snapshot(), 'golden after the real helper') && noRunEvidence(h.session) && rec.calls.length === 0,
+        'switch-off untouched: background.js fsbRegisterFastRunEvidence on a session without fastMode returns false, and the run equals the golden');
+    } finally {
+      delete globalThis.LIFECYCLE_EVENTS;
+      h.dispose();
+    }
+  }
+  delete globalThis.FsbFastPath;
+}
+
 const CAPTURE_PAGE = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
 const CAPTURE_CASE_LABEL = "case 'jevCaptureObservation': {";
 
@@ -2087,6 +2305,8 @@ async function main() {
   await switchOffCase();
   // Phase 70 (70-02 Task 3): run_task safety parity.
   await runTaskSafetyParityCases();
+  // Phase 70 (70-03 Task 2): the run evidence through the real loop.
+  await runEvidenceLoopCases();
   // Plan 68-08 Task 1: recorded-llm capture through the real loop.
   await captureLoopCases();
   terminalToolChecks();

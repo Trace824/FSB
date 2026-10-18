@@ -37,6 +37,13 @@
  * capture end-to-end run, which now runs a switched-on run_task and proves it
  * captures and attempts exactly like an autopilot session.
  *
+ * Phase 70 (70-03, D-14) adds fsbRegisterFastRunEvidence(pipeline, session,
+ * startUrl): on a session that carries the fast-mode field it registers the
+ * three run evidence handlers (before-tool, after-tool, after-iteration) on
+ * the session's hook pipeline, and anything else registers nothing. Its one
+ * call sits between createSessionHooks and runAgentLoop on the new-session
+ * path only; nothing persists the evidence.
+ *
  * No network, no ports, no real timers. Node 20-safe.
  *
  * Run: node tests/jev-fast-start-path.test.js
@@ -190,7 +197,8 @@ const HELPER_NAMES = [
   'fsbFastPathWithDeadline',
   'fsbFastPathCaptureWrite',
   'fsbCreateFastPathDeps',
-  'fsbRecomputeFastModeForFollowUp'
+  'fsbRecomputeFastModeForFollowUp',
+  'fsbRegisterFastRunEvidence'
 ];
 const helperSources = HELPER_NAMES.map((name) => sliceFunction(bgSource, name));
 
@@ -645,6 +653,7 @@ async function main() {
   }
 
   await captureSections();
+  await runEvidenceSections();
 
   console.log('\nResults: ' + passed + ' passed, ' + failed + ' failed');
   process.exitCode = failed === 0 ? 0 : 1;
@@ -1152,6 +1161,162 @@ async function captureSections() {
     'fsbJevCaptureArmed and fsbJevCaptureRing are not FsbSettingsSchema keys');
     const fastPathSource = fs.readFileSync(FAST_PATH_PATH, 'utf8');
     check(fastPathSource.indexOf('fsbJevCapture') === -1, 'the module never names the storage keys (the deps own them)');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Plan 70-03 Task 2: fsbRegisterFastRunEvidence and its one call (D-14,
+// T-70-02, T-70-04, T-70-07).
+// ---------------------------------------------------------------------------
+
+const REGISTER_LINE = 'if (sessionData.fastMode) fsbRegisterFastRunEvidence(sessionHooks, sessionData, tabInfo && tabInfo.url);';
+const RUN_START_URL = 'https://shop.example/cart/view?coupon=P70-MARKER-VALUE#top';
+// 70-SYNC-RECHECK item r: createSessionHooks at P70_START (equal to 68 item h).
+const CREATE_SESSION_HOOKS_SHA256_P70 = '10ce1a544f31072f71121b8ee872a4ff6cdd8b07adb1c7a14171b50e4e940780';
+const EVIDENCE_RECORD = Object.freeze({ v: 1, seq: 0, fastIteration: null, pending: null, lastUncertainSeq: 0,
+  lastObservationSeq: 0, fastUnobservedSeq: 0, gate: null });
+
+/** A pipeline that records register calls and forwards them to a real HookPipeline. */
+function recordingPipeline(HookPipeline, opts) {
+  const o = opts || {};
+  const real = new HookPipeline();
+  const calls = [];
+  return {
+    real,
+    calls,
+    register(event, handler) {
+      calls.push({ event, handler });
+      if (typeof o.throwOn === 'number' && calls.length === o.throwOn) throw new Error('register failed');
+      return real.register(event, handler);
+    },
+    count(event) {
+      return (real._hooks[event] || []).length;
+    }
+  };
+}
+
+async function runEvidenceSections() {
+  const { HookPipeline, LIFECYCLE_EVENTS } = require(path.join(ROOT, 'extension', 'ai', 'hook-pipeline.js'));
+  const FastPath = require(FAST_PATH_PATH);
+  const E = LIFECYCLE_EVENTS;
+
+  // -------------------------------------------------------------------------
+  section('fsbRegisterFastRunEvidence: three handlers on a fast-mode session only (Phase 70 D-14)');
+  {
+    const ctx = makeContext({ LIFECYCLE_EVENTS, FsbFastPath: FastPath });
+    const register = ctx.fsbRegisterFastRunEvidence;
+    check(typeof register === 'function', 'fsbRegisterFastRunEvidence evaluates as a function');
+
+    const pipeline = recordingPipeline(HookPipeline);
+    const session = { sessionId: 's-70-03', fastMode: Object.assign({}, RUN_TASK_FIELD) };
+    let out = null;
+    let threw = null;
+    try { out = register(pipeline, session, RUN_START_URL); } catch (error) { threw = error; }
+    check(threw === null && out === true, 'a fast-mode session: the helper returns true');
+    check(json(pipeline.calls.map((c) => c.event)) === json([E.BEFORE_TOOL_EXECUTION, E.AFTER_TOOL_EXECUTION, E.AFTER_ITERATION]),
+      'a fast-mode session: exactly three handlers, registered BEFORE_TOOL_EXECUTION, AFTER_TOOL_EXECUTION, AFTER_ITERATION in that order');
+    check(pipeline.calls.every((c) => typeof c.handler === 'function'), 'every registered handler is a function');
+    check(json(session._fastRunEvidence) === json(EVIDENCE_RECORD) && session._fastRunStartPage === 'https://shop.example/cart/view',
+      'a fast-mode session: the fresh evidence record and the start page (origin + path of the start URL) are on the session');
+    // Wired end to end through the real pipeline's emit.
+    await pipeline.real.emit(E.BEFORE_TOOL_EXECUTION, { toolName: 'click', origin: '', session, sessionId: session.sessionId, iteration: 2 });
+    const pendingSeen = json(session._fastRunEvidence.pending);
+    await pipeline.real.emit(E.AFTER_TOOL_EXECUTION, { toolName: 'click', toolResult: { success: false, result: { outcome: 'unknown', mayHaveExecuted: true } },
+      session, sessionId: session.sessionId, iteration: 2 });
+    await pipeline.real.emit(E.AFTER_ITERATION, { session, sessionId: session.sessionId, iteration: 2, toolResults: [] });
+    check(pendingSeen === json({ tool: 'click', iteration: 2, seq: 1 }) && session._fastRunEvidence.pending === null
+      && session._fastRunEvidence.lastUncertainSeq === 2 && FastPath.runEvidenceUnresolved(session._fastRunEvidence) === true,
+    'a fast-mode session: the registered handlers record through the real pipeline emit (in flight, then an uncertain result)');
+
+    for (const [label, patch] of [['no fastMode field', {}], ['fastMode null', { fastMode: null }], ['fastMode false', { fastMode: false }]]) {
+      const p = recordingPipeline(HookPipeline);
+      const s = Object.assign({ sessionId: 's-off' }, patch);
+      let r = null;
+      threw = null;
+      try { r = register(p, s, RUN_START_URL); } catch (error) { threw = error; }
+      check(threw === null && r === false && p.calls.length === 0 && !('_fastRunEvidence' in s) && !('_fastRunStartPage' in s),
+        'a switch-off session (' + label + '): returns false, registers nothing and adds no field');
+    }
+
+    for (const [label, fastPath] of [['FsbFastPath missing', undefined], ['createRunEvidenceHandlers missing', { beforeTurn() {} }],
+      ['createRunEvidenceHandlers throws', { createRunEvidenceHandlers() { throw new Error('boom'); } }],
+      ['createRunEvidenceHandlers returns null', { createRunEvidenceHandlers() { return null; } }]]) {
+      const c = makeContext(fastPath === undefined ? { LIFECYCLE_EVENTS } : { LIFECYCLE_EVENTS, FsbFastPath: fastPath });
+      const p = recordingPipeline(HookPipeline);
+      const s = { sessionId: 's-mod', fastMode: Object.assign({}, RUN_TASK_FIELD) };
+      let r = null;
+      threw = null;
+      try { r = c.fsbRegisterFastRunEvidence(p, s, RUN_START_URL); } catch (error) { threw = error; }
+      check(threw === null && r === false && p.count(E.BEFORE_TOOL_EXECUTION) + p.count(E.AFTER_TOOL_EXECUTION) + p.count(E.AFTER_ITERATION) === 0
+        && !('_fastRunEvidence' in s) && !('_fastRunStartPage' in s),
+      label + ': returns false quietly, registers nothing and leaves no evidence field');
+    }
+
+    for (const throwOn of [1, 2, 3]) {
+      const p = recordingPipeline(HookPipeline, { throwOn });
+      const s = { sessionId: 's-reg', fastMode: Object.assign({}, RUN_TASK_FIELD) };
+      let r = null;
+      threw = null;
+      try { r = register(p, s, RUN_START_URL); } catch (error) { threw = error; }
+      check(threw === null && r === false && p.count(E.BEFORE_TOOL_EXECUTION) + p.count(E.AFTER_TOOL_EXECUTION) + p.count(E.AFTER_ITERATION) === 0
+        && !('_fastRunEvidence' in s) && !('_fastRunStartPage' in s),
+      'pipeline.register throwing on call ' + throwOn + ': returns false, keeps no handler registered and removes the evidence fields (a partial record would read as evidence)');
+    }
+
+    threw = null;
+    const odd = [];
+    try {
+      odd.push(register(null, { fastMode: RUN_TASK_FIELD }, RUN_START_URL));
+      odd.push(register({}, { fastMode: RUN_TASK_FIELD }, RUN_START_URL));
+      odd.push(register(recordingPipeline(HookPipeline), null, RUN_START_URL));
+      odd.push(register(recordingPipeline(HookPipeline), undefined, undefined));
+    } catch (error) { threw = error; }
+    check(threw === null && odd.every((r) => r === false), 'a missing pipeline, a pipeline without register or a missing session returns false and never throws');
+
+    const withPermission = recordingPipeline(HookPipeline);
+    const permissionHook = () => ({ shouldStop: false, denied: false });
+    withPermission.register(E.BEFORE_TOOL_EXECUTION, permissionHook);
+    register(withPermission, { sessionId: 's-order', fastMode: Object.assign({}, RUN_TASK_FIELD) }, RUN_START_URL);
+    check(withPermission.real._hooks[E.BEFORE_TOOL_EXECUTION][0] === permissionHook && withPermission.count(E.BEFORE_TOOL_EXECUTION) === 2,
+      'the evidence before-tool handler runs after the session hooks registered earlier (the permission hook stays first)');
+  }
+
+  // -------------------------------------------------------------------------
+  section('source: the one registration call, the follow-up path and persistence (Phase 70 D-14, T-70-02, T-70-07)');
+  {
+    const start = sliceFunction(bgSource, 'handleStartAutomation');
+    const hooksLine = 'const sessionHooks = createSessionHooks(sessionId);';
+    const runLine = 'runAgentLoop(sessionId, {';
+    const hooksAt = start.indexOf(hooksLine);
+    const runAt = hooksAt >= 0 ? start.indexOf(runLine, hooksAt) : -1;
+    check(countOf(bgSource, REGISTER_LINE) === 1 && countOf(start, REGISTER_LINE) === 1,
+      'handleStartAutomation holds exactly one guarded registration call, and background.js has no other');
+    check(hooksAt >= 0 && runAt > hooksAt && start.slice(hooksAt + hooksLine.length, runAt).trim() === REGISTER_LINE,
+      'the registration call sits directly between const sessionHooks = createSessionHooks(sessionId); and runAgentLoop(sessionId, {');
+    check(countOf(bgSource, 'fsbRegisterFastRunEvidence(') === 2,
+      'fsbRegisterFastRunEvidence is named twice in background.js: its declaration and the one call');
+    const followAt = start.indexOf("if (existingSession && existingSession.status === 'idle') {");
+    const reactivationAt = start.indexOf('const reactivationHooks = createSessionHooks(sessionId);', followAt);
+    const followEnd = reactivationAt >= 0 ? start.indexOf('return;', reactivationAt) : -1;
+    const followBranch = followAt >= 0 && followEnd > followAt ? start.slice(followAt, followEnd) : '';
+    check(followBranch.length > 0 && followBranch.indexOf('fsbRegisterFastRunEvidence') === -1
+      && countOf(bgSource, 'fsbRegisterFastRunEvidence(reactivationHooks') === 0,
+    'the follow-up branch (reactivationHooks) registers no evidence handlers (run_task never takes it)');
+    const hooks = sliceFunction(bgSource, 'createSessionHooks', { exact: true });
+    const hash = crypto.createHash('sha256').update(hooks || '', 'utf8').digest('hex');
+    check(hash === CREATE_SESSION_HOOKS_SHA256_P70, 'createSessionHooks equals 70-SYNC-RECHECK item r (' + hash.slice(0, 12) + ')');
+    const persist = sliceFunction(bgSource, 'persistSession');
+    const loggerSource = fs.readFileSync(path.join(ROOT, 'extension', 'utils', 'automation-logger.js'), 'utf8');
+    check(typeof persist === 'string' && persist.length > 0 && persist.indexOf('_fastRun') === -1 && loggerSource.indexOf('_fastRun') === -1,
+      'no _fastRun persistence: persistSession and automation-logger.js name no _fastRun field');
+    const helper = sliceFunction(bgSource, 'fsbRegisterFastRunEvidence');
+    check(bgSource.replace(helper, '').indexOf('_fastRun') === -1,
+      'no _fastRun persistence: outside the registration helper background.js names no _fastRun field');
+    check(!/importscripts/i.test(helper) && !/importscripts/i.test(REGISTER_LINE) && countOf(bgSource, 'importScripts') === 338,
+      'background.js gains no importScripts token (338, the lattice pin)');
+    check(!/\bawait\b/.test(helper) && !/^async /.test(helper), 'the registration helper is synchronous');
+    check(/typeof globalThis !== 'undefined'/.test(helper) && countOf(helper, 'pipeline.register(LIFECYCLE_EVENTS.') === 3,
+      'the helper reads FsbFastPath through a typeof-guarded globalThis and makes three pipeline.register(LIFECYCLE_EVENTS.X, ...) calls');
   }
 }
 

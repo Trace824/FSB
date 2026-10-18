@@ -219,6 +219,12 @@ function defaultContentResponder(message) {
  *   jevClient      an explicit client (wins over jevResponder)
  *   permissionDenies tool names the PermissionContext instance refuses
  *   storage        initial chrome.storage.local contents
+ *   registerRunEvidence {startUrl} or true (startUrl = pageUrl): after the
+ *                  session is built, register FsbFastPath's run evidence
+ *                  handlers (Phase 70, D-14) as background.js does: only on a
+ *                  session that carries fastMode, with the module loaded,
+ *                  after the permission hook, in the order before-tool,
+ *                  after-tool, after-iteration. Absent: nothing changes.
  */
 function createHarness(options) {
   const o = Object.assign({}, DEFAULTS, options || {});
@@ -459,6 +465,14 @@ function createHarness(options) {
   session._actionHistory = new ActionHistory();
   session._costTracker = new CostTracker(2);
   if (o.sessionPatch) Object.assign(session, o.sessionPatch);
+  if (o.registerRunEvidence && session.fastMode && globalThis.FsbFastPath
+      && typeof globalThis.FsbFastPath.createRunEvidenceHandlers === 'function') {
+    const startUrl = o.registerRunEvidence === true ? o.pageUrl : o.registerRunEvidence.startUrl;
+    const handlers = globalThis.FsbFastPath.createRunEvidenceHandlers(session, { startUrl });
+    pipeline.register(LIFECYCLE_EVENTS.BEFORE_TOOL_EXECUTION, handlers.beforeTool);
+    pipeline.register(LIFECYCLE_EVENTS.AFTER_TOOL_EXECUTION, handlers.afterTool);
+    pipeline.register(LIFECYCLE_EVENTS.AFTER_ITERATION, handlers.afterIteration);
+  }
 
   const activeSessions = new Map([[o.sessionId, session]]);
   const loopOptions = {
