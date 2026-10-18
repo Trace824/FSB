@@ -18,6 +18,9 @@
  *   is necessary and never sufficient (D-16, D-17, D-20, F22).
  * - buildStaticCall: the tool call is built from code-held menu values and
  *   constants only, never from a string Jev returned (D-15, F1, F2).
+ * - createRunEvidenceHandlers / runEvidenceUnresolved: a memory-only record
+ *   of what each executed call of a fast-mode session did, from three
+ *   synchronous hook handlers (Phase 70, D-14).
  *
  * Inert by design: loading this file reads no browser API, schedules nothing,
  * touches no storage and makes no network call. FsbJevState and FsbJevPolicy
@@ -1235,6 +1238,7 @@
         var answer = await deps.requestSnapshot(session.tabId, constants.SNAPSHOT_DEADLINE_MS);
         if (isObject(answer) && answer.success === true && typeof answer.markdownSnapshot === 'string' && answer.markdownSnapshot.length > 0) {
           snapshot = answer.markdownSnapshot;
+          noteHandoffObservation(session);
         }
       } catch (_e) {
         snapshot = null;
@@ -1527,6 +1531,7 @@
 
       jevFast.steps += 1;
       jevFast.consecutiveFast += 1;
+      noteFastIteration(session, iteration);
       var entry = isObject(decision.entry) ? decision.entry : null;
       return {
         toolCall: call,
@@ -2160,6 +2165,185 @@
   // here builds a tool call, so fast mode still never ends a task (D-17).
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Run evidence (70-03, D-14, D-15): what each executed call of a fast-mode
+  // session did. Three synchronous handlers on the session's hook pipeline
+  // record it, so a call that runs before the LLM's terminal tool in the same
+  // turn is never lost (that tool returns before the turn's observeTools).
+  // The record lives in memory only, in session._fastRunEvidence, and holds
+  // tool names, iteration numbers, sequence counters and gate codes, never a
+  // label, URL, text or value. The code-held start page (origin and path)
+  // has its own memory-only field, session._fastRunStartPage (PD-70-02).
+  // ---------------------------------------------------------------------------
+
+  // These return inside the tool loop before their own after-tool event, so
+  // they are never marked in flight.
+  var RUN_TERMINAL_TOOLS = ['complete_task', 'partial_task', 'fail_task'];
+  // A Jev-chosen step whose effect nothing showed (D-14 b).
+  var FAST_UNOBSERVED_OUTCOMES = ['unconfirmed', 'uncertain', 'no_effect'];
+  // PD-70-01: only a read-only tool that reads the page is an observation.
+  var PAGE_READING_ROUTES = ['content', 'cdp'];
+  // A call name that is not a tool-name shape is held as this, never as given.
+  var OTHER_TOOL = 'other';
+
+  /**
+   * True only for a tool whose registry entry has _readOnly true and _route
+   * 'content' or 'cdp' (PD-70-01): report_progress, the terminal tools and
+   * the other read-only tools that never read the page are not
+   * observations. An unknown name or an unreachable registry gives false.
+   */
+  function isPageObservationTool(name) {
+    if (typeof name !== 'string' || name.length === 0) return false;
+    var definition = toolDefinitionOf(name);
+    return definition !== null && definition._readOnly === true && contains(PAGE_READING_ROUTES, definition._route);
+  }
+
+  /** Origin and path of an http(s) start address (no query or fragment), else null. */
+  function runStartPageOf(url) {
+    if (typeof url !== 'string' || !/^https?:/i.test(url)) return null;
+    var parsed = parseWebUrl(url);
+    return parsed ? parsed.origin + parsed.pathname : null;
+  }
+
+  function runEvidenceOf(session) {
+    var ev = isObject(session) ? session._fastRunEvidence : null;
+    return isObject(ev) ? ev : null;
+  }
+
+  function runToolName(name) {
+    return typeof name === 'string' && REASON_CODE_RE.test(name) ? name : OTHER_TOOL;
+  }
+
+  /** The human gate an existing code gate reported in this result (D-15, F7), else null. */
+  function runGateCode(name, toolResult) {
+    var nested = isObject(toolResult) && isObject(toolResult.result) ? toolResult.result : null;
+    if (nested === null) return null;
+    if (name === 'fill_payment_method' && nested.declined === true) return 'payment_not_approved';
+    if (name === 'invoke_capability' && nested.code === 'RECIPE_CONSENT_REQUIRED') return 'site_consent_required';
+    return null;
+  }
+
+  /**
+   * Create the run evidence for a fast-mode session and return its three
+   * hook handlers {beforeTool, afterTool, afterIteration} (null when there is
+   * no session object). A second call replaces the record and the start
+   * page. Each handler reads the record from the session when it runs, does
+   * nothing without one, never throws and returns undefined, so it can
+   * change nothing in the loop:
+   *   beforeTool  calls run one at a time, so it first clears the in-flight
+   *               marker (a permission-denied call gets no after event), then
+   *               marks this call in flight unless it is a terminal tool;
+   *   afterTool   clears the marker; notes an uncertain result of any call
+   *               (D-14 a), a fast step that showed no effect (D-14 b), a
+   *               successful page read by the LLM (an observation) and the
+   *               two human gates, which a later success of the same tool
+   *               clears;
+   *   afterIteration clears the marker (the turn's calls are over).
+   * options: {startUrl} (the code-held address the task started on).
+   */
+  function createRunEvidenceHandlers(session, options) {
+    if (!isObject(session)) return null;
+    var opts = isObject(options) ? options : {};
+    session._fastRunEvidence = {
+      v: 1,
+      seq: 0,
+      fastIteration: null,
+      pending: null,
+      lastUncertainSeq: 0,
+      lastObservationSeq: 0,
+      fastUnobservedSeq: 0,
+      gate: null
+    };
+    session._fastRunStartPage = runStartPageOf(opts.startUrl);
+
+    function beforeTool(ctx) {
+      try {
+        var ev = runEvidenceOf(session);
+        if (ev === null) return undefined;
+        ev.pending = null;
+        var c = isObject(ctx) ? ctx : {};
+        if (typeof c.toolName === 'string' && contains(RUN_TERMINAL_TOOLS, c.toolName)) return undefined;
+        ev.seq += 1;
+        ev.pending = { tool: runToolName(c.toolName), iteration: indexOrNull(c.iteration), seq: ev.seq };
+      } catch (_e) {
+        /* the record never affects the loop */
+      }
+      return undefined;
+    }
+
+    function afterTool(ctx) {
+      try {
+        var ev = runEvidenceOf(session);
+        if (ev === null) return undefined;
+        ev.seq += 1;
+        var seq = ev.seq;
+        ev.pending = null;
+        var c = isObject(ctx) ? ctx : {};
+        var name = typeof c.toolName === 'string' ? c.toolName : null;
+        var toolResult = c.toolResult;
+        var outcome = classifyStepEvidence(name, toolResult).outcome;
+        var fastCall = ev.fastIteration !== null && ev.fastIteration === indexOrNull(c.iteration);
+        var succeeded = isObject(toolResult) && toolResult.success === true;
+        if (outcome === 'uncertain') ev.lastUncertainSeq = seq;
+        if (fastCall && contains(FAST_UNOBSERVED_OUTCOMES, outcome)) ev.fastUnobservedSeq = seq;
+        if (!fastCall && succeeded && isPageObservationTool(name)) ev.lastObservationSeq = seq;
+        var gate = runGateCode(name, toolResult);
+        if (gate !== null) {
+          ev.gate = { code: gate, tool: name, seq: seq, cleared: false };
+        } else if (succeeded && isObject(ev.gate) && ev.gate.tool === name) {
+          ev.gate.cleared = true;
+        }
+      } catch (_e) {
+        /* the record never affects the loop */
+      }
+      return undefined;
+    }
+
+    function afterIteration(_ctx) {
+      try {
+        var ev = runEvidenceOf(session);
+        if (ev !== null) ev.pending = null;
+      } catch (_e) {
+        /* the record never affects the loop */
+      }
+      return undefined;
+    }
+
+    return { beforeTool: beforeTool, afterTool: afterTool, afterIteration: afterIteration };
+  }
+
+  /**
+   * True while the record holds unresolved uncertainty (D-14): a call still
+   * in flight, or an uncertain result or an unobserved fast step with no
+   * observation after it. A missing record fails closed (true).
+   */
+  function runEvidenceUnresolved(ev) {
+    if (!isObject(ev)) return true;
+    return ev.pending !== null || Math.max(ev.lastUncertainSeq, ev.fastUnobservedSeq) > ev.lastObservationSeq;
+  }
+
+  /** Act marker (beforeTurn step u, F2): the iteration this fast step runs in. Never throws. */
+  function noteFastIteration(session, iteration) {
+    try {
+      var ev = runEvidenceOf(session);
+      if (ev !== null) ev.fastIteration = iteration;
+    } catch (_e) {
+      /* the record never affects the attempt */
+    }
+  }
+
+  /** Hand-off marker (F14): a delivered hand-off snapshot is an observation. Never throws. */
+  function noteHandoffObservation(session) {
+    try {
+      var ev = runEvidenceOf(session);
+      if (ev === null) return;
+      ev.seq += 1;
+      ev.lastObservationSeq = ev.seq;
+    } catch (_e) {
+      /* the record never affects the hand-off */
+    }
+  }
+
   // --- end run_task outcome ---
 
   var api = {
@@ -2186,7 +2370,10 @@
     flushHandoff: flushHandoff,
     latchOff: latchOff,
     abortInFlight: abortInFlight,
-    noteCaptureObservation: noteCaptureObservation
+    noteCaptureObservation: noteCaptureObservation,
+    isPageObservationTool: isPageObservationTool,
+    createRunEvidenceHandlers: createRunEvidenceHandlers,
+    runEvidenceUnresolved: runEvidenceUnresolved
   };
   root.FsbFastPath = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

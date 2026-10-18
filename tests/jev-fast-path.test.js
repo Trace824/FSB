@@ -31,6 +31,11 @@
  *     (CAPTURE_ONLY_FIELD) so no fast attempt mixes in; run_task parity
  *     over every fallback reason through the real client, the uncalibrated
  *     latch and the switch turned off mid-run.
+ *   - Phase 70 (70-03): the run evidence (createRunEvidenceHandlers,
+ *     isPageObservationTool, runEvidenceUnresolved), driven with hook
+ *     contexts shaped as agent-loop.js emits them, plus the act and hand-off
+ *     markers; the terminal tool names live only in the one marked Phase 70
+ *     section of the module (PD-70-03).
  *
  * No network, no ports, no real timers. Node 20-safe.
  *
@@ -3431,6 +3436,536 @@ async function runTaskSwitchOffMidRun() {
 }
 
 // ---------------------------------------------------------------------------
+// Plan 70-03 Task 1: run evidence (D-14, D-15; PD-70-01, PD-70-02; RESEARCH
+// F1-F3, F12-F14). The handlers are driven with hook contexts shaped exactly
+// as agent-loop.js emits them (70-SYNC-RECHECK item p); the two markers are
+// driven through beforeTurn and the hand-off with the fake deps.
+// ---------------------------------------------------------------------------
+
+// PD-70-01: _readOnly true and _route 'content' or 'cdp', pinned so a
+// registry change fails loudly (70-SYNC-RECHECK item e).
+const PAGE_OBSERVATION_TOOLS = Object.freeze(['capture_screenshot', 'get_attribute', 'get_dom_snapshot', 'get_page_snapshot',
+  'get_text', 'read_page', 'read_sheet', 'wait_for_element', 'wait_for_stable']);
+const EVIDENCE_LAYOUT = Object.freeze({ v: 1, seq: 0, fastIteration: null, pending: null, lastUncertainSeq: 0,
+  lastObservationSeq: 0, fastUnobservedSeq: 0, gate: null });
+const EVIDENCE_TERMINALS = Object.freeze(['complete_task', 'partial_task', 'fail_task']);
+const EVIDENCE_START_URL = 'http://127.0.0.1:4173/r/x/fixtures/a/index.html?q=1#f';
+const EVIDENCE_START_PAGE = 'http://127.0.0.1:4173/r/x/fixtures/a/index.html';
+const TOOL_DEFINITIONS = require(path.join(ROOT, 'extension', 'ai', 'tool-definitions.js'));
+
+// agent-loop.js's own results for get_page_snapshot and report_progress.
+const SNAPSHOT_RESULT = Object.freeze({ success: true, hadEffect: false, error: null, navigationTriggered: false,
+  result: { snapshot: '# Page', elementCount: 3 } });
+const SNAPSHOT_FAILED_RESULT = Object.freeze({ success: false, hadEffect: false, error: 'Snapshot unavailable', navigationTriggered: false, result: null });
+const REPORT_RESULT = Object.freeze({ success: true, hadEffect: false, error: null, navigationTriggered: false, result: { displayed: true } });
+// The two human-gate shapes (70-SYNC-RECHECK items f1, f2).
+const PAYMENT_DECLINED_RESULT = Object.freeze({ success: false, hadEffect: false, error: null, navigationTriggered: false,
+  result: { declined: true, reason: 'user_declined' } });
+const CONSENT_REQUIRED_RESULT = Object.freeze({ success: false, hadEffect: false, error: 'RECIPE_CONSENT_REQUIRED', navigationTriggered: false,
+  result: { success: false, code: 'RECIPE_CONSENT_REQUIRED', errorCode: 'RECIPE_CONSENT_REQUIRED', error: 'RECIPE_CONSENT_REQUIRED',
+    origin: 'https://shop.example', slug: 'checkout' } });
+
+function beforeToolCtx(session, toolName, iteration) {
+  return { toolName, origin: '', session, sessionId: session.sessionId, iteration };
+}
+
+function afterToolCtx(session, toolName, toolResult, iteration) {
+  return { toolName, toolResult, session, sessionId: session.sessionId, iteration };
+}
+
+function afterIterationCtx(session, iteration) {
+  return { session, sessionId: session.sessionId, iteration, toolResults: [], totalCost: 0, inputTokens: 0, outputTokens: 0 };
+}
+
+/** A session holding fresh evidence handlers. */
+function evidenceSession(over) {
+  const session = fastSession(over);
+  const handlers = FsbFastPath.createRunEvidenceHandlers(session, { startUrl: EVIDENCE_START_URL });
+  return { session, handlers };
+}
+
+/**
+ * Emit the three events the way the tool loop does (70-SYNC-RECHECK item p):
+ * BEFORE for every call; no AFTER for a denied call; a terminal tool returns
+ * before its own AFTER and before AFTER_ITERATION, which ends the run;
+ * AFTER_ITERATION after the turn's last call. Returns every handler result.
+ * turns: [{iteration, calls: [{name, result, denied}]}]
+ */
+function driveEvidence(handlers, session, turns) {
+  const returned = [];
+  for (const turn of turns) {
+    for (const call of turn.calls) {
+      returned.push(handlers.beforeTool(beforeToolCtx(session, call.name, turn.iteration)));
+      if (call.denied) continue;
+      if (EVIDENCE_TERMINALS.includes(call.name)) return returned;
+      returned.push(handlers.afterTool(afterToolCtx(session, call.name, call.result, turn.iteration)));
+    }
+    returned.push(handlers.afterIteration(afterIterationCtx(session, turn.iteration)));
+  }
+  return returned;
+}
+
+function evidenceOf(session) {
+  return session._fastRunEvidence;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** The real executor's unknown-outcome click (the content script answered mayHaveExecuted). */
+async function uncertainClickResult() {
+  return realResult('click', reply({ success: false, outcome: 'unknown', mayHaveExecuted: true }));
+}
+
+/** The module in a vm context, with only `extra` as globals. */
+function isolatedFastPath(extra) {
+  const ctx = vm.createContext(Object.assign({ console: { log() {}, warn() {}, error() {} } }, extra || {}));
+  vm.runInContext(fs.readFileSync(MODULE_PATH, 'utf8'), ctx, { filename: 'extension/ai/jev-fast-path.js' });
+  return ctx.FsbFastPath;
+}
+
+async function runEvidenceObservationTools() {
+  check(typeof FsbFastPath.isPageObservationTool === 'function' && typeof FsbFastPath.createRunEvidenceHandlers === 'function'
+    && typeof FsbFastPath.runEvidenceUnresolved === 'function',
+  'FsbFastPath exports isPageObservationTool, createRunEvidenceHandlers and runEvidenceUnresolved');
+  const registry = TOOL_DEFINITIONS.TOOL_REGISTRY;
+  const names = registry.map((d) => d.name);
+  const predicate = names.filter((n) => FsbFastPath.isPageObservationTool(n)).sort();
+  check(sameJson(predicate, PAGE_OBSERVATION_TOOLS),
+    'page-observation tools: the predicate picks exactly the pinned 9 tools (' + predicate.join(', ') + ')');
+  const derived = registry.filter((d) => d._readOnly === true && (d._route === 'content' || d._route === 'cdp')).map((d) => d.name).sort();
+  check(sameJson(derived, PAGE_OBSERVATION_TOOLS),
+    'page-observation tools: the registry rule (_readOnly true, _route content or cdp) still gives the pinned 9 tools (' + derived.join(', ') + ')');
+  const notObservations = ['report_progress', 'complete_task', 'partial_task', 'fail_task', 'search_memory', 'list_tabs',
+    'get_site_guide', 'click', 'navigate', 'type_text', 'no_such_tool', '', null, undefined, 42, {}];
+  check(notObservations.every((n) => FsbFastPath.isPageObservationTool(n) === false),
+    'page-observation tools: report_progress, the terminal tools, search_memory, list_tabs, click, navigate, unknown and non-string names are not');
+  const bare = isolatedFastPath({});
+  check(bare.isPageObservationTool('get_page_snapshot') === false && bare.isPageObservationTool('get_text') === false,
+    'page-observation tools: with no registry reachable (no TOOL_REGISTRY, no require) every name is false');
+  const worker = isolatedFastPath({ TOOL_REGISTRY: registry });
+  check(worker.isPageObservationTool('get_text') === true && worker.isPageObservationTool('report_progress') === false,
+    'page-observation tools: the worker global TOOL_REGISTRY is read at call time');
+  const broken = isolatedFastPath({ TOOL_REGISTRY: { not: 'an array' } });
+  check(broken.isPageObservationTool('get_text') === false, 'page-observation tools: a TOOL_REGISTRY that is not an array gives false');
+}
+
+async function runEvidenceLayout() {
+  const session = fastSession();
+  const handlers = FsbFastPath.createRunEvidenceHandlers(session, { startUrl: EVIDENCE_START_URL });
+  check(JSON.stringify(session._fastRunEvidence) === JSON.stringify(EVIDENCE_LAYOUT),
+    'run evidence layout: {v:1, seq:0, fastIteration:null, pending:null, lastUncertainSeq:0, lastObservationSeq:0, fastUnobservedSeq:0, gate:null}, in that order');
+  check(session._fastRunStartPage === EVIDENCE_START_PAGE,
+    'run evidence start page: origin + path of the start URL, no query or fragment (' + session._fastRunStartPage + ')');
+  check(isPlainObject(handlers) && sameJson(sortedKeys(handlers), ['afterIteration', 'afterTool', 'beforeTool'])
+    && ['beforeTool', 'afterTool', 'afterIteration'].every((k) => typeof handlers[k] === 'function'),
+  'createRunEvidenceHandlers returns exactly {beforeTool, afterTool, afterIteration}');
+  check(['beforeTool', 'afterTool', 'afterIteration'].every((k) => handlers[k].constructor.name === 'Function'),
+    'every handler is a plain synchronous function (not async)');
+  const pages = [
+    [undefined, null], [null, null], ['', null], [42, null], ['not a url', null], ['chrome://extensions', null],
+    ['about:blank', null], ['javascript:alert(1)', null], ['https://a.example/p/q?x=1#y', 'https://a.example/p/q'],
+    ['HTTPS://B.EXAMPLE/Path', 'https://b.example/Path'], ['https://user:pw@c.example/p', 'https://c.example/p']
+  ];
+  for (const [url, expected] of pages) {
+    const s = fastSession();
+    FsbFastPath.createRunEvidenceHandlers(s, { startUrl: url });
+    check(s._fastRunStartPage === expected, 'run evidence start page: ' + JSON.stringify(url) + ' -> ' + JSON.stringify(expected)
+      + ' (' + JSON.stringify(s._fastRunStartPage) + ')');
+  }
+  const noOptions = fastSession();
+  FsbFastPath.createRunEvidenceHandlers(noOptions);
+  check(noOptions._fastRunStartPage === null && JSON.stringify(noOptions._fastRunEvidence) === JSON.stringify(EVIDENCE_LAYOUT),
+    'run evidence: no options gives a null start page and the fresh record');
+  const first = session._fastRunEvidence;
+  first.seq = 5;
+  first.pending = { tool: 'click', iteration: 2, seq: 5 };
+  FsbFastPath.createRunEvidenceHandlers(session, { startUrl: 'https://next.example/x' });
+  check(session._fastRunEvidence !== first && JSON.stringify(session._fastRunEvidence) === JSON.stringify(EVIDENCE_LAYOUT)
+    && session._fastRunStartPage === 'https://next.example/x', 'run evidence: a second call replaces the record and the start page');
+  check(FsbFastPath.createRunEvidenceHandlers(null) === null && FsbFastPath.createRunEvidenceHandlers(undefined, {}) === null,
+    'createRunEvidenceHandlers with no session object returns null and never throws');
+  const vmApi = isolatedFastPath({});
+  const vmSession = {};
+  vmApi.createRunEvidenceHandlers(vmSession, { startUrl: EVIDENCE_START_URL });
+  check(vmSession._fastRunStartPage === null, 'run evidence start page: null when no URL constructor is reachable');
+  for (const key of ['_fastPath', 'jevMeasurement']) {
+    check(!hasOwn(session, key), 'createRunEvidenceHandlers creates no ' + key + ' (F12, F13)');
+  }
+}
+
+async function runEvidenceHandlerRules() {
+  const C = 'run evidence handlers';
+  // beforeTool: pending for a non-terminal call, never for a terminal one.
+  let { session, handlers } = evidenceSession();
+  handlers.beforeTool(beforeToolCtx(session, 'click', 3));
+  check(sameJson(evidenceOf(session).pending, { tool: 'click', iteration: 3, seq: 1 }) && evidenceOf(session).seq === 1,
+    C + ': beforeTool marks {tool, iteration, seq} in flight with seq = ++seq');
+  for (const name of EVIDENCE_TERMINALS) {
+    handlers.beforeTool(beforeToolCtx(session, 'click', 3));
+    const seqBefore = evidenceOf(session).seq;
+    handlers.beforeTool(beforeToolCtx(session, name, 3));
+    check(evidenceOf(session).pending === null && evidenceOf(session).seq === seqBefore,
+      C + ': beforeTool for ' + name + ' clears the marker and marks nothing (it returns before its own after event)');
+  }
+  ({ session, handlers } = evidenceSession());
+  handlers.beforeTool(beforeToolCtx(session, 'P70 Not A Tool Name', 3));
+  check(sameJson(evidenceOf(session).pending, { tool: 'other', iteration: 3, seq: 1 }),
+    C + ': a call name that is not a tool-name shape is recorded as "other", never as given');
+  // afterTool clears pending and counts.
+  ({ session, handlers } = evidenceSession());
+  handlers.beforeTool(beforeToolCtx(session, 'get_text', 2));
+  handlers.afterTool(afterToolCtx(session, 'get_text', OK_RESULT(), 2));
+  check(evidenceOf(session).pending === null && evidenceOf(session).seq === 2 && evidenceOf(session).lastObservationSeq === 2,
+    C + ': afterTool clears the marker, takes seq = ++seq, and a successful get_text is an observation');
+
+  // pending cleared by next call: a permission-denied call gets no after event.
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', denied: true }] }]);
+  check(evidenceOf(session).pending === null, 'pending cleared by next call: a denied last call is cleared by AFTER_ITERATION');
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', denied: true }, { name: 'complete_task' }] }]);
+  check(evidenceOf(session).pending === null && !FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+    'pending cleared by next call: [denied click, complete_task] in one turn leaves nothing in flight');
+  ({ session, handlers } = evidenceSession());
+  handlers.beforeTool(beforeToolCtx(session, 'click', 2));
+  handlers.beforeTool(beforeToolCtx(session, 'get_text', 2));
+  check(sameJson(evidenceOf(session).pending, { tool: 'get_text', iteration: 2, seq: 2 }),
+    'pending cleared by next call: the next BEFORE replaces the denied call\'s marker');
+  handlers.afterIteration(afterIterationCtx(session, 2));
+  check(evidenceOf(session).pending === null, C + ': afterIteration clears the marker');
+  ({ session, handlers } = evidenceSession());
+  handlers.beforeTool(beforeToolCtx(session, 'click', 2));
+  check(evidenceOf(session).pending !== null && FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+    C + ': a call still in flight when the task ended is unresolved (D-14 c)');
+
+  // Uncertain results, for any call (D-14 a; Drift substitution 3).
+  const uncertain = await uncertainClickResult();
+  const bfCache = await realResult('click', refuse('Could not establish connection. Receiving end does not exist.'));
+  check(FsbFastPath.classifyStepEvidence('click', uncertain).outcome === 'uncertain'
+    && FsbFastPath.classifyStepEvidence('click', bfCache).outcome === 'uncertain',
+  C + ': the real executor shapes (unknown outcome, bfCacheDetected) classify uncertain');
+  for (const [label, result] of [['unknown outcome', uncertain], ['bfCacheDetected', bfCache], ['dispatch_unconfirmed', CHANNEL_CLOSED_RESULT],
+    ['a failed snapshot', SNAPSHOT_FAILED_RESULT]]) {
+    ({ session, handlers } = evidenceSession());
+    driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: label === 'a failed snapshot' ? 'get_page_snapshot' : 'click', result }] }]);
+    check(evidenceOf(session).lastUncertainSeq === 2 && evidenceOf(session).fastUnobservedSeq === 0 && evidenceOf(session).lastObservationSeq === 0,
+      C + ': an LLM call with ' + label + ' sets lastUncertainSeq only');
+  }
+  for (const [label, result] of [['unconfirmed', OK_RESULT()], ['failed', FAILED_RESULT], ['progress', PROGRESS_RESULT]]) {
+    ({ session, handlers } = evidenceSession());
+    driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result }] }]);
+    check(evidenceOf(session).lastUncertainSeq === 0 && evidenceOf(session).fastUnobservedSeq === 0
+      && !FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+    C + ': an LLM click that is ' + label + ' keeps baseline semantics (not uncertain)');
+  }
+
+  // Fast steps must show an effect (D-14 b).
+  const fastOutcomes = [
+    ['unconfirmed', 'click', OK_RESULT(), true],
+    ['uncertain', 'click', uncertain, true],
+    ['no_effect', 'check_box', OK_RESULT({ result: { success: true, alreadyInState: true } }), true],
+    ['progress', 'click', PROGRESS_RESULT, false],
+    ['failed', 'click', FAILED_RESULT, false]
+  ];
+  for (const [label, name, result, marks] of fastOutcomes) {
+    ({ session, handlers } = evidenceSession());
+    evidenceOf(session).fastIteration = 4;
+    driveEvidence(handlers, session, [{ iteration: 4, calls: [{ name, result }] }]);
+    check((evidenceOf(session).fastUnobservedSeq === 2) === marks,
+      C + ': a fast (Jev-chosen) step that is ' + label + (marks ? ' sets' : ' does not set') + ' fastUnobservedSeq');
+  }
+  ({ session, handlers } = evidenceSession());
+  evidenceOf(session).fastIteration = 4;
+  driveEvidence(handlers, session, [{ iteration: 5, calls: [{ name: 'click', result: OK_RESULT() }] }]);
+  check(evidenceOf(session).fastUnobservedSeq === 0, C + ': an LLM call in another iteration is not the fast call');
+  ({ session, handlers } = evidenceSession());
+  evidenceOf(session).fastIteration = 4;
+  driveEvidence(handlers, session, [{ iteration: 4, calls: [{ name: 'get_text', result: OK_RESULT() }] }]);
+  check(evidenceOf(session).lastObservationSeq === 0, C + ': a call in the fast iteration is never an observation');
+
+  // report_progress is not an observation (F1, PD-70-01).
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result: uncertain }, { name: 'report_progress', result: REPORT_RESULT }] }]);
+  check(evidenceOf(session).lastObservationSeq === 0 && FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+    'report_progress is not an observation: [uncertain click, report_progress] stays unresolved');
+  for (const name of ['search_memory', 'list_tabs', 'get_site_guide']) {
+    ({ session, handlers } = evidenceSession());
+    driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result: uncertain }, { name, result: OK_RESULT() }] }]);
+    check(FsbFastPath.runEvidenceUnresolved(evidenceOf(session)), 'report_progress is not an observation, and neither is ' + name);
+  }
+  for (const name of PAGE_OBSERVATION_TOOLS) {
+    ({ session, handlers } = evidenceSession());
+    driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result: uncertain }, { name, result: OK_RESULT() }] }]);
+    check(evidenceOf(session).lastObservationSeq === 4 && !FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+      C + ': a later successful ' + name + ' observes the page');
+  }
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result: uncertain }, { name: 'get_page_snapshot', result: SNAPSHOT_FAILED_RESULT }] }]);
+  check(evidenceOf(session).lastObservationSeq === 0 && FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+    C + ': a failed page read is not an observation');
+
+  // Human gates from existing code gates only (D-15, F7).
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] }]);
+  check(sameJson(evidenceOf(session).gate, { code: 'payment_not_approved', tool: 'fill_payment_method', seq: 2, cleared: false }),
+    'payment gate: a declined fill_payment_method records {code:payment_not_approved, tool, seq, cleared:false}');
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }] }]);
+  check(sameJson(evidenceOf(session).gate, { code: 'site_consent_required', tool: 'invoke_capability', seq: 2, cleared: false }),
+    'consent gate: invoke_capability with RECIPE_CONSENT_REQUIRED records {code:site_consent_required, tool, seq, cleared:false}');
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [
+    { iteration: 2, calls: [{ name: 'click', result: PAYMENT_DECLINED_RESULT }, { name: 'get_text', result: CONSENT_REQUIRED_RESULT }] },
+    { iteration: 3, calls: [{ name: 'fill_payment_method', result: OK_RESULT({ result: { declined: false } }) }] }
+  ]);
+  check(evidenceOf(session).gate === null, 'payment gate and consent gate: only the gate tool\'s own result opens a gate');
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [
+    { iteration: 2, calls: [{ name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }] },
+    { iteration: 3, calls: [{ name: 'click', result: OK_RESULT() }, { name: 'invoke_capability', result: FAILED_RESULT }] }
+  ]);
+  check(isPlainObject(evidenceOf(session).gate) && evidenceOf(session).gate.cleared === false,
+    'gate cleared: neither another tool\'s success nor a failed retry clears the gate');
+  driveEvidence(handlers, session, [{ iteration: 4, calls: [{ name: 'invoke_capability', result: OK_RESULT({ result: { success: true } }) }] }]);
+  check(sameJson(evidenceOf(session).gate, { code: 'site_consent_required', tool: 'invoke_capability', seq: 2, cleared: true }),
+    'gate cleared: a later successful call of the same tool sets cleared:true');
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [
+    { iteration: 2, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] },
+    { iteration: 3, calls: [{ name: 'fill_payment_method', result: OK_RESULT({ result: { filled: true } }) }] }
+  ]);
+  check(evidenceOf(session).gate.cleared === true && evidenceOf(session).gate.code === 'payment_not_approved',
+    'gate cleared: a later successful fill_payment_method clears the payment gate');
+  driveEvidence(handlers, session, [{ iteration: 4, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] }]);
+  check(sameJson(evidenceOf(session).gate, { code: 'payment_not_approved', tool: 'fill_payment_method', seq: 6, cleared: false }),
+    'gate cleared: a new decline opens the gate again');
+}
+
+async function runEvidenceHandlerHygiene() {
+  const C = 'run evidence handlers';
+  const { session, handlers } = evidenceSession();
+  const uncertain = await uncertainClickResult();
+  const returned = driveEvidence(handlers, session, [
+    { iteration: 2, calls: [{ name: 'click', result: uncertain }, { name: 'get_text', result: OK_RESULT() }] },
+    { iteration: 3, calls: [{ name: 'click', denied: true }, { name: 'complete_task' }] }
+  ]);
+  check(returned.length > 0 && returned.every((value) => value === undefined), C + ': every handler returns undefined (never a promise)');
+  const hostileCtx = {};
+  Object.defineProperty(hostileCtx, 'toolName', { get() { throw new Error('toolName read'); } });
+  Object.defineProperty(hostileCtx, 'toolResult', { get() { throw new Error('toolResult read'); } });
+  Object.defineProperty(hostileCtx, 'iteration', { get() { throw new Error('iteration read'); } });
+  let threw = null;
+  const outs = [];
+  try {
+    for (const ctx of [null, undefined, {}, 7, 'x', hostileCtx]) {
+      outs.push(handlers.beforeTool(ctx), handlers.afterTool(ctx), handlers.afterIteration(ctx));
+    }
+  } catch (error) { threw = error; }
+  check(threw === null && outs.every((value) => value === undefined), C + ': hostile or missing contexts never throw and return undefined');
+  const stripped = fastSession();
+  const strippedHandlers = FsbFastPath.createRunEvidenceHandlers(stripped, {});
+  delete stripped._fastRunEvidence;
+  driveEvidence(strippedHandlers, stripped, [{ iteration: 2, calls: [{ name: 'click', result: uncertain }, { name: 'get_text', result: OK_RESULT() }] }]);
+  check(!hasOwn(stripped, '_fastRunEvidence'), C + ': with no record on the session the handlers do nothing');
+  const broken = fastSession();
+  const brokenHandlers = FsbFastPath.createRunEvidenceHandlers(broken, {});
+  broken._fastRunEvidence = 'not a record';
+  threw = null;
+  try {
+    driveEvidence(brokenHandlers, broken, [{ iteration: 2, calls: [{ name: 'click', result: uncertain }] }]);
+  } catch (error) { threw = error; }
+  check(threw === null && broken._fastRunEvidence === 'not a record', C + ': a record that is not an object is left alone');
+
+  const source = fs.readFileSync(MODULE_PATH, 'utf8');
+  const slice = functionSlice(source, 'createRunEvidenceHandlers');
+  check(typeof slice === 'string' && !/\bawait\b/.test(slice) && !/\basync\b/.test(slice),
+    'createRunEvidenceHandlers and its handlers contain no await and are not async');
+  check(typeof slice === 'string' && !/\b(Date|now|performance)\b/.test(slice), 'the handlers read no clock');
+  const marked = phase70Section(source);
+  check(marked !== null && marked.inside.indexOf('function createRunEvidenceHandlers(') !== -1
+    && marked.inside.indexOf('function runEvidenceUnresolved(') !== -1 && marked.inside.indexOf('function isPageObservationTool(') !== -1,
+  'the recorder lives inside the marked Phase 70 section');
+}
+
+async function runEvidenceUnresolvedCases() {
+  const unresolved = FsbFastPath.runEvidenceUnresolved;
+  const uncertain = await uncertainClickResult();
+  const cases = [
+    ['run evidence same-turn: [uncertain click, complete_task] in one turn', [{ name: 'click', result: uncertain }, { name: 'complete_task' }], true],
+    ['run evidence same-turn: [uncertain click, report_progress, complete_task]',
+      [{ name: 'click', result: uncertain }, { name: 'report_progress', result: REPORT_RESULT }, { name: 'complete_task' }], true],
+    ['run evidence same-turn: [uncertain click, get_page_snapshot success, complete_task]',
+      [{ name: 'click', result: uncertain }, { name: 'get_page_snapshot', result: SNAPSHOT_RESULT }, { name: 'complete_task' }], false],
+    ['run evidence: [get_page_snapshot, uncertain click] (the read came first)',
+      [{ name: 'get_page_snapshot', result: SNAPSHOT_RESULT }, { name: 'click', result: uncertain }], true],
+    ['run evidence: [uncertain click] alone', [{ name: 'click', result: uncertain }], true],
+    ['run evidence: [click unconfirmed, complete_task] (an LLM step keeps baseline semantics)', [{ name: 'click', result: OK_RESULT() }, { name: 'complete_task' }], false]
+  ];
+  for (const [name, calls, expected] of cases) {
+    const { session, handlers } = evidenceSession();
+    driveEvidence(handlers, session, [{ iteration: 2, calls }]);
+    check(unresolved(evidenceOf(session)) === expected, name + ' -> ' + expected);
+  }
+  check(unresolved(Object.assign({}, EVIDENCE_LAYOUT)) === false, 'run evidence: a fresh record is resolved');
+  check(unresolved(Object.assign({}, EVIDENCE_LAYOUT, { pending: { tool: 'click', iteration: 2, seq: 1 } })) === true, 'run evidence: a pending call is unresolved');
+  check(unresolved(Object.assign({}, EVIDENCE_LAYOUT, { fastUnobservedSeq: 3, lastObservationSeq: 4 })) === false
+    && unresolved(Object.assign({}, EVIDENCE_LAYOUT, { fastUnobservedSeq: 4, lastObservationSeq: 3 })) === true,
+  'run evidence: an unobserved fast step is resolved only by a later observation');
+  check([null, undefined, 'x', 3, []].every((value) => unresolved(value) === true), 'run evidence: a missing record fails closed (unresolved)');
+}
+
+/** A rig whose session holds evidence handlers; the first command turn has run (first_llm_turn). */
+async function evidenceRig(o) {
+  const r = rig(o);
+  r.handlers = FsbFastPath.createRunEvidenceHandlers(r.session, { startUrl: EVIDENCE_START_URL });
+  await primed(r);
+  return r;
+}
+
+/** One fast iteration through the loop's order: beforeTurn, BEFORE, AFTER, afterStep, AFTER_ITERATION. */
+async function fastIteration(r, iteration, result) {
+  const out = await r.turn(iteration);
+  if (!out.toolCall) return out;
+  if (r.handlers) r.handlers.beforeTool(beforeToolCtx(r.session, out.toolCall.name, iteration));
+  if (r.handlers) r.handlers.afterTool(afterToolCtx(r.session, out.toolCall.name, result, iteration));
+  FsbFastPath.afterStep(r.session, out.step, resultsFor(out.step, result));
+  if (r.handlers) r.handlers.afterIteration(afterIterationCtx(r.session, iteration));
+  return out;
+}
+
+async function runEvidenceMarkers() {
+  // The act marker (step u).
+  const actRig = await evidenceRig({ menus: [decisionMenu(), decisionMenu({ signature: 'sig-2' })] });
+  check(evidenceOf(actRig.session).fastIteration === null, 'act marker: a declining first turn marks no fast iteration');
+  const acted = await actRig.turn(4);
+  check(Boolean(acted.toolCall) && evidenceOf(actRig.session).fastIteration === 4, 'act marker: an acting beforeTurn marks fastIteration = the iteration');
+  const plain = rig({ menus: [decisionMenu()] });
+  await primed(plain);
+  const plainOut = await plain.turn(4);
+  check(Boolean(plainOut.toolCall) && !hasOwn(plain.session, '_fastRunEvidence') && !hasOwn(plain.session, '_fastRunStartPage'),
+    'act marker: a session without the record gets no record and no start page');
+
+  // hand-off observation delivered (F14).
+  const delivered = await evidenceRig({ menus: [decisionMenu(), null], snapshot: () => Promise.resolve({ success: true, markdownSnapshot: 'SNAP' }) });
+  await fastIteration(delivered, 2, OK_RESULT());
+  check(evidenceOf(delivered.session).fastUnobservedSeq === 2 && FsbFastPath.runEvidenceUnresolved(evidenceOf(delivered.session)),
+    'hand-off observation delivered: the fast step was unconfirmed and is unresolved before the hand-off');
+  const declined = await delivered.turn(3);
+  check(declined.decline === 'menu_unavailable' && handoffs(delivered.session).length === 1 && delivered.log.requestSnapshot.length === 1,
+    'hand-off observation delivered: the next iteration hands the step off with one snapshot');
+  check(evidenceOf(delivered.session).lastObservationSeq === 3 && evidenceOf(delivered.session).seq === 3
+    && !FsbFastPath.runEvidenceUnresolved(evidenceOf(delivered.session)),
+  'hand-off observation delivered: a delivered snapshot marks lastObservationSeq = ++seq and resolves the step');
+
+  // hand-off observation unavailable.
+  for (const [label, snapshot] of [['null', () => Promise.resolve(null)], ['failed', () => Promise.resolve({ success: false, error: 'x' })],
+    ['empty', () => Promise.resolve({ success: true, markdownSnapshot: '' })], ['not a string', () => Promise.resolve({ success: true, markdownSnapshot: 5 })],
+    ['rejecting', () => Promise.reject(new Error('tab gone'))]]) {
+    const r = await evidenceRig({ menus: [decisionMenu(), null], snapshot });
+    await fastIteration(r, 2, OK_RESULT());
+    await r.turn(3);
+    check(handoffs(r.session).length === 1 && evidenceOf(r.session).lastObservationSeq === 0 && evidenceOf(r.session).seq === 2
+      && FsbFastPath.runEvidenceUnresolved(evidenceOf(r.session)),
+    'hand-off observation unavailable: a ' + label + ' snapshot writes nothing and the step stays unresolved');
+  }
+
+  // The same hand-off through the exported flushHandoff.
+  const flushed = await evidenceRig({ menus: [decisionMenu()], snapshot: () => Promise.resolve({ success: true, markdownSnapshot: 'SNAP' }) });
+  await fastIteration(flushed, 2, OK_RESULT());
+  const done = await FsbFastPath.flushHandoff(flushed.session, { deps: flushed.deps });
+  check(done === true && evidenceOf(flushed.session).lastObservationSeq === 3 && !FsbFastPath.runEvidenceUnresolved(evidenceOf(flushed.session)),
+    'hand-off observation delivered: flushHandoff marks the observation too');
+
+  // A session without the record flushes exactly as before (the 68 cases above stay green).
+  const bare = rig({ menus: [decisionMenu(), null] });
+  await primed(bare);
+  const out = await bare.turn(2);
+  FsbFastPath.afterStep(bare.session, out.step, resultsFor(out.step, OK_RESULT()));
+  await bare.turn(3);
+  check(handoffs(bare.session).length === 1 && !hasOwn(bare.session, '_fastRunEvidence'),
+    'hand-off observation: a session without the record delivers the hand-off and gets no record');
+
+  // A hostile record never changes the attempt or the hand-off.
+  const hostile = rig({ menus: [decisionMenu(), null] });
+  await primed(hostile);
+  Object.defineProperty(hostile.session, '_fastRunEvidence', { configurable: true, get() { throw new Error('evidence read'); } });
+  const hostileOut = await hostile.turn(2);
+  FsbFastPath.afterStep(hostile.session, hostileOut.step, resultsFor(hostileOut.step, OK_RESULT()));
+  const hostileDecline = await hostile.turn(3);
+  check(Boolean(hostileOut.toolCall) && hostileDecline.decline === 'menu_unavailable' && fp(hostile.session).off === false
+    && handoffs(hostile.session).length === 1 && handoffs(hostile.session)[0].content.includes('SNAP-CURRENT'),
+  'markers: a record that throws on read never latches fast mode off or changes the hand-off');
+}
+
+const P70_MARKERS = ['P70-MARKER-TASK', 'P70-MARKER-LABEL', 'P70-MARKER-URL', 'P70-MARKER-VALUE'];
+
+/** One fast-mode command whose task, labels, URLs, tool args and results carry the marker strings. */
+async function markerScript(withHandlers) {
+  const url = 'https://example.test/P70-MARKER-URL/step?v=P70-MARKER-VALUE#P70-MARKER-VALUE';
+  const markerMenu = (signature) => menuOf([
+    entry(1, { label: 'P70-MARKER-LABEL' }),
+    entry(2, { label: 'Next P70-MARKER-VALUE' })
+  ], { url, signature, title: 'P70-MARKER-VALUE', visibleText: 'P70-MARKER-VALUE' });
+  const r = rig({
+    responder: answer('click', 'P70-MARKER-LABEL'),
+    menus: [markerMenu('sig-1'), markerMenu('sig-2'), null],
+    snapshot: () => Promise.resolve({ success: true, markdownSnapshot: 'P70-MARKER-VALUE snapshot' }),
+    session: { task: 'P70-MARKER-TASK: tick P70-MARKER-LABEL', messages: [{ role: 'user', content: 'P70-MARKER-TASK' }] }
+  });
+  if (withHandlers) r.handlers = FsbFastPath.createRunEvidenceHandlers(r.session, { startUrl: url });
+  FsbFastPath.ensureMeasurement(r.session);
+  // The LLM's first turn: a click with marker args and a marker-bearing result, then a page read.
+  const first = await r.turn(1);
+  const llmResult = OK_RESULT({ result: { success: true, text: 'P70-MARKER-VALUE', url } });
+  if (r.handlers) {
+    r.handlers.beforeTool(beforeToolCtx(r.session, 'type_text', 1));
+    r.handlers.afterTool(afterToolCtx(r.session, 'type_text', llmResult, 1));
+    r.handlers.beforeTool(beforeToolCtx(r.session, 'get_text', 1));
+    r.handlers.afterTool(afterToolCtx(r.session, 'get_text', llmResult, 1));
+    r.handlers.beforeTool(beforeToolCtx(r.session, 'P70-MARKER-VALUE', 1));
+    r.offShapePending = copyJson(r.session._fastRunEvidence.pending);
+    r.handlers.afterTool(afterToolCtx(r.session, 'P70-MARKER-VALUE', CHANNEL_CLOSED_RESULT, 1));
+    r.handlers.afterIteration(afterIterationCtx(r.session, 1));
+  }
+  FsbFastPath.observeTools(r.session, [llmCall('c1', 'type_text', { selector: '#P70-MARKER-LABEL', text: 'P70-MARKER-VALUE' }),
+    llmCall('c2', 'get_text', { selector: '#P70-MARKER-LABEL' })],
+  [loopResult('c1', 'type_text', llmResult), loopResult('c2', 'get_text', llmResult)]);
+  // A fast click with an unconfirmed, marker-bearing result, then a hand-off.
+  const fastResult = OK_RESULT({ result: { success: true, note: 'P70-MARKER-VALUE' } });
+  const second = await fastIteration(r, 2, fastResult);
+  const third = await fastIteration(r, 3, fastResult);
+  const fourth = await r.turn(4);
+  return { r, outs: [first.decline, Boolean(second.toolCall), third.toolCall ? 'act' : third.decline, fourth.decline] };
+}
+
+async function runEvidenceContent() {
+  const withRun = await markerScript(true);
+  const withoutRun = await markerScript(false);
+  const ev = withRun.r.session._fastRunEvidence;
+  const text = JSON.stringify(ev);
+  check(withRun.outs[1] === true && handoffs(withRun.r.session).length === 1,
+    'evidence holds no page content: the marker script ran an LLM turn, a fast step and a hand-off (' + JSON.stringify(withRun.outs) + ')');
+  check(P70_MARKERS.every((marker) => text.indexOf(marker) === -1),
+    'evidence holds no page content: the record names no task, label, URL, argument or result marker (' + text + ')');
+  check(sameJson(Object.keys(ev), Object.keys(EVIDENCE_LAYOUT)) && (ev.pending === null || sameJson(sortedKeys(ev.pending), ['iteration', 'seq', 'tool'])),
+    'evidence holds no page content: the record keeps exactly the documented keys');
+  check(sameJson(withRun.r.offShapePending, { tool: 'other', iteration: 1, seq: 5 }) && ev.lastUncertainSeq === 6,
+    'evidence holds no page content: a call whose name carries a marker is held in flight as "other" and still counts ('
+      + JSON.stringify(withRun.r.offShapePending) + ')');
+  check(withRun.r.session._fastRunStartPage === 'https://example.test/P70-MARKER-URL/step',
+    'evidence holds no page content: the start page lives in its own field, origin + path only');
+  check(sameJson(withRun.outs, withoutRun.outs), 'evidence holds no page content: the run takes the same turns with and without the handlers');
+  check(sameJson(withRun.r.session._fastPath, withoutRun.r.session._fastPath),
+    'evidence holds no page content: _fastPath deep-equals a run without the handlers (F13)');
+  check(sameJson(withRun.r.session.jevMeasurement, withoutRun.r.session.jevMeasurement),
+    'evidence holds no page content: jevMeasurement deep-equals a run without the handlers (F12)');
+  check(sameJson(withRun.r.session.agentState, withoutRun.r.session.agentState) && sameJson(withRun.r.session.messages, withoutRun.r.session.messages),
+    'evidence holds no page content: agentState and the messages deep-equal a run without the handlers');
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -3505,6 +4040,13 @@ async function main() {
     await section('70-02 run_task parity: every fallback reason (SC3, D-06)', runTaskFallbackParity);
     await section('70-02 run_task parity: an uncalibrated gateway costs one call (D-11)', runTaskUncalibratedOnce);
     await section('70-02 run_task parity: the switch turned off mid-run (68 D-05)', runTaskSwitchOffMidRun);
+    await section('70-03 run evidence: the page-observation tools (PD-70-01)', runEvidenceObservationTools);
+    await section('70-03 run evidence: the record layout and the start page (D-14, PD-70-02)', runEvidenceLayout);
+    await section('70-03 run evidence: what each handler records (D-14, D-15, F1, F3)', runEvidenceHandlerRules);
+    await section('70-03 run evidence: synchronous, contained handlers (T-70-04)', runEvidenceHandlerHygiene);
+    await section('70-03 run evidence: unresolved uncertainty (D-14)', runEvidenceUnresolvedCases);
+    await section('70-03 run evidence: the act and hand-off markers (F2, F14)', runEvidenceMarkers);
+    await section('70-03 run evidence: no page content, no 68 state change (D-14, F12, F13, T-70-02)', runEvidenceContent);
   }
 
   console.log('\n--- Summary ---');
