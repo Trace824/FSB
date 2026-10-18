@@ -68,6 +68,15 @@
  * is resolved only by a delivered hand-off snapshot; a permission-denied call
  * is never left in flight; and a switch-off session never gets the fields.
  *
+ * Plan 70-05 adds "run_task outcome end to end" (SC2): a recorder in place
+ * of fsbBroadcastAutomationLifecycle builds the fast_mode block inside the
+ * terminal broadcast, as the bridge's settle does, and the block follows
+ * what was executed and observed: an unobserved uncertain fast or LLM step
+ * before complete_task is ambiguous, an observed or handed-off one is done,
+ * manual_approval is needs_confirmation and an auth wall is blocked; the
+ * jev summary reports the uncalibrated latch, the spent step budget and a
+ * transient timeout without changing the outcome.
+ *
  * Plan 68-08 adds recorded-llm capture through the same harness: on an armed
  * loopback fixture page with an uncalibrated gateway, one capture menu per
  * LLM-path iteration, labels from the LLM's own tool and the target the
@@ -2119,7 +2128,343 @@ async function runEvidenceLoopCases() {
   delete globalThis.FsbFastPath;
 }
 
-const CAPTURE_PAGE = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
+// ---------------------------------------------------------------------------
+// Phase 70 (70-05 Task 2): run_task outcome end to end (SC2, D-12..D-16).
+// Each case runs a switched-on run_task session (the real helper's
+// (true, 'mcp') field, the evidence handlers registered as background.js
+// does) and replaces fsbBroadcastAutomationLifecycle with a recorder that
+// mirrors the bridge's settle (plan 70-06): settle runs synchronously inside
+// the terminal broadcast, so on the first automationComplete or
+// automationError the recorder builds the fast_mode block right there, from
+// the live session; later terminal messages are recorded but never
+// re-classified (settle's single-resolve guard). Every case asserts on that
+// broadcast-time block. The content answers are raw content-script answers
+// (the 68-07 fixture shape), which executeContentTool wraps as result.
+// ---------------------------------------------------------------------------
+
+const P70_TASK = 'Finish the wizard (P70-MARKER-TASK)';
+const P70_LABEL = 'P70-MARKER-LABEL';
+const P70_RESULT = 'P70-MARKER-RESULT';
+const MARKED_NEXT = P70_LABEL + ' Next';
+const MARKED_ENTRIES = [entry('j1', { label: MARKED_NEXT }), entry('j2', { label: P70_LABEL + ' Back' })];
+
+function markedItems(count) {
+  const list = [];
+  for (let i = 1; i <= count; i += 1) list.push(entry('j' + i, { label: P70_LABEL + ' Item ' + i }));
+  return list;
+}
+
+/**
+ * The bridge settle, mirrored: replaces the harness's lifecycle stub (which
+ * it still calls, so harness.events keeps every lifecycle message) and
+ * returns {terminals, blocksComputed, settled: {message, block}, restore}.
+ */
+function settleRecorder(h) {
+  const harnessBroadcast = globalThis.fsbBroadcastAutomationLifecycle;
+  const rec = { terminals: [], blocksComputed: 0, settled: null };
+  globalThis.fsbBroadcastAutomationLifecycle = function (message) {
+    const action = message && message.action;
+    if (action === 'automationComplete' || action === 'automationError') {
+      rec.terminals.push(JSON.parse(JSON.stringify(message)));
+      if (rec.settled === null) {
+        rec.blocksComputed += 1;
+        const block = fastPathApi().buildFastModeBlock(h.session, {
+          source: 'lifecycleBus',
+          kind: action === 'automationError' ? 'error' : 'complete',
+          message
+        });
+        rec.settled = { message: JSON.parse(JSON.stringify(message)), block };
+      }
+    }
+    harnessBroadcast(message);
+    return Promise.resolve();
+  };
+  rec.restore = () => { globalThis.fsbBroadcastAutomationLifecycle = harnessBroadcast; };
+  return rec;
+}
+
+/**
+ * A switched-on run_task run on the real loop for the outcome cases: task
+ * P70_TASK, menu labels holding P70_LABEL, the evidence handlers registered.
+ * opts: providerScript, answers (scripted gateway; catch-all by default),
+ * entries (MARKED_ENTRIES), fastAction (the content answer to a fast
+ * executeAction), snapshotAnswer (the content answer to getMarkdownSnapshot,
+ * when given), permissionDenies. An LLM click on #maybe is answered with
+ * UNKNOWN_CLICK_ANSWER.
+ */
+function outcomeLoop(opts) {
+  const o = opts || {};
+  const content = H.signatureMenuContent({ entries: o.entries || MARKED_ENTRIES, action: o.fastAction });
+  const respond = (message, options) => {
+    if (message && message.action === 'executeAction' && message.params && message.params.selector === MAYBE_SELECTOR) {
+      return Object.assign({}, UNKNOWN_CLICK_ANSWER);
+    }
+    if (message && message.action === 'getMarkdownSnapshot' && Object.prototype.hasOwnProperty.call(o, 'snapshotAnswer')) {
+      return o.snapshotAnswer;
+    }
+    return content.respond(message, options);
+  };
+  const gw = H.scriptedGateway(o.answers || [catchAll]);
+  const deps = createBackgroundDeps();
+  const rec = H.recordingJevClient(gw.responder, { now: deps.now });
+  const h = H.createHarness({
+    loadFastPath: true,
+    task: P70_TASK,
+    storage: { fsbJevFastModeEnabled: true },
+    sessionPatch: { maxIterations: 40, fastMode: loadSessionFieldHelper()(true, 'mcp') },
+    deps,
+    jevClient: rec.client,
+    contentResponder: respond,
+    providerScript: o.providerScript,
+    permissionDenies: o.permissionDenies || [],
+    registerRunEvidence: { startUrl: EVIDENCE_START_URL }
+  });
+  return { h, content, gw, rec, steps: [], recorder: settleRecorder(h) };
+}
+
+/** Step until the session leaves 'running' (at most maxSteps iterations). */
+async function runUntilSettled(run, maxSteps) {
+  for (let i = 0; i < maxSteps && run.h.session.status === 'running'; i += 1) await runSteps(run, 1);
+}
+
+function finishOutcome(run) {
+  run.recorder.restore();
+  finish(run);
+}
+
+/** The broadcast-time block: exactly one, the expected fields, the frozen key list, no marker string. */
+function expectBlock(run, name, want) {
+  const r = run.recorder;
+  check(r.blocksComputed === 1 && r.settled !== null,
+    name + ': the recorder computed exactly one block, inside the terminal broadcast (' + r.blocksComputed + ')');
+  const b = r.settled ? r.settled.block : null;
+  for (const key of Object.keys(want)) {
+    check(b !== null && util.isDeepStrictEqual(b[key], want[key]),
+      name + ': ' + key + ' is ' + JSON.stringify(want[key]) + ' (got ' + JSON.stringify(b ? b[key] : undefined) + ')');
+  }
+  check(b !== null && util.isDeepStrictEqual(Object.keys(b), fastPathApi().FAST_MODE_BLOCK_KEYS) && b.budget_profile === 'run_task',
+    name + ': the block keys are FAST_MODE_BLOCK_KEYS and budget_profile is run_task');
+  const inputs = JSON.stringify(r.settled ? r.settled.message : null) + JSON.stringify(run.h.session.messages || []);
+  check(inputs.indexOf('P70-MARKER-TASK') !== -1 && b !== null && !/p70-marker/i.test(JSON.stringify(b)),
+    name + ': the block holds no marker string, though the task and the terminal message hold one');
+  return b;
+}
+
+/** The fast-mode state of the session holds a menu label marker (so the marker scan is meaningful). */
+function labelMarkerInState(run) {
+  const s = run.h.session;
+  return JSON.stringify([s.messages, s._fastPath && s._fastPath.recent, s.agentState && s.agentState.jevFast]).indexOf(P70_LABEL) !== -1;
+}
+
+function snapshotTurn(id) {
+  return H.openAiToolResponse('resp_' + id, [{ id: 'call_' + id, name: 'get_page_snapshot', args: {} }]);
+}
+
+function doneTurn(id) {
+  return H.openAiToolResponse('resp_' + id, [{ id: 'call_' + id, name: 'complete_task', args: { summary: 'Wizard finished' } }]);
+}
+
+async function runTaskOutcomeCases() {
+  const fp = fastPathApi();
+  section('run_task outcome end to end: the typed outcome follows observed evidence, never the LLM\'s claim or a Jev answer alone (Phase 70 SC2, D-12..D-16)');
+
+  // A Jev-chosen click whose effect is unknown, then the LLM's complete_task.
+  for (const [name, snapshot, want] of [
+    ['e2e fast uncertain unobserved', null, { outcome: 'ambiguous', reason: 'uncertain_action', uncertain_unobserved: true, human_gate: null }],
+    ['e2e fast handed off', { success: true, markdownSnapshot: 'SNAP-HANDOFF', elementCount: 1 },
+      { outcome: 'done', reason: 'complete_task', uncertain_unobserved: false, human_gate: null }]
+  ]) {
+    const run = outcomeLoop({
+      providerScript: [LLM_CLICK, LLM_DONE],
+      answers: [calibratedPick('click', MARKED_NEXT), catchAll],
+      fastAction: () => Object.assign({}, UNKNOWN_CLICK_ANSWER),
+      snapshotAnswer: snapshot
+    });
+    try {
+      await runSteps(run, 3);
+      const fastEvent = (run.h.session.actionHistory || []).find((e) => e.iteration === 2 && e.decisionSource === 'jev');
+      check(run.steps[1].fast === 1 && run.steps[1].provider === 0 && fastEvent && fastEvent.tool === 'click',
+        name + ': iteration 2 took one fast click, answered {success:false, outcome:unknown, mayHaveExecuted:true} by the content script');
+      const handoffs = handoffsIn(run.steps[2]);
+      check(handoffs.length === 1 && (snapshot ? handoffs[0].content.indexOf('SNAP-HANDOFF') !== -1 : handoffs[0].content.indexOf('Snapshot unavailable') !== -1),
+        name + ': iteration 3 handed the step to the LLM ' + (snapshot ? 'with the snapshot' : 'with no snapshot'));
+      const settled = run.recorder.settled;
+      check(run.h.session.status === 'completed' && settled && settled.message.outcome === 'success' && settled.message.reason === 'complete_task',
+        name + ': the LLM claimed success with complete_task in iteration 3');
+      check(labelMarkerInState(run), name + ': the menu label marker reached the session state');
+      const b = expectBlock(run, name, want);
+      check(b && b.jev && b.jev.fast_steps === 1 && b.jev.attempts === run.rec.decides.length && b.jev.calls === run.rec.decides.length
+        && b.jev.calibration === 'calibrated' && b.jev.escalations.uncertain === 1,
+      name + ': jev reports the one fast step, its decide and the uncertain escalation (' + JSON.stringify(b && b.jev) + ')');
+      if (!snapshot) {
+        // The evidence changes only after the loop has exited: the recorded
+        // block keeps the broadcast-time answer.
+        const ev = run.h.session._fastRunEvidence;
+        ev.lastObservationSeq = Math.max(ev.seq, ev.lastUncertainSeq, ev.fastUnobservedSeq) + 100;
+        const later = fp.buildFastModeBlock(run.h.session, { source: 'lifecycleBus', kind: 'complete', message: settled.message });
+        check(later.outcome === 'done' && later.reason === 'complete_task',
+          'e2e block computed at broadcast: with the evidence changed after the loop exited, a recomputed block would read done/complete_task');
+        check(b.outcome === 'ambiguous' && b.reason === 'uncertain_action' && b.uncertain_unobserved === true && run.recorder.blocksComputed === 1,
+          'e2e block computed at broadcast: the recorded block still reads ambiguous/uncertain_action, so the cases read the broadcast-time block');
+      }
+    } finally {
+      finishOutcome(run);
+    }
+  }
+
+  // One LLM turn: an uncertain LLM click, then (maybe) other calls, then complete_task.
+  for (const [name, calls, want] of [
+    ['e2e llm same turn', [MAYBE_CLICK, DONE_CALL],
+      { outcome: 'ambiguous', reason: 'uncertain_action', uncertain_unobserved: true, human_gate: null }],
+    ['e2e report_progress', [MAYBE_CLICK, { name: 'report_progress', args: { message: 'Clicked it' } }, DONE_CALL],
+      { outcome: 'ambiguous', reason: 'uncertain_action', uncertain_unobserved: true, human_gate: null }],
+    ['e2e read after', [MAYBE_CLICK, { name: 'get_page_snapshot', args: {} }, DONE_CALL],
+      { outcome: 'done', reason: 'complete_task', uncertain_unobserved: false, human_gate: null }]
+  ]) {
+    const run = outcomeLoop({ providerScript: [llmTurn('resp_oc', calls)] });
+    try {
+      await runSteps(run, 1);
+      check(run.h.session.status === 'completed' && maybeClickRecorded(run) && run.steps[0].fast === 0 && run.rec.decides.length === 0,
+        name + ': one LLM turn ran the #maybe click and complete_task; fast mode took no step and asked Jev nothing');
+      expectBlock(run, name, want);
+    } finally {
+      finishOutcome(run);
+    }
+  }
+
+  // partial_task: an existing human gate, and an auth wall.
+  for (const [name, reason, want] of [
+    ['e2e manual approval', 'manual_approval',
+      { outcome: 'needs_confirmation', reason: 'manual_approval', uncertain_unobserved: false, human_gate: 'manual_approval' }],
+    ['e2e auth wall', 'auth_required', { outcome: 'blocked', reason: 'auth_required', uncertain_unobserved: false, human_gate: null }]
+  ]) {
+    const run = outcomeLoop({ providerScript: [llmTurn('resp_partial', [{ name: 'partial_task', args: {
+      summary: P70_RESULT + ' drafted the reply', blocker: P70_RESULT + ' needs a person', next_step: P70_RESULT + ' approve it', reason
+    } }])] });
+    try {
+      await runSteps(run, 1);
+      const m = run.recorder.settled ? run.recorder.settled.message : {};
+      check(run.h.session.status === 'partial' && m.action === 'automationComplete' && m.outcome === 'partial' && m.reason === reason
+        && JSON.stringify(m).indexOf(P70_RESULT) !== -1,
+      name + ': partial_task ended the run as a partial terminal (' + reason + ') whose message carries the LLM\'s text');
+      expectBlock(run, name, want);
+    } finally {
+      finishOutcome(run);
+    }
+  }
+
+  // A permission-denied click, then end_turn on the next turn.
+  {
+    const run = outcomeLoop({
+      providerScript: [llmTurn('resp_deny', [{ name: 'click', args: { selector: '#start' } }]), textResponse('resp_end', 'All done.')],
+      permissionDenies: ['click']
+    });
+    try {
+      await runSteps(run, 2);
+      const m = run.recorder.settled ? run.recorder.settled.message : {};
+      check(contentActions(run.h.events, 'executeAction').length === 0 && run.h.session.status === 'completed' && m.reason === 'end_turn',
+        'e2e denied then end_turn: the denied click never ran and the next turn ended with end_turn');
+      expectBlock(run, 'e2e denied then end_turn', { outcome: 'done', reason: 'end_turn', uncertain_unobserved: false, human_gate: null });
+    } finally {
+      finishOutcome(run);
+    }
+  }
+
+  // An uncalibrated gateway: one attempt, then the session latch; the outcome comes from task state.
+  {
+    const run = outcomeLoop({ providerScript: [LLM_CLICK, LLM_DONE], answers: [(request) => ({ body: gateway.uncalibratedBody(request) })] });
+    try {
+      await runUntilSettled(run, 4);
+      const state = fastStateOf(run);
+      check(run.rec.decides.length === 1 && state.off === true && state.offReason === 'not_calibrated' && total(run, 'fast') === 0,
+        'e2e uncalibrated tally: one decide, no fast step, and 68 latched the session ' + state.offReason);
+      const b = expectBlock(run, 'e2e uncalibrated tally', { outcome: 'done', reason: 'complete_task', uncertain_unobserved: false, human_gate: null });
+      check(b && b.jev && b.jev.attempts === 1 && b.jev.calls === 1 && b.jev.fast_steps === 0 && b.jev.calibration === 'uncalibrated'
+        && b.jev.latched === state.offReason && b.jev.exhausted === null,
+      'e2e uncalibrated tally: jev reports attempts 1, calls 1, fast_steps 0, calibration uncalibrated and latched ' + state.offReason
+        + ' (' + JSON.stringify(b && b.jev) + ')');
+    } finally {
+      finishOutcome(run);
+    }
+  }
+
+  // Twelve accepted fast steps spend the run_task step budget; the LLM still ends the task.
+  {
+    const ref = {};
+    const run = outcomeLoop({
+      entries: markedItems(20),
+      answers: [(request, info, index) => calibratedPick('click', P70_LABEL + ' Item ' + (index + 1))(request)],
+      providerScript: (index) => (ref.run && jevFastOf(ref.run).latched === 'step_budget' ? doneTurn('budget_done') : snapshotTurn('budget_' + index))
+    });
+    ref.run = run;
+    try {
+      await runUntilSettled(run, 25);
+      const latched = jevFastOf(run).latched;
+      check(total(run, 'fast') === 12 && latched === 'step_budget' && run.h.session.status === 'completed',
+        'e2e step budget tally: twelve fast steps ran, 68 latched the command ' + latched + ' and the task completed');
+      const last = run.steps[run.steps.length - 1];
+      const fastTools = (run.h.session.actionHistory || []).filter((e) => e && e.decisionSource === 'jev').map((e) => e.tool);
+      check(run.recorder.settled && run.recorder.settled.message.reason === 'complete_task' && last.provider === 1 && last.fast === 0
+        && fastTools.length === 12 && fastTools.every((t) => TERMINAL_TOOLS.indexOf(t) === -1),
+      'e2e step budget tally: the LLM\'s complete_task ended the task; no fast step named a terminal tool');
+      check(labelMarkerInState(run), 'e2e step budget tally: the menu label marker reached the session state');
+      const b = expectBlock(run, 'e2e step budget tally', { outcome: 'done', reason: 'complete_task', uncertain_unobserved: false, human_gate: null });
+      check(b && b.jev && b.jev.fast_steps === 12 && b.jev.exhausted === latched && b.jev.latched === null,
+        'e2e step budget tally: jev reports fast_steps 12 and exhausted ' + latched + ' (' + JSON.stringify(b && b.jev) + ')');
+    } finally {
+      finishOutcome(run);
+    }
+  }
+
+  // A transient timeout between calibrated answers: reported, never the outcome.
+  {
+    const script = () => [snapshotTurn('tr_1'), snapshotTurn('tr_2'), doneTurn('tr_done')];
+    const answersWith = (second) => [calibratedPick('click', MARKED_NEXT), second, calibratedPick('click', MARKED_NEXT), catchAll];
+    const blocks = {};
+    for (const [label, second] of [['timeout', () => ({ body: gateway.fallbackBody('timeout', 504) })], ['reference', catchAll]]) {
+      const run = outcomeLoop({ providerScript: script(), answers: answersWith(second) });
+      try {
+        await runUntilSettled(run, 8);
+        blocks[label] = { b: run.recorder.settled ? run.recorder.settled.block : null, run: { decides: run.rec.decides.length, fast: total(run, 'fast'),
+          status: run.h.session.status, off: fastStateOf(run).off, latched: jevFastOf(run).latched } };
+        if (label === 'timeout') {
+          check(run.rec.decides.length === 4 && total(run, 'fast') === 2 && run.steps[2].decides === 1 && run.steps[2].provider === 1
+            && run.steps[3].fast === 1 && fastStateOf(run).off === false && !jevFastOf(run).latched,
+          'e2e transient tally: the timeout (decide 2) cost its iteration only, and the calibrated answer after it acted (' + JSON.stringify(blocks[label].run) + ')');
+          const b = expectBlock(run, 'e2e transient tally', { outcome: 'done', reason: 'complete_task', uncertain_unobserved: false, human_gate: null });
+          check(b && b.jev && b.jev.escalations.timeout === 1 && b.jev.latched === null && b.jev.fast_steps === 2,
+            'e2e transient tally: jev.escalations.timeout is 1 (' + JSON.stringify(b && b.jev) + ')');
+        }
+      } finally {
+        finishOutcome(run);
+      }
+    }
+    const t = blocks.timeout.b;
+    const r = blocks.reference.b;
+    check(t && r && util.isDeepStrictEqual(blocks.timeout.run, Object.assign({}, blocks.reference.run))
+      && ['outcome', 'reason', 'uncertain_unobserved', 'human_gate'].every((k) => t[k] === r[k]) && !(r.jev && r.jev.escalations.timeout),
+    'e2e transient tally: the outcome equals the reference run whose second answer is a calibrated catch-all instead of the timeout');
+  }
+  {
+    // WR-04 (70-SYNC-RECHECK Drift substitution 5): a timeout before any
+    // calibrated answer latches the session; still only reported.
+    const run = outcomeLoop({ providerScript: [LLM_CLICK, LLM_DONE], answers: [() => ({ body: gateway.fallbackBody('timeout') }), calibratedPick('click', MARKED_NEXT)] });
+    try {
+      await runUntilSettled(run, 4);
+      const state = fastStateOf(run);
+      check(run.rec.decides.length === 1 && state.off === true && state.offReason === 'timeout',
+        'e2e transient tally (WR-04): a timeout before any calibrated answer latches the session timeout, so the calibrated answer is never asked for');
+      const b = expectBlock(run, 'e2e transient tally (WR-04)', { outcome: 'done', reason: 'complete_task', uncertain_unobserved: false, human_gate: null });
+      check(b && b.jev && b.jev.escalations.timeout === 1 && b.jev.latched === 'timeout',
+        'e2e transient tally (WR-04): jev.escalations.timeout is 1 and latched is timeout (' + JSON.stringify(b && b.jev) + ')');
+    } finally {
+      finishOutcome(run);
+    }
+  }
+  delete globalThis.FsbFastPath;
+}
+
+const CAPTURE_PAGE ='http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
 const CAPTURE_CASE_LABEL = "case 'jevCaptureObservation': {";
 
 /** background.js's case 'jevCaptureObservation', compiled in this realm over `activeSessions`. */
@@ -2307,6 +2652,8 @@ async function main() {
   await runTaskSafetyParityCases();
   // Phase 70 (70-03 Task 2): the run evidence through the real loop.
   await runEvidenceLoopCases();
+  // Phase 70 (70-05 Task 2): the typed run_task outcome through the real loop.
+  await runTaskOutcomeCases();
   // Plan 68-08 Task 1: recorded-llm capture through the real loop.
   await captureLoopCases();
   terminalToolChecks();
