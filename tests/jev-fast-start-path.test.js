@@ -9,7 +9,9 @@
  *
  *   - fsbFastModeSessionField(storedValue, source): the session.fastMode value
  *     for a start or a follow-up. Only a stored boolean true yields a field;
- *     a run_task start (source 'mcp') gets enabled:false and never fast-steps.
+ *     a run_task start (source 'mcp') gets enabled:true plus budgetProfile
+ *     'run_task', its own frozen fast-path budgets (Phase 70, D-04); every
+ *     other start gets exactly the Phase 68 value, with no budgetProfile key.
  *   - fsbFastPathWithDeadline(promise, ms): resolves the promise's value, or
  *     null on rejection or when the deadline passes first.
  *   - fsbCreateFastPathDeps(): the dependency object the fast-path module
@@ -29,6 +31,11 @@
  * chrome, a stub storage reader and held timers (nothing fires on its own).
  * The call sites are checked on the source, and createSessionHooks must stay
  * byte-identical to P68_START (68-SYNC-RECHECK.md item h).
+ *
+ * Phase 70 (70-02, D-04/D-05) inverts the 68 "run_task is never fast" cases
+ * here: the (true, 'mcp') helper case, the run_task follow-up case and the
+ * capture end-to-end run, which now runs a switched-on run_task and proves it
+ * captures and attempts exactly like an autopilot session.
  *
  * No network, no ports, no real timers. Node 20-safe.
  *
@@ -52,6 +59,11 @@ const bgLines = bgSource.split('\n');
 
 // 68-SYNC-RECHECK.md item h, copied as a literal (this suite never reads .planning).
 const CREATE_SESSION_HOOKS_SHA256 = '10ce1a544f31072f71121b8ee872a4ff6cdd8b07adb1c7a14171b50e4e940780';
+// Phase 70 (70-02): fsbRecomputeFastModeForFollowUp at P70_START (3f7efb0a),
+// with this suite's sliceFunction; D-04 widens the helper and nothing else.
+const RECOMPUTE_FOLLOW_UP_SHA256 = 'bb06f1ffc65fd821fbe2b6a62d91b47bc776b996356fe9bba1aa8ac7412f0a8c';
+// The run_task session field (Phase 70, D-04), keys in this order.
+const RUN_TASK_FIELD = Object.freeze({ enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' });
 
 let passed = 0;
 let failed = 0;
@@ -210,7 +222,7 @@ async function main() {
     'no helper source contains jev text outside the allowlisted tokens fsbJevFastModeEnabled, getJevMenu, fsbJevCaptureArmed and fsbJevCaptureRing');
 
   // -------------------------------------------------------------------------
-  section('fsbFastModeSessionField (D-01, D-03, D-05)');
+  section('fsbFastModeSessionField (D-01, D-05; Phase 70 D-04)');
   {
     const ctx = makeContext();
     const f = ctx.fsbFastModeSessionField;
@@ -218,13 +230,23 @@ async function main() {
       '(true, undefined) -> {enabled:true, stored:true, source:null} (side panel and popup starts)');
     check(json(f(true, 'dashboard')) === json({ enabled: true, stored: true, source: 'dashboard' }),
       '(true, "dashboard") -> enabled:true, source "dashboard"');
-    check(json(f(true, 'mcp')) === json({ enabled: false, stored: true, source: 'mcp' }),
-      '(true, "mcp") -> {enabled:false, stored:true, source:"mcp"} (run_task never fast-steps)');
+    const mcpField = f(true, 'mcp');
+    check(json(mcpField) === json(RUN_TASK_FIELD) && json(Object.keys(mcpField || {})) === json(['enabled', 'stored', 'source', 'budgetProfile']),
+      '(true, "mcp") -> {enabled:true, stored:true, source:"mcp", budgetProfile:"run_task"}, keys in that order (run_task follows the switch with its own budgets, Phase 70 D-04)');
     const offInputs = [[false, undefined], [false, 'mcp'], [undefined, undefined], [undefined, 'dashboard'],
       ['true', undefined], [1, undefined], [null, undefined], [{}, undefined]];
     check(offInputs.every(([v, s]) => f(v, s) === null),
       'false, undefined, "true", 1, null and an object all give null (the field is absent when off)');
-    check(f(true, undefined) !== f(true, undefined), 'every call returns a fresh object');
+    const mcpOff = [[false, 'mcp'], [undefined, 'mcp'], ['true', 'mcp'], [1, 'mcp'], [null, 'mcp'], [{}, 'mcp']];
+    check(mcpOff.every(([v, s]) => f(v, s) === null),
+      'run_task with false, undefined, "true", 1, null or an object stored gives null (no field, the switch-off path; Phase 70 D-04)');
+    // Every non-MCP start is byte-identical to Phase 68: enabled true, source
+    // the start's non-empty string or null, and no budgetProfile key.
+    const phase68 = (s) => ({ enabled: true, stored: true, source: typeof s === 'string' && s ? s : null });
+    const nonMcp = [undefined, null, '', 'dashboard', 'sidepanel', 'popup', 'MCP', ' mcp', 42, {}];
+    check(nonMcp.every((s) => json(f(true, s)) === json(phase68(s)) && !Object.prototype.hasOwnProperty.call(f(true, s), 'budgetProfile')),
+      'every non-MCP start (undefined, null, "", dashboard, sidepanel, popup, "MCP", " mcp", 42, an object) returns exactly the Phase 68 value with no budgetProfile key');
+    check(f(true, undefined) !== f(true, undefined) && f(true, 'mcp') !== f(true, 'mcp'), 'every call returns a fresh object');
   }
 
   // -------------------------------------------------------------------------
@@ -444,8 +466,10 @@ async function main() {
       const r = makeRecomputeContext({ stored: true });
       const session = { status: 'idle' };
       await r.ctx.fsbRecomputeFastModeForFollowUp(session, 'mcp');
-      check(json(session.fastMode) === json({ enabled: false, stored: true, source: 'mcp' }),
-        'a run_task follow-up gets enabled:false');
+      // run_task sends no conversationId, so it never reaches the follow-up
+      // branch; the shared helper still gives the same field as a start.
+      check(json(session.fastMode) === json(RUN_TASK_FIELD),
+        'a follow-up with source "mcp" gets the same run_task field as a start (Phase 70 D-04)');
     }
     for (const stored of [false, undefined, 'true']) {
       const r = makeRecomputeContext({ stored });
@@ -606,6 +630,18 @@ async function main() {
     const hooks = sliceFunction(bgSource, 'createSessionHooks', { exact: true });
     const hash = crypto.createHash('sha256').update(hooks || '', 'utf8').digest('hex');
     check(hash === CREATE_SESSION_HOOKS_SHA256, 'createSessionHooks is byte-identical to P68_START (' + hash.slice(0, 12) + ')');
+
+    // Phase 70 (D-04): the helper is the only change on the start path.
+    check(countOf(start, 'fsbJevFastModeEnabled') === 3,
+      'Phase 70: handleStartAutomation names fsbJevFastModeEnabled only in the per-start settings read (keys, defaults, field line: 3, unchanged)');
+    const recompute = sliceFunction(bgSource, 'fsbRecomputeFastModeForFollowUp');
+    const recomputeHash = crypto.createHash('sha256').update(recompute || '', 'utf8').digest('hex');
+    check(recomputeHash === RECOMPUTE_FOLLOW_UP_SHA256, 'Phase 70: fsbRecomputeFastModeForFollowUp is byte-identical to P70_START (' + recomputeHash.slice(0, 12) + ')');
+    const fieldHelper = sliceFunction(bgSource, 'fsbFastModeSessionField');
+    check(countOf(bgSource, 'budgetProfile') === 1 && countOf(fieldHelper, 'budgetProfile') === 1,
+      'Phase 70: budgetProfile appears once in background.js, inside fsbFastModeSessionField (no other reader, no storage key)');
+    check(!/budgetProfile/.test(bgSource.replace(fieldHelper, '')) && countOf(bgSource, "chrome.storage.local.get(['fsbJevFastModeEnabled'])") === 1,
+      'Phase 70: no new stored value: the switch is the only fast-mode key the deps read');
   }
 
   await captureSections();
@@ -634,6 +670,8 @@ const TOOL_DEFINITIONS_PATH = path.join(ROOT, 'extension', 'ai', 'tool-definitio
 const CONFIG_PATH = path.join(ROOT, 'extension', 'config', 'config.js');
 const CAPTURE_FIXTURE_URL = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
 const CASE_LABEL = "case 'jevCaptureObservation': {";
+const POLICY_PATH = path.join(ROOT, 'extension', 'ai', 'jev-policy.js');
+const gateway = require('./fixtures/jev-fake-gateway.js');
 
 /** An in-memory chrome.storage.local whose get and set settle on a later macrotask (so unserialized writes would race). */
 function makeStore(initial, opts) {
@@ -732,6 +770,127 @@ function makeContentContext() {
   vm.runInContext(fs.readFileSync(ACCESSIBILITY_PATH, 'utf8'), sandbox, { filename: 'accessibility.js' });
   vm.runInContext(fs.readFileSync(DOM_ANALYSIS_PATH, 'utf8'), sandbox, { filename: 'dom-analysis.js' });
   return { FSB, sent, kit };
+}
+
+/**
+ * The service-worker side of one capture run end to end: the real jev-state,
+ * jev-policy and jev-fast-path modules and the background helpers over a stub
+ * chrome whose getJevMenu answer drives the real content registry, plus the
+ * fake uncalibrated gateway as the decide client. `fieldOf(sw)` builds the
+ * session field with the real background helper.
+ */
+function buildEndToEnd(fieldOf, opts) {
+  const o = opts || {};
+  const content = makeContentContext();
+  const F = content.FSB;
+  const button = content.kit.makeElement({ tag: 'button', attrs: { id: 'save', type: 'button' }, text: 'Save' });
+  F.querySelectorWithShadow = (selector) => (selector === '#save' ? button : null);
+
+  const store = makeStore({ fsbJevFastModeEnabled: true, fsbJevCaptureArmed: true });
+  const menuRequests = [];
+  const swChrome = {
+    storage: { local: store.local },
+    tabs: {
+      get: (tabId) => Promise.resolve({ id: tabId, url: CAPTURE_FIXTURE_URL }),
+      sendMessage(tabId, message, options) {
+        menuRequests.push({ tabId, message: JSON.parse(JSON.stringify(message)), options });
+        if (message.action !== 'getJevMenu') return Promise.resolve(null);
+        // What the real getJevMenu case does: rebuild the registry, arm on capture:true, answer the menu.
+        F.jevRefMap.reset();
+        const handle = F.jevRefMap.register(button, 'button', 'Save');
+        F._jevCaptureArm = message.options && message.options.capture === true ? { generation: F.jevRefMap.generation } : null;
+        return Promise.resolve({
+          success: true,
+          generation: F.jevRefMap.generation,
+          url: CAPTURE_FIXTURE_URL,
+          title: 'Checklist',
+          visibleText: 'Checklist Save',
+          moreBelow: false,
+          signature: 'sig-' + F.jevRefMap.generation,
+          count: 1,
+          truncated: false,
+          entries: [{
+            handle, role: 'button', label: 'Save', ops: ['click', 'hover'], inputType: null, autocomplete: null,
+            purpose: { sensitive: false, danger: false, intent: null }, hidden: false, risk: null, fastEligible: true,
+            vaultFilled: false, state: { checked: null, expanded: null, selected: null, pressed: null }, inViewport: true
+          }],
+          recentHandles: (message.options && Array.isArray(message.options.recent) ? message.options.recent : []).map(() => null)
+        });
+      }
+    }
+  };
+  const activeSessions = new Map();
+  // TextEncoder is a service-worker global buildRequest needs once the fast
+  // attempt runs (the request byte budget).
+  const sw = makeContext({
+    chrome: swChrome,
+    setTimeout,
+    clearTimeout,
+    URL,
+    AbortController,
+    TextEncoder,
+    activeSessions,
+    TOOL_REGISTRY: require(TOOL_DEFINITIONS_PATH).TOOL_REGISTRY
+  });
+  vm.runInContext(fs.readFileSync(STATE_PATH, 'utf8'), sw, { filename: 'jev-state.js' });
+  vm.runInContext(fs.readFileSync(POLICY_PATH, 'utf8'), sw, { filename: 'jev-policy.js' });
+  vm.runInContext(fs.readFileSync(FAST_PATH_PATH, 'utf8'), sw, { filename: 'jev-fast-path.js' });
+  sw.fsbFastPathDeps = sw.fsbCreateFastPathDeps();
+  if (o.fixedNow) sw.fsbFastPathDeps.now = () => o.fixedNow;
+  const decides = [];
+  sw.fsbFastPathDeps.jevClient = gateway.makeClient((request) => {
+    decides.push(request);
+    return { body: gateway.uncalibratedBody(request) };
+  }, o.fixedNow ? { now: () => o.fixedNow } : undefined);
+  const runCase = compileCaptureCase(sw);
+
+  const session = {
+    sessionId: 's-e2e',
+    status: 'running',
+    tabId: 7,
+    commandCount: 1,
+    task: 'Open the checklist and press Save.',
+    messages: [],
+    fastMode: fieldOf(sw),
+    agentState: { iterationCount: 0 }
+  };
+  activeSessions.set(session.sessionId, session);
+  return { content, F, button, store, menuRequests, sw, runCase, session, decides };
+}
+
+/**
+ * Three iterations of one command end to end, with a fixed clock: the LLM's
+ * first turn (it clicks Save, observed), then two more LLM-path iterations
+ * after observeTools. Returns everything the session left behind.
+ */
+async function endToEndTrace(fieldOf) {
+  const e = buildEndToEnd(fieldOf, { fixedNow: 1789639200000 });
+  const declines = [];
+  for (let iteration = 1; iteration <= 3; iteration += 1) {
+    const out = await e.sw.FsbFastPath.beforeTurn(e.session, { sessionId: e.session.sessionId, iteration });
+    declines.push(out && out.toolCall ? 'act' : out.decline);
+    e.content.sent.length = 0;
+    e.F.noteJevCaptureObservation('click', { selector: '#save' });
+    for (const message of e.content.sent) e.runCase(message, { tab: { id: 7 }, frameId: 0 }, () => {});
+    e.sw.FsbFastPath.observeTools(e.session, [{ id: 'c' + iteration, name: 'click', args: { selector: 'e1' } }],
+      [{ callId: 'c' + iteration, name: 'click', result: { success: true, hadEffect: true, navigationTriggered: false, result: { success: true } } }]);
+  }
+  await settleUntil(() => e.store.data.fsbJevCaptureRing && e.store.data.fsbJevCaptureRing.records.length === 2);
+  const state = e.session._fastPath || {};
+  return JSON.parse(JSON.stringify({
+    field: e.session.fastMode,
+    declines,
+    ring: e.store.data.fsbJevCaptureRing || null,
+    menuRequests: e.menuRequests,
+    decides: e.decides.length,
+    decideRequests: e.decides,
+    storeCalls: e.store.calls,
+    off: state.off,
+    offReason: state.offReason,
+    pending: state.capturePending || null,
+    measurement: e.session.jevMeasurement || null,
+    messages: e.session.messages
+  }));
 }
 
 async function captureSections() {
@@ -919,77 +1078,18 @@ async function captureSections() {
   // -------------------------------------------------------------------------
   section('capture end to end: content observation -> background case -> module -> ring (Pitfall 10)');
   {
-    const content = makeContentContext();
-    const F = content.FSB;
-    const button = content.kit.makeElement({ tag: 'button', attrs: { id: 'save', type: 'button' }, text: 'Save' });
-    F.querySelectorWithShadow = (selector) => (selector === '#save' ? button : null);
+    // Phase 70 (D-05): the run_task session carries the real helper's field
+    // for (true, 'mcp'), so its first iteration is the LLM's turn and its
+    // second makes one fast attempt (the uncalibrated gateway latches it).
+    const e = buildEndToEnd((sw) => sw.fsbFastModeSessionField(true, 'mcp'));
+    const { content, F, store, menuRequests, sw, runCase, session, decides } = e;
     check(typeof F.noteJevCaptureObservation === 'function', 'the real FSB.noteJevCaptureObservation is loaded');
-
-    // The service worker: real jev-state.js, jev-fast-path.js and background helpers over a stub chrome.
-    const store = makeStore({ fsbJevFastModeEnabled: true, fsbJevCaptureArmed: true });
-    const menuRequests = [];
-    const swChrome = {
-      storage: { local: store.local },
-      tabs: {
-        get: (tabId) => Promise.resolve({ id: tabId, url: CAPTURE_FIXTURE_URL }),
-        sendMessage(tabId, message, options) {
-          menuRequests.push({ tabId, message: JSON.parse(JSON.stringify(message)), options });
-          if (message.action !== 'getJevMenu') return Promise.resolve(null);
-          // What the real getJevMenu case does: rebuild the registry, arm on capture:true, answer the menu.
-          F.jevRefMap.reset();
-          const handle = F.jevRefMap.register(button, 'button', 'Save');
-          F._jevCaptureArm = message.options && message.options.capture === true ? { generation: F.jevRefMap.generation } : null;
-          return Promise.resolve({
-            success: true,
-            generation: F.jevRefMap.generation,
-            url: CAPTURE_FIXTURE_URL,
-            title: 'Checklist',
-            visibleText: 'Checklist Save',
-            moreBelow: false,
-            signature: 'sig-' + F.jevRefMap.generation,
-            count: 1,
-            truncated: false,
-            entries: [{
-              handle, role: 'button', label: 'Save', ops: ['click', 'hover'], inputType: null, autocomplete: null,
-              purpose: { sensitive: false, danger: false, intent: null }, hidden: false, risk: null, fastEligible: true,
-              vaultFilled: false, state: { checked: null, expanded: null, selected: null, pressed: null }, inViewport: true
-            }],
-            recentHandles: (message.options && Array.isArray(message.options.recent) ? message.options.recent : []).map(() => null)
-          });
-        }
-      }
-    };
-    const activeSessions = new Map();
-    const sw = makeContext({
-      chrome: swChrome,
-      setTimeout,
-      clearTimeout,
-      URL,
-      AbortController,
-      activeSessions,
-      TOOL_REGISTRY: require(TOOL_DEFINITIONS_PATH).TOOL_REGISTRY
-    });
-    vm.runInContext(fs.readFileSync(STATE_PATH, 'utf8'), sw, { filename: 'jev-state.js' });
-    vm.runInContext(fs.readFileSync(FAST_PATH_PATH, 'utf8'), sw, { filename: 'jev-fast-path.js' });
-    sw.fsbFastPathDeps = sw.fsbCreateFastPathDeps();
-    const runCase = compileCaptureCase(sw);
-
-    const session = {
-      sessionId: 's-e2e',
-      status: 'running',
-      tabId: 7,
-      commandCount: 1,
-      task: 'Open the checklist and press Save.',
-      messages: [],
-      fastMode: { enabled: false, stored: true, source: 'mcp' },
-      agentState: { iterationCount: 0 }
-    };
-    activeSessions.set(session.sessionId, session);
+    check(json(session.fastMode) === json(RUN_TASK_FIELD), 'capture end to end: the run_task session carries the real helper field for (true, "mcp")');
 
     const first = await sw.FsbFastPath.beforeTurn(session, { sessionId: session.sessionId, iteration: 1 });
     const pending = session._fastPath && session._fastPath.capturePending;
-    check(first.decline === 'not_enabled' && pending && pending.generation === F.jevRefMap.generation,
-      'capture end to end: the run_task iteration holds a capture for the armed menu generation');
+    check(first.decline === 'first_llm_turn' && pending && pending.generation === F.jevRefMap.generation,
+      'capture end to end: the run_task first iteration (the LLM\'s turn) holds a capture for the armed menu generation');
     check(menuRequests.length === 1 && menuRequests[0].message.options.capture === true && json(menuRequests[0].options) === json({ frameId: 0 }),
       'capture end to end: one getJevMenu with capture:true to frame 0');
 
@@ -1003,9 +1103,12 @@ async function captureSections() {
       'capture end to end: the background case delivers the content message and the pending capture carries handle j1');
     sw.FsbFastPath.observeTools(session, [{ id: 'c1', name: 'click', args: { selector: 'e1' } }],
       [{ callId: 'c1', name: 'click', result: { success: true, hadEffect: true, navigationTriggered: false, result: { success: true } } }]);
-    await sw.FsbFastPath.beforeTurn(session, { sessionId: session.sessionId, iteration: 2 });
+    const secondTurn = await sw.FsbFastPath.beforeTurn(session, { sessionId: session.sessionId, iteration: 2 });
     check(await settleUntil(() => store.data.fsbJevCaptureRing && store.data.fsbJevCaptureRing.records.length === 1),
       'capture end to end: the next turn writes one ring record');
+    check(secondTurn.decline === 'not_calibrated' && decides.length === 1 && menuRequests.length === 2 && menuRequests[1].message.options.capture === true,
+      'capture end to end: the run_task second iteration makes its one fast attempt (one capture:true menu, one decide) and the uncalibrated answer latches it ('
+      + json(secondTurn) + ')');
     const ring = store.data.fsbJevCaptureRing;
     const record = ring && ring.records[0];
     check(record && json(record.label) === json({ op: 'click', target: 'j1' }) && record.url === CAPTURE_FIXTURE_URL && record.iteration === 1,
@@ -1024,6 +1127,20 @@ async function captureSections() {
     runCase(exact, { tab: { id: 7 }, frameId: 0 }, () => {});
     check(second && second.observation && second.observation.handle === 'j1', 'capture end to end: the exact message from frame 0 still labels it');
     check(menuRequests.every((m) => m.message.action === 'getJevMenu'), 'capture end to end: capture sent no request other than getJevMenu');
+  }
+
+  // -------------------------------------------------------------------------
+  section('capture end to end: a switched-on run_task equals an autopilot session (Phase 70 D-05)');
+  {
+    const runTask = await endToEndTrace((sw) => sw.fsbFastModeSessionField(true, 'mcp'));
+    const autopilot = await endToEndTrace((sw) => sw.fsbFastModeSessionField(true, undefined));
+    check(json(runTask.field) === json(RUN_TASK_FIELD) && json(autopilot.field) === json({ enabled: true, stored: true, source: null }),
+      'run_task capture equals autopilot: the two sessions carry the real helper fields for (true, "mcp") and (true, undefined)');
+    check(runTask.ring.records.length === 2 && runTask.decides === 1 && json(runTask.declines) === json(['first_llm_turn', 'not_calibrated', 'not_calibrated']),
+      'run_task capture equals autopilot: the run_task run captures two LLM turns and makes one decide (' + json(runTask.declines) + ')');
+    const strip = (t) => Object.assign({}, t, { field: null });
+    check(json(strip(runTask)) === json(strip(autopilot)),
+      'run_task capture equals autopilot: the same capture records, menu requests, observations, decide requests and latches as the autopilot field');
   }
 
   // -------------------------------------------------------------------------

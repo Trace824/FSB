@@ -4011,7 +4011,11 @@ async function getStorageWithTimeout(keys, timeout = 3000, defaults = {}) {
 function fsbFastModeSessionField(storedValue, source) {
   if (storedValue !== true) return null;
   const from = typeof source === 'string' && source ? source : null;
-  return { enabled: from !== 'mcp', stored: true, source: from };
+  // Phase 70 (D-04) supersedes the D-03 sentence above: a run_task start
+  // (source 'mcp') follows the switch too, under its own frozen budget
+  // profile. Every other start keeps the Phase 68 value.
+  if (from === 'mcp') return { enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' };
+  return { enabled: true, stored: true, source: from };
 }
 
 /**

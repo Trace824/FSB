@@ -33,7 +33,10 @@
  *   - permission denial: the real permission hook refuses the fast click, no
  *     content action is sent and the hand-off says nothing ran;
  *   - first-turn rule: the first iteration of a follow-up command requests no menu;
- *   - run_task: a session with fastMode {enabled:false, source:'mcp'} equals the golden;
+ *   - run_task (Phase 70, D-04/D-05): a session whose fastMode is the real
+ *     fsbFastModeSessionField(true, 'mcp') output takes an accepted fast step
+ *     exactly like an autopilot session; built from (false, 'mcp') or
+ *     (undefined, 'mcp') it has no field and equals the golden;
  *   - containment: a throwing or rejecting beforeTurn, a throwing afterStep or
  *     observeTools never reaches the API-error path, and a stop during the
  *     decision ends the iteration with no provider call and no schedule.
@@ -59,7 +62,8 @@
  * LLM-path iteration, labels from the LLM's own tool and the target the
  * content script observed (through the real background case), drops counted
  * by reason, and never a second decide; unarmed, no menu after the latch.
- * The run_task case now allows exactly one read of the internal arm key.
+ * (Phase 70 replaced the 68-08 run_task golden case, which allowed one read
+ * of the internal arm key, with the run_task cases above.)
  *
  * Only one harness is live at a time: createHarness installs its own chrome
  * and timer globals, and dispose() restores them.
@@ -608,32 +612,81 @@ async function permissionDenialCase() {
   }
 }
 
+/** A jevMeasurement copy with its wall-clock timings (attempt latencyMs, command jevMs) nulled. */
+function wallClockFree(measurement) {
+  const copy = JSON.parse(JSON.stringify(measurement || null));
+  if (!copy) return copy;
+  for (const attempt of copy.attempts || []) attempt.latencyMs = null;
+  for (const command of copy.commands || []) command.jevMs = null;
+  return copy;
+}
+
 async function runTaskCase() {
-  section('run_task: fastMode {enabled:false, source:"mcp"} stays on the golden path apart from one capture arm read (D-03, D-22)');
-  const decides = [];
-  let tabReads = 0;
-  const deps = createBackgroundDeps();
-  const getTabUrl = deps.getTabUrl;
-  deps.getTabUrl = (tabId) => { tabReads += 1; return getTabUrl(tabId); };
-  const { record, harness } = await H.runGoldenScenario({
-    loadFastPath: true,
-    storage: { fsbJevFastModeEnabled: true },
-    deps,
-    jevResponder: (request) => { decides.push(request); return catchAll(request); },
-    sessionPatch: { fastMode: { enabled: false, stored: true, source: 'mcp' } }
-  });
-  check(harness.session.fastMode && harness.session.fastMode.enabled === false, 'the run_task session carries enabled:false');
-  // 68-08: a run_task command with the switch on reads the internal capture
-  // arm once (D-22 capture keys on the page, not the source); unarmed, it
-  // reads nothing else and the run is otherwise the golden.
-  const isArmRead = (e) => e.type === 'storage-get' && util.isDeepStrictEqual(e.keys, ['fsbJevCaptureArmed']);
-  const armReads = record.events.filter(isArmRead);
-  check(armReads.length === 1 && tabReads === 0, 'run_task: the command reads the capture arm exactly once and never the tab url (unarmed)');
-  check(!record.events.some((e) => e.type === 'storage-set'), 'run_task: nothing is written to storage');
-  check(matchesGolden({ events: record.events.filter((e) => !isArmRead(e)), final: record.final }, 'run_task'),
-    'run_task: apart from that one read, content messages, provider requests, tool calls and session.messages equal the golden');
-  check(decides.length === 0 && !harness.contentMessages.some((m) => m.message && m.message.action === 'getJevMenu'),
-    'run_task: no menu request and no decide call');
+  section('run_task takes an accepted fast step: the real helper field for (true, "mcp") through the real tool loop (Phase 70 D-04, D-05)');
+  const fieldFor = loadSessionFieldHelper();
+  const field = fieldFor(true, 'mcp');
+  check(JSON.stringify(field) === JSON.stringify({ enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' }),
+    'run_task takes an accepted fast step: the session field is the real helper output for (true, "mcp") (' + JSON.stringify(field) + ')');
+  const runs = {};
+  for (const [name, fastMode] of [['run_task', field], ['autopilot', Object.assign({}, FAST_FIELD)]]) {
+    const { h, decideRequests } = fastHarness({ harness: { providerScript: [LLM_CLICK, LLM_DONE, LLM_DONE_2], sessionPatch: { fastMode } } });
+    try {
+      await h.step();
+      await h.step();
+      await h.step();
+      runs[name] = { h, decideRequests, events: JSON.parse(JSON.stringify(h.events)), messages: JSON.parse(JSON.stringify(h.session.messages)),
+        status: h.session.status,
+        // actionHistory timestamps are the loop's wall clock; everything else must match.
+        actionHistory: JSON.parse(JSON.stringify(h.session.actionHistory || [])).map((event) => Object.assign(event, { timestamp: null })),
+        measurement: wallClockFree(h.session.jevMeasurement) };
+    } finally {
+      h.dispose();
+    }
+  }
+  const r = runs.run_task;
+  const it1 = stepEvents(r.events, 1);
+  check(contentActions(it1, 'getJevMenu').length === 0 && ofType(it1, 'provider').length === 1,
+    'run_task takes an accepted fast step: iteration 1 runs the LLM and requests no menu (first-turn rule)');
+  const it2 = stepEvents(r.events, 2);
+  const actions = contentActions(it2, 'executeAction');
+  check(ofType(it2, 'provider').length === 0 && contentActions(it2, 'getJevMenu').length === 1 && actions.length === 1 && actions[0].message.tool === 'click',
+    'run_task takes an accepted fast step: iteration 2 makes no provider request and sends one executeAction with tool "click"');
+  const params = actions.length === 1 ? actions[0].message.params : {};
+  check(params.jevHandle === 'j1' && params.jevGeneration === 'gen1abcd-1' && params.expectedRole === 'button' && params.expectedName === 'Next'
+    && !('selector' in params) && !('text' in params) && !('value' in params),
+  'run_task takes an accepted fast step: params carry jevHandle, jevGeneration, expectedRole and expectedName and no selector, text or value');
+  const it3 = stepEvents(r.events, 3);
+  const requests3 = ofType(it3, 'provider');
+  const handoffs = requests3.length === 1 ? handoffMessages(requests3[0].requestBody.messages) : [];
+  check(requests3.length === 1 && handoffs.length === 1 && contentActions(it3, 'executeAction').length === 0,
+    'run_task takes an accepted fast step: iteration 3 runs the LLM with exactly one FAST MODE HAND-OFF user message');
+  check(r.status === 'completed' && r.decideRequests.length === 2, 'run_task takes an accepted fast step: the LLM completes the task after the hand-off (two decide calls)');
+  const a = runs.autopilot;
+  check(util.isDeepStrictEqual(r.events, a.events) && util.isDeepStrictEqual(r.messages, a.messages) && util.isDeepStrictEqual(r.actionHistory, a.actionHistory)
+    && util.isDeepStrictEqual(r.measurement, a.measurement) && util.isDeepStrictEqual(r.decideRequests, a.decideRequests),
+  'run_task takes an accepted fast step: the run equals the autopilot-field run event for event (content, provider, schedules, messages, actionHistory, measurement and decide requests, wall-clock timings aside)');
+
+  section('run_task switch off: the helper gives no field, so the run equals the golden (Phase 70 D-04, D-05)');
+  for (const [label, stored, storage] of [['(false, "mcp")', false, { fsbJevFastModeEnabled: false }], ['(undefined, "mcp")', undefined, {}]]) {
+    const off = fieldFor(stored, 'mcp');
+    check(off === null, 'run_task switch off: fsbFastModeSessionField' + label + ' is null, so the session has no fastMode field');
+    const rec = recordingDeps();
+    const decides = [];
+    const { record, harness } = await H.runGoldenScenario({
+      loadFastPath: true,
+      storage,
+      deps: rec.deps,
+      jevResponder: (request) => { decides.push(request); return catchAll(request); },
+      sessionPatch: off ? { fastMode: off } : {}
+    });
+    check(!('fastMode' in harness.session), 'run_task switch off: ' + label + ' session carries no fastMode field');
+    check(matchesGolden(record, 'run_task switch off ' + label), 'run_task switch off: ' + label + ' equals tests/fixtures/jev-fast-loop-off-golden.json');
+    check(rec.calls.length === 0 && decides.length === 0 && !harness.contentMessages.some((m) => m.message && m.message.action === 'getJevMenu'),
+      'run_task switch off: ' + label + ' touches no fast-path dependency, requests no menu and makes no decide call');
+    check(!record.events.some((e) => e.type === 'storage-set') && !('_fastPath' in harness.session) && !('jevMeasurement' in harness.session),
+      'run_task switch off: ' + label + ' writes nothing to storage and leaves no fast-path state');
+  }
+  delete globalThis.FsbFastPath;
 }
 
 /** A harness whose FsbFastPath is a stub; returns {h}. */

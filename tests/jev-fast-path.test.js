@@ -23,7 +23,12 @@
  *     abortInFlight;
  *   - 68-08 capture: the gate (arm once per command, loopback fixture url,
  *     stored switch, LLM path), its cost, one menu per LLM-path iteration,
- *     labels and drops, the record shape and noteCaptureObservation.
+ *     labels and drops, the record shape and noteCaptureObservation;
+ *   - Phase 70 (70-02): the run_task budget profile (BUDGET_PROFILES,
+ *     budgetsFor) and the D-05 inversions: a switched-on run_task session
+ *     captures and attempts exactly like an autopilot session; the capture
+ *     mechanics cases run on a hand-built stored, disabled field
+ *     (CAPTURE_ONLY_FIELD) so no fast attempt mixes in.
  *
  * No network, no ports, no real timers. Node 20-safe.
  *
@@ -1375,6 +1380,9 @@ async function orchFirstTurn() {
 }
 
 async function orchNotEnabled() {
+  // A hand-built field whose enabled is false. Since Phase 70 (D-04) no start
+  // produces one (run_task gets enabled:true and its own budget profile); the
+  // module still declines it before any dependency call (D-05 keeps the case).
   const counts = { now: 0, readSwitch: 0, requestMenu: 0, requestSnapshot: 0, getTabUrl: 0 };
   const deps = {};
   for (const name of Object.keys(counts)) {
@@ -1386,7 +1394,7 @@ async function orchNotEnabled() {
   const before = JSON.stringify(session.messages);
   for (let i = 1; i <= 4; i += 1) {
     const out = await FsbFastPath.beforeTurn(session, { sessionId: 's', iteration: i, deps });
-    check(sameJson(out, { decline: 'not_enabled' }), 'a run_task session declines not_enabled at iteration ' + i);
+    check(sameJson(out, { decline: 'not_enabled' }), 'hand-built disabled field declines not_enabled at iteration ' + i);
     if (jf(session)) jf(session).llmTurnSeen = true;
   }
   check(Object.values(counts).every((n) => n === 0), 'not_enabled makes zero calls on every fast-path dependency (' + JSON.stringify(counts) + ')');
@@ -2455,7 +2463,13 @@ async function observeDrivesTask1Cases() {
 // ---------------------------------------------------------------------------
 
 const FIXTURE_URL = 'http://127.0.0.1:53211/r/Ab3dEf9hIj2kLm5nOp8qRs/fixtures/checklist/index.html';
-const RUN_TASK_FIELD = Object.freeze({ enabled: false, stored: true, source: 'mcp' });
+// A hand-built stored but disabled field: capture runs, no fast attempt does.
+// No start produces it since Phase 70 (D-04); the capture mechanics cases use
+// it to isolate capture from fast attempts (the module never reads source).
+const CAPTURE_ONLY_FIELD = Object.freeze({ enabled: false, stored: true, source: 'mcp' });
+// The real helper's run_task field (Phase 70, D-04) and the autopilot field.
+const SWITCHED_ON_RUN_TASK = Object.freeze({ enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' });
+const SWITCHED_ON_AUTOPILOT = Object.freeze({ enabled: true, stored: true, source: null });
 const NONE = CONTRACT.RESERVED_OPTION_KEY;
 const UNCHECKED = Object.freeze({ checked: false, expanded: null, selected: null, pressed: null });
 const RECORD_KEYS = ['builderInput', 'capturedAt', 'command', 'entryCount', 'iteration', 'label', 'menuCap', 'url', 'v'];
@@ -2542,12 +2556,13 @@ function llmTurn(r, calls, seen) {
 }
 
 /**
- * The label one run_task LLM turn gets: turn 1 captures, the LLM runs `calls`
+ * The label one LLM turn gets on a capture-only session (CAPTURE_ONLY_FIELD):
+ * turn 1 captures, the LLM runs `calls`
  * (with an optional observation built from the pending generation), turn 2
  * labels. Returns {ring, drops, r}.
  */
 async function labelOf(calls, seen, rigOptions) {
-  const r = captureRig(Object.assign({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } }, rigOptions || {}));
+  const r = captureRig(Object.assign({ session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } }, rigOptions || {}));
   await r.turn(1);
   const pending = pendingOf(r.session);
   const generation = pending ? pending.generation : null;
@@ -2557,61 +2572,114 @@ async function labelOf(calls, seen, rigOptions) {
 }
 
 async function captureNoCaptureDeps() {
-  const r = rig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  // Phase 70 (D-05): the run_task session is the real helper's switched-on
+  // field, so its first turn is the LLM's, exactly as for autopilot.
+  const r = rig({ session: { fastMode: Object.assign({}, SWITCHED_ON_RUN_TASK) } });
   const out = await r.turn(1);
-  check(sameJson(out, { decline: 'not_enabled' }) && r.log.now === 0 && r.log.readSwitch === 0 && r.log.requestMenu.length === 0
+  check(sameJson(out, { decline: 'first_llm_turn' }) && r.log.now === 0 && r.log.readSwitch === 0 && r.log.requestMenu.length === 0
     && r.log.getTabUrl === 0 && r.log.requestSnapshot.length === 0 && r.client.calls.length === 0,
-  'capture: deps without readCaptureArm, appendCaptureRecord and noteCaptureDrop make no call for a run_task session (68-05 deps unchanged)');
+  'capture: deps without readCaptureArm, appendCaptureRecord and noteCaptureDrop make no call on a run_task session\'s first turn (68-05 deps unchanged)');
   check(!hasOwn(fp(r.session), 'capturePending'), 'capture: no pending capture key without the capture deps');
-  const partial = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const twin = rig({ session: { fastMode: Object.assign({}, SWITCHED_ON_AUTOPILOT) } });
+  const twinOut = await twin.turn(1);
+  check(sameJson(twinOut, out) && sameJson(twin.log, r.log) && sameJson(fp(twin.session), fp(r.session)),
+    'run_task capture equals autopilot: without the capture deps both fields decline the first turn with the same (empty) call log');
+  const partial = captureRig({ session: { fastMode: Object.assign({}, SWITCHED_ON_RUN_TASK) } });
   delete partial.deps.noteCaptureDrop;
   await partial.turn(1);
   check(partial.log.readCaptureArm === 0 && partial.log.requestMenu.length === 0, 'capture: a deps object missing one capture member disables capture');
 }
 
-async function captureRunTask() {
-  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
-  const out = await r.turn(1);
-  check(sameJson(out, { decline: 'not_enabled' }), 'capture: a run_task session still declines not_enabled (' + JSON.stringify(out) + ')');
-  check(sameJson(r.order, ['arm', 'url:7', 'switch', 'menu']), 'capture: gate order is the arm, the tab url, the stored switch, then one menu (' + r.order.join(', ') + ')');
-  check(r.log.requestMenu.length === 1 && sameJson(r.log.requestMenu[0].options, { cap: 48, recent: [], capture: true })
-    && r.log.requestMenu[0].deadlineMs === 1500 && r.log.requestMenu[0].tabId === 7,
-  'capture: the capture menu is one getJevMenu request with capture:true, the menu cap and the menu deadline');
-  check(r.log.requestSnapshot.length === 0 && r.client.calls.length === 0, 'capture: a run_task capture never asks Jev and takes no snapshot');
-  const pending = pendingOf(r.session);
-  check(pending !== null && pending.generation === 'cafe0001-1' && pending.observation === null, 'capture: the pending capture holds the menu generation');
-  check(r.ring.length === 0 && r.drops.length === 0, 'capture: nothing is written before the LLM turn is labelled');
-
+/**
+ * One armed-fixture capture script under `field`: the LLM's first turn (it
+ * ticks Alpha, observed), the next iteration (a fast attempt when the field
+ * is enabled) and one more after a snapshot turn. Returns the rig and a
+ * trace of everything the run left behind.
+ */
+async function armedCaptureRun(field) {
+  const r = captureRig({ session: { fastMode: Object.assign({}, field) } });
+  const outcomes = [];
+  outcomes.push(await r.turn(1));
+  const first = copyJson({ order: r.order, log: r.log, pending: pendingOf(r.session), ring: r.ring, drops: r.drops, decides: r.client.calls.length });
   llmTurn(r, [['check_box', { selector: 'e1' }]], observation('cafe0001-1', 'j1', true, 'toggleCheckbox'));
-  await r.turn(2);
-  check(r.ring.length === 1 && sameJson(r.ring[0].label, { op: 'check_box', target: 'j1' }),
-    'capture: the next turn labels the record with the LLM tool and the observed handle (' + JSON.stringify(r.ring[0] && r.ring[0].label) + ')');
-  check(r.ring.length === 1 && r.ring[0].command === 1 && r.ring[0].iteration === 1, 'capture: the record names its command and iteration');
-  check(pendingOf(r.session) !== null && pendingOf(r.session).generation === 'cafe0001-2', 'capture: iteration 2 holds its own pending capture');
-  check(r.client.calls.length === 0, 'capture: a captured run_task session never calls decide');
+  outcomes.push(await r.turn(2));
+  const second = copyJson({ log: r.log, pending: pendingOf(r.session), ring: r.ring, decides: r.client.calls.length });
+  llmTurn(r, [['get_page_snapshot', {}]], null);
+  outcomes.push(await r.turn(3));
+  const state = fp(r.session);
+  return {
+    r,
+    first,
+    second,
+    trace: copyJson({ outcomes, order: r.order, log: r.log, ring: r.ring, drops: r.drops, decideRequests: r.client.calls.map((c) => c.request),
+      pending: pendingOf(r.session), off: state.off, offReason: state.offReason, measurement: r.session.jevMeasurement || null, messages: r.session.messages })
+  };
 }
 
-async function captureGateCost() {
-  // An unarmed run_task command: one arm read, nothing else, for every iteration.
-  const r = captureRig({ armed: false, tabUrl: 'https://shop.example/cart', session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+async function captureRunTask() {
+  // Phase 70 (D-05) inverts 68-08's "a run_task session is captured but never
+  // calls decide": a switched-on run_task session is captured and makes its
+  // fast attempts exactly like an autopilot session with the same switch.
+  const run = await armedCaptureRun(SWITCHED_ON_RUN_TASK);
+  const t = run.trace;
+  check(sameJson(t.outcomes[0], { decline: 'first_llm_turn' }), 'capture: a run_task session\'s first turn is the LLM\'s (' + JSON.stringify(t.outcomes[0]) + ')');
+  check(sameJson(run.first.order, ['arm', 'url:7', 'switch', 'menu']), 'capture: gate order is the arm, the tab url, the stored switch, then one menu (' + run.first.order.join(', ') + ')');
+  check(run.first.log.requestMenu.length === 1 && sameJson(run.first.log.requestMenu[0].options, { cap: 48, recent: [], capture: true })
+    && run.first.log.requestMenu[0].deadlineMs === 1500 && run.first.log.requestMenu[0].tabId === 7,
+  'capture: the capture menu is one getJevMenu request with capture:true, the menu cap and the menu deadline');
+  check(run.first.log.requestSnapshot.length === 0 && run.first.decides === 0, 'capture: the run_task first-turn capture never asks Jev and takes no snapshot');
+  check(run.first.pending !== null && run.first.pending.generation === 'cafe0001-1' && run.first.pending.observation === null, 'capture: the pending capture holds the menu generation');
+  check(run.first.ring.length === 0 && run.first.drops.length === 0, 'capture: nothing is written before the LLM turn is labelled');
+  check(run.second.ring.length === 1 && sameJson(run.second.ring[0].label, { op: 'check_box', target: 'j1' }),
+    'capture: the next turn labels the record with the LLM tool and the observed handle (' + JSON.stringify(run.second.ring[0] && run.second.ring[0].label) + ')');
+  check(run.second.ring.length === 1 && run.second.ring[0].command === 1 && run.second.ring[0].iteration === 1, 'capture: the record names its command and iteration');
+  check(sameJson(t.outcomes[1], { decline: 'not_calibrated' }) && run.second.decides === 1 && run.second.log.requestMenu.length === 2
+    && run.second.log.requestMenu[1].options.capture === true,
+  'capture: the run_task session\'s next turn makes its one fast attempt (one capture:true menu, one decide) and the uncalibrated answer latches it');
+  check(run.second.pending !== null && run.second.pending.generation === 'cafe0001-2', 'capture: iteration 2 holds its own pending capture (the reused menu)');
+  check(sameJson(t.outcomes[2], { decline: 'not_calibrated' }) && t.decideRequests.length === 1 && t.ring.length === 2 && t.off === true && t.offReason === 'not_calibrated',
+    'capture: after the latch the run_task session is still captured and never asks Jev again (one decide in the session, D-11)');
+  const autopilot = await armedCaptureRun(SWITCHED_ON_AUTOPILOT);
+  check(sameJson(run.trace, autopilot.trace),
+    'run_task capture equals autopilot: on an armed fixture page the run_task field gives the same capture records, drops, gate order and fast-attempt calls (switch, menus, snapshots, decide requests) as the autopilot field');
+}
+
+/** Two commands of 5 iterations each on an unarmed, non-fixture page under `field`. */
+async function unarmedCommandsRun(field) {
+  const r = captureRig({ armed: false, tabUrl: 'https://shop.example/cart', session: { fastMode: Object.assign({}, field) } });
   for (let i = 1; i <= 5; i += 1) {
     await r.turn(i);
     llmTurn(r, [['click', { selector: 'e2' }]], null);
   }
-  check(r.log.readCaptureArm === 1 && r.log.getTabUrl === 0 && r.log.readSwitch === 0 && r.log.requestMenu.length === 0
-    && r.log.requestSnapshot.length === 0 && r.client.calls.length === 0,
-  'capture gate cost: an unarmed run_task command reads the arm once over 5 iterations and makes no tab, switch, menu, snapshot or decide call');
+  const first = copyJson({ log: r.log, decides: r.client.calls.length });
   nextCommand(r.session);
   for (let i = 1; i <= 5; i += 1) {
     await r.turn(i);
     llmTurn(r, [['click', { selector: 'e2' }]], null);
   }
-  check(r.log.readCaptureArm === 2 && r.log.getTabUrl === 0 && r.log.readSwitch === 0 && r.log.requestMenu.length === 0,
+  return { r, first, trace: copyJson({ log: r.log, decideRequests: r.client.calls.map((c) => c.request), ring: r.ring, drops: r.drops, order: r.order }) };
+}
+
+async function captureGateCost() {
+  // Phase 70 (D-05) inverts 68-08's "an unarmed run_task command makes no
+  // switch, menu or decide call": a switched-on run_task command reads the
+  // arm once per command and otherwise pays exactly what autopilot pays.
+  const run = await unarmedCommandsRun(SWITCHED_ON_RUN_TASK);
+  const twin = await unarmedCommandsRun(SWITCHED_ON_AUTOPILOT);
+  check(run.first.log.readCaptureArm === 1 && run.first.log.getTabUrl === 0 && twin.first.log.readCaptureArm === 1 && twin.first.log.getTabUrl === 0,
+    'capture gate cost: an unarmed run_task command reads the arm once over 5 iterations and never the tab url, like autopilot');
+  check(sameJson(run.first, twin.first),
+    'run_task capture equals autopilot: over 5 iterations of one unarmed command the readSwitch, getTabUrl, requestMenu, requestSnapshot and decide logs are identical');
+  check(run.first.log.readSwitch === 1 && run.first.log.requestMenu.length === 1 && run.first.log.requestMenu[0].options.capture === false
+    && run.first.decides === 1 && run.first.log.requestSnapshot.length === 0,
+  'capture gate cost: that cost is one fast attempt (one switch read, one capture:false menu, one decide), then the uncalibrated latch (D-11)');
+  check(run.trace.log.readCaptureArm === 2 && twin.trace.log.readCaptureArm === 2 && run.trace.log.getTabUrl === 0,
     'capture gate cost: a second command reads the arm once more (2 reads over two commands)');
-  check(r.ring.length === 0 && r.drops.length === 0, 'capture gate cost: an unarmed command writes nothing');
+  check(sameJson(run.trace, twin.trace), 'run_task capture equals autopilot: over two unarmed commands every dependency call and decide request is identical');
+  check(run.trace.ring.length === 0 && run.trace.drops.length === 0, 'capture gate cost: an unarmed command writes nothing');
 
   // An armed command on a page that is not a fixture: the url is rechecked each LLM-path iteration, nothing more.
-  const a = captureRig({ tabUrl: 'https://shop.example/cart', session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const a = captureRig({ tabUrl: 'https://shop.example/cart', session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
   for (let i = 1; i <= 3; i += 1) {
     await a.turn(i);
     llmTurn(a, [['click', { selector: 'e2' }]], null);
@@ -2621,7 +2689,7 @@ async function captureGateCost() {
 
   // The bench task opens its fixture page with its first action: the url is read again next iteration.
   let url = 'about:blank';
-  const b = captureRig({ tabUrl: () => Promise.resolve(url), session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const b = captureRig({ tabUrl: () => Promise.resolve(url), session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
   await b.turn(1);
   llmTurn(b, [['navigate', { url: FIXTURE_URL }]], null);
   url = FIXTURE_URL;
@@ -2643,17 +2711,17 @@ async function captureGateRules() {
     null
   ];
   for (const tabUrl of notCaptured) {
-    const r = captureRig({ tabUrl, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+    const r = captureRig({ tabUrl, session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
     await r.turn(1);
     check(r.log.requestMenu.length === 0 && r.log.readSwitch === 0 && pendingOf(r.session) === null,
       'capture gate: ' + JSON.stringify(tabUrl) + ' is not a loopback bench fixture page (no switch read, no menu)');
   }
-  const local = captureRig({ tabUrl: 'http://localhost:4173/r/tok/fixtures/wizard-submit/step-2.html', session: { fastMode: Object.assign({}, RUN_TASK_FIELD) },
+  const local = captureRig({ tabUrl: 'http://localhost:4173/r/tok/fixtures/wizard-submit/step-2.html', session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) },
     menu: menuSequence({ url: 'http://localhost:4173/r/tok/fixtures/wizard-submit/step-2.html' }) });
   await local.turn(1);
   check(local.log.requestMenu.length === 1 && pendingOf(local.session) !== null, 'capture gate: a localhost fixture page is captured');
 
-  const off = captureRig({ switchOn: false, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const off = captureRig({ switchOn: false, session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
   await off.turn(1);
   check(off.log.readSwitch === 1 && off.log.requestMenu.length === 0 && pendingOf(off.session) === null,
     'capture gate: with the stored switch off nothing is captured');
@@ -2670,7 +2738,7 @@ async function captureGateRules() {
 
   for (const [label, armed] of [['throws', () => { throw new Error('arm read'); }], ['rejects', () => Promise.reject(new Error('arm read'))],
     ['answers the string "true"', 'true'], ['answers 1', 1]]) {
-    const r = captureRig({ armed, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+    const r = captureRig({ armed, session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
     const first = await r.turn(1);
     await r.turn(2);
     check(first.decline === 'not_enabled' && r.log.readCaptureArm === 1 && r.log.getTabUrl === 0 && r.log.requestMenu.length === 0,
@@ -2679,7 +2747,7 @@ async function captureGateRules() {
 
   let release;
   const held = new Promise((resolve) => { release = resolve; });
-  const stopping = captureRig({ tabUrl: () => held, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const stopping = captureRig({ tabUrl: () => held, session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
   const pendingTurn = stopping.turn(1);
   await until(() => stopping.log.getTabUrl === 1);
   stopping.session.status = 'stopped';
@@ -2766,7 +2834,7 @@ async function captureLabels() {
   const noTools = await labelOf(null, null);
   check(noTools.ring.length === 0 && sameJson(noTools.drops, ['no_tool_call']), 'capture drop: an LLM turn that ran no tool is dropped as no_tool_call');
 
-  const stale = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const stale = captureRig({ session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
   await stale.turn(1);
   llmTurn(stale, [['click', { selector: 'e3' }]], observation('cafe0001-1', 'j3', true, 'click'));
   nextCommand(stale.session);
@@ -2776,7 +2844,7 @@ async function captureLabels() {
 
 async function captureRecordShape() {
   const SENTINEL_TASK = 'SENTINEL_TASK_TEXT_77 tick Alpha';
-  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD), task: SENTINEL_TASK } });
+  const r = captureRig({ session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD), task: SENTINEL_TASK } });
   await r.turn(4);
   llmTurn(r, [['check_box', { selector: 'e1' }]], observation('cafe0001-1', 'j1', true, 'toggleCheckbox'));
   await r.turn(5);
@@ -2808,7 +2876,7 @@ async function captureMenuDrops() {
     ['a rejecting menu request', () => Promise.reject(new Error('menu')), 'menu_unavailable']
   ];
   for (const [name, menu, reason] of cases) {
-    const r = captureRig({ menu, session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+    const r = captureRig({ menu, session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
     const out = await r.turn(1);
     check(out.decline === 'not_enabled' && pendingOf(r.session) === null && sameJson(r.drops, [reason]) && r.ring.length === 0,
       'capture drop: ' + name + ' is dropped as ' + reason + ' (' + r.drops.join(',') + ')');
@@ -2816,7 +2884,7 @@ async function captureMenuDrops() {
 }
 
 async function captureObservationShape() {
-  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const r = captureRig({ session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
   await r.turn(1);
   const generation = pendingOf(r.session).generation;
   const good = observation(generation, 'j2', true, 'click');
@@ -2850,7 +2918,7 @@ async function captureObservationShape() {
 }
 
 async function captureNeverRejects() {
-  const r = captureRig({ session: { fastMode: Object.assign({}, RUN_TASK_FIELD) } });
+  const r = captureRig({ session: { fastMode: Object.assign({}, CAPTURE_ONLY_FIELD) } });
   r.deps.appendCaptureRecord = () => { throw new Error('ring write'); };
   r.deps.noteCaptureDrop = () => Promise.reject(new Error('drop write'));
   await r.turn(1);
@@ -3233,7 +3301,7 @@ async function main() {
     await section('measurement helpers (D-23, T-68-11)', measurement);
     await section('68-05 orchestration: module surface', orchModuleSurface);
     await section('68-05 beforeTurn: the LLM takes the first turn of every command (D-09)', orchFirstTurn);
-    await section('68-05 beforeTurn: run_task sessions are never fast (D-03)', orchNotEnabled);
+    await section('68-05 beforeTurn: a hand-built disabled field declines not_enabled (D-05 of Phase 70)', orchNotEnabled);
     await section('68-05 beforeTurn: the accepted path (one menu, one decide, a code-built call)', orchAccepted);
     await section('68-05 beforeTurn: the switch is re-read before each attempt (D-05)', orchSwitchOff);
     await section('68-05 beforeTurn: go_back after a tab switch (IN-04)', orchTabSwitchGoBack);
@@ -3259,8 +3327,8 @@ async function main() {
     await section('68-05 observeTools: what the LLM did on its own turn (D-09, D-11)', observe);
     await section('68-05 first turn, never re-roll and recent descriptors through the real observeTools', observeDrivesTask1Cases);
     await section('68-08 capture: deps without the capture members (D-22)', captureNoCaptureDeps);
-    await section('68-08 capture: a run_task bench session (D-22, D-03)', captureRunTask);
-    await section('68-08 capture gate cost (D-03, D-22)', captureGateCost);
+    await section('68-08 capture: a switched-on run_task bench session equals an autopilot session (D-22; Phase 70 D-05)', captureRunTask);
+    await section('68-08 capture gate cost (D-22; Phase 70 D-05)', captureGateCost);
     await section('68-08 capture gate: URL, switch, stored flag and arm (D-22, T-68-11)', captureGateRules);
     await section('68-08 capture on a fast-mode session: one menu per LLM-path iteration', captureFastSession);
     await section('68-08 capture: an acted fast step is never captured', captureActedStep);
