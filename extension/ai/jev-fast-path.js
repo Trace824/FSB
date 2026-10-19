@@ -268,8 +268,10 @@
 
   /**
    * Turn a content menu into a FsbJevState.buildRequest input.
-   * ctx: {goal (the user's task text, unchanged), recentActions:[{op, targetId
-   * (a handle or null), changed}], navigatedInCommand}.
+   * ctx: {goal (the goal the caller built, copied unchanged; step o passes
+   * normaliseGoal of the task, which may drop one leading 'Open <address>.'
+   * sentence, D-22), recentActions:[{op, targetId (a handle or null),
+   * changed}], navigatedInCommand}.
    *
    * Each entry becomes exactly {id: handle, role, label, ops, inputType,
    * autocomplete, purpose:{sensitive}, hidden}; nothing else an entry carries

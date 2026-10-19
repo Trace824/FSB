@@ -4002,18 +4002,22 @@ async function getStorageWithTimeout(keys, timeout = 3000, defaults = {}) {
 
 /**
  * session.fastMode for a start or a follow-up command. Only a stored boolean
- * true yields a field; a run_task start (source 'mcp') carries enabled:false
- * and never takes a fast step (D-03).
+ * true yields a field. A run_task start (source 'mcp') follows the switch
+ * too, under its own frozen budget profile (Phase 70, D-04, which replaces
+ * the Phase 68 D-03 rule that kept it off); every other start names no
+ * budget profile.
  * @param {*} storedValue - The stored switch value
  * @param {string|undefined} source - The start request's source
  * @returns {{enabled: boolean, stored: boolean, source: (string|null)}|null}
+ *   For a run_task start the field also carries the budget profile key,
+ *   set to 'run_task'.
  */
 function fsbFastModeSessionField(storedValue, source) {
   if (storedValue !== true) return null;
   const from = typeof source === 'string' && source ? source : null;
-  // Phase 70 (D-04) supersedes the D-03 sentence above: a run_task start
-  // (source 'mcp') follows the switch too, under its own frozen budget
-  // profile. Every other start keeps the Phase 68 value.
+  // Phase 70 (D-04): a run_task start (source 'mcp') follows the switch
+  // under its own frozen budget profile. Every other start keeps the
+  // Phase 68 value.
   if (from === 'mcp') return { enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' };
   return { enabled: true, stored: true, source: from };
 }
