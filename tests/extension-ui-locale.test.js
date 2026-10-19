@@ -681,6 +681,86 @@ function extractNamedFunction(source, name) {
   check(statusNode.textContent === 'Clicked the Submit button', 'status line leaves AI text as sent');
 }
 
+// The dashboard chart draws its legend, axis titles and tooltip on a canvas,
+// so analytics.js translates them itself. The service worker loads the same
+// file without the locale helper and keeps English.
+{
+  const analyticsSource = fs.readFileSync(path.join(root, 'extension/utils/analytics.js'), 'utf8');
+  function chartSandbox(withLocale) {
+    const sandbox = {
+      module: undefined,
+      console: { log() {}, warn() {}, error() {} },
+      Chart: function (_ctx, config) {
+        this.data = config.data;
+        this.options = config.options;
+        this.updates = 0;
+        this.update = () => { this.updates += 1; };
+      },
+      document: { getElementById: (id) => (id === 'usageChart' ? {} : null), documentElement: { getAttribute: () => 'dark' } }
+    };
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    if (withLocale) {
+      for (const file of ['extension/utils/ui-locale.js', 'extension/utils/panel-exact.js']) {
+        vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), sandbox);
+      }
+      for (const code of Object.keys(shippedCatalogs)) sandbox.fsbUiLocale.setCatalog(code, shippedCatalogs[code]);
+    }
+    vm.runInContext(analyticsSource, sandbox);
+    // Skip the constructor: it reads chrome.storage and starts a timer.
+    const analytics = vm.runInContext('Object.assign(Object.create(FSBAnalytics.prototype), { usageData: [], chart: null })', sandbox);
+    return { sandbox, analytics };
+  }
+  function chartText(analytics, sandbox) {
+    const chart = analytics.chart;
+    const formatted = vm.runInContext('(1234).toLocaleString()', sandbox);
+    return {
+      legend: chart.data.datasets.map((d) => d.label),
+      x: chart.options.scales.x.title.text,
+      y: chart.options.scales.y.title.text,
+      tooltip: chart.options.plugins.tooltip.callbacks.label({ dataset: chart.data.datasets[0], parsed: { y: 1234 } }),
+      formatted
+    };
+  }
+
+  const english = chartSandbox(false);
+  english.analytics.initializeChart();
+  const en = chartText(english.analytics, english.sandbox);
+  check(JSON.stringify(en.legend) === JSON.stringify(['Input Tokens', 'Output Tokens']) && en.x === 'Time' && en.y === 'Tokens'
+      && en.tooltip === `Input Tokens: ${en.formatted} tokens`,
+    'without the locale helper (service worker) the chart stays in English');
+  english.analytics.updateChartLocale();
+  check(english.analytics.chart.data.datasets[0].label === 'Input Tokens', 'updateChartLocale is safe without the locale helper');
+
+  const localized = chartSandbox(true);
+  localized.sandbox.fsbUiLocale.setOverride('ja');
+  localized.analytics.initializeChart();
+  const ja = chartText(localized.analytics, localized.sandbox);
+  const jaCat = shippedCatalogs.ja;
+  check(JSON.stringify(ja.legend) === JSON.stringify([jaCat.panel_c54a41f6d6, jaCat.panel_a0a1074faa])
+      && ja.x === jaCat.panel_33b93476cf && ja.y === jaCat.panel_a039dfb962,
+    'chart legend and axis titles follow a ja override');
+  check(ja.tooltip === `${jaCat.panel_c54a41f6d6}: ${jaCat.panel_88cc87e3a4.replace('$COUNT$', ja.formatted)}`,
+    'chart tooltip fills the translated token count');
+  const weekdays = localized.analytics.getChartData('7d').labels;
+  check(weekdays.length === 8 && weekdays.every((label) => ['日', '月', '火', '水', '木', '金', '土'].includes(label)),
+    'weekly chart ticks use the UI language');
+
+  localized.sandbox.fsbUiLocale.setOverride('de');
+  localized.analytics.chartTimeRange = '30d';
+  const updatesBefore = localized.analytics.chart.updates;
+  localized.analytics.updateChartLocale();
+  const de = chartText(localized.analytics, localized.sandbox);
+  const deCat = shippedCatalogs.de;
+  check(de.legend[0] === deCat.panel_c54a41f6d6 && de.x === deCat.panel_33b93476cf && de.y === deCat.panel_a039dfb962
+      && localized.analytics.chart.data.labels.length === 31 && localized.analytics.chart.updates === updatesBefore + 1,
+    'updateChartLocale re-labels the chart in place for the range on screen');
+
+  const optionsSourceForChart = fs.readFileSync(path.join(root, 'extension/ui/options.js'), 'utf8');
+  check(optionsSourceForChart.includes('fsbUiLocale.onChange(() => analytics.updateChartLocale())'),
+    'the control panel re-labels the chart on a language change');
+}
+
 async function asyncChecks() {
   const requested = [];
   await locale.loadCatalogs((url) => {

@@ -4361,5 +4361,19 @@
   },
   "copy_2403d17dd7": {
     "message": "se canceló el inicio"
+  },
+  "panel_c54a41f6d6": {
+    "message": "Tokens de entrada"
+  },
+  "panel_a0a1074faa": {
+    "message": "Tokens de salida"
+  },
+  "panel_88cc87e3a4": {
+    "message": "$COUNT$ tokens",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

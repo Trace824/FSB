@@ -4361,5 +4361,19 @@
   },
   "copy_2403d17dd7": {
     "message": "der Start abgebrochen wurde"
+  },
+  "panel_c54a41f6d6": {
+    "message": "Eingabe-Tokens"
+  },
+  "panel_a0a1074faa": {
+    "message": "Ausgabe-Tokens"
+  },
+  "panel_88cc87e3a4": {
+    "message": "$COUNT$ Tokens",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -4361,5 +4361,19 @@
   },
   "copy_2403d17dd7": {
     "message": "시작이 취소됨"
+  },
+  "panel_c54a41f6d6": {
+    "message": "입력 토큰"
+  },
+  "panel_a0a1074faa": {
+    "message": "출력 토큰"
+  },
+  "panel_88cc87e3a4": {
+    "message": "토큰 $COUNT$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

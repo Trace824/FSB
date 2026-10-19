@@ -4361,5 +4361,19 @@
   },
   "copy_2403d17dd7": {
     "message": "開始がキャンセルされた"
+  },
+  "panel_c54a41f6d6": {
+    "message": "入力トークン"
+  },
+  "panel_a0a1074faa": {
+    "message": "出力トークン"
+  },
+  "panel_88cc87e3a4": {
+    "message": "$COUNT$ トークン",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -4361,5 +4361,19 @@
   },
   "copy_2403d17dd7": {
     "message": "启动已取消"
+  },
+  "panel_c54a41f6d6": {
+    "message": "输入 Token 数"
+  },
+  "panel_a0a1074faa": {
+    "message": "输出 Token 数"
+  },
+  "panel_88cc87e3a4": {
+    "message": "$COUNT$ 个 Token",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

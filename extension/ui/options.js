@@ -290,6 +290,11 @@ function initializeDashboard() {
     analytics.initPromise.then(() => {
       console.log('Options page: Analytics initialized, setting up dashboard...');
       analytics.initializeChart();
+      // The chart draws its labels on a canvas, so a language change has to
+      // re-label it directly.
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.onChange === 'function') {
+        fsbUiLocale.onChange(() => analytics.updateChartLocale());
+      }
       analytics.updateDashboard();
       loadDashboardCostBreakdown();
     }).catch(error => {
