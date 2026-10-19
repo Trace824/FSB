@@ -2597,7 +2597,7 @@
     "message": "タスクの実行中は Grok Build にサインインできません。実行が終わるまで待ってから再試行してください。"
   },
   "copy_ca4a99be2b": {
-    "message": "以前のセッションを片付けられなかったため、サインインはブロックされています。状態を更新して後処理を再試行してください。"
+    "message": "Grok Build は以前のセッションを片付けられなかったため、サインインがブロックされています。状態を更新して後処理を再試行してください。"
   },
   "copy_28c4c69520": {
     "message": "Grok CLI が FSB の求める厳密なサンドボックスでは起動しなかったため、サインインはブロックされています。CLI はインストール済みで、アカウントに問題はありません。"
@@ -4010,5 +4010,353 @@
   },
   "panel_008dacb6d1": {
     "message": "詳細"
+  },
+  "entry_phase_analyzing": {
+    "message": "分析中"
+  },
+  "entry_phase_acting": {
+    "message": "操作中"
+  },
+  "entry_phase_recovering": {
+    "message": "復旧中"
+  },
+  "entry_phase_writing": {
+    "message": "書き込み中"
+  },
+  "entry_phase_switching": {
+    "message": "タブを切り替え中"
+  },
+  "entry_phase_calling": {
+    "message": "API を呼び出し中"
+  },
+  "entry_phase_watching": {
+    "message": "トリガーを監視中"
+  },
+  "entry_phase_complete": {
+    "message": "完了"
+  },
+  "entry_phase_partial": {
+    "message": "一部完了"
+  },
+  "entry_phase_waiting": {
+    "message": "待機中"
+  },
+  "entry_phase_searching": {
+    "message": "検索中"
+  },
+  "entry_phase_formatting": {
+    "message": "整形中"
+  },
+  "entry_phase_formatted": {
+    "message": "整形済み"
+  },
+  "entry_detail_error": {
+    "message": "タスクはエラーで終了しました"
+  },
+  "entry_detail_stopped": {
+    "message": "タスクを停止しました"
+  },
+  "entry_detail_reviewing": {
+    "message": "ページの状態を確認中"
+  },
+  "entry_detail_planning": {
+    "message": "次のステップを計画中"
+  },
+  "entry_detail_planning_browser": {
+    "message": "ブラウザでの次のステップを計画中"
+  },
+  "entry_detail_acting": {
+    "message": "ブラウザ操作を実行中"
+  },
+  "entry_detail_recovering": {
+    "message": "中断から復旧中"
+  },
+  "entry_detail_updating": {
+    "message": "ページを更新中"
+  },
+  "entry_detail_switching": {
+    "message": "別のタブに切り替え中"
+  },
+  "entry_detail_watching": {
+    "message": "DOM の変化を監視中"
+  },
+  "entry_detail_ready": {
+    "message": "開始の準備ができました"
+  },
+  "entry_detail_calling_model": {
+    "message": "モデルを呼び出し中"
+  },
+  "entry_detail_dispatching": {
+    "message": "ツールを実行中"
+  },
+  "entry_detail_scheduling": {
+    "message": "次のステップを準備中"
+  },
+  "copy_26de247a57": {
+    "message": "自動化を停止しています…"
+  },
+  "copy_5143a201f5": {
+    "message": "エラーが発生しました"
+  },
+  "copy_71fea45d26": {
+    "message": "タスクが完了しました"
+  },
+  "copy_3d3a79831e": {
+    "message": "タスクが完了しました"
+  },
+  "copy_b1482165c8": {
+    "message": "自動化を停止しました"
+  },
+  "copy_f88249eba2": {
+    "message": "再生エラー"
+  },
+  "copy_890ab358a5": {
+    "message": "技術的な詳細"
+  },
+  "copy_d6786d701f": {
+    "message": "ステップ $NUMBER$ が完了しました",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_1f78c9a474": {
+    "message": "再生しています..."
+  },
+  "copy_b93900bded": {
+    "message": "作業しています..."
+  },
+  "copy_84a657bcf3": {
+    "message": "再試行しています..."
+  },
+  "copy_5044c249a6": {
+    "message": "エラー: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_8e136c1237": {
+    "message": "モデルが必要です"
+  },
+  "copy_cdfea2ae82": {
+    "message": "モデルが必要です"
+  },
+  "copy_42aa4e7bc5": {
+    "message": "接続に失敗しました"
+  },
+  "copy_ddb621f87c": {
+    "message": "接続エラー"
+  },
+  "copy_58726e5dd9": {
+    "message": "テストに失敗しました"
+  },
+  "copy_6fb7a46510": {
+    "message": "変更を破棄しました"
+  },
+  "copy_0cd1f5ed36": {
+    "message": "ログを消去しました"
+  },
+  "copy_3c0cf36859": {
+    "message": "セッションを削除しました"
+  },
+  "copy_47d615a399": {
+    "message": "保管庫のロックを解除しました"
+  },
+  "copy_f76f82ec1f": {
+    "message": "PIN が違います"
+  },
+  "copy_f0341f8dbc": {
+    "message": "資格情報を保存しました"
+  },
+  "copy_c3f91ad26c": {
+    "message": "資格情報を更新しました"
+  },
+  "copy_76287e726f": {
+    "message": "資格情報を削除しました"
+  },
+  "copy_3a6a2dbef5": {
+    "message": "アクセスを許可しました"
+  },
+  "copy_1d01fc5159": {
+    "message": "リクエストを拒否しました"
+  },
+  "copy_1b372d29f6": {
+    "message": "メモリを削除しました"
+  },
+  "copy_705ac60c9e": {
+    "message": "メモリをエクスポートしました"
+  },
+  "copy_994f468aae": {
+    "message": "別のプロバイダーを選ぶ"
+  },
+  "copy_765876fb76": {
+    "message": "$NAME$ にこのブラウザの操作を許可しますか？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_ae0c803d28": {
+    "message": "$NAME$ はこのタスクで FSB のブラウザツールを操作できます。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_6e6a3e06fc": {
+    "message": "$NAME$ はブラウザタスクを実行できません",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_d48cf39ab9": {
+    "message": "$NAME$ はこのタスクを開始できません",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_838ef605c4": {
+    "message": "$NAME$ のサインイン状態を確認できませんでした。API 設定の「接続をテスト」を実行してから、もう一度お試しください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_fdfc35d2bb": {
+    "message": "$NAME$ は FSB の委任ブラウザ実行の最終開始チェックを通過できませんでした。接続テストは委任実行を開始しないため、成功することがあります。メッセージを再試行するか、プロバイダー設定を確認してください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_01c144a3f7": {
+    "message": "$NAME$ は委任ブラウザ実行を開始できませんでした。理由: $REASON$ ($CODE$)。接続テストは委任実行を開始しないため、成功することがあります。メッセージを再試行するか、プロバイダー設定を確認してください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "reason": {
+        "content": "$2"
+      },
+      "code": {
+        "content": "$3"
+      }
+    }
+  },
+  "copy_943864cd7f": {
+    "message": "$NAME$ を一時停止して手動操作に切り替えられませんでした。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5fdcceef8a": {
+    "message": "選択したプロバイダー"
+  },
+  "copy_d3a5554e33": {
+    "message": "$NAME$ はこのタスクの完了前にエラーを報告しました。プロバイダーの生の出力は保持されていません。同じメッセージをもう一度お試しください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_a6d2f8de32": {
+    "message": "$NAME$ はタスクの完了前に停止しました。同じメッセージをもう一度お試しください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_0b5a71f512": {
+    "message": "$NAME$ はこのタスクの完了前にエラーを報告しました。プロバイダーの生の出力は保持されていません。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5c07e2e840": {
+    "message": "$NAME$ はこのタスクの制限時間を超えました。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_40bf459a21": {
+    "message": "$NAME$ から更新が届かなくなったため、FSB は実行を終了しました。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5e1a9ee287": {
+    "message": "$NAME$ に接続できません。ローカルの FSB サービスを起動してから、このメッセージを再試行してください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c346b6861e": {
+    "message": "$NAME$ はブラウザタスクを実行できません。設定で対応するエージェントプロバイダーを選んでください。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_871ae6eaaf": {
+    "message": "$NAME$ はタスクの完了前に停止しました。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_750a4ad2a8": {
+    "message": "エージェント"
+  },
+  "copy_4341282a29": {
+    "message": "プロバイダーが利用できなくなった"
+  },
+  "copy_b4616517a1": {
+    "message": "エージェントプロセスを起動できなかった"
+  },
+  "copy_ff5ac3b107": {
+    "message": "エージェントプロセスを検証できなかった"
+  },
+  "copy_3025330480": {
+    "message": "エージェントが想定外のプロトコルで応答した"
+  },
+  "copy_d93f623f9d": {
+    "message": "ローカルエージェントサービスとの接続が失われた"
+  },
+  "copy_32995a6f7d": {
+    "message": "ローカルエージェントサービスが終了した"
+  },
+  "copy_2c6fa99ffc": {
+    "message": "以前のエージェントプロセスが終了しなかった"
+  },
+  "copy_66be2e3182": {
+    "message": "以前のエージェント実行が片付けられていなかった"
+  },
+  "copy_2403d17dd7": {
+    "message": "開始がキャンセルされた"
   }
 }

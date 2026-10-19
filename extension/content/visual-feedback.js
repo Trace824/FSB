@@ -21,6 +21,36 @@
     });
   }
 
+  // Labels the service worker builds in English (utils/overlay-state.js and the
+  // agent loop fallbacks). Only exact matches are translated; task titles, model
+  // summaries and AI status text are shown as sent.
+  var OVERLAY_LABELS = {
+    'Analyzing': 'entry_phase_analyzing', 'Planning': 'entry_planning', 'Acting': 'entry_phase_acting',
+    'Recovering': 'entry_phase_recovering', 'Writing': 'entry_phase_writing',
+    'Switching Tabs': 'entry_phase_switching', 'Calling API': 'entry_phase_calling',
+    'Watching a trigger': 'entry_phase_watching', 'Complete': 'entry_phase_complete',
+    'Error': 'shell_error_status', 'Done': 'entry_done_pill', 'Partial': 'entry_phase_partial',
+    'Working': 'shell_working', 'Waiting': 'entry_phase_waiting', 'Searching': 'entry_phase_searching',
+    'Formatting': 'entry_phase_formatting', 'Formatted': 'entry_phase_formatted',
+    'Task completed': 'copy_71fea45d26', 'Task partially completed': 'copy_0d3875c352',
+    'Task ended with an error': 'entry_detail_error', 'Task stopped': 'entry_detail_stopped',
+    'Reviewing page state': 'entry_detail_reviewing', 'Planning next step': 'entry_detail_planning',
+    'Planning next browser step': 'entry_detail_planning_browser',
+    'Performing browser action': 'entry_detail_acting',
+    'Recovering from interruption': 'entry_detail_recovering', 'Updating page': 'entry_detail_updating',
+    'Switching to another tab': 'entry_detail_switching', 'Watching DOM for change': 'entry_detail_watching',
+    'Ready to begin': 'entry_detail_ready', 'Calling model': 'entry_detail_calling_model',
+    'Dispatching tool': 'entry_detail_dispatching', 'Scheduling next step': 'entry_detail_scheduling'
+  };
+  // Active phases arrive as "Acting…"; translate the label and keep the ellipsis.
+  function overlayLabel(english) {
+    if (typeof english !== 'string' || !english) return english;
+    var ellipsis = english.slice(-1) === '…';
+    var base = ellipsis ? english.slice(0, -1) : english;
+    if (!Object.prototype.hasOwnProperty.call(OVERLAY_LABELS, base)) return english;
+    return ov(OVERLAY_LABELS[base], base) + (ellipsis ? '…' : '');
+  }
+
   var chromeRoots = [];
   function ownedText(current, key, english) {
     if (current === english) return true;
@@ -29,6 +59,8 @@
   }
   function refreshOwnedChrome(root) {
     if (!root || typeof root.querySelector !== 'function') return;
+    var locale = globalThis.fsbUiLocale;
+    if (locale && typeof locale.current === 'function' && typeof root.setAttribute === 'function') root.setAttribute('lang', locale.current());
     var title = root.querySelector('.fsb-title');
     if (title && ownedText(title.textContent, 'entry_automating', 'FSB Automating')) title.textContent = ov('entry_automating', 'FSB Automating');
     var crawlTitle = root.querySelector('.fsb-crawl-title');
@@ -366,8 +398,8 @@
       var stepNumberEl = this.container.querySelector('.fsb-step-number');
       if (taskEl) taskEl.textContent = p.title;
       if (summaryEl) summaryEl.textContent = p.subtitle;
-      if (stepTextEl) stepTextEl.textContent = p.detail;
-      if (stepNumberEl) stepNumberEl.textContent = p.stepNumberLabel;
+      if (stepTextEl) stepTextEl.textContent = overlayLabel(p.detail);
+      if (stepNumberEl) stepNumberEl.textContent = overlayLabel(p.stepNumberLabel);
       // Scrollback log: push the outgoing detail text (about to be replaced)
       // into the rolling buffer, deduped against consecutive repeats, capped
       // at 3 entries (current + 2 "previous" lines rendered in update()).
@@ -1026,8 +1058,8 @@
       var logLines = this.container.querySelectorAll('.fsb-log-line');
       if (logLines && logLines.length) {
         var prevLines = this._logBuffer.slice(0, -1).slice(-2).reverse();
-        if (logLines[0]) logLines[0].textContent = prevLines[0] || '';
-        if (logLines[1]) logLines[1].textContent = prevLines[1] || '';
+        if (logLines[0]) logLines[0].textContent = overlayLabel(prevLines[0] || '');
+        if (logLines[1]) logLines[1].textContent = overlayLabel(prevLines[1] || '');
       }
 
       // Phase 229-02 (OVERLAY-05): suppress generic 'thinking-class' phase

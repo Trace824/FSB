@@ -4010,5 +4010,353 @@
   },
   "panel_008dacb6d1": {
     "message": "完整"
+  },
+  "entry_phase_analyzing": {
+    "message": "正在分析"
+  },
+  "entry_phase_acting": {
+    "message": "正在执行操作"
+  },
+  "entry_phase_recovering": {
+    "message": "正在恢复"
+  },
+  "entry_phase_writing": {
+    "message": "正在写入"
+  },
+  "entry_phase_switching": {
+    "message": "正在切换标签页"
+  },
+  "entry_phase_calling": {
+    "message": "正在调用 API"
+  },
+  "entry_phase_watching": {
+    "message": "正在监视触发器"
+  },
+  "entry_phase_complete": {
+    "message": "已完成"
+  },
+  "entry_phase_partial": {
+    "message": "部分完成"
+  },
+  "entry_phase_waiting": {
+    "message": "正在等待"
+  },
+  "entry_phase_searching": {
+    "message": "正在搜索"
+  },
+  "entry_phase_formatting": {
+    "message": "正在格式化"
+  },
+  "entry_phase_formatted": {
+    "message": "格式化完成"
+  },
+  "entry_detail_error": {
+    "message": "任务因错误而结束"
+  },
+  "entry_detail_stopped": {
+    "message": "任务已停止"
+  },
+  "entry_detail_reviewing": {
+    "message": "正在检查页面状态"
+  },
+  "entry_detail_planning": {
+    "message": "正在规划下一步"
+  },
+  "entry_detail_planning_browser": {
+    "message": "正在规划下一个浏览器步骤"
+  },
+  "entry_detail_acting": {
+    "message": "正在执行浏览器操作"
+  },
+  "entry_detail_recovering": {
+    "message": "正在从中断中恢复"
+  },
+  "entry_detail_updating": {
+    "message": "正在更新页面"
+  },
+  "entry_detail_switching": {
+    "message": "正在切换到另一个标签页"
+  },
+  "entry_detail_watching": {
+    "message": "正在监视 DOM 变化"
+  },
+  "entry_detail_ready": {
+    "message": "准备就绪"
+  },
+  "entry_detail_calling_model": {
+    "message": "正在调用模型"
+  },
+  "entry_detail_dispatching": {
+    "message": "正在调用工具"
+  },
+  "entry_detail_scheduling": {
+    "message": "正在安排下一步"
+  },
+  "copy_26de247a57": {
+    "message": "正在停止自动化…"
+  },
+  "copy_5143a201f5": {
+    "message": "发生错误"
+  },
+  "copy_71fea45d26": {
+    "message": "任务完成"
+  },
+  "copy_3d3a79831e": {
+    "message": "任务完成"
+  },
+  "copy_b1482165c8": {
+    "message": "自动化已停止"
+  },
+  "copy_f88249eba2": {
+    "message": "重放错误"
+  },
+  "copy_890ab358a5": {
+    "message": "技术详情"
+  },
+  "copy_d6786d701f": {
+    "message": "第 $NUMBER$ 步已完成",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_1f78c9a474": {
+    "message": "正在重放..."
+  },
+  "copy_b93900bded": {
+    "message": "正在处理..."
+  },
+  "copy_84a657bcf3": {
+    "message": "正在重试..."
+  },
+  "copy_5044c249a6": {
+    "message": "错误：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_8e136c1237": {
+    "message": "需要模型"
+  },
+  "copy_cdfea2ae82": {
+    "message": "需要模型"
+  },
+  "copy_42aa4e7bc5": {
+    "message": "连接失败"
+  },
+  "copy_ddb621f87c": {
+    "message": "连接错误"
+  },
+  "copy_58726e5dd9": {
+    "message": "测试失败"
+  },
+  "copy_6fb7a46510": {
+    "message": "已放弃更改"
+  },
+  "copy_0cd1f5ed36": {
+    "message": "日志已清除"
+  },
+  "copy_3c0cf36859": {
+    "message": "会话已删除"
+  },
+  "copy_47d615a399": {
+    "message": "保险库已解锁"
+  },
+  "copy_f76f82ec1f": {
+    "message": "PIN 不正确"
+  },
+  "copy_f0341f8dbc": {
+    "message": "凭据已保存"
+  },
+  "copy_c3f91ad26c": {
+    "message": "凭据已更新"
+  },
+  "copy_76287e726f": {
+    "message": "凭据已删除"
+  },
+  "copy_3a6a2dbef5": {
+    "message": "已授予访问"
+  },
+  "copy_1d01fc5159": {
+    "message": "已拒绝请求"
+  },
+  "copy_1b372d29f6": {
+    "message": "记忆已删除"
+  },
+  "copy_705ac60c9e": {
+    "message": "记忆已导出"
+  },
+  "copy_994f468aae": {
+    "message": "选择其他提供方"
+  },
+  "copy_765876fb76": {
+    "message": "允许 $NAME$ 控制此浏览器？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_ae0c803d28": {
+    "message": "$NAME$ 可以在此任务中操作 FSB 浏览器工具。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_6e6a3e06fc": {
+    "message": "$NAME$ 无法运行浏览器任务",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_d48cf39ab9": {
+    "message": "$NAME$ 无法启动此任务",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_838ef605c4": {
+    "message": "无法验证 $NAME$ 的登录状态。请在“API 配置”中使用“测试连接”，然后重试。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_fdfc35d2bb": {
+    "message": "$NAME$ 未通过 FSB 委派浏览器运行的最终启动检查。“测试连接”仍可能成功，因为它不会启动委派运行。请重试消息或检查提供方设置。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_01c144a3f7": {
+    "message": "$NAME$ 无法启动委派浏览器运行。原因：$REASON$（$CODE$）。“测试连接”仍可能成功，因为它不会启动委派运行。请重试消息或检查提供方设置。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "reason": {
+        "content": "$2"
+      },
+      "code": {
+        "content": "$3"
+      }
+    }
+  },
+  "copy_943864cd7f": {
+    "message": "$NAME$ 无法暂停以交由人工控制。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5fdcceef8a": {
+    "message": "所选提供方"
+  },
+  "copy_d3a5554e33": {
+    "message": "$NAME$ 在完成此任务前报告了错误。未保留提供方的原始输出。请重试同一条消息。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_a6d2f8de32": {
+    "message": "$NAME$ 在任务完成前停止了。请重试同一条消息。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_0b5a71f512": {
+    "message": "$NAME$ 在完成此任务前报告了错误。未保留提供方的原始输出。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5c07e2e840": {
+    "message": "$NAME$ 超出了此任务的时间限制。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_40bf459a21": {
+    "message": "$NAME$ 停止发送更新，因此 FSB 结束了运行。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5e1a9ee287": {
+    "message": "无法连接 $NAME$。请启动本地 FSB 服务，然后重试此消息。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c346b6861e": {
+    "message": "$NAME$ 无法运行浏览器任务。请在设置中选择支持的代理提供方。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_871ae6eaaf": {
+    "message": "$NAME$ 在任务完成前停止了。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_750a4ad2a8": {
+    "message": "代理"
+  },
+  "copy_4341282a29": {
+    "message": "提供方已不可用"
+  },
+  "copy_b4616517a1": {
+    "message": "无法启动代理进程"
+  },
+  "copy_ff5ac3b107": {
+    "message": "无法验证代理进程"
+  },
+  "copy_3025330480": {
+    "message": "代理使用了意外的协议"
+  },
+  "copy_d93f623f9d": {
+    "message": "与本地代理服务的连接已断开"
+  },
+  "copy_32995a6f7d": {
+    "message": "本地代理服务已关闭"
+  },
+  "copy_2c6fa99ffc": {
+    "message": "先前的代理进程未关闭"
+  },
+  "copy_66be2e3182": {
+    "message": "先前的代理运行未清理"
+  },
+  "copy_2403d17dd7": {
+    "message": "启动已取消"
   }
 }

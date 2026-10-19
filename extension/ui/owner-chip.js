@@ -43,7 +43,7 @@
 
   /**
    * @param {string} ownerAgentIdShort - Pre-formatted display string.
-   * @returns {string} The status text. Always begins with "Owned by ".
+   * @returns {string} "Owned by <label>" in English, or its shell_owned_by translation.
    */
   function buildChipText(ownerAgentIdShort) {
     var label = (ownerAgentIdShort === undefined || ownerAgentIdShort === null)

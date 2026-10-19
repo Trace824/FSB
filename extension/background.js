@@ -5,7 +5,6 @@
 // downstream module (analytics.js, telemetry collectors, MCP recorder)
 // can call globalThis.fsbInstallIdentity.* synchronously at boot.
 importScripts('utils/install-identity.js');
-importScripts('utils/ui-locale.js');
 importScripts('config/config.js');
 importScripts('config/init-config.js');
 importScripts('config/secure-config.js');

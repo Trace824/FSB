@@ -4010,5 +4010,353 @@
   },
   "panel_008dacb6d1": {
     "message": "Completo"
+  },
+  "entry_phase_analyzing": {
+    "message": "Analizando"
+  },
+  "entry_phase_acting": {
+    "message": "Actuando"
+  },
+  "entry_phase_recovering": {
+    "message": "Recuperando"
+  },
+  "entry_phase_writing": {
+    "message": "Escribiendo"
+  },
+  "entry_phase_switching": {
+    "message": "Cambiando de pestaña"
+  },
+  "entry_phase_calling": {
+    "message": "Llamando a la API"
+  },
+  "entry_phase_watching": {
+    "message": "Vigilando un disparador"
+  },
+  "entry_phase_complete": {
+    "message": "Completado"
+  },
+  "entry_phase_partial": {
+    "message": "Parcial"
+  },
+  "entry_phase_waiting": {
+    "message": "Esperando"
+  },
+  "entry_phase_searching": {
+    "message": "Buscando"
+  },
+  "entry_phase_formatting": {
+    "message": "Formateando"
+  },
+  "entry_phase_formatted": {
+    "message": "Formato aplicado"
+  },
+  "entry_detail_error": {
+    "message": "La tarea terminó con un error"
+  },
+  "entry_detail_stopped": {
+    "message": "Tarea detenida"
+  },
+  "entry_detail_reviewing": {
+    "message": "Revisando el estado de la página"
+  },
+  "entry_detail_planning": {
+    "message": "Planificando el siguiente paso"
+  },
+  "entry_detail_planning_browser": {
+    "message": "Planificando el siguiente paso en el navegador"
+  },
+  "entry_detail_acting": {
+    "message": "Realizando una acción en el navegador"
+  },
+  "entry_detail_recovering": {
+    "message": "Recuperándose de una interrupción"
+  },
+  "entry_detail_updating": {
+    "message": "Actualizando la página"
+  },
+  "entry_detail_switching": {
+    "message": "Cambiando a otra pestaña"
+  },
+  "entry_detail_watching": {
+    "message": "Vigilando cambios en el DOM"
+  },
+  "entry_detail_ready": {
+    "message": "Listo para empezar"
+  },
+  "entry_detail_calling_model": {
+    "message": "Llamando al modelo"
+  },
+  "entry_detail_dispatching": {
+    "message": "Ejecutando una herramienta"
+  },
+  "entry_detail_scheduling": {
+    "message": "Programando el siguiente paso"
+  },
+  "copy_26de247a57": {
+    "message": "Deteniendo la automatización…"
+  },
+  "copy_5143a201f5": {
+    "message": "Se produjo un error"
+  },
+  "copy_71fea45d26": {
+    "message": "Tarea completada"
+  },
+  "copy_3d3a79831e": {
+    "message": "Tarea completada"
+  },
+  "copy_b1482165c8": {
+    "message": "Automatización detenida"
+  },
+  "copy_f88249eba2": {
+    "message": "Error de repetición"
+  },
+  "copy_890ab358a5": {
+    "message": "Detalles técnicos"
+  },
+  "copy_d6786d701f": {
+    "message": "Paso $NUMBER$ completado",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_1f78c9a474": {
+    "message": "Repitiendo..."
+  },
+  "copy_b93900bded": {
+    "message": "Trabajando..."
+  },
+  "copy_84a657bcf3": {
+    "message": "Reintentando..."
+  },
+  "copy_5044c249a6": {
+    "message": "Error: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_8e136c1237": {
+    "message": "Modelo obligatorio"
+  },
+  "copy_cdfea2ae82": {
+    "message": "Modelos obligatorios"
+  },
+  "copy_42aa4e7bc5": {
+    "message": "Conexión fallida"
+  },
+  "copy_ddb621f87c": {
+    "message": "Error de conexión"
+  },
+  "copy_58726e5dd9": {
+    "message": "La prueba falló"
+  },
+  "copy_6fb7a46510": {
+    "message": "Cambios descartados"
+  },
+  "copy_0cd1f5ed36": {
+    "message": "Registros borrados"
+  },
+  "copy_3c0cf36859": {
+    "message": "Sesión eliminada"
+  },
+  "copy_47d615a399": {
+    "message": "Bóveda desbloqueada"
+  },
+  "copy_f76f82ec1f": {
+    "message": "PIN incorrecto"
+  },
+  "copy_f0341f8dbc": {
+    "message": "Credencial guardada"
+  },
+  "copy_c3f91ad26c": {
+    "message": "Credencial actualizada"
+  },
+  "copy_76287e726f": {
+    "message": "Credencial eliminada"
+  },
+  "copy_3a6a2dbef5": {
+    "message": "Acceso concedido"
+  },
+  "copy_1d01fc5159": {
+    "message": "Solicitud denegada"
+  },
+  "copy_1b372d29f6": {
+    "message": "Memoria eliminada"
+  },
+  "copy_705ac60c9e": {
+    "message": "Memorias exportadas"
+  },
+  "copy_994f468aae": {
+    "message": "Elegir otro proveedor"
+  },
+  "copy_765876fb76": {
+    "message": "¿Permitir que $NAME$ controle este navegador?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_ae0c803d28": {
+    "message": "$NAME$ puede usar las herramientas de navegador de FSB en esta tarea.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_6e6a3e06fc": {
+    "message": "$NAME$ no puede ejecutar tareas del navegador",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_d48cf39ab9": {
+    "message": "$NAME$ no puede iniciar esta tarea",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_838ef605c4": {
+    "message": "No se pudo verificar el estado de inicio de sesión de $NAME$. Usa la opción Probar conexión de Configuración de API y vuelve a intentarlo.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_fdfc35d2bb": {
+    "message": "$NAME$ no superó las comprobaciones finales de inicio del navegador delegado de FSB. Probar conexión puede seguir teniendo éxito porque no inicia una ejecución delegada. Reintenta el mensaje o revisa la configuración del proveedor.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_01c144a3f7": {
+    "message": "$NAME$ no pudo iniciar una ejecución delegada del navegador porque $REASON$ ($CODE$). Probar conexión puede seguir teniendo éxito porque no inicia una ejecución delegada. Reintenta el mensaje o revisa la configuración del proveedor.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "reason": {
+        "content": "$2"
+      },
+      "code": {
+        "content": "$3"
+      }
+    }
+  },
+  "copy_943864cd7f": {
+    "message": "$NAME$ no pudo pausarse para que tomes el control.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5fdcceef8a": {
+    "message": "Proveedor seleccionado"
+  },
+  "copy_d3a5554e33": {
+    "message": "$NAME$ informó de un error antes de completar esta tarea. No se conservó la salida original del proveedor. Vuelve a intentar el mismo mensaje.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_a6d2f8de32": {
+    "message": "$NAME$ se detuvo antes de completar la tarea. Vuelve a intentar el mismo mensaje.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_0b5a71f512": {
+    "message": "$NAME$ informó de un error antes de completar esta tarea. No se conservó la salida original del proveedor.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5c07e2e840": {
+    "message": "$NAME$ superó el tiempo límite de esta tarea.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_40bf459a21": {
+    "message": "$NAME$ dejó de enviar actualizaciones, así que FSB terminó la ejecución.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5e1a9ee287": {
+    "message": "$NAME$ no está disponible. Inicia el servicio local de FSB y vuelve a intentar este mensaje.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c346b6861e": {
+    "message": "$NAME$ no puede ejecutar tareas del navegador. Elige un proveedor de agentes compatible en Ajustes.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_871ae6eaaf": {
+    "message": "$NAME$ se detuvo antes de completar la tarea.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_750a4ad2a8": {
+    "message": "El agente"
+  },
+  "copy_4341282a29": {
+    "message": "el proveedor dejó de estar disponible"
+  },
+  "copy_b4616517a1": {
+    "message": "no se pudo iniciar el proceso del agente"
+  },
+  "copy_ff5ac3b107": {
+    "message": "no se pudo verificar el proceso del agente"
+  },
+  "copy_3025330480": {
+    "message": "el agente usó un protocolo inesperado"
+  },
+  "copy_d93f623f9d": {
+    "message": "se perdió la conexión con el servicio de agente local"
+  },
+  "copy_32995a6f7d": {
+    "message": "el servicio de agente local se cerró"
+  },
+  "copy_2c6fa99ffc": {
+    "message": "un proceso anterior del agente no se cerró"
+  },
+  "copy_66be2e3182": {
+    "message": "no se limpió una ejecución anterior del agente"
+  },
+  "copy_2403d17dd7": {
+    "message": "se canceló el inicio"
   }
 }

@@ -4010,5 +4010,353 @@
   },
   "panel_008dacb6d1": {
     "message": "完整"
+  },
+  "entry_phase_analyzing": {
+    "message": "正在分析"
+  },
+  "entry_phase_acting": {
+    "message": "正在執行操作"
+  },
+  "entry_phase_recovering": {
+    "message": "正在復原"
+  },
+  "entry_phase_writing": {
+    "message": "正在寫入"
+  },
+  "entry_phase_switching": {
+    "message": "正在切換分頁"
+  },
+  "entry_phase_calling": {
+    "message": "正在呼叫 API"
+  },
+  "entry_phase_watching": {
+    "message": "正在監看觸發程序"
+  },
+  "entry_phase_complete": {
+    "message": "已完成"
+  },
+  "entry_phase_partial": {
+    "message": "部分完成"
+  },
+  "entry_phase_waiting": {
+    "message": "正在等待"
+  },
+  "entry_phase_searching": {
+    "message": "正在搜尋"
+  },
+  "entry_phase_formatting": {
+    "message": "正在格式化"
+  },
+  "entry_phase_formatted": {
+    "message": "格式化完成"
+  },
+  "entry_detail_error": {
+    "message": "工作因錯誤而結束"
+  },
+  "entry_detail_stopped": {
+    "message": "工作已停止"
+  },
+  "entry_detail_reviewing": {
+    "message": "正在檢查頁面狀態"
+  },
+  "entry_detail_planning": {
+    "message": "正在規劃下一步"
+  },
+  "entry_detail_planning_browser": {
+    "message": "正在規劃下一個瀏覽器步驟"
+  },
+  "entry_detail_acting": {
+    "message": "正在執行瀏覽器操作"
+  },
+  "entry_detail_recovering": {
+    "message": "正在從中斷中復原"
+  },
+  "entry_detail_updating": {
+    "message": "正在更新頁面"
+  },
+  "entry_detail_switching": {
+    "message": "正在切換至另一個分頁"
+  },
+  "entry_detail_watching": {
+    "message": "正在監看 DOM 變更"
+  },
+  "entry_detail_ready": {
+    "message": "準備就緒"
+  },
+  "entry_detail_calling_model": {
+    "message": "正在呼叫模型"
+  },
+  "entry_detail_dispatching": {
+    "message": "正在呼叫工具"
+  },
+  "entry_detail_scheduling": {
+    "message": "正在安排下一步"
+  },
+  "copy_26de247a57": {
+    "message": "正在停止自動化…"
+  },
+  "copy_5143a201f5": {
+    "message": "發生錯誤"
+  },
+  "copy_71fea45d26": {
+    "message": "工作完成"
+  },
+  "copy_3d3a79831e": {
+    "message": "工作完成"
+  },
+  "copy_b1482165c8": {
+    "message": "自動化已停止"
+  },
+  "copy_f88249eba2": {
+    "message": "重播錯誤"
+  },
+  "copy_890ab358a5": {
+    "message": "技術詳細資訊"
+  },
+  "copy_d6786d701f": {
+    "message": "第 $NUMBER$ 步已完成",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_1f78c9a474": {
+    "message": "正在重播..."
+  },
+  "copy_b93900bded": {
+    "message": "正在處理..."
+  },
+  "copy_84a657bcf3": {
+    "message": "正在重試..."
+  },
+  "copy_5044c249a6": {
+    "message": "錯誤：$ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_8e136c1237": {
+    "message": "需要模型"
+  },
+  "copy_cdfea2ae82": {
+    "message": "需要模型"
+  },
+  "copy_42aa4e7bc5": {
+    "message": "連線失敗"
+  },
+  "copy_ddb621f87c": {
+    "message": "連線錯誤"
+  },
+  "copy_58726e5dd9": {
+    "message": "測試失敗"
+  },
+  "copy_6fb7a46510": {
+    "message": "已捨棄變更"
+  },
+  "copy_0cd1f5ed36": {
+    "message": "紀錄已清除"
+  },
+  "copy_3c0cf36859": {
+    "message": "工作階段已刪除"
+  },
+  "copy_47d615a399": {
+    "message": "保險庫已解除鎖定"
+  },
+  "copy_f76f82ec1f": {
+    "message": "PIN 不正確"
+  },
+  "copy_f0341f8dbc": {
+    "message": "憑證已儲存"
+  },
+  "copy_c3f91ad26c": {
+    "message": "憑證已更新"
+  },
+  "copy_76287e726f": {
+    "message": "憑證已刪除"
+  },
+  "copy_3a6a2dbef5": {
+    "message": "已授予存取"
+  },
+  "copy_1d01fc5159": {
+    "message": "已拒絕請求"
+  },
+  "copy_1b372d29f6": {
+    "message": "記憶已刪除"
+  },
+  "copy_705ac60c9e": {
+    "message": "記憶已匯出"
+  },
+  "copy_994f468aae": {
+    "message": "選擇其他提供者"
+  },
+  "copy_765876fb76": {
+    "message": "允許 $NAME$ 控制此瀏覽器？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_ae0c803d28": {
+    "message": "$NAME$ 可以在此工作中操作 FSB 瀏覽器工具。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_6e6a3e06fc": {
+    "message": "$NAME$ 無法執行瀏覽器工作",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_d48cf39ab9": {
+    "message": "$NAME$ 無法啟動此工作",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_838ef605c4": {
+    "message": "無法驗證 $NAME$ 的登入狀態。請在「API 設定」中使用「測試連線」，然後重試。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_fdfc35d2bb": {
+    "message": "$NAME$ 未通過 FSB 委派瀏覽器執行的最終啟動檢查。「測試連線」仍可能成功，因為它不會啟動委派執行。請重試訊息或檢查提供者設定。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_01c144a3f7": {
+    "message": "$NAME$ 無法啟動委派瀏覽器執行。原因：$REASON$（$CODE$）。「測試連線」仍可能成功，因為它不會啟動委派執行。請重試訊息或檢查提供者設定。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "reason": {
+        "content": "$2"
+      },
+      "code": {
+        "content": "$3"
+      }
+    }
+  },
+  "copy_943864cd7f": {
+    "message": "$NAME$ 無法暫停以交由人工控制。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5fdcceef8a": {
+    "message": "所選提供者"
+  },
+  "copy_d3a5554e33": {
+    "message": "$NAME$ 在完成此工作前回報了錯誤。未保留提供者的原始輸出。請重試同一則訊息。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_a6d2f8de32": {
+    "message": "$NAME$ 在工作完成前停止了。請重試同一則訊息。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_0b5a71f512": {
+    "message": "$NAME$ 在完成此工作前回報了錯誤。未保留提供者的原始輸出。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5c07e2e840": {
+    "message": "$NAME$ 超出了此工作的時間限制。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_40bf459a21": {
+    "message": "$NAME$ 停止傳送更新，因此 FSB 結束了執行。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5e1a9ee287": {
+    "message": "無法連線到 $NAME$。請啟動本機 FSB 服務，然後重試此訊息。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c346b6861e": {
+    "message": "$NAME$ 無法執行瀏覽器工作。請在設定中選擇支援的代理提供者。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_871ae6eaaf": {
+    "message": "$NAME$ 在工作完成前停止了。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_750a4ad2a8": {
+    "message": "代理"
+  },
+  "copy_4341282a29": {
+    "message": "提供者已無法使用"
+  },
+  "copy_b4616517a1": {
+    "message": "無法啟動代理行程"
+  },
+  "copy_ff5ac3b107": {
+    "message": "無法驗證代理行程"
+  },
+  "copy_3025330480": {
+    "message": "代理使用了非預期的協定"
+  },
+  "copy_d93f623f9d": {
+    "message": "與本機代理服務的連線已中斷"
+  },
+  "copy_32995a6f7d": {
+    "message": "本機代理服務已關閉"
+  },
+  "copy_2c6fa99ffc": {
+    "message": "先前的代理行程未關閉"
+  },
+  "copy_66be2e3182": {
+    "message": "先前的代理執行未清理"
+  },
+  "copy_2403d17dd7": {
+    "message": "啟動已取消"
   }
 }

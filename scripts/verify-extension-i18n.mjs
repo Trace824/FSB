@@ -27,7 +27,11 @@ const DEFAULT_LOCALES = [
   ['zh-CN', 'zh_CN'],
   ['zh-TW', 'zh_TW']
 ];
-const PROTECTED = ['FSB', 'Full Self-Browsing', 'Chrome', 'Chrome Web Store'];
+const PROTECTED = [
+  'FSB', 'Full Self-Browsing', 'Chrome', 'Chrome Web Store',
+  // Provider and product names stay in English in every locale.
+  'Grok Build', 'LM Studio', 'Claude Code', 'Claude Routines', 'OpenClaw', 'OpenRouter', 'OpenAI', 'Google AI Studio'
+];
 
 function arg(name, fallback) {
   const idx = process.argv.indexOf(name);

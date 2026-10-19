@@ -2597,7 +2597,7 @@
     "message": "작업이 실행 중일 때는 Grok Build에 로그인할 수 없습니다. 실행이 끝날 때까지 기다린 뒤 다시 시도하세요."
   },
   "copy_ca4a99be2b": {
-    "message": "이전 세션을 정리하지 못해 로그인이 차단되었습니다. 상태를 새로고침해 정리를 다시 시도하세요."
+    "message": "Grok Build가 이전 세션을 정리하지 못해 로그인이 차단되었습니다. 상태를 새로고침해 정리를 다시 시도하세요."
   },
   "copy_28c4c69520": {
     "message": "Grok CLI가 FSB가 요구하는 엄격한 샌드박스에서 시작을 거부해 로그인이 차단되었습니다. CLI는 설치되어 있고 계정은 문제없습니다."
@@ -4010,5 +4010,353 @@
   },
   "panel_008dacb6d1": {
     "message": "전체"
+  },
+  "entry_phase_analyzing": {
+    "message": "분석 중"
+  },
+  "entry_phase_acting": {
+    "message": "실행 중"
+  },
+  "entry_phase_recovering": {
+    "message": "복구 중"
+  },
+  "entry_phase_writing": {
+    "message": "작성 중"
+  },
+  "entry_phase_switching": {
+    "message": "탭 전환 중"
+  },
+  "entry_phase_calling": {
+    "message": "API 호출 중"
+  },
+  "entry_phase_watching": {
+    "message": "트리거 감시 중"
+  },
+  "entry_phase_complete": {
+    "message": "완료"
+  },
+  "entry_phase_partial": {
+    "message": "부분 성공"
+  },
+  "entry_phase_waiting": {
+    "message": "대기 중"
+  },
+  "entry_phase_searching": {
+    "message": "검색 중"
+  },
+  "entry_phase_formatting": {
+    "message": "서식 지정 중"
+  },
+  "entry_phase_formatted": {
+    "message": "서식 지정 완료"
+  },
+  "entry_detail_error": {
+    "message": "작업이 오류로 종료되었습니다"
+  },
+  "entry_detail_stopped": {
+    "message": "작업이 중지되었습니다"
+  },
+  "entry_detail_reviewing": {
+    "message": "페이지 상태 검토 중"
+  },
+  "entry_detail_planning": {
+    "message": "다음 단계 계획 중"
+  },
+  "entry_detail_planning_browser": {
+    "message": "다음 브라우저 단계 계획 중"
+  },
+  "entry_detail_acting": {
+    "message": "브라우저 동작 수행 중"
+  },
+  "entry_detail_recovering": {
+    "message": "중단에서 복구하는 중"
+  },
+  "entry_detail_updating": {
+    "message": "페이지 업데이트 중"
+  },
+  "entry_detail_switching": {
+    "message": "다른 탭으로 전환 중"
+  },
+  "entry_detail_watching": {
+    "message": "DOM 변경 감시 중"
+  },
+  "entry_detail_ready": {
+    "message": "시작 준비 완료"
+  },
+  "entry_detail_calling_model": {
+    "message": "모델 호출 중"
+  },
+  "entry_detail_dispatching": {
+    "message": "도구 실행 중"
+  },
+  "entry_detail_scheduling": {
+    "message": "다음 단계 준비 중"
+  },
+  "copy_26de247a57": {
+    "message": "자동화를 중지하는 중…"
+  },
+  "copy_5143a201f5": {
+    "message": "오류가 발생했습니다"
+  },
+  "copy_71fea45d26": {
+    "message": "작업이 완료되었습니다"
+  },
+  "copy_3d3a79831e": {
+    "message": "작업이 완료되었습니다"
+  },
+  "copy_b1482165c8": {
+    "message": "자동화를 중지했습니다"
+  },
+  "copy_f88249eba2": {
+    "message": "재생 오류"
+  },
+  "copy_890ab358a5": {
+    "message": "기술 세부 정보"
+  },
+  "copy_d6786d701f": {
+    "message": "$NUMBER$단계 완료",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_1f78c9a474": {
+    "message": "재생하는 중..."
+  },
+  "copy_b93900bded": {
+    "message": "작업하는 중..."
+  },
+  "copy_84a657bcf3": {
+    "message": "다시 시도하는 중..."
+  },
+  "copy_5044c249a6": {
+    "message": "오류: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_8e136c1237": {
+    "message": "모델 필요"
+  },
+  "copy_cdfea2ae82": {
+    "message": "모델 필요"
+  },
+  "copy_42aa4e7bc5": {
+    "message": "연결 실패"
+  },
+  "copy_ddb621f87c": {
+    "message": "연결 오류"
+  },
+  "copy_58726e5dd9": {
+    "message": "테스트에 실패했습니다"
+  },
+  "copy_6fb7a46510": {
+    "message": "변경 사항을 버렸습니다"
+  },
+  "copy_0cd1f5ed36": {
+    "message": "로그를 지웠습니다"
+  },
+  "copy_3c0cf36859": {
+    "message": "세션을 삭제했습니다"
+  },
+  "copy_47d615a399": {
+    "message": "금고 잠금이 해제되었습니다"
+  },
+  "copy_f76f82ec1f": {
+    "message": "PIN이 올바르지 않습니다"
+  },
+  "copy_f0341f8dbc": {
+    "message": "자격 증명을 저장했습니다"
+  },
+  "copy_c3f91ad26c": {
+    "message": "자격 증명을 업데이트했습니다"
+  },
+  "copy_76287e726f": {
+    "message": "자격 증명을 삭제했습니다"
+  },
+  "copy_3a6a2dbef5": {
+    "message": "접근이 허용되었습니다"
+  },
+  "copy_1d01fc5159": {
+    "message": "요청이 거부되었습니다"
+  },
+  "copy_1b372d29f6": {
+    "message": "메모리를 삭제했습니다"
+  },
+  "copy_705ac60c9e": {
+    "message": "메모리를 내보냈습니다"
+  },
+  "copy_994f468aae": {
+    "message": "다른 공급자 선택"
+  },
+  "copy_765876fb76": {
+    "message": "$NAME$에 이 브라우저 제어를 허용할까요?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_ae0c803d28": {
+    "message": "이 작업에서 $NAME$에 FSB 브라우저 도구 조작을 허용합니다.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_6e6a3e06fc": {
+    "message": "$NAME$에서는 브라우저 작업을 실행할 수 없습니다",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_d48cf39ab9": {
+    "message": "$NAME$에서 이 작업을 시작할 수 없습니다",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_838ef605c4": {
+    "message": "$NAME$ 로그인 상태를 확인할 수 없습니다. API 구성에서 연결 테스트를 실행한 뒤 다시 시도하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_fdfc35d2bb": {
+    "message": "$NAME$에서 FSB의 위임 브라우저 최종 시작 검사를 통과하지 못했습니다. 연결 테스트는 위임 실행을 시작하지 않으므로 계속 성공할 수 있습니다. 메시지를 다시 시도하거나 공급자 설정을 검토하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_01c144a3f7": {
+    "message": "$NAME$에서 위임 브라우저 실행을 시작하지 못했습니다. 이유: $REASON$ ($CODE$). 연결 테스트는 위임 실행을 시작하지 않으므로 계속 성공할 수 있습니다. 메시지를 다시 시도하거나 공급자 설정을 검토하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "reason": {
+        "content": "$2"
+      },
+      "code": {
+        "content": "$3"
+      }
+    }
+  },
+  "copy_943864cd7f": {
+    "message": "$NAME$에서 수동 제어를 위해 일시 중지하지 못했습니다.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5fdcceef8a": {
+    "message": "선택한 공급자"
+  },
+  "copy_d3a5554e33": {
+    "message": "$NAME$에서 이 작업을 완료하기 전에 오류를 보고했습니다. 공급자의 원본 출력은 보존되지 않았습니다. 같은 메시지를 다시 시도하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_a6d2f8de32": {
+    "message": "$NAME$에서 작업이 완료되기 전에 중지되었습니다. 같은 메시지를 다시 시도하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_0b5a71f512": {
+    "message": "$NAME$에서 이 작업을 완료하기 전에 오류를 보고했습니다. 공급자의 원본 출력은 보존되지 않았습니다.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5c07e2e840": {
+    "message": "$NAME$에서 이 작업의 시간 제한을 초과했습니다.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_40bf459a21": {
+    "message": "$NAME$에서 업데이트를 더 이상 보내지 않아 FSB가 실행을 종료했습니다.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5e1a9ee287": {
+    "message": "$NAME$에 연결할 수 없습니다. 로컬 FSB 서비스를 시작한 뒤 이 메시지를 다시 시도하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c346b6861e": {
+    "message": "$NAME$에서는 브라우저 작업을 실행할 수 없습니다. 설정에서 지원되는 에이전트 공급자를 선택하세요.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_871ae6eaaf": {
+    "message": "$NAME$에서 작업이 완료되기 전에 중지되었습니다.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_750a4ad2a8": {
+    "message": "에이전트"
+  },
+  "copy_4341282a29": {
+    "message": "공급자를 사용할 수 없게 됨"
+  },
+  "copy_b4616517a1": {
+    "message": "에이전트 프로세스를 시작할 수 없음"
+  },
+  "copy_ff5ac3b107": {
+    "message": "에이전트 프로세스를 확인할 수 없음"
+  },
+  "copy_3025330480": {
+    "message": "에이전트가 예상치 못한 프로토콜로 응답함"
+  },
+  "copy_d93f623f9d": {
+    "message": "로컬 에이전트 서비스와의 연결이 끊어짐"
+  },
+  "copy_32995a6f7d": {
+    "message": "로컬 에이전트 서비스가 종료됨"
+  },
+  "copy_2c6fa99ffc": {
+    "message": "이전 에이전트 프로세스가 종료되지 않음"
+  },
+  "copy_66be2e3182": {
+    "message": "이전 에이전트 실행이 정리되지 않음"
+  },
+  "copy_2403d17dd7": {
+    "message": "시작이 취소됨"
   }
 }

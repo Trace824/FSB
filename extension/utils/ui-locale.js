@@ -109,8 +109,14 @@
     return applySubs(msg, subs);
   }
 
+  // Own keys only, so text such as "constructor" never resolves to an
+  // Object.prototype member.
+  function exactKey(english) {
+    return typeof english === 'string' && Object.prototype.hasOwnProperty.call(EXACT, english) ? EXACT[english] : null;
+  }
+
   function line(english, subs) {
-    var key = EXACT[english];
+    var key = exactKey(english);
     if (key) return text(key, english, subs);
     return applySubs(english, subs);
   }
@@ -242,7 +248,8 @@
     'Starting automation': 'shell_starting_plain',
     'Automation running': 'shell_running',
     'Working': 'shell_working',
-    'Error': 'shell_error_status'
+    'Error': 'shell_error_status',
+    'Stop Automation': 'shell_stop'
   };
 
   function registerExact(map) {
@@ -253,7 +260,7 @@
   }
 
   function markExact(node, english) {
-    var key = EXACT[english];
+    var key = exactKey(english);
     if (!key) {
       // Drop any key left by an earlier fill() so apply() does not bring back
       // the old string over this one.
@@ -369,12 +376,20 @@
     if (typeof english !== 'string' || typeof value !== 'string') return false;
     var wanted = norm(value);
     if (wanted === norm(english)) return true;
-    if (!Object.prototype.hasOwnProperty.call(EXACT, english)) return false;
-    return wanted === norm(line(english)) || isMessage(EXACT[english], value);
+    var key = exactKey(english);
+    if (!key) return false;
+    return wanted === norm(line(english)) || isMessage(key, value);
+  }
+
+  // Extension pages only; content scripts never touch the host page's <html>.
+  function syncDocumentLang() {
+    if (!isExtensionPage() || typeof document === 'undefined' || !document.documentElement) return;
+    document.documentElement.setAttribute('lang', current());
   }
 
   function notifyLocaleChange() {
     var i;
+    syncDocumentLang();
     if (isExtensionPage() && typeof document !== 'undefined') {
       apply(document);
     }
@@ -467,7 +482,7 @@
       if (codes.indexOf(browserLocale) === -1) codes.push(browserLocale);
       if (codes.indexOf(SOURCE_LOCALE) === -1) codes.push(SOURCE_LOCALE);
       return loadCatalogs(null, codes);
-    });
+    }).then(syncDocumentLang);
   }
 
   // Static markup is only re-translated while it still shows a catalog message

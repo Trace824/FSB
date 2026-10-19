@@ -521,7 +521,7 @@
     "message": ". Mit einem Schlüssel auf über 200 Modelle zugreifen."
   },
   "panel_018833a024": {
-    "message": "LM-Studio-Server-URL"
+    "message": "Server-URL für LM Studio"
   },
   "panel_3efaf1b1c1": {
     "message": "Verwendet den lokalen OpenAI-kompatiblen Server von LM Studio. Kein API-Schlüssel nötig. Modelle werden live ermittelt von"
@@ -2618,7 +2618,7 @@
     "message": "Grok Build-Anmeldung fehlgeschlagen"
   },
   "copy_53296a80a3": {
-    "message": "Privates FSB-Grok-Build-Profil trennen? Deine normale Grok-Anmeldung bleibt unverändert."
+    "message": "Privates Profil „FSB Grok Build“ trennen? Deine normale Grok-Anmeldung bleibt unverändert."
   },
   "copy_ca0786266f": {
     "message": "Grok Build wurde von FSB getrennt"
@@ -4010,5 +4010,353 @@
   },
   "panel_008dacb6d1": {
     "message": "Vollständig"
+  },
+  "entry_phase_analyzing": {
+    "message": "Wird analysiert"
+  },
+  "entry_phase_acting": {
+    "message": "Aktion wird ausgeführt"
+  },
+  "entry_phase_recovering": {
+    "message": "Wird wiederhergestellt"
+  },
+  "entry_phase_writing": {
+    "message": "Wird geschrieben"
+  },
+  "entry_phase_switching": {
+    "message": "Tab wird gewechselt"
+  },
+  "entry_phase_calling": {
+    "message": "API wird aufgerufen"
+  },
+  "entry_phase_watching": {
+    "message": "Auslöser wird überwacht"
+  },
+  "entry_phase_complete": {
+    "message": "Abgeschlossen"
+  },
+  "entry_phase_partial": {
+    "message": "Teilweise"
+  },
+  "entry_phase_waiting": {
+    "message": "Warten"
+  },
+  "entry_phase_searching": {
+    "message": "Suche läuft"
+  },
+  "entry_phase_formatting": {
+    "message": "Wird formatiert"
+  },
+  "entry_phase_formatted": {
+    "message": "Formatiert"
+  },
+  "entry_detail_error": {
+    "message": "Aufgabe mit einem Fehler beendet"
+  },
+  "entry_detail_stopped": {
+    "message": "Aufgabe gestoppt"
+  },
+  "entry_detail_reviewing": {
+    "message": "Seitenstatus wird geprüft"
+  },
+  "entry_detail_planning": {
+    "message": "Nächster Schritt wird geplant"
+  },
+  "entry_detail_planning_browser": {
+    "message": "Nächster Browserschritt wird geplant"
+  },
+  "entry_detail_acting": {
+    "message": "Browseraktion wird ausgeführt"
+  },
+  "entry_detail_recovering": {
+    "message": "Wiederherstellung nach Unterbrechung"
+  },
+  "entry_detail_updating": {
+    "message": "Seite wird aktualisiert"
+  },
+  "entry_detail_switching": {
+    "message": "Wechsel zu einem anderen Tab"
+  },
+  "entry_detail_watching": {
+    "message": "DOM wird auf Änderungen überwacht"
+  },
+  "entry_detail_ready": {
+    "message": "Bereit zum Start"
+  },
+  "entry_detail_calling_model": {
+    "message": "Modell wird aufgerufen"
+  },
+  "entry_detail_dispatching": {
+    "message": "Werkzeug wird ausgeführt"
+  },
+  "entry_detail_scheduling": {
+    "message": "Nächster Schritt wird eingeplant"
+  },
+  "copy_26de247a57": {
+    "message": "Automatisierung wird gestoppt…"
+  },
+  "copy_5143a201f5": {
+    "message": "Fehler aufgetreten"
+  },
+  "copy_71fea45d26": {
+    "message": "Aufgabe abgeschlossen"
+  },
+  "copy_3d3a79831e": {
+    "message": "Aufgabe abgeschlossen"
+  },
+  "copy_b1482165c8": {
+    "message": "Automatisierung gestoppt"
+  },
+  "copy_f88249eba2": {
+    "message": "Wiedergabefehler"
+  },
+  "copy_890ab358a5": {
+    "message": "Technische Details"
+  },
+  "copy_d6786d701f": {
+    "message": "Schritt $NUMBER$ abgeschlossen",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_1f78c9a474": {
+    "message": "Wird wiedergegeben..."
+  },
+  "copy_b93900bded": {
+    "message": "Arbeitet..."
+  },
+  "copy_84a657bcf3": {
+    "message": "Wird erneut versucht..."
+  },
+  "copy_5044c249a6": {
+    "message": "Fehler: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_8e136c1237": {
+    "message": "Modell erforderlich"
+  },
+  "copy_cdfea2ae82": {
+    "message": "Modelle erforderlich"
+  },
+  "copy_42aa4e7bc5": {
+    "message": "Verbindung fehlgeschlagen"
+  },
+  "copy_ddb621f87c": {
+    "message": "Verbindungsfehler"
+  },
+  "copy_58726e5dd9": {
+    "message": "Test fehlgeschlagen"
+  },
+  "copy_6fb7a46510": {
+    "message": "Änderungen verworfen"
+  },
+  "copy_0cd1f5ed36": {
+    "message": "Protokolle geleert"
+  },
+  "copy_3c0cf36859": {
+    "message": "Sitzung gelöscht"
+  },
+  "copy_47d615a399": {
+    "message": "Tresor entsperrt"
+  },
+  "copy_f76f82ec1f": {
+    "message": "Falscher PIN"
+  },
+  "copy_f0341f8dbc": {
+    "message": "Zugangsdaten gespeichert"
+  },
+  "copy_c3f91ad26c": {
+    "message": "Zugangsdaten aktualisiert"
+  },
+  "copy_76287e726f": {
+    "message": "Zugangsdaten gelöscht"
+  },
+  "copy_3a6a2dbef5": {
+    "message": "Zugriff gewährt"
+  },
+  "copy_1d01fc5159": {
+    "message": "Anfrage abgelehnt"
+  },
+  "copy_1b372d29f6": {
+    "message": "Erinnerung gelöscht"
+  },
+  "copy_705ac60c9e": {
+    "message": "Erinnerungen exportiert"
+  },
+  "copy_994f468aae": {
+    "message": "Anderen Anbieter wählen"
+  },
+  "copy_765876fb76": {
+    "message": "$NAME$ die Steuerung dieses Browsers erlauben?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_ae0c803d28": {
+    "message": "$NAME$ darf für diese Aufgabe die Browserwerkzeuge von FSB bedienen.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_6e6a3e06fc": {
+    "message": "$NAME$ kann keine Browseraufgaben ausführen",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_d48cf39ab9": {
+    "message": "$NAME$ kann diese Aufgabe nicht starten",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_838ef605c4": {
+    "message": "Der Anmeldestatus von $NAME$ konnte nicht überprüft werden. Nutze „Verbindung testen“ in der API-Konfiguration und versuche es dann erneut.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_fdfc35d2bb": {
+    "message": "$NAME$ hat die abschließenden Startprüfungen von FSB für den delegierten Browser nicht bestanden. Verbindung testen kann trotzdem gelingen, weil dadurch kein delegierter Lauf startet. Nachricht erneut versuchen oder die Anbieter-Einrichtung prüfen.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_01c144a3f7": {
+    "message": "$NAME$ konnte keinen delegierten Browserlauf starten, weil $REASON$ ($CODE$). Verbindung testen kann trotzdem gelingen, weil dadurch kein delegierter Lauf startet. Nachricht erneut versuchen oder die Anbieter-Einrichtung prüfen.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "reason": {
+        "content": "$2"
+      },
+      "code": {
+        "content": "$3"
+      }
+    }
+  },
+  "copy_943864cd7f": {
+    "message": "$NAME$ konnte nicht für die manuelle Steuerung pausieren.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5fdcceef8a": {
+    "message": "Ausgewählter Anbieter"
+  },
+  "copy_d3a5554e33": {
+    "message": "$NAME$ hat vor Abschluss dieser Aufgabe einen Fehler gemeldet. Die Rohausgabe des Anbieters wurde nicht gespeichert. Versuche dieselbe Nachricht erneut.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_a6d2f8de32": {
+    "message": "$NAME$ wurde beendet, bevor die Aufgabe abgeschlossen war. Versuche dieselbe Nachricht erneut.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_0b5a71f512": {
+    "message": "$NAME$ hat vor Abschluss dieser Aufgabe einen Fehler gemeldet. Die Rohausgabe des Anbieters wurde nicht gespeichert.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5c07e2e840": {
+    "message": "$NAME$ hat das Zeitlimit für diese Aufgabe überschritten.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_40bf459a21": {
+    "message": "$NAME$ hat keine Aktualisierungen mehr gesendet, daher hat FSB den Lauf beendet.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5e1a9ee287": {
+    "message": "$NAME$ ist nicht erreichbar. Starte den lokalen FSB-Dienst und versuche diese Nachricht erneut.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c346b6861e": {
+    "message": "$NAME$ kann keine Browseraufgaben ausführen. Wähle in den Einstellungen einen unterstützten Agent-Anbieter.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_871ae6eaaf": {
+    "message": "$NAME$ wurde beendet, bevor die Aufgabe abgeschlossen war.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_750a4ad2a8": {
+    "message": "Der Agent"
+  },
+  "copy_4341282a29": {
+    "message": "der Anbieter nicht mehr verfügbar war"
+  },
+  "copy_b4616517a1": {
+    "message": "der Agent-Prozess nicht gestartet werden konnte"
+  },
+  "copy_ff5ac3b107": {
+    "message": "der Agent-Prozess nicht überprüft werden konnte"
+  },
+  "copy_3025330480": {
+    "message": "der Agent ein unerwartetes Protokoll verwendet hat"
+  },
+  "copy_d93f623f9d": {
+    "message": "die Verbindung zum lokalen Agent-Dienst verloren ging"
+  },
+  "copy_32995a6f7d": {
+    "message": "der lokale Agent-Dienst beendet wurde"
+  },
+  "copy_2c6fa99ffc": {
+    "message": "ein früherer Agent-Prozess nicht beendet wurde"
+  },
+  "copy_66be2e3182": {
+    "message": "ein früherer Agent-Lauf nicht bereinigt wurde"
+  },
+  "copy_2403d17dd7": {
+    "message": "der Start abgebrochen wurde"
   }
 }

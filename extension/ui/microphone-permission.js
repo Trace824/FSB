@@ -8,11 +8,6 @@
   const settingsButton = document.getElementById('openSettingsBtn');
   const statusElement = document.getElementById('status');
 
-  function micText(key, english) {
-    if (globalThis.fsbUiLocale && typeof fsbUiLocale.text === 'function') return fsbUiLocale.text(key, english);
-    return english;
-  }
-
   // fill() records the key, so the locale boot (which can finish after this
   // page writes its first status) re-translates the text in place.
   function writeMicText(node, key, english) {
@@ -80,11 +75,6 @@
     }
   }
 
-  function errorMessage(error, permissionState) {
-    const [key, english] = errorCopy(error, permissionState);
-    return micText(key, english);
-  }
-
   async function requestMicrophone() {
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus('entry_mic_no_api', 'This Chrome build does not provide microphone access to extensions.', 'error');
@@ -139,8 +129,7 @@
 
   globalThis.FSBMicrophonePermission = {
     requestMicrophone,
-    getPermissionState,
-    errorMessage
+    getPermissionState
   };
 
   void requestMicrophone();

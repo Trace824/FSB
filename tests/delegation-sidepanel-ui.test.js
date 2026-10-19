@@ -768,8 +768,8 @@ assert.equal((htmlSource.match(/id="delegationControlBar"/g) || []).length, 0,
 assert.equal(sha256(htmlSource
   .replace(delegationProviderScript, '')
   .replace(nativeHostInstallScript, '')),
-  // Rolled when the side panel gained the copy-exact catalog script.
-  // No new control or helper was added.
+  // Rolled for the UI locale work: ui-locale.js and copy-exact.js scripts, the
+  // language select, and data-i18n keys on static copy. No delegation control was added.
   '5ba8cd65b63fb188db418d38c701897705b75756d843a6c43dc6a6aa75fdd892',
   'the side-panel HTML includes only the intended helpers and tab-scoped ownership treatment');
 const replayCssStart = cssSource.indexOf('.history-status.idle-closed {');
@@ -987,8 +987,8 @@ console.log('\n--- Phase 61 consent and human-control contract ---');
 assert(!panelSource.includes('Delegate a browser task')
     && !panelSource.includes('Choose an agent provider, describe the outcome, and FSB will run it in a background tab.'),
   'the idle delegation promotion is absent from the side panel');
-assert(panelSource.includes("+ ' cannot run browser tasks'"),
-  'unsupported-provider heading retains the exact dynamic provider-label suffix');
+assert(panelSource.includes("'$NAME$ cannot run browser tasks'"),
+  'unsupported-provider heading keeps the provider label in a $NAME$ template');
 
 const delegationUiSource = panelSource.slice(
   panelSource.indexOf('var _delegationUiState = {'),

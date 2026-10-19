@@ -4010,5 +4010,353 @@
   },
   "panel_008dacb6d1": {
     "message": "Full"
+  },
+  "entry_phase_analyzing": {
+    "message": "Analyzing"
+  },
+  "entry_phase_acting": {
+    "message": "Acting"
+  },
+  "entry_phase_recovering": {
+    "message": "Recovering"
+  },
+  "entry_phase_writing": {
+    "message": "Writing"
+  },
+  "entry_phase_switching": {
+    "message": "Switching Tabs"
+  },
+  "entry_phase_calling": {
+    "message": "Calling API"
+  },
+  "entry_phase_watching": {
+    "message": "Watching a trigger"
+  },
+  "entry_phase_complete": {
+    "message": "Complete"
+  },
+  "entry_phase_partial": {
+    "message": "Partial"
+  },
+  "entry_phase_waiting": {
+    "message": "Waiting"
+  },
+  "entry_phase_searching": {
+    "message": "Searching"
+  },
+  "entry_phase_formatting": {
+    "message": "Formatting"
+  },
+  "entry_phase_formatted": {
+    "message": "Formatted"
+  },
+  "entry_detail_error": {
+    "message": "Task ended with an error"
+  },
+  "entry_detail_stopped": {
+    "message": "Task stopped"
+  },
+  "entry_detail_reviewing": {
+    "message": "Reviewing page state"
+  },
+  "entry_detail_planning": {
+    "message": "Planning next step"
+  },
+  "entry_detail_planning_browser": {
+    "message": "Planning next browser step"
+  },
+  "entry_detail_acting": {
+    "message": "Performing browser action"
+  },
+  "entry_detail_recovering": {
+    "message": "Recovering from interruption"
+  },
+  "entry_detail_updating": {
+    "message": "Updating page"
+  },
+  "entry_detail_switching": {
+    "message": "Switching to another tab"
+  },
+  "entry_detail_watching": {
+    "message": "Watching DOM for change"
+  },
+  "entry_detail_ready": {
+    "message": "Ready to begin"
+  },
+  "entry_detail_calling_model": {
+    "message": "Calling model"
+  },
+  "entry_detail_dispatching": {
+    "message": "Dispatching tool"
+  },
+  "entry_detail_scheduling": {
+    "message": "Scheduling next step"
+  },
+  "copy_26de247a57": {
+    "message": "Stopping Automation…"
+  },
+  "copy_5143a201f5": {
+    "message": "Error occurred"
+  },
+  "copy_71fea45d26": {
+    "message": "Task completed"
+  },
+  "copy_3d3a79831e": {
+    "message": "Task complete"
+  },
+  "copy_b1482165c8": {
+    "message": "Automation stopped"
+  },
+  "copy_f88249eba2": {
+    "message": "Replay error"
+  },
+  "copy_890ab358a5": {
+    "message": "Technical details"
+  },
+  "copy_d6786d701f": {
+    "message": "Step $NUMBER$ complete",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_1f78c9a474": {
+    "message": "Replaying..."
+  },
+  "copy_b93900bded": {
+    "message": "Working..."
+  },
+  "copy_84a657bcf3": {
+    "message": "Retrying..."
+  },
+  "copy_5044c249a6": {
+    "message": "Error: $ERROR$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_8e136c1237": {
+    "message": "Model Required"
+  },
+  "copy_cdfea2ae82": {
+    "message": "Models Required"
+  },
+  "copy_42aa4e7bc5": {
+    "message": "Connection Failed"
+  },
+  "copy_ddb621f87c": {
+    "message": "Connection Error"
+  },
+  "copy_58726e5dd9": {
+    "message": "Test failed"
+  },
+  "copy_6fb7a46510": {
+    "message": "Changes discarded"
+  },
+  "copy_0cd1f5ed36": {
+    "message": "Logs cleared"
+  },
+  "copy_3c0cf36859": {
+    "message": "Session deleted"
+  },
+  "copy_47d615a399": {
+    "message": "Vault unlocked"
+  },
+  "copy_f76f82ec1f": {
+    "message": "Incorrect PIN"
+  },
+  "copy_f0341f8dbc": {
+    "message": "Credential saved"
+  },
+  "copy_c3f91ad26c": {
+    "message": "Credential updated"
+  },
+  "copy_76287e726f": {
+    "message": "Credential deleted"
+  },
+  "copy_3a6a2dbef5": {
+    "message": "Access granted"
+  },
+  "copy_1d01fc5159": {
+    "message": "Request denied"
+  },
+  "copy_1b372d29f6": {
+    "message": "Memory deleted"
+  },
+  "copy_705ac60c9e": {
+    "message": "Memories exported"
+  },
+  "copy_994f468aae": {
+    "message": "Choose another provider"
+  },
+  "copy_765876fb76": {
+    "message": "Let $NAME$ control this browser?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_ae0c803d28": {
+    "message": "$NAME$ may drive FSB browser tools for this task.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_6e6a3e06fc": {
+    "message": "$NAME$ cannot run browser tasks",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_d48cf39ab9": {
+    "message": "$NAME$ cannot start this task",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_838ef605c4": {
+    "message": "$NAME$ sign-in status could not be verified. Use Test Connection in API Configuration, then try again.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_fdfc35d2bb": {
+    "message": "$NAME$ could not pass FSB's final delegated-browser start checks. Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_01c144a3f7": {
+    "message": "$NAME$ could not start a delegated browser run because $REASON$ ($CODE$). Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "reason": {
+        "content": "$2"
+      },
+      "code": {
+        "content": "$3"
+      }
+    }
+  },
+  "copy_943864cd7f": {
+    "message": "$NAME$ could not pause for human control.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5fdcceef8a": {
+    "message": "Selected provider"
+  },
+  "copy_d3a5554e33": {
+    "message": "$NAME$ reported an error before completing this task. Raw provider output was not retained. Try the same message again.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_a6d2f8de32": {
+    "message": "$NAME$ stopped before the task was complete. Try the same message again.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_0b5a71f512": {
+    "message": "$NAME$ reported an error before completing this task. Raw provider output was not retained.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5c07e2e840": {
+    "message": "$NAME$ ran past the time limit for this task.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_40bf459a21": {
+    "message": "$NAME$ stopped sending updates, so FSB ended the run.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_5e1a9ee287": {
+    "message": "$NAME$ is not reachable. Start the local FSB service, then try this message again.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c346b6861e": {
+    "message": "$NAME$ cannot run browser tasks. Choose a supported agent provider in Settings.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_871ae6eaaf": {
+    "message": "$NAME$ stopped before the task was complete.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_750a4ad2a8": {
+    "message": "The agent"
+  },
+  "copy_4341282a29": {
+    "message": "the provider became unavailable"
+  },
+  "copy_b4616517a1": {
+    "message": "the agent process could not be started"
+  },
+  "copy_ff5ac3b107": {
+    "message": "the agent process could not be verified"
+  },
+  "copy_3025330480": {
+    "message": "the agent spoke an unexpected protocol"
+  },
+  "copy_d93f623f9d": {
+    "message": "the connection to the local agent service was lost"
+  },
+  "copy_32995a6f7d": {
+    "message": "the local agent service shut down"
+  },
+  "copy_2c6fa99ffc": {
+    "message": "an earlier agent process did not shut down"
+  },
+  "copy_66be2e3182": {
+    "message": "an earlier agent run was not cleaned up"
+  },
+  "copy_2403d17dd7": {
+    "message": "the start was cancelled"
   }
 }

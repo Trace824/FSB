@@ -632,9 +632,8 @@ async function loadOffscreenHandlerSource(chromeMock) {
   // discovery add two more classic-SW loads -> 332. The delegation tab seed
   // (side-panel active tab handed to the delegated agent) adds one -> 333.
   // The retained debugger session manager adds one shared load -> 334.
-  // The extension UI locale module adds one more classic-SW load -> 335.
   const importScriptsCount = (bgSource.match(/importScripts/g) || []).length;
-  passAssertEqual(importScriptsCount, 335, 'background.js importScripts count includes the retained debugger session manager');
+  passAssertEqual(importScriptsCount, 334, 'background.js importScripts count includes the retained debugger session manager');
   // Companion call-site-only count (regex requires open paren): Phase 5 baseline
   // was 150 actual importScripts() calls; Phase 6 adds 1 -> 151; Phase 8 adds 1 -> 152;
   // Phase 14 adds 2 (trigger-store + trigger-lifecycle) -> 154; Phase 15 adds 2
@@ -681,9 +680,8 @@ async function loadOffscreenHandlerSource(chromeMock) {
   // capture adds three call sites -> 326. Agent tab-spawn provenance and
   // shared model discovery add two more call sites -> 328. The delegation tab
   // seed is call site 329. The debugger session manager is call site 330.
-  // The extension UI locale module is call site 331.
   const importScriptsCallSites = (bgSource.match(/importScripts\(/g) || []).length;
-  passAssertEqual(importScriptsCallSites, 331, 'background.js importScripts() call sites include the retained debugger session manager');
+  passAssertEqual(importScriptsCallSites, 330, 'background.js importScripts() call sites include the retained debugger session manager');
   passAssertEqual((bgSource.match(/importScripts\(['"]utils\/debugger-sessions\.js['"]\)/g) || []).length, 1,
     'debugger session manager is loaded exactly once');
   const lineLease = bgLines.findIndex(line => /importScripts\(['"]utils\/cdp-lease\.js['"]\)/.test(line));

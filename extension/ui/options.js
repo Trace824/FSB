@@ -2360,7 +2360,7 @@ function validateHostedApiSettingsSelection(providerSettings, selectedModelName)
   updateApiStatusCard(
     'disconnected',
     missingKey ? 'API Key Required' : 'Models Required',
-    message + '.'
+    message
   );
   return false;
 }

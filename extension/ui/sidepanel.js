@@ -1577,7 +1577,11 @@ function _renderDelegationConsent(options) {
   var providerLabel = provider ? provider.label : 'Agent';
 
   var heading = _delegationElement(
-    'h2', 'delegation-state-heading', 'Let ' + providerLabel + ' control this browser?'
+    'h2',
+    'delegation-state-heading',
+    (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('Let $NAME$ control this browser?', { name: providerLabel })
+      : 'Let $NAME$ control this browser?'.replace('$NAME$', providerLabel)
   );
   heading.id = 'delegationRunHeading';
   heading.tabIndex = -1;
@@ -1585,7 +1589,9 @@ function _renderDelegationConsent(options) {
   mount.state.appendChild(_delegationElement(
     'p',
     'delegation-state-body',
-    providerLabel + ' may drive FSB browser tools for this task.'
+    (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('$NAME$ may drive FSB browser tools for this task.', { name: providerLabel })
+      : '$NAME$ may drive FSB browser tools for this task.'.replace('$NAME$', providerLabel)
   ));
   mount.state.appendChild(_delegationElement(
     'p',
@@ -1824,7 +1830,12 @@ function _renderDelegationPreflightFailure(result) {
     _delegationOwnDataValue(result, 'providerId'),
     _delegationOwnDataValue(result, 'providerLabel')
   );
-  var providerLabel = provider ? provider.label : 'Selected provider';
+  var providerLabel = provider
+    ? provider.label
+    : ((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line('Selected provider') : 'Selected provider');
+  var cannotStartText = (globalThis.fsbUiLocale && fsbUiLocale.line)
+    ? fsbUiLocale.line('$NAME$ cannot start this task', { name: providerLabel })
+    : '$NAME$ cannot start this task'.replace('$NAME$', providerLabel);
   var headingText = 'Agent offline';
   var bodyText = 'FSB cannot reach the local agent service. Run the doctor command, then try this message again.';
   var primaryLabel = 'Copy doctor command';
@@ -1854,14 +1865,16 @@ function _renderDelegationPreflightFailure(result) {
     secondaryLabel = null;
     secondaryAction = null;
   } else if (code === 'unsupported_provider') {
-    headingText = providerLabel + ' cannot run browser tasks';
+    headingText = (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('$NAME$ cannot run browser tasks', { name: providerLabel })
+      : '$NAME$ cannot run browser tasks'.replace('$NAME$', providerLabel);
     bodyText = 'The selected provider does not support agents that control browser tabs. Choose a supported agent provider, then try this message again.';
     primaryLabel = 'Choose another provider';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = null;
     secondaryAction = null;
   } else if (code === 'auth_unauthenticated') {
-    headingText = providerLabel + ' cannot start this task';
+    headingText = cannotStartText;
     bodyText = (globalThis.fsbUiLocale && fsbUiLocale.line)
       ? fsbUiLocale.line('Sign in to $NAME$ locally, then try this message again.', { name: providerLabel })
       : 'Sign in to $NAME$ locally, then try this message again.'.replace('$NAME$', providerLabel);
@@ -1870,22 +1883,27 @@ function _renderDelegationPreflightFailure(result) {
     secondaryLabel = 'Back to message';
     secondaryAction = _backToDelegationMessage;
   } else if (code === 'auth_unknown') {
-    headingText = providerLabel + ' cannot start this task';
-    bodyText = providerLabel
-      + ' sign-in status could not be verified. Use Test Connection in API Configuration, then try again.';
+    headingText = cannotStartText;
+    bodyText = (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('$NAME$ sign-in status could not be verified. Use Test Connection in API Configuration, then try again.', { name: providerLabel })
+      : '$NAME$ sign-in status could not be verified. Use Test Connection in API Configuration, then try again.'.replace('$NAME$', providerLabel);
     primaryLabel = 'Open provider setup';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = 'Back to message';
     secondaryAction = _backToDelegationMessage;
   } else if (code === 'start_rejected') {
     var startDetail = _delegationStartRejectionDetail(result);
-    headingText = providerLabel + ' cannot start this task';
-    bodyText = providerLabel
-      + (startDetail
-        ? ' could not start a delegated browser run because '
-          + startDetail.reason + ' (' + startDetail.code + ').'
-        : ' could not pass FSB\'s final delegated-browser start checks.')
-      + ' Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.';
+    headingText = cannotStartText;
+    var startTemplate = startDetail
+      ? '$NAME$ could not start a delegated browser run because $REASON$ ($CODE$). Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.'
+      : '$NAME$ could not pass FSB\'s final delegated-browser start checks. Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.';
+    var startReason = startDetail
+      ? ((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line(startDetail.reason) : startDetail.reason)
+      : '';
+    var startCode = startDetail ? startDetail.code : '';
+    bodyText = (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line(startTemplate, { name: providerLabel, reason: startReason, code: startCode })
+      : startTemplate.replace('$NAME$', providerLabel).replace('$REASON$', startReason).replace('$CODE$', startCode);
     primaryLabel = 'Open provider setup';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = 'Back to message';
@@ -2061,7 +2079,7 @@ function _restoreLegacyStopControl() {
   if (!stopBtn) return;
   stopBtn.removeAttribute('data-delegation-action');
   stopBtn.removeAttribute('aria-label');
-  stopBtn.setAttribute('title', 'Stop Automation');
+  stopBtn.setAttribute('title', (globalThis.fsbUiLocale && typeof fsbUiLocale.line === 'function') ? fsbUiLocale.line('Stop Automation') : 'Stop Automation');
   var ownerLocked = _chatLockedByOwnerChip === true;
   stopBtn.disabled = ownerLocked;
   if (ownerLocked) {
@@ -2084,6 +2102,7 @@ function _syncDelegationStopControls(snapshot) {
   }
   var stopping = _delegationStopControlPending(snapshot);
   var stopLabel = stopping ? 'Stopping Automation…' : 'Stop Automation';
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.line === 'function') stopLabel = fsbUiLocale.line(stopLabel);
   if (stopBtn) {
     stopBtn.classList.remove('hidden');
     stopBtn.classList.remove('fsb-foreign-owned-disabled');
@@ -2177,8 +2196,12 @@ function _renderDelegationRunHeader(container, snapshot) {
   else if (disconnected) headingText = 'Agent connection lost';
   else if (unpaired) headingText = 'Automatic connection needs the native helper';
   else if (unsupported) {
-    headingText = (snapshot.provider ? snapshot.provider.label : 'Selected provider')
-      + ' cannot run browser tasks';
+    var unsupportedName = snapshot.provider
+      ? snapshot.provider.label
+      : ((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line('Selected provider') : 'Selected provider');
+    headingText = (globalThis.fsbUiLocale && fsbUiLocale.line)
+      ? fsbUiLocale.line('$NAME$ cannot run browser tasks', { name: unsupportedName })
+      : '$NAME$ cannot run browser tasks'.replace('$NAME$', unsupportedName);
   } else if (resumeOwnershipFailure) headingText = 'Agent could not resume control';
   var heading = _delegationSemanticHeading(
     'h2',
@@ -2259,14 +2282,15 @@ function _renderDelegationRunHeader(container, snapshot) {
     container.appendChild(resumeFailureActions);
   } else if (genericRunFailure) {
     var providerReportedFailure = terminalCode === 'provider_error';
+    var failureTemplate = providerReportedFailure
+      ? '$NAME$ reported an error before completing this task. Raw provider output was not retained. Try the same message again.'
+      : '$NAME$ stopped before the task was complete. Try the same message again.';
     container.appendChild(_delegationElement(
       'p',
       'delegation-state-body',
-      providerReportedFailure
-        ? providerLabel
-          + ' reported an error before completing this task. Raw provider output was not retained. Try the same message again.'
-        : providerLabel
-          + ' stopped before the task was complete. Try the same message again.'
+      (globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line(failureTemplate, { name: providerLabel })
+        : failureTemplate.replace('$NAME$', providerLabel)
     ));
     _appendDelegationTechnicalCode(container, terminalCode || 'agent_failed');
     var retryActions = _delegationElement('div', 'delegation-state-actions');
@@ -2285,7 +2309,9 @@ function _renderDelegationRunHeader(container, snapshot) {
       || _delegationUiState.errorCode === 'hold_lease_failed') {
     _renderDelegationInlineError(
       container,
-      providerLabel + ' could not pause for human control.'
+      (globalThis.fsbUiLocale && fsbUiLocale.line)
+        ? fsbUiLocale.line('$NAME$ could not pause for human control.', { name: providerLabel })
+        : '$NAME$ could not pause for human control.'.replace('$NAME$', providerLabel)
     );
   } else if (_delegationUiState.errorCode === 'stop_failed'
       || _delegationUiState.errorCode === 'runtime_unavailable') {
@@ -3424,32 +3450,30 @@ function _renderAutomationRetryPrompt(taskText, onRetry) {
 }
 
 function _delegatedRunErrorMessage(snapshot) {
-  var label = (snapshot && snapshot.provider && snapshot.provider.label) || 'The agent';
+  var label = (snapshot && snapshot.provider && snapshot.provider.label) || spLine('The agent');
   var code = snapshot && snapshot.terminal ? snapshot.terminal.code : null;
   if (code === 'provider_error') {
-    return label + ' reported an error before completing this task. Raw provider output was not retained.';
+    return spLine('$NAME$ reported an error before completing this task. Raw provider output was not retained.', { name: label });
   }
   if (code === 'daemon_restart_lost_run') {
-    return 'The previous agent process was stopped and was not reattached. Start a new task when the local service is ready.';
+    return spLine('The previous agent process was stopped and was not reattached. Start a new task when the local service is ready.');
   }
   if (code === 'resume_ownership_lost' || code === 'hold_expired') {
-    return (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control.', { name: label })
-      : 'FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control.'.replace('$NAME$', label);
+    return spLine('FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control.', { name: label });
   }
-  if (code === 'wall_clock_timeout') return label + ' ran past the time limit for this task.';
-  if (code === 'event_silence_timeout') return label + ' stopped sending updates, so FSB ended the run.';
+  if (code === 'wall_clock_timeout') return spLine('$NAME$ ran past the time limit for this task.', { name: label });
+  if (code === 'event_silence_timeout') return spLine('$NAME$ stopped sending updates, so FSB ended the run.', { name: label });
   // Setup failures carry their recovery in the text, because a plain retry cannot fix them.
   if (code === 'agent_unpaired' || code === 'native_host_missing') {
-    return 'FSB\u2019s local helper is not installed. Run: npx -y fsb-mcp-server@latest install --native-host';
+    return spLine('FSB’s local helper is not installed. Run: npx -y fsb-mcp-server@latest install --native-host');
   }
   if (code === 'agent_offline') {
-    return label + ' is not reachable. Start the local FSB service, then try this message again.';
+    return spLine('$NAME$ is not reachable. Start the local FSB service, then try this message again.', { name: label });
   }
   if (code === 'unsupported_provider') {
-    return label + ' cannot run browser tasks. Choose a supported agent provider in Settings.';
+    return spLine('$NAME$ cannot run browser tasks. Choose a supported agent provider in Settings.', { name: label });
   }
-  return label + ' stopped before the task was complete.';
+  return spLine('$NAME$ stopped before the task was complete.', { name: label });
 }
 
 function _delegatedRunEmitEntry(entry) {
@@ -3499,7 +3523,7 @@ function _delegatedRunApplyTerminal(snapshot) {
     return true;
   }
   setErrorState(_activeTabIdSnapshot);
-  completeStatusMessage('Error: ' + _delegatedRunErrorMessage(snapshot), 'error');
+  completeStatusMessage(spLine('Error: $ERROR$', { error: _delegatedRunErrorMessage(snapshot) }), 'error');
   if (typeof _renderAutomationRetryPrompt === 'function') {
     _renderAutomationRetryPrompt(_delegationUiState.task, async function() {
       await _prepareDelegationTask(true);
@@ -4995,12 +5019,15 @@ function addStatusMessage(text, type = 'ai') {
 }
 
 // Update existing status message with optional progress data
-function updateStatusMessage(text, progressData) {
-  setAutomationRunnerText(text);
+function updateStatusMessage(text, progressData, subs) {
+  // Templates are filled here; plain lines stay English so markExact() keys them.
+  const line = subs ? spLine(text, subs) : text;
+  setAutomationRunnerText(line);
   if (currentStatusMessage) {
     const statusText = currentStatusMessage.querySelector('.status-text');
     if (statusText) {
-      statusText.textContent = text;
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(statusText, line);
+      else statusText.textContent = line;
     }
     if (progressData && progressData.iteration != null) {
       const container = currentStatusMessage.querySelector('.progress-container');
@@ -5064,6 +5091,7 @@ function _renderCompletionDomOnly(text, type, isPartial) {
   if (type === 'error') {
     messageDiv.className = 'message error new';
     messageDiv.textContent = text;
+    if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(messageDiv, text);
   } else {
     var contentDiv = document.createElement('div');
     if (typeof FSBMarkdown !== 'undefined') {
@@ -5105,6 +5133,7 @@ function addCompletionMessage(text, type = 'ai', isPartial = false) {
   if (type === 'error') {
     messageDiv.className = `message error new`;
     messageDiv.textContent = text;
+    if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(messageDiv, text);
   } else {
     // Use markdown rendering if available, plain text fallback
     const contentDiv = document.createElement('div');
@@ -6031,11 +6060,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           _persistMessageToConversation('assistant', 'Step ' + request.iteration + ' complete', 'progress', iterConvId);
           // DOM render: only for the active session AND only when running.
           if (request.sessionId === currentSessionId && currentStatusMessage && isRunning) {
-            updateStatusMessage('Step ' + request.iteration + ' complete', {
+            updateStatusMessage('Step $NUMBER$ complete', {
               iteration: request.iteration,
               maxIterations: 100,
               progressPercent: Math.min(100, Math.round((request.iteration / 100) * 100))
-            });
+            }, { number: request.iteration });
           }
           break;
         case 'session_ended':

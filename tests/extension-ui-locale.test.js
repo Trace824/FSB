@@ -94,11 +94,14 @@ const source = fs.readFileSync(path.join(root, 'extension/utils/ui-locale.js'), 
 check(!source.includes('fsb-locale'), 'resolver does not mention the website cookie name');
 check(!source.includes('document.cookie'), 'resolver does not read document.cookie');
 
+// Nothing in the service worker translates, so it does not load the module.
+// Content scripts do, right before the overlay that uses it.
 const background = fs.readFileSync(path.join(root, 'extension/background.js'), 'utf8');
-const identity = background.indexOf("importScripts('utils/install-identity.js')");
-const uiLocale = background.indexOf("importScripts('utils/ui-locale.js')");
-const config = background.indexOf("importScripts('config/config.js')");
-check(identity !== -1 && uiLocale > identity && uiLocale < config, 'ui-locale loads immediately after install-identity');
+const wsClient = fs.readFileSync(path.join(root, 'extension/ws/ws-client.js'), 'utf8');
+check(!background.includes("importScripts('utils/ui-locale.js')"), 'the service worker does not load ui-locale.js');
+const contentScriptOrder = /'utils\/ui-locale\.js',\s*'content\/visual-feedback\.js'/;
+check(contentScriptOrder.test(background) && contentScriptOrder.test(wsClient),
+  'both content-script lists inject ui-locale.js right before visual-feedback.js');
 
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'extension/manifest.json'), 'utf8'));
 check(manifest.default_locale === 'en', 'manifest default_locale is en');
@@ -164,6 +167,12 @@ check(!locale.isLine('Probe starting...', 'Clicked the Submit button'), 'isLine 
 check(!locale.isLine('Probe starting...', undefined), 'isLine rejects a missing value');
 check(!locale.isLine('Not an exact line', 'Probe wird gestartet...'), 'isLine needs the English line in the exact map');
 check(!locale.isLine('constructor', 'function Object() { [native code] }'), 'isLine ignores inherited object keys');
+check(locale.line('constructor') === 'constructor' && locale.line('constructor', { name: 'Ada' }) === 'constructor',
+  'line ignores inherited object keys');
+const protoNode = fakeNode({}, '');
+locale.markExact(protoNode, 'toString');
+check(protoNode.textContent === 'toString' && protoNode.getAttribute('data-i18n-live') === null,
+  'markExact ignores inherited object keys');
 locale.setOverride(null);
 check(locale.isLine('Probe starting...', 'Probe wird gestartet...'), 'isLine still matches text drawn before the language changed');
 for (const file of ['extension/ui/sidepanel.js', 'extension/ui/popup.js']) {
@@ -212,7 +221,7 @@ function pageExactMap(files) {
 const literal = "'((?:[^'\\\\]|\\\\.)*)'";
 for (const [file, maps, helpers] of [
   ['extension/ui/options.js', ['extension/utils/panel-exact.js', 'extension/utils/copy-exact.js'], 'fsbUiLine|fsbUiHtml|fsbUiMarkup'],
-  ['extension/ui/sidepanel.js', ['extension/utils/copy-exact.js'], 'spLine']
+  ['extension/ui/sidepanel.js', ['extension/utils/copy-exact.js'], 'spLine|fsbUiLocale\\.line']
 ]) {
   const exactMap = pageExactMap(['extension/utils/ui-locale.js', ...maps]);
   const source = fs.readFileSync(path.join(root, file), 'utf8');
@@ -223,6 +232,44 @@ for (const [file, maps, helpers] of [
   for (const match of source.matchAll(ternary)) english.push(match[1], match[2]);
   const unresolved = english.map((text) => text.replace(/\\'/g, "'")).filter((text) => !Object.prototype.hasOwnProperty.call(exactMap, text));
   check(english.length > 0 && unresolved.length === 0, `${file} copy helpers resolve to catalog keys${unresolved.length ? ': ' + unresolved.join(' | ') : ''}`);
+}
+
+// Status, toast, and delegation copy that reaches markExact() or a template
+// through a variable. Each literal must still be in its file and resolve on
+// that page.
+const sidePanelMap = pageExactMap(['extension/utils/ui-locale.js', 'extension/utils/copy-exact.js']);
+const controlPanelMap = pageExactMap(['extension/utils/ui-locale.js', 'extension/utils/panel-exact.js', 'extension/utils/copy-exact.js']);
+for (const [file, exactMap, texts] of [
+  ['extension/ui/sidepanel.js', sidePanelMap, [
+    'Stop Automation', 'Stopping Automation…', 'Task complete', 'Automation stopped', 'Replay error',
+    'Technical details', 'Step $NUMBER$ complete', 'Replaying...', 'Working...', 'Retrying...', 'Error: $ERROR$',
+    'Choose another provider', 'Selected provider', 'The agent',
+    'Let $NAME$ control this browser?', '$NAME$ may drive FSB browser tools for this task.',
+    '$NAME$ cannot run browser tasks', '$NAME$ cannot start this task',
+    '$NAME$ sign-in status could not be verified. Use Test Connection in API Configuration, then try again.',
+    '$NAME$ could not pass FSB\'s final delegated-browser start checks. Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.',
+    '$NAME$ could not start a delegated browser run because $REASON$ ($CODE$). Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.',
+    '$NAME$ could not pause for human control.',
+    '$NAME$ reported an error before completing this task. Raw provider output was not retained. Try the same message again.',
+    '$NAME$ stopped before the task was complete. Try the same message again.',
+    'the provider became unavailable', 'the agent process could not be started', 'the agent process could not be verified',
+    'the agent spoke an unexpected protocol', 'the connection to the local agent service was lost',
+    'the local agent service shut down', 'an earlier agent process did not shut down',
+    'an earlier agent run was not cleaned up', 'the start was cancelled'
+  ]],
+  ['extension/ui/popup.js', sidePanelMap, ['Error occurred', 'Task completed', 'Task partially completed']],
+  ['extension/ui/options.js', controlPanelMap, [
+    'Model Required', 'Models Required', 'API Key Required', 'Connection Failed', 'Connection Error', 'Test failed',
+    'Provide an API key before saving this provider', 'Load an available model from this provider before saving',
+    'Changes discarded', 'Logs cleared', 'Session deleted', 'Vault unlocked', 'Incorrect PIN', 'Credential saved',
+    'Credential updated', 'Credential deleted', 'Access granted', 'Request denied', 'Memory deleted', 'Memories exported'
+  ]]
+]) {
+  const source = fs.readFileSync(path.join(root, file), 'utf8');
+  const missing = texts.filter((text) => !source.includes("'" + text.replace(/'/g, "\\'") + "'"));
+  const unresolved = texts.filter((text) => !Object.prototype.hasOwnProperty.call(exactMap, text));
+  check(missing.length === 0 && unresolved.length === 0,
+    `${file} status and delegation copy resolves on its page${missing.length ? '; not in source: ' + missing.join(' | ') : ''}${unresolved.length ? '; unresolved: ' + unresolved.join(' | ') : ''}`);
 }
 
 // MV3's default CSP blocks inline scripts on extension pages, so a boot call
@@ -371,6 +418,197 @@ function fakeDoc(nodes) {
   };
 }
 
+// A separate resolver instance with the shipped catalogs, so these checks do
+// not disturb the seeded instance above.
+const shippedCatalogs = {};
+for (const code of locale.PUBLIC_LOCALES) {
+  const file = path.join(root, 'extension/_locales', locale.folderFor(code), 'messages.json');
+  shippedCatalogs[code] = locale.parseMessages(JSON.parse(fs.readFileSync(file, 'utf8')));
+}
+function freshLocale(globals) {
+  const sandbox = Object.assign({ module: undefined }, globals || {});
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  for (const file of ['extension/utils/ui-locale.js', 'extension/utils/copy-exact.js']) {
+    vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), sandbox);
+  }
+  for (const code of Object.keys(shippedCatalogs)) sandbox.fsbUiLocale.setCatalog(code, shippedCatalogs[code]);
+  return sandbox;
+}
+
+function extractNamedFunction(source, name) {
+  const start = source.indexOf('function ' + name + '(');
+  if (start === -1) throw new Error('missing function ' + name);
+  const bodyStart = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index++) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  throw new Error('unbalanced function ' + name);
+}
+
+// Provider names survive every catalog, and no template token is left behind.
+{
+  const shipped = freshLocale().fsbUiLocale;
+  const subs = { name: 'Grok Build', reason: 'x', code: 'activation_failed', error: 'Grok Build stopped', number: 3 };
+  const templates = Object.keys(shipped.exact).filter((english) => english.includes('$NAME$'));
+  const leaks = [];
+  for (const code of shipped.PUBLIC_LOCALES) {
+    shipped.setOverride(code);
+    for (const english of templates) {
+      const shown = shipped.line(english, subs);
+      if (!shown.includes('Grok Build') || shown.includes('$')) leaks.push(`${code}: ${shown}`);
+    }
+    const reason = shipped.line('the agent process could not be verified');
+    const start = shipped.line('$NAME$ could not start a delegated browser run because $REASON$ ($CODE$). Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.',
+      { name: 'Grok Build', reason, code: 'activation_failed' });
+    if (!start.includes(reason) || !start.includes('activation_failed')) leaks.push(`${code}: ${start}`);
+    if (code !== 'en' && reason === 'the agent process could not be verified') leaks.push(`${code}: untranslated reason`);
+  }
+  check(templates.length >= 20 && leaks.length === 0,
+    `$NAME$ templates keep the provider name and fill every token in all locales${leaks.length ? ': ' + leaks.slice(0, 3).join(' | ') : ''}`);
+  for (const code of ['ja', 'ko']) {
+    shipped.setOverride(code);
+    check(shipped.t('copy_ca4a99be2b').includes('Grok Build'), `${code} Grok Build cleanup copy keeps the provider name`);
+  }
+}
+
+// The overlay translates the English labels the service worker sends, keeps
+// the active-phase ellipsis, and leaves AI and task text alone.
+{
+  const overlaySource = fs.readFileSync(path.join(root, 'extension/content/visual-feedback.js'), 'utf8');
+  const slice = overlaySource.slice(overlaySource.indexOf('function ov('), overlaySource.indexOf('var chromeRoots'));
+  const shipped = freshLocale().fsbUiLocale;
+  shipped.setOverride('ja');
+  const overlay = { fsbUiLocale: shipped };
+  overlay.globalThis = overlay;
+  vm.createContext(overlay);
+  vm.runInContext(slice, overlay);
+  const ja = shippedCatalogs.ja;
+  check(overlay.overlayLabel('Acting…') === ja.entry_phase_acting + '…', 'overlay pill translates the phase and keeps the ellipsis');
+  check(overlay.overlayLabel('Task completed') === ja.copy_71fea45d26, 'overlay detail translates the default completion line');
+  check(overlay.overlayLabel('Done') === ja.entry_done_pill && overlay.overlayLabel('Planning…') === ja.entry_planning + '…',
+    'overlay reuses the existing Done and Planning keys');
+  for (const raw of ['Clicked the Submit button', '3/10 companies', '', '…', 'constructor']) {
+    check(overlay.overlayLabel(raw) === raw, `overlay leaves ${JSON.stringify(raw)} as sent`);
+  }
+
+  const englishCatalogMessages = JSON.parse(fs.readFileSync(path.join(root, 'extension/_locales/en/messages.json'), 'utf8'));
+  const labelMisses = Object.entries(overlay.OVERLAY_LABELS)
+    .filter(([english, key]) => !englishCatalogMessages[key] || englishCatalogMessages[key].message !== english);
+  check(labelMisses.length === 0, `overlay label keys match the English catalog${labelMisses.length ? ': ' + labelMisses.map(([e]) => e).join(' | ') : ''}`);
+  const ovMisses = [];
+  for (const match of overlaySource.matchAll(/\bov\('([a-z0-9_]+)',\s*'((?:[^'\\]|\\.)*)'\s*[,)]/g)) {
+    const entry = englishCatalogMessages[match[1]];
+    if (!entry || entry.message !== match[2].replace(/\\'/g, "'")) ovMisses.push(match[1]);
+  }
+  check(ovMisses.length === 0, `overlay ov() fallbacks match the English catalog${ovMisses.length ? ': ' + ovMisses.join(', ') : ''}`);
+
+  // Drift guard: every label and default detail overlay-state.js builds is mapped.
+  const overlayState = require('../extension/utils/overlay-state.js');
+  const built = new Set();
+  const phases = ['analyzing', 'planning', 'thinking', 'acting', 'executing', 'recovering', 'writing', 'switching_tab',
+    'tab_switch', 'calling', 'trigger-watch', 'watching', 'complete', 'error'];
+  const results = [undefined, 'success', 'partial', 'error', 'stopped'];
+  for (const phase of phases) {
+    for (const result of results) {
+      for (const extra of [{}, { lifecycle: 'final' }, { progressPercent: 40 }]) {
+        const state = overlayState.buildOverlayState(Object.assign({ phase, result }, extra), null);
+        built.add(state.display.detail);
+        if (state.progress) built.add(state.progress.label.replace(/…$/, ''));
+      }
+    }
+  }
+  for (const session of [{ multiSite: {} }, { sheetsData: null }, { sheetsData: { formattingPhase: true } }, { sheetsData: { formattingComplete: true } }]) {
+    const state = overlayState.buildOverlayState({ phase: 'writing' }, session);
+    built.add(state.progress.label.replace(/…$/, ''));
+  }
+  // Fallbacks outside overlay-state.js: the generic detail, the MCP visual
+  // session start line and its waiting pill.
+  const visualSession = fs.readFileSync(path.join(root, 'extension/utils/mcp-visual-session.js'), 'utf8');
+  check(background.includes("|| 'Ready to begin'") && visualSession.includes("label: 'Waiting'"),
+    'MCP visual session fallbacks are still the mapped English labels');
+  for (const label of ['Working', 'Ready to begin', 'Waiting']) built.add(label);
+  const agentLoop = fs.readFileSync(path.join(root, 'extension/ai/agent-loop.js'), 'utf8');
+  const markerBlock = agentLoop.match(/_al_STEP_MARKER_LABELS = \{([\s\S]*?)\};/);
+  for (const match of (markerBlock ? markerBlock[1] : '').matchAll(/:\s*'([^']+)'/g)) built.add(match[1]);
+  for (const match of agentLoop.matchAll(/detail = '([^']+)';/g)) built.add(match[1]);
+  const unmapped = [...built].filter((label) => !Object.prototype.hasOwnProperty.call(overlay.OVERLAY_LABELS, label));
+  check(markerBlock && built.size > 25 && unmapped.length === 0,
+    `overlay maps every English label the service worker builds${unmapped.length ? ': ' + unmapped.join(' | ') : ''}`);
+}
+
+// The fixed Stop button keeps a translated tooltip when the delegated run
+// hands it back, and its pending label follows the locale.
+{
+  const panelSource = fs.readFileSync(path.join(root, 'extension/ui/sidepanel.js'), 'utf8');
+  const shipped = freshLocale().fsbUiLocale;
+  shipped.setOverride('de');
+  const stopBtn = fakeNode({ 'data-i18n-attr': 'title:shell_stop', title: 'Stop Automation' }, '');
+  const classes = new Set(['hidden']);
+  stopBtn.classList = {
+    add: (name) => classes.add(name),
+    remove: (name) => classes.delete(name),
+    contains: (name) => classes.has(name)
+  };
+  let pending = false;
+  const context = {
+    fsbUiLocale: shipped,
+    stopBtn,
+    isRunning: false,
+    _chatLockedByOwnerChip: false,
+    _delegationUsesFixedStop: () => true,
+    _delegationStopControlPending: () => pending,
+    _ensureDelegationMount: () => ({})
+  };
+  context.globalThis = context;
+  vm.createContext(context);
+  for (const name of ['_restoreLegacyStopControl', '_syncDelegationStopControls']) {
+    vm.runInContext(extractNamedFunction(panelSource, name), context);
+  }
+  context._restoreLegacyStopControl();
+  check(stopBtn.getAttribute('title') === shippedCatalogs.de.shell_stop, 'restored Stop tooltip uses the active locale');
+  pending = true;
+  context._syncDelegationStopControls({});
+  check(stopBtn.getAttribute('title') === shippedCatalogs.de.copy_26de247a57
+      && stopBtn.getAttribute('aria-label') === shippedCatalogs.de.copy_26de247a57,
+    'pending delegated Stop title and label use the active locale');
+  context._restoreLegacyStopControl();
+  shipped.setOverride('ja');
+  shipped.apply(fakeDoc([stopBtn]));
+  check(stopBtn.getAttribute('title') === shippedCatalogs.ja.shell_stop && shippedCatalogs.ja.shell_stop === '自動化を停止',
+    'a language switch re-translates the restored Stop tooltip');
+}
+
+// Side panel status lines: plain lines are keyed, templates are filled, and
+// AI text is shown as sent.
+{
+  const panelSource = fs.readFileSync(path.join(root, 'extension/ui/sidepanel.js'), 'utf8');
+  const shipped = freshLocale().fsbUiLocale;
+  shipped.setOverride('de');
+  const statusNode = fakeNode({}, '');
+  const runner = [];
+  const context = {
+    fsbUiLocale: shipped,
+    currentStatusMessage: { querySelector: (selector) => (selector === '.status-text' ? statusNode : null) },
+    setAutomationRunnerText: (text) => runner.push(text)
+  };
+  context.globalThis = context;
+  vm.createContext(context);
+  for (const name of ['spLine', 'updateStatusMessage']) vm.runInContext(extractNamedFunction(panelSource, name), context);
+  context.updateStatusMessage('Replaying...');
+  check(statusNode.textContent === shippedCatalogs.de.copy_1f78c9a474, 'status line translates a keyed plain line');
+  context.updateStatusMessage('Step $NUMBER$ complete', null, { number: 3 });
+  check(statusNode.textContent === shippedCatalogs.de.copy_d6786d701f.replace('$NUMBER$', '3') && runner[1] === statusNode.textContent,
+    'status line fills a template in the active locale');
+  context.updateStatusMessage('Clicked the Submit button');
+  check(statusNode.textContent === 'Clicked the Submit button', 'status line leaves AI text as sent');
+}
+
 async function asyncChecks() {
   const requested = [];
   await locale.loadCatalogs((url) => {
@@ -479,6 +717,41 @@ async function asyncChecks() {
   check(locale.t('probe_overlay') === 'FSB Automating', 'the stored override applies after boot');
   locale.setOverride(null);
   locale.setBrowserTag(null);
+
+  // Extension pages carry the active language on <html lang>; host pages that
+  // run the content scripts are never touched.
+  const extensionPage = freshLocale({
+    location: { protocol: 'chrome-extension:' },
+    document: { documentElement: fakeNode({}, ''), querySelectorAll: () => [] }
+  });
+  const pageLang = () => extensionPage.document.documentElement.getAttribute('lang');
+  extensionPage.fsbUiLocale.setOverride('ja');
+  extensionPage.fsbUiLocale.refresh();
+  check(pageLang() === 'ja', 'a language change sets <html lang> on extension pages');
+  extensionPage.fsbUiLocale.setOverride('zh-TW');
+  extensionPage.fsbUiLocale.refresh();
+  check(pageLang() === 'zh-TW', '<html lang> uses the public locale code');
+
+  const bootedPage = freshLocale({
+    location: { protocol: 'chrome-extension:' },
+    document: { documentElement: fakeNode({ lang: 'en' }, ''), querySelectorAll: () => [] },
+    chrome: {
+      i18n: { getUILanguage: () => 'en-US', getMessage: () => '' },
+      storage: { local: { get: (_key, cb) => cb({ fsbUiLocale: 'ko' }) }, onChanged: { addListener() {} } },
+      runtime: { getURL: (file) => file }
+    },
+    fetch: () => Promise.resolve({ json: () => ({}) })
+  });
+  await bootedPage.fsbUiLocale.boot();
+  check(bootedPage.document.documentElement.getAttribute('lang') === 'ko', 'boot() sets <html lang> from the stored language');
+
+  const hostPage = freshLocale({
+    location: { protocol: 'https:' },
+    document: { documentElement: fakeNode({ lang: 'fr' }, ''), querySelectorAll: () => [] }
+  });
+  hostPage.fsbUiLocale.setOverride('ja');
+  hostPage.fsbUiLocale.refresh();
+  check(hostPage.document.documentElement.getAttribute('lang') === 'fr', 'content scripts leave the host page <html lang> alone');
 }
 
 asyncChecks().then(() => {

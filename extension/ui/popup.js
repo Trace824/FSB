@@ -804,7 +804,8 @@ function updateStatusMessage(text, progressData) {
   if (currentStatusMessage) {
     const statusText = currentStatusMessage.querySelector('.status-text');
     if (statusText) {
-      statusText.textContent = text;
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(statusText, text);
+      else statusText.textContent = text;
     }
     if (progressData && progressData.iteration != null) {
       const container = currentStatusMessage.querySelector('.progress-container');
