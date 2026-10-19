@@ -1624,21 +1624,50 @@ function syncFsbSelectLabels() {
   });
 }
 
+// True when the custom menu lists the native options' values in order.
+function fsbSelectMenuMatches(sel, menu) {
+  if (menu.children.length !== sel.options.length) return false;
+  return Array.prototype.every.call(sel.options, (o, i) => menu.children[i].getAttribute('data-value') === o.value);
+}
+
 // Re-copies each native option's text into its custom menu item, matched by
 // value, then re-syncs the button label. The locale translates only the hidden
 // native <option>s, so the widget needs this after boot and on language change.
+// A select whose options were added after initFsbSelects() (the language
+// picker fills its own once the locale has booted) gets its menu rebuilt.
 function refreshFsbSelectOptions() {
   document.querySelectorAll('.form-select[data-enh="1"], .chart-select[data-enh="1"]').forEach((sel) => {
     const menu = sel.parentNode && sel.parentNode.querySelector('.fsb-select__menu');
     if (!menu) return;
-    const labels = {};
-    Array.prototype.forEach.call(sel.options, (o) => { labels[o.value] = o.textContent; });
-    Array.prototype.forEach.call(menu.children, (li) => {
-      const value = li.getAttribute('data-value');
-      if (Object.prototype.hasOwnProperty.call(labels, value)) li.textContent = labels[value];
-    });
+    if (!fsbSelectMenuMatches(sel, menu) && typeof sel._fsbRebuildMenu === 'function') {
+      sel._fsbRebuildMenu();
+    } else {
+      const labels = {};
+      Array.prototype.forEach.call(sel.options, (o) => { labels[o.value] = o.textContent; });
+      Array.prototype.forEach.call(menu.children, (li) => {
+        const value = li.getAttribute('data-value');
+        if (Object.prototype.hasOwnProperty.call(labels, value)) li.textContent = labels[value];
+      });
+    }
     if (typeof sel._fsbSyncLabel === 'function') sel._fsbSyncLabel();
   });
+  // Locale callbacks registered after this one can still set a select's value
+  // (the language picker follows a change made on another page), so the
+  // labels are synced again once every callback has run.
+  Promise.resolve().then(syncFsbSelectLabels);
+}
+
+// One custom menu item for a native <option>.
+function buildFsbSelectItem(o, pick) {
+  const li = document.createElement('li');
+  li.className = 'fsb-select__opt';
+  li.setAttribute('role', 'option');
+  li.textContent = o.textContent;
+  li.setAttribute('data-value', o.value);
+  if (o.disabled) li.classList.add('is-disabled');
+  if (o.selected) li.classList.add('is-selected');
+  li.addEventListener('click', () => { if (o.disabled) return; pick(o.value); });
+  return li;
 }
 
 function setFsbSelectCardOpen(wrap, open) {
@@ -1705,18 +1734,19 @@ function initFsbSelects() {
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    Array.prototype.slice.call(sel.options).forEach((o) => {
-      const li = document.createElement('li');
-      li.className = 'fsb-select__opt';
-      li.setAttribute('role', 'option');
-      li.textContent = o.textContent;
-      li.setAttribute('data-value', o.value);
-      if (o.disabled) li.classList.add('is-disabled');
-      if (o.selected) { li.classList.add('is-selected'); lbl.textContent = o.textContent; }
-      li.addEventListener('click', () => { if (o.disabled) return; pick(o.value); });
-      menu.appendChild(li);
-    });
-    if (!lbl.textContent && sel.options[0]) lbl.textContent = sel.options[0].textContent;
+    function fillMenu() {
+      menu.textContent = '';
+      lbl.textContent = '';
+      Array.prototype.slice.call(sel.options).forEach((o) => {
+        menu.appendChild(buildFsbSelectItem(o, pick));
+        if (o.selected) lbl.textContent = o.textContent;
+      });
+      if (!lbl.textContent && sel.options[0]) lbl.textContent = sel.options[0].textContent;
+    }
+    // Stashed like sync() so refreshFsbSelectOptions() can rebuild the menu
+    // when options are added after this runs.
+    sel._fsbRebuildMenu = fillMenu;
+    fillMenu();
 
     sel.parentNode.insertBefore(wrap, sel);
     wrap.appendChild(btn);

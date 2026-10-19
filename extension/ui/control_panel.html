@@ -23,11 +23,6 @@
       </div>
       
       <div class="header-right">
-        <div class="fsb-locale-control">
-          <label for="fsbUiLocaleSelect" data-i18n="lang_choose">Language</label>
-          <select id="fsbUiLocaleSelect" translate="no" aria-describedby="fsbLocaleNote"></select>
-          <p id="fsbLocaleNote" data-i18n="lang_extensions_page">The name on chrome://extensions follows the browser language.</p>
-        </div>
         <div class="connection-status">
           <div class="status-indicator" id="connectionStatus">
             <i class="fas fa-circle status-dot"></i>
@@ -451,6 +446,19 @@
                   <button type="button" class="detail-btn" data-theme-mode="light" role="radio" aria-checked="false" data-i18n="panel_dbcd5e7bb7">Light</button>
                 </div>
                 <div class="setting-hint" data-i18n="panel_1b0daa3cbf">System follows your operating system appearance. Default: System.</div>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-icon"><i class="fas fa-language"></i></div>
+                <div class="settings-card-title">
+                  <h3 data-i18n="lang_choose">Language</h3>
+                  <p data-i18n="lang_auto_hint">FSB follows your Chrome language list. Pick a language here to override it.</p>
+                </div>
+              </div>
+              <div class="settings-card-content">
+                <select id="fsbUiLocaleSelect" class="form-select" translate="no" aria-describedby="fsbLocaleNote"></select>
+                <div class="setting-hint" id="fsbLocaleNote" data-i18n="lang_extensions_page">The name on chrome://extensions follows the browser language.</div>
               </div>
             </div>
             <div class="adv-sub"><i class="fas fa-gauge-high"></i><span data-i18n="panel_0c2634ded4">Execution &amp; Limits</span><span class="adv-sub-rule"></span></div>

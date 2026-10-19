@@ -3373,10 +3373,13 @@
     "message": "언어"
   },
   "lang_follow_browser": {
-    "message": "브라우저 언어"
+    "message": "자동"
   },
   "lang_extensions_page": {
     "message": "chrome://extensions의 이름은 브라우저 언어를 따릅니다."
+  },
+  "lang_auto_hint": {
+    "message": "FSB는 Chrome 언어 목록을 따릅니다. 여기서 언어를 고르면 그 언어로 바뀝니다."
   },
   "copy_9a19a25438": {
     "message": "작업 $COUNT$개 완료",

@@ -3373,10 +3373,13 @@
     "message": "Language"
   },
   "lang_follow_browser": {
-    "message": "Browser language"
+    "message": "Automatic"
   },
   "lang_extensions_page": {
     "message": "The name on chrome://extensions follows the browser language."
+  },
+  "lang_auto_hint": {
+    "message": "FSB follows your Chrome language list. Pick a language here to override it."
   },
   "copy_9a19a25438": {
     "message": "$COUNT$ action completed",

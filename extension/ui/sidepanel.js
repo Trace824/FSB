@@ -7187,7 +7187,6 @@ console.log(`FSB v${chrome.runtime.getManifest().version} side panel script load
 
 if (globalThis.fsbUiLocale && typeof fsbUiLocale.boot === 'function') {
   fsbUiLocale.boot().then(function () {
-    if (typeof fsbUiLocale.mountSelect === 'function') fsbUiLocale.mountSelect(document.getElementById('fsbUiLocaleSelect'));
     fsbUiLocale.apply(document);
     if (typeof _renderHeaderStatus === 'function') _renderHeaderStatus();
   });

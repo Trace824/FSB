@@ -3373,10 +3373,13 @@
     "message": "語言"
   },
   "lang_follow_browser": {
-    "message": "瀏覽器語言"
+    "message": "自動"
   },
   "lang_extensions_page": {
     "message": "chrome://extensions 上的名稱跟隨瀏覽器語言。"
+  },
+  "lang_auto_hint": {
+    "message": "FSB 跟隨你的 Chrome 語言清單。在這裡選擇語言即可覆寫它。"
   },
   "copy_9a19a25438": {
     "message": "已完成 $COUNT$ 個操作",

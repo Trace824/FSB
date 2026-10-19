@@ -768,19 +768,20 @@ assert.equal((htmlSource.match(/id="delegationControlBar"/g) || []).length, 0,
 assert.equal(sha256(htmlSource
   .replace(delegationProviderScript, '')
   .replace(nativeHostInstallScript, '')),
-  // Rolled for the UI locale work: ui-locale.js and copy-exact.js scripts, the
-  // language select, and data-i18n keys on static copy. No delegation control was added.
-  '5ba8cd65b63fb188db418d38c701897705b75756d843a6c43dc6a6aa75fdd892',
+  // Rolled for the UI locale work: ui-locale.js and copy-exact.js scripts and
+  // data-i18n keys on static copy. No delegation control was added.
+  'cdd94600df72e6bfceb97c5ba55066ce5905bd958e8ddda8d1d142c9adc17369',
   'the side-panel HTML includes only the intended helpers and tab-scoped ownership treatment');
 const replayCssStart = cssSource.indexOf('.history-status.idle-closed {');
 const replayCssEnd = cssSource.indexOf('/* Phase 11 FINT-20', replayCssStart);
 assert(replayCssStart !== -1 && replayCssEnd > replayCssStart,
   'the session-replay CSS block has stable boundaries');
 const delegationCssSource = cssSource.slice(0, replayCssStart) + cssSource.slice(replayCssEnd);
-// Rolled when the side-panel header gained the locale select. Delegation
-// controls and ownership-status rules were not changed.
+// Rolled when the prefers-reduced-motion block gained .pixel-letter coverage:
+// the block already silenced the delegation spinner and status dot, but the
+// automation loader kept animating for users who asked it not to.
 assert.equal(sha256(delegationCssSource),
-  '6904b1cf795ced86b7daf2672fe7708df5380fada6f1b0738d395ab1833625af',
+  'db8ee02f3ed61b84b9ced7af1e9c043460b4f8fa24ba222d79e235badb058ef7',
   'the intentional delegated and ownership-status CSS deltas remain exact outside replay UI');
 
 {

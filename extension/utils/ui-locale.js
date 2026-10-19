@@ -5,10 +5,12 @@
  *
  * Public codes match the showcase registry. Chrome catalog folders use
  * zh_CN and zh_TW. chrome.i18n.getMessage follows the browser UI language,
- * so an explicit chrome.storage.local override is applied here.
+ * so the language picked here is applied from the loaded catalogs instead.
  *
- * This module does not read cookies. Locale choice comes from chrome.storage.local
- * or the browser UI language.
+ * This module does not read cookies. The language is a saved choice in
+ * chrome.storage.local, or else the first supported entry in Chrome's
+ * preferred-languages list (Settings > Languages), or else the browser UI
+ * language.
  */
 (function (root) {
   // Content scripts are re-injected into tabs that already run them. Keep the
@@ -32,10 +34,15 @@
   };
   var ZH_HANS = { 'zh-cn': true, 'zh-sg': true, zh: true, 'zh-hans': true };
   var ZH_HANT = { 'zh-tw': true, 'zh-mo': true, 'zh-hk': true, 'zh-hant': true };
+  // A bare "zh" says nothing about the script. These zones use Traditional.
+  var HANT_TIME_ZONES = { 'Asia/Taipei': true, 'Asia/Hong_Kong': true, 'Asia/Macau': true, 'Asia/Macao': true };
 
   var catalogs = {};
   var activeOverride = null;
-  var browserTag = null;
+  var uiTag = null;
+  var preferredTags = null;
+  var timeZone = null;
+  var defaultLocale = SOURCE_LOCALE;
 
   function folderFor(publicCode) {
     return Object.prototype.hasOwnProperty.call(FOLDERS, publicCode) ? FOLDERS[publicCode] : null;
@@ -45,12 +52,21 @@
     return PUBLIC_LOCALES.indexOf(value) !== -1;
   }
 
-  function resolveLocale(tag) {
-    if (typeof tag !== 'string') return SOURCE_LOCALE;
-    var lower = tag.trim().toLowerCase().replace(/_/g, '-');
-    if (!lower) return SOURCE_LOCALE;
-    if (lower.indexOf('zh-hans') === 0 || ZH_HANS[lower]) return 'zh-CN';
-    if (lower.indexOf('zh-hant') === 0 || ZH_HANT[lower]) return 'zh-TW';
+  // Own keys only, so a tag such as "constructor" never matches.
+  function hasOwn(map, key) {
+    return typeof key === 'string' && Object.prototype.hasOwnProperty.call(map, key);
+  }
+
+  function normalizeTag(tag) {
+    return typeof tag === 'string' ? tag.trim().toLowerCase().replace(/_/g, '-') : '';
+  }
+
+  // The public locale for a language tag, or null when no catalog matches.
+  function supportedOrNull(tag) {
+    var lower = normalizeTag(tag);
+    if (!lower) return null;
+    if (lower.indexOf('zh-hans') === 0 || hasOwn(ZH_HANS, lower)) return 'zh-CN';
+    if (lower.indexOf('zh-hant') === 0 || hasOwn(ZH_HANT, lower)) return 'zh-TW';
     var i;
     for (i = 0; i < PUBLIC_LOCALES.length; i++) {
       if (PUBLIC_LOCALES[i].toLowerCase() === lower) return PUBLIC_LOCALES[i];
@@ -59,7 +75,42 @@
     for (i = 0; i < PUBLIC_LOCALES.length; i++) {
       if (PUBLIC_LOCALES[i].toLowerCase() === primary) return PUBLIC_LOCALES[i];
     }
-    return SOURCE_LOCALE;
+    return null;
+  }
+
+  function resolveLocale(tag) {
+    return supportedOrNull(tag) || SOURCE_LOCALE;
+  }
+
+  // The language used when nothing is saved. Walks Chrome's preferred-languages
+  // list in order and takes the first entry with a catalog, English included,
+  // so a list that puts English first stays in English. A bare "zh" takes its
+  // script from a later zh-* entry, else from the time zone. With no match the
+  // browser UI language decides.
+  function resolveDefault(input) {
+    var options = input || {};
+    var accept = Array.isArray(options.accept) ? options.accept : [];
+    var i;
+    for (i = 0; i < accept.length; i++) {
+      var lower = normalizeTag(accept[i]);
+      if (!lower) continue;
+      if (lower === 'zh') {
+        var j;
+        for (j = i + 1; j < accept.length; j++) {
+          var variant = normalizeTag(accept[j]);
+          var resolved = variant.indexOf('zh-') === 0 ? supportedOrNull(variant) : null;
+          if (resolved) return resolved;
+        }
+        return hasOwn(HANT_TIME_ZONES, options.timeZone) ? 'zh-TW' : 'zh-CN';
+      }
+      var hit = supportedOrNull(lower);
+      if (hit) return hit;
+    }
+    return resolveLocale(options.ui);
+  }
+
+  function updateDefault() {
+    defaultLocale = resolveDefault({ ui: uiTag, accept: preferredTags, timeZone: timeZone });
   }
 
   function messageFromCatalog(code, key) {
@@ -88,7 +139,7 @@
   }
 
   function current() {
-    return activeOverride || resolveLocale(browserTag);
+    return activeOverride || defaultLocale;
   }
 
   function t(key, subs) {
@@ -97,8 +148,10 @@
     if (msg == null && locale !== SOURCE_LOCALE) msg = messageFromCatalog(SOURCE_LOCALE, key);
     // chrome.i18n.getMessage only takes a string or string array, so named
     // (object) substitutions would come back empty. Those use the English path.
+    // It always answers in the browser UI language, so it is only asked when
+    // that is also the active language.
     var namedSubs = subs != null && typeof subs === 'object' && !Array.isArray(subs);
-    if (msg == null && !activeOverride && !namedSubs && root.chrome && root.chrome.i18n && typeof root.chrome.i18n.getMessage === 'function') {
+    if (msg == null && locale === resolveLocale(uiTag) && !namedSubs && root.chrome && root.chrome.i18n && typeof root.chrome.i18n.getMessage === 'function') {
       var fromChrome = root.chrome.i18n.getMessage(key, subs);
       if (typeof fromChrome === 'string' && fromChrome.length > 0) return fromChrome;
     }
@@ -277,7 +330,18 @@
   }
 
   function setBrowserTag(tag) {
-    browserTag = tag;
+    uiTag = tag;
+    updateDefault();
+  }
+
+  function setPreferredLanguages(list) {
+    preferredTags = Array.isArray(list) ? list.filter(function (tag) { return typeof tag === 'string'; }) : null;
+    updateDefault();
+  }
+
+  function setTimeZone(zone) {
+    timeZone = typeof zone === 'string' ? zone : null;
+    updateDefault();
   }
 
   function setOverride(code) {
@@ -329,6 +393,52 @@
 
   function isExtensionPage() {
     return typeof location !== 'undefined' && location.protocol === 'chrome-extension:';
+  }
+
+  function navigatorLanguages() {
+    var nav = root.navigator;
+    var list = nav && nav.languages;
+    if (list && typeof list.length === 'number' && list.length > 0) return Array.prototype.slice.call(list);
+    if (nav && typeof nav.language === 'string' && nav.language) return [nav.language];
+    return null;
+  }
+
+  // Chrome's preferred-languages list. getAcceptLanguages() returns a promise
+  // in MV3 and takes a callback in older builds; navigator.languages carries
+  // the same list when the API is missing.
+  function readPreferredLanguages() {
+    return new Promise(function (resolve) {
+      var settled = false;
+      function finish(list) {
+        if (settled) return;
+        settled = true;
+        resolve(Array.isArray(list) && list.length > 0 ? list : navigatorLanguages());
+      }
+      var i18n = root.chrome && root.chrome.i18n;
+      if (!i18n || typeof i18n.getAcceptLanguages !== 'function') {
+        finish(null);
+        return;
+      }
+      try {
+        var pending = i18n.getAcceptLanguages(function (list) {
+          var failed = root.chrome.runtime && root.chrome.runtime.lastError;
+          finish(failed ? null : list);
+        });
+        if (pending && typeof pending.then === 'function') {
+          pending.then(finish, function () { finish(null); });
+        }
+      } catch (err) {
+        finish(null);
+      }
+    });
+  }
+
+  function readTimeZone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch (err) {
+      return null;
+    }
   }
 
   function readStorageOverride() {
@@ -444,11 +554,13 @@
     if (!select || select.getAttribute('data-fsb-lang') === 'ready') return;
     select.setAttribute('translate', 'no');
     select.setAttribute('data-fsb-lang', 'ready');
-    var browser = select.ownerDocument.createElement('option');
-    browser.value = '';
-    browser.setAttribute('data-i18n', 'lang_follow_browser');
-    browser.textContent = t('lang_follow_browser');
-    select.appendChild(browser);
+    // The empty value clears the saved choice, so the language follows
+    // Chrome's preferred-languages list again.
+    var automatic = select.ownerDocument.createElement('option');
+    automatic.value = '';
+    automatic.setAttribute('data-i18n', 'lang_follow_browser');
+    automatic.textContent = t('lang_follow_browser');
+    select.appendChild(automatic);
     PUBLIC_LOCALES.forEach(function (code) {
       var option = select.ownerDocument.createElement('option');
       option.value = code;
@@ -467,10 +579,12 @@
 
   function boot() {
     if (root.chrome && root.chrome.i18n && typeof root.chrome.i18n.getUILanguage === 'function') {
-      browserTag = root.chrome.i18n.getUILanguage();
+      uiTag = root.chrome.i18n.getUILanguage();
     }
+    timeZone = readTimeZone();
     watchStorage();
-    return readStorageOverride().then(function () {
+    return Promise.all([readPreferredLanguages(), readStorageOverride()]).then(function (results) {
+      setPreferredLanguages(results[0]);
       // Extension pages keep every catalog so isMessage() can recognise text
       // shown in any earlier language. Content scripts load the active locale,
       // the browser locale, and the English fallback: text drawn before boot
@@ -478,7 +592,7 @@
       // recognise it to replace it. ensureCatalog() adds others on change.
       if (isExtensionPage()) return loadCatalogs();
       var codes = [current()];
-      var browserLocale = resolveLocale(browserTag);
+      var browserLocale = resolveLocale(uiTag);
       if (codes.indexOf(browserLocale) === -1) codes.push(browserLocale);
       if (codes.indexOf(SOURCE_LOCALE) === -1) codes.push(SOURCE_LOCALE);
       return loadCatalogs(null, codes);
@@ -537,6 +651,7 @@
     STORAGE_KEY: STORAGE_KEY,
     folderFor: folderFor,
     resolveLocale: resolveLocale,
+    resolveDefault: resolveDefault,
     t: t,
     text: text,
     line: line,
@@ -547,6 +662,8 @@
     apply: apply,
     setCatalog: setCatalog,
     setBrowserTag: setBrowserTag,
+    setPreferredLanguages: setPreferredLanguages,
+    setTimeZone: setTimeZone,
     setOverride: setOverride,
     current: current,
     NATIVE_LABELS: NATIVE_LABELS,

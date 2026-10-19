@@ -68,10 +68,50 @@ locale.setBrowserTag('fr');
 check(locale.t('locale_seed_greeting') === 'FSB is ready', 'unknown browser language loads English');
 
 locale.setBrowserTag('en');
+locale.setPreferredLanguages(['fr-FR', 'de-DE', 'en']);
+check(locale.t('locale_seed_greeting') === 'FSB ist bereit', "Chrome's language list picks German over an English UI");
 locale.setOverride('ja');
-check(locale.t('locale_seed_greeting') === 'FSBの準備ができました', 'stored ja overrides an English browser');
+check(locale.t('locale_seed_greeting') === 'FSBの準備ができました', 'stored ja overrides the automatic language');
 locale.setOverride(null);
-check(locale.t('locale_seed_greeting') === 'FSB is ready', 'clearing the override returns to the browser language');
+check(locale.t('locale_seed_greeting') === 'FSB ist bereit', "clearing the override returns to the language from Chrome's list");
+locale.setPreferredLanguages(null);
+check(locale.t('locale_seed_greeting') === 'FSB is ready', 'without a language list the browser UI language decides');
+
+// The automatic language: the first entry in Chrome's preferred-languages list
+// that has a catalog (English counts), region subtags pick the variant, and the
+// time zone only settles a bare "zh". No match falls back to the UI language.
+for (const [input, expected, label] of [
+  [{ accept: ['ja', 'en'] }, 'ja', 'the first listed language wins'],
+  [{ accept: ['en-US', 'ja'], ui: 'ja' }, 'en', 'English first stays English'],
+  [{ accept: ['fr', 'de'] }, 'de', 'an unsupported language is skipped'],
+  [{ accept: ['fr'], ui: 'ko' }, 'ko', 'no supported entry falls back to the UI language'],
+  [{ accept: ['fr'], ui: 'pt-BR' }, 'en', 'no supported entry or UI language falls back to English'],
+  [{ accept: [], ui: 'de-AT' }, 'de', 'an empty list falls back to the UI language'],
+  [{ accept: ['zh', 'zh-TW'] }, 'zh-TW', 'a bare zh takes its script from a later zh-TW'],
+  [{ accept: ['zh', 'en', 'zh-HK'], timeZone: 'Asia/Shanghai' }, 'zh-TW', 'a later regional zh beats the time zone'],
+  [{ accept: ['zh'], timeZone: 'Asia/Taipei' }, 'zh-TW', 'a bare zh in Taipei is Traditional'],
+  [{ accept: ['zh'], timeZone: 'Asia/Hong_Kong' }, 'zh-TW', 'a bare zh in Hong Kong is Traditional'],
+  [{ accept: ['zh'], timeZone: 'Asia/Shanghai' }, 'zh-CN', 'a bare zh in Shanghai is Simplified'],
+  [{ accept: ['zh'] }, 'zh-CN', 'a bare zh with no time zone is Simplified'],
+  [{ accept: ['zh-MO'] }, 'zh-TW', 'zh-MO is Traditional'],
+  [{ accept: ['zh-Hans-HK'], timeZone: 'Asia/Hong_Kong' }, 'zh-CN', 'an explicit script beats the region and time zone'],
+  [{ accept: ['es-MX'] }, 'es', 'es-MX resolves to es'],
+  [{ accept: ['ko_KR'] }, 'ko', 'underscore tags resolve'],
+  [{}, 'en', 'nothing known resolves to English']
+]) {
+  check(locale.resolveDefault(input) === expected, `resolveDefault: ${label}`);
+}
+check(locale.resolveDefault({ accept: ['constructor'], ui: 'toString' }) === 'en'
+    && locale.resolveDefault({ accept: ['zh'], timeZone: 'constructor' }) === 'zh-CN',
+  'resolveDefault ignores inherited object keys');
+locale.setBrowserTag('en');
+locale.setPreferredLanguages(['zh', 'en']);
+locale.setTimeZone('Asia/Taipei');
+check(locale.current() === 'zh-TW', 'the live time zone settles a bare zh as Traditional');
+locale.setTimeZone('Asia/Shanghai');
+check(locale.current() === 'zh-CN', 'the live time zone settles a bare zh as Simplified');
+locale.setTimeZone(null);
+locale.setPreferredLanguages(null);
 
 locale.setOverride('ja');
 check(locale.t('locale_seed_brand') === 'FSB', 'missing Japanese key shows English, not a blank string');
@@ -136,10 +176,12 @@ for (const name of ['bad-missing', 'bad-empty', 'bad-placeholder', 'bad-undefine
 const autonyms = ['English', 'Español', 'Deutsch', '日本語', '한국어', '简体中文', '繁體中文'];
 check(JSON.stringify(locale.PUBLIC_LOCALES.map((code) => locale.NATIVE_LABELS[code])) === JSON.stringify(autonyms), 'language control uses the seven native autonyms');
 locale.setBrowserTag('en');
+locale.setPreferredLanguages(['ja-JP', 'en']);
 locale.saveOverride('de');
 check(locale.current() === 'de', 'choosing German applies without a browser restart');
 locale.saveOverride('');
-check(locale.current() === 'en', 'clearing the choice follows the browser language');
+check(locale.current() === 'ja', "clearing the choice returns to the language from Chrome's list");
+locale.setPreferredLanguages(null);
 
 require('../extension/utils/copy-exact.js');
 const copyMismatches = Object.entries(locale.exact).filter(([english, key]) => {
@@ -285,6 +327,27 @@ for (const file of fs.readdirSync(uiDir).filter((name) => name.endsWith('.html')
 check(manifest.web_accessible_resources.some((entry) => entry.resources.includes('_locales/*/messages.json')),
   'content scripts can fetch the locale catalogs');
 
+// The language picker lives only in the control panel's Advanced settings, as
+// a themed select right after the Theme card.
+{
+  const panelHtml = fs.readFileSync(path.join(root, 'extension/ui/control_panel.html'), 'utf8');
+  const sideHtml = fs.readFileSync(path.join(root, 'extension/ui/sidepanel.html'), 'utf8');
+  const sideJs = fs.readFileSync(path.join(root, 'extension/ui/sidepanel.js'), 'utf8');
+  const advancedStart = panelHtml.indexOf('<section class="content-section" id="advanced">');
+  const advancedEnd = panelHtml.indexOf('</section>', advancedStart);
+  const picker = panelHtml.match(/<select\b[^>]*\bid="fsbUiLocaleSelect"[^>]*>/);
+  check(advancedStart !== -1 && picker && picker.index > advancedStart && picker.index < advancedEnd
+      && /\bclass="form-select"/.test(picker[0]) && /\btranslate="no"/.test(picker[0])
+      && (panelHtml.match(/fsbUiLocaleSelect/g) || []).length === 1,
+    'the control panel has one language picker, a form-select inside Advanced settings');
+  check(picker && panelHtml.indexOf('id="themeModeToggle"') < picker.index
+      && panelHtml.indexOf('data-i18n="lang_auto_hint"') > advancedStart
+      && panelHtml.indexOf('data-i18n="lang_auto_hint"') < picker.index,
+    'the Language card follows the Theme card and explains the automatic choice');
+  check(!panelHtml.includes('fsb-locale-control'), 'the control panel header has no language picker');
+  check(!sideHtml.includes('fsbUiLocaleSelect') && !sideJs.includes('mountSelect'), 'the side panel has no language picker');
+}
+
 const optionsSource = fs.readFileSync(path.join(root, 'extension/ui/options.js'), 'utf8');
 check(optionsSource.includes("hint.textContent = fsbUiLine('Automation prohibited for this origin. ')\n          + (classified.reason || '');"),
   'the blocked-origin hint keeps its denial reason');
@@ -296,6 +359,15 @@ locale.setOverride(null);
 check(locale.text('probe_missing_key', 'Actions: 5', { count: 5 }) === 'Actions: 5', 'named substitutions keep their values when the catalog lacks the key');
 check(getMessageCalls.length === 0, 'chrome.i18n.getMessage never receives named substitutions');
 check(locale.t('probe_missing_key') === 'Actions: ' && getMessageCalls.length === 1, 'plain lookups still fall back to chrome.i18n');
+// chrome.i18n.getMessage answers in the UI language, so it must stay quiet
+// while Chrome's list picks a different one.
+locale.setPreferredLanguages(['ja']);
+check(locale.t('probe_missing_key') === 'probe_missing_key' && getMessageCalls.length === 1,
+  'no chrome.i18n fallback while the automatic language differs from the UI language');
+locale.setPreferredLanguages(['en-GB', 'ja']);
+check(locale.t('probe_missing_key') === 'Actions: ' && getMessageCalls.length === 2,
+  'the chrome.i18n fallback returns when the automatic language is the UI language');
+locale.setPreferredLanguages(null);
 delete globalThis.chrome;
 
 // Every static data-i18n text and data-i18n-attr value must equal its English
@@ -665,11 +737,25 @@ async function asyncChecks() {
 
   const select = fakeSelect();
   locale.mountSelect(select);
-  check(select.value === '', 'a new picker follows the browser');
+  check(select.value === '', 'a new picker starts on Automatic');
   await locale.saveOverride('de');
   check(select.value === 'de', 'the picker follows a language change made elsewhere');
   await locale.saveOverride(null);
-  check(select.value === '', 'the picker follows a return to the browser language');
+  check(select.value === '', 'the picker follows a return to the automatic language');
+
+  {
+    const shipped = freshLocale().fsbUiLocale;
+    const picker = fakeSelect();
+    shipped.mountSelect(picker);
+    const automatic = picker.options[0];
+    check(picker.options.length === 8 && automatic.value === ''
+        && automatic.attrs['data-i18n'] === 'lang_follow_browser' && automatic.textContent === 'Automatic',
+      'the picker lists Automatic, keyed for translation, before the seven languages');
+    check(JSON.stringify(picker.options.slice(1).map((o) => o.textContent)) === JSON.stringify(autonyms),
+      'the picker lists each language by its own name');
+    check(shippedCatalogs.ja.lang_follow_browser === '自動' && shippedCatalogs.de.lang_follow_browser === 'Automatisch',
+      'Automatic is translated in the catalogs');
+  }
 
   let refreshed = 0;
   locale.onChange(function () { refreshed += 1; });
@@ -717,6 +803,41 @@ async function asyncChecks() {
   check(locale.t('probe_overlay') === 'FSB Automating', 'the stored override applies after boot');
   locale.setOverride(null);
   locale.setBrowserTag(null);
+  locale.setPreferredLanguages(null);
+
+  // boot() reads Chrome's preferred-languages list before it loads catalogs.
+  // getAcceptLanguages() returns a promise in MV3 and takes a callback in
+  // older builds; navigator.languages stands in when the API is missing.
+  function bootSandbox(i18n, extra) {
+    const requests = [];
+    const sandbox = freshLocale(Object.assign({
+      chrome: {
+        i18n: Object.assign({ getUILanguage: () => 'ja', getMessage: () => '' }, i18n),
+        storage: { local: { get: (_key, cb) => cb({}) }, onChanged: { addListener() {} } },
+        runtime: { getURL: (file) => file }
+      },
+      fetch: (url) => { requests.push(url); return Promise.resolve({ json: () => ({}) }); }
+    }, extra || {}));
+    return { api: sandbox.fsbUiLocale, requests };
+  }
+  const promiseBoot = bootSandbox({ getAcceptLanguages: () => Promise.resolve(['ko-KR', 'en-US']) });
+  await promiseBoot.api.boot();
+  check(promiseBoot.api.current() === 'ko', 'boot takes the language from getAcceptLanguages() (promise form)');
+  check(['_locales/ko/messages.json', '_locales/ja/messages.json', '_locales/en/messages.json']
+    .every((file) => promiseBoot.requests.indexOf(file) !== -1) && promiseBoot.requests.length === 3,
+  'content-script boot loads the automatic, UI-language, and English catalogs');
+  const callbackBoot = bootSandbox({ getAcceptLanguages: (cb) => { cb(['fr', 'de-CH']); } });
+  await callbackBoot.api.boot();
+  check(callbackBoot.api.current() === 'de', 'boot takes the language from getAcceptLanguages() (callback form)');
+  const navigatorBoot = bootSandbox({}, { navigator: { languages: ['es-MX', 'en'] } });
+  await navigatorBoot.api.boot();
+  check(navigatorBoot.api.current() === 'es', 'boot falls back to navigator.languages when getAcceptLanguages() is missing');
+  const emptyBoot = bootSandbox({ getAcceptLanguages: () => Promise.resolve([]) }, { navigator: { languages: ['zh-TW'] } });
+  await emptyBoot.api.boot();
+  check(emptyBoot.api.current() === 'zh-TW', 'an empty getAcceptLanguages() list falls back to navigator.languages');
+  const failingBoot = bootSandbox({ getAcceptLanguages: () => Promise.reject(new Error('no list')) });
+  await failingBoot.api.boot();
+  check(failingBoot.api.current() === 'ja', 'with no language list at all the UI language decides');
 
   // Extension pages carry the active language on <html lang>; host pages that
   // run the content scripts are never touched.
@@ -744,6 +865,20 @@ async function asyncChecks() {
   });
   await bootedPage.fsbUiLocale.boot();
   check(bootedPage.document.documentElement.getAttribute('lang') === 'ko', 'boot() sets <html lang> from the stored language');
+
+  const automaticPage = freshLocale({
+    location: { protocol: 'chrome-extension:' },
+    document: { documentElement: fakeNode({ lang: 'en' }, ''), querySelectorAll: () => [] },
+    chrome: {
+      i18n: { getUILanguage: () => 'en-US', getMessage: () => '', getAcceptLanguages: () => Promise.resolve(['zh-TW', 'en']) },
+      storage: { local: { get: (_key, cb) => cb({}) }, onChanged: { addListener() {} } },
+      runtime: { getURL: (file) => file }
+    },
+    fetch: () => Promise.resolve({ json: () => ({}) })
+  });
+  await automaticPage.fsbUiLocale.boot();
+  check(automaticPage.document.documentElement.getAttribute('lang') === 'zh-TW',
+    "with nothing saved, an extension page opens in the first supported language from Chrome's list");
 
   const hostPage = freshLocale({
     location: { protocol: 'https:' },
