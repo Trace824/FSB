@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { pathToFileURL } = require('url');
+const { releaseDocParityChecks } = require('./helpers/release-doc-parity');
 
 let passed = 0;
 let failed = 0;
@@ -193,11 +194,6 @@ function extractRuntimeVersion(versionSource) {
   return match ? match[1] : null;
 }
 
-function extractLatestChangelogVersion(changelogSource) {
-  const match = changelogSource.match(/^## (\d+\.\d+\.\d+)(?:\s|$)/m);
-  return match ? match[1] : null;
-}
-
 function collectExplicitVersions(text) {
   const matches = [];
   const patterns = [
@@ -291,13 +287,16 @@ async function run() {
   assertEqual(serverJson.packages[0].version, canonicalVersion, 'server.json package version matches canonical package version');
 
   console.log('\n--- release documentation parity ---');
-  assertEqual(extractLatestChangelogVersion(packageChangelog), canonicalVersion, 'latest MCP changelog entry matches canonical package version');
-  assert(packageChangelog.includes('`mcp:task-status`'), 'MCP changelog documents the new task-status wire contract');
-  assert(packageChangelog.includes(`fsb-mcp-server@${canonicalVersion}`), 'MCP changelog names the current publish artifact');
-  assert(packageReadme.includes(`### What's New In v${canonicalVersion}`), 'MCP README has a current release summary');
-  assert(packageReadme.includes(`### Releasing ${canonicalVersion}`), 'MCP README release instructions match canonical package version');
-  assert(packageReadme.includes(`git tag mcp-v${canonicalVersion} && git push origin mcp-v${canonicalVersion}`), 'MCP README uses the MCP-only release tag');
-  assert(packageReadme.includes(`MCP ${canonicalVersion} requires extension ${compatFor(canonicalVersion).minimum} or newer`), 'MCP README documents independent compatibility requirements');
+  for (const { ok, msg } of releaseDocParityChecks({
+    rootChangelog,
+    packageReadme,
+    packageChangelog,
+    extensionVersion,
+    mcpVersion: canonicalVersion,
+    compatMinimum: compatFor(canonicalVersion).minimum,
+  })) {
+    assert(ok, msg);
+  }
   assert(publishWorkflow.includes("- 'mcp-v*'"), 'MCP release workflow supports MCP tags');
   assert(publishWorkflow.includes('test "$GITHUB_REF_NAME" = "mcp-v${{ steps.package-version.outputs.version }}"'), 'MCP workflow binds the tag to mcp/package.json');
   assert(publishWorkflow.includes('git merge-base --is-ancestor "$release_commit" origin/main'), 'release workflow requires the tagged commit to be on main');
@@ -306,14 +305,6 @@ async function run() {
   assert(extensionWorkflow.includes("- 'extension-v*'"), 'extension workflow owns the extension release tag');
   assert(extensionWorkflow.includes('test "$GITHUB_REF_NAME" = "extension-v${{ steps.extension-version.outputs.version }}"'), 'extension workflow binds its tag to extension/manifest.json');
   assert(!extensionWorkflow.includes("- 'mcp-v*'") && !/^\s+- 'v\*'$/mu.test(extensionWorkflow), 'extension workflow has no MCP or shared tag trigger');
-  const currentProductRelease = rootChangelog
-    .split(/^## /m)
-    .find(section => section.startsWith(`v${extensionVersion} `));
-  assert(currentProductRelease
-      && currentProductRelease.includes(`align at \`${extensionVersion}\``)
-      && (currentProductRelease.includes(`advances to \`${canonicalVersion}\``)
-        || currentProductRelease.includes(`stays at \`${canonicalVersion}\``)),
-    'current product changelog documents the independent extension and MCP releases');
   for (const [name, content] of [
     ['LLM summary source', llmsSource],
     ['LLM full source', llmsFullSource],
