@@ -383,10 +383,17 @@ function campaignFact(facts) {
   };
 }
 
+// The non-Jev path's own identity comparison (baseline against the claude
+// campaign). A mismatch inherited from the autopilot sentinel
+// ('identity_mismatch:sentinel.<field>') stays in the path's reasons and is
+// not reported here as the path's own (IN-06).
+const isSentinelDetail = (detail) => detail === 'sentinel' || detail.startsWith('sentinel.');
+
 function identityOf(guards) {
   const mismatches = (Array.isArray(guards) ? guards : [])
     .filter((guard) => typeof guard === 'string' && guard.startsWith(IDENTITY_PREFIX))
-    .map((guard) => guard.slice(IDENTITY_PREFIX.length));
+    .map((guard) => guard.slice(IDENTITY_PREFIX.length))
+    .filter((detail) => !isSentinelDetail(detail));
   return { verdict: mismatches.length ? 'inconclusive' : 'pass', mismatches };
 }
 

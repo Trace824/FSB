@@ -1104,6 +1104,12 @@ test('decision: the file records the gate, the campaigns, the suites, the evalua
   const mismatch = scenario({ claude: claudeCampaign({ identity: { hosts: { claude: { model: 'claude-other' } } } }) });
   assert.deepEqual(mismatch.decision.paths['mcp-non-jev'].criteria.identity, { verdict: 'inconclusive', mismatches: ['hosts.claude.model'] });
   assert.equal(mismatch.decision.paths['mcp-non-jev'].v6Action, 'withhold_mcp_0_12_0');
+  // IN-06: a mismatch inherited from the autopilot sentinel stays in the reasons and is not the path's own identity mismatch.
+  const inherited = scenario({ autopilot: autopilotCampaign({ identity: { provider: { requestedModel: 'grok-9' } } }) });
+  assert.deepEqual(inherited.decision.paths['mcp-non-jev'].reasons, ['identity_mismatch:sentinel.provider.requestedModel', 'sentinel_inconclusive']);
+  assert.deepEqual(inherited.decision.paths['mcp-non-jev'].criteria.identity, { verdict: 'pass', mismatches: [] });
+  assert.equal(inherited.decision.paths['mcp-non-jev'].verdict, 'inconclusive');
+  assert.deepEqual(validateDecision(inherited.decision), { ok: true, errors: [] });
   assert.throws(() => buildDecision({ refusals: [{ code: 'candidate_dirty', detail: 'claude.git.dirty' }], campaigns: {}, inputs: {} }, DECISION_META));
 });
 
