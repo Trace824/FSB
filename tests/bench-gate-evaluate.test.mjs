@@ -1155,6 +1155,66 @@ test('claims: a sub-cent cost keeps two significant digits and never reads $0.00
   assert.deepEqual(checkClaims(PASS_SCENARIO.decision.claims), { ok: true, errors: [] });
 });
 
+test('claims: the cost sentence needs a cost on every counted run, labels estimated Jev cost and is written only on a Jev pass (WR-01)', () => {
+  const { input, result } = PASS_SCENARIO;
+  const COST_IDS = ['cost', 'cost-estimated'];
+  const costOf = (claims) => claims.find((entry) => COST_IDS.includes(entry.id));
+  const valueOf = (entry, name) => entry.tokens.find((item) => item.name === name).value;
+  const groupsOf = (campaign) => groupRows({ autopilot: campaign.runs }, GATE);
+  const withAutopilot = (campaign) => buildClaims(result, { ...input, autopilot: campaign });
+  const rowById = (runs, id) => runs.find((row) => row.runId === id);
+  const onCounted = groupsOf(input.autopilot).autopilotOn.filter(counted);
+  const offId = groupsOf(input.autopilot).autopilotOff.filter(counted)[0].runId;
+  const calledId = onCounted.find((row) => row.jev.jevCalls > 0).runId;
+
+  // Full coverage: the Jev figure is the provider total of every counted fast run over the completed ones.
+  const full = costOf(buildClaims(result, input));
+  assert.equal(full.id, 'cost');
+  const expectedJev = onCounted.reduce((sum, row) => sum + row.jev.usd.provider, 0) / onCounted.filter((row) => row.pass).length;
+  assert.ok(Math.abs(valueOf(full, 'jevOn') - expectedJev) < 1e-15, `${valueOf(full, 'jevOn')} vs ${expectedJev}`);
+
+  // One counted control run without an LLM cost: the control figure is unavailable, never biased low.
+  const noLlm = costOf(withAutopilot(withRows(input.autopilot, (runs) => { rowById(runs, offId).cost.usd = null; })));
+  assert.equal(valueOf(noLlm, 'llmOff'), null);
+  assert.ok(valueOf(noLlm, 'llmOn') > 0);
+  assert.match(noLlm.text, /^LLM cost per completed task was unavailable with fast mode off and \$/);
+
+  // Called fast runs with no Jev figure ('summary' rows of jev_measurement_missing runs): the Jev figure is unavailable.
+  const missing = autopilotCampaign({ jev: { missingRate: 0.1 } });
+  assert.ok(groupsOf(missing).autopilotOn.some((row) => counted(row) && row.jev.source === 'summary'));
+  const noJev = costOf(withAutopilot(missing));
+  assert.equal(valueOf(noJev, 'jevOn'), null);
+  assert.ok(noJev.text.includes('with it on was unavailable (provider-reported)'), noJev.text);
+
+  // Runs with no Jev call (no_block) cost FSB nothing and keep the figure available.
+  const noBlock = autopilotCampaign({ jev: { noBlockRate: 0.1 } });
+  const noBlockOn = groupsOf(noBlock).autopilotOn.filter(counted);
+  assert.ok(noBlockOn.some((row) => row.jev.source === 'no_block'));
+  const zeroCalls = costOf(withAutopilot(noBlock));
+  const noBlockExpected = noBlockOn.reduce((sum, row) => sum + (row.jev.jevCalls === 0 ? 0 : row.jev.usd.provider), 0)
+    / noBlockOn.filter((row) => row.pass).length;
+  assert.ok(Math.abs(valueOf(zeroCalls, 'jevOn') - noBlockExpected) < 1e-15);
+
+  // An estimated Jev figure is summed and the sentence says so.
+  const estimated = withRows(input.autopilot, (runs) => { rowById(runs, calledId).jev.usd = { provider: null, estimate: 0.00004 }; });
+  const withEstimate = costOf(withAutopilot(estimated));
+  assert.equal(withEstimate.id, 'cost-estimated');
+  assert.ok(withEstimate.text.includes('otherwise estimated from input tokens'), withEstimate.text);
+  const calledRow = rowById(input.autopilot.runs, calledId);
+  const shifted = expectedJev + (0.00004 - calledRow.jev.usd.provider) / onCounted.filter((row) => row.pass).length;
+  assert.ok(Math.abs(valueOf(withEstimate, 'jevOn') - shifted) < 1e-15);
+  assert.deepEqual(checkClaims([withEstimate]), { ok: true, errors: [] });
+  const decision = clone(PASS_SCENARIO.decision);
+  decision.claims = decision.claims.map((entry) => (COST_IDS.includes(entry.id) ? withEstimate : entry));
+  assert.deepEqual(validateDecision(decision), { ok: true, errors: [] });
+
+  // Any Jev verdict other than pass: no fast-mode cost sentence, beside "disabled" least of all.
+  for (const { decision: other, input: otherInput, result: otherResult } of [SAFETY_SCENARIO, NOT_EXERCISED_SCENARIO]) {
+    assert.equal(other.claims.some((entry) => COST_IDS.includes(entry.id)), false, claimIds(other).join(','));
+    assert.equal(buildClaims(otherResult, otherInput).some((entry) => COST_IDS.includes(entry.id)), false);
+  }
+});
+
 test('claims: every token carries an allowed source, the checker re-renders each text, and a jevMs token fails it', () => {
   const scenarios = [PASS_SCENARIO, SAFETY_SCENARIO, NOT_EXERCISED_SCENARIO, FASTER_SCENARIO, LEVEL_SCENARIO];
   for (const { decision } of scenarios) {

@@ -72,6 +72,11 @@ export const CLAIM_TEMPLATES = Object.freeze({
     + 'server was faster than the baseline.',
   cost: 'LLM cost per completed task was {llmOff} with fast mode off and {llmOn} with it on; Jev cost per completed task with it on '
     + 'was {jevOn} (provider-reported), which FSB bears and which is not included in the LLM cost.',
+  // The same sentence when at least one fast run's Jev cost came from the
+  // gateway's input-token estimate rather than the provider's figure.
+  'cost-estimated': 'LLM cost per completed task was {llmOff} with fast mode off and {llmOn} with it on; Jev cost per completed task with '
+    + 'it on was {jevOn} (provider-reported where the provider gave a figure, otherwise estimated from input tokens), which FSB bears '
+    + 'and which is not included in the LLM cost.',
 });
 
 export const DECISION_KEYS = Object.freeze({
@@ -200,33 +205,54 @@ function claim(id, tokens) {
 
 const isCounted = (row) => row.infraError === null;
 
+// Every per-completed-task cost divides the summed cost of ALL counted runs by
+// the completed ones, so a counted run without a cost would bias the figure
+// low (WR-01): the figure is null ('unavailable') unless every counted run in
+// the group has one.
 function llmCostPerCompleted(rows) {
   const counted = rows.filter(isCounted);
   const completed = counted.filter((row) => row.pass === true).length;
-  const costs = counted.map((row) => (isPlainObject(row.cost) ? finite(row.cost.usd) : null)).filter((usd) => usd !== null);
-  return completed > 0 && costs.length ? costs.reduce((sum, usd) => sum + usd, 0) / completed : null;
+  const costs = counted.map((row) => (isPlainObject(row.cost) ? finite(row.cost.usd) : null));
+  return completed > 0 && costs.every((usd) => usd !== null) ? costs.reduce((sum, usd) => sum + usd, 0) / completed : null;
 }
 
-function jevProviderCostPerCompleted(rows) {
+// The Jev cost of one counted row: zero when it made no gateway call
+// (jevCalls 0: no_block, or local declines only), else the sum of its
+// provider and estimate figures, or null when a called row reports neither
+// (a 'summary' row, whose jev.usd is always null, or a gateway with no
+// figure) or its exposure was not recorded (jevCalls null).
+function jevRowCost(row) {
+  const jev = isPlainObject(row.jev) ? row.jev : null;
+  if (jev === null) return null;
+  if (jev.jevCalls === 0) return { usd: 0, estimated: false };
+  const usd = isPlainObject(jev.usd) ? jev.usd : {};
+  const provider = finite(usd.provider);
+  const estimate = finite(usd.estimate);
+  if (provider === null && estimate === null) return null;
+  return { usd: (provider === null ? 0 : provider) + (estimate === null ? 0 : estimate), estimated: estimate !== null };
+}
+
+function jevCostPerCompleted(rows) {
   const counted = rows.filter(isCounted);
   const completed = counted.filter((row) => row.pass === true).length;
-  const costs = counted
-    .map((row) => (isPlainObject(row.jev) && isPlainObject(row.jev.usd) ? finite(row.jev.usd.provider) : null))
-    .filter((usd) => usd !== null);
-  return completed > 0 && costs.length ? costs.reduce((sum, usd) => sum + usd, 0) / completed : null;
+  const costs = counted.map(jevRowCost);
+  if (completed === 0 || costs.some((cost) => cost === null)) return { usd: null, estimated: false };
+  return { usd: costs.reduce((sum, cost) => sum + cost.usd, 0) / completed, estimated: costs.some((cost) => cost.estimated) };
 }
 
 // The cost sentence (source 'cost'), from the autopilot campaign's counted
 // rows: LLM cost per completed task for both conditions and the Jev cost of
 // the fast condition, which FSB bears and which is never added to the LLM cost.
+// Its id says whether any of the Jev cost is an estimate ('cost-estimated').
 function costClaim(input) {
   if (!isPlainObject(input) || !isPlainObject(input.gate) || !isPlainObject(input.autopilot)) return null;
   const groups = groupRows({ autopilot: input.autopilot.runs }, input.gate);
   if (!groups.autopilotOff.some(isCounted) || !groups.autopilotOn.some(isCounted)) return null;
-  return claim('cost', [
+  const jevOn = jevCostPerCompleted(groups.autopilotOn);
+  return claim(jevOn.estimated ? 'cost-estimated' : 'cost', [
     token('llmOff', llmCostPerCompleted(groups.autopilotOff), 'cost'),
     token('llmOn', llmCostPerCompleted(groups.autopilotOn), 'cost'),
-    token('jevOn', jevProviderCostPerCompleted(groups.autopilotOn), 'cost'),
+    token('jevOn', jevOn.usd, 'cost'),
   ]);
 }
 
@@ -242,12 +268,16 @@ function completionTokens(completion) {
 /**
  * The release claims for an evaluator result: the only sentences V6 copy may
  * quote. `input` (the evaluator input) supplies the rows for the cost
- * sentence; without it no cost sentence is written.
+ * sentence; without it no cost sentence is written. The cost sentence compares
+ * fast mode on with off, so it is written only when both Jev paths pass: a
+ * release that ships fast mode as experimental, or disables it, quotes no
+ * fast-mode cost (WR-01).
  */
 export function buildClaims(result, input) {
   const claims = [];
   const jevPaths = JEV_PATHS.map((name) => result.paths[name]);
-  if (jevPaths.every((entry) => entry.verdict === 'pass')) {
+  const jevPass = jevPaths.every((entry) => entry.verdict === 'pass');
+  if (jevPass) {
     const { speed, completion } = jevPaths[0].criteria;
     const ci = pairOf(speed.ci);
     claims.push(claim('jev-whole-task', [
@@ -279,7 +309,7 @@ export function buildClaims(result, input) {
     if (nonJev.faster === true) claims.push(claim('mcp-non-jev-faster', [token('ratioHigh', ci[1], 'wallMs-ratio')]));
   }
 
-  const cost = costClaim(input);
+  const cost = jevPass ? costClaim(input) : null;
   if (cost) claims.push(cost);
   return claims;
 }
