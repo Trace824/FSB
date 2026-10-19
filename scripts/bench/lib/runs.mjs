@@ -25,6 +25,8 @@
  * measured no provider response (measurement.recorded !== true) is a
  * provider_error. A timeout whose session detail is missing stays an
  * ordinary task failure, flagged session_detail_missing, and never pauses.
+ * A run whose fast-mode switch could not be confirmed before t0 is the
+ * pausing infra code condition_not_applied and is never counted.
  */
 
 import { servedModelMatches } from './identity.mjs';
@@ -41,16 +43,19 @@ export const RUN_ROW_KEYS = Object.freeze([
 export const INFRA_CODES = Object.freeze([
   'agent_cap', 'agent_auth', 'provider_error', 'fsb_agent_cap', 'host_api_error', 'claude_no_init',
   'host_no_result', 'extension_not_connected', 'hub_lost', 'spawn_failed', 'mcp_session_not_found_no_calls',
+  'condition_not_applied',
 ]);
 
-export const PAUSING_INFRA_CODES = Object.freeze(['agent_cap', 'agent_auth', 'provider_error']);
+export const PAUSING_INFRA_CODES = Object.freeze(['agent_cap', 'agent_auth', 'provider_error', 'condition_not_applied']);
 
 export const RUN_FLAGS = Object.freeze([
   'served_model_mismatch', 'idle_timeout_session', 'session_detail_missing', 'multiple_mcp_sessions',
-  'live_task', 'experimental_arm',
+  'live_task', 'experimental_arm', 'jev_measurement_missing',
 ]);
 
 export const ARMS = Object.freeze(['autopilot', 'claude', 'cursor']);
+// Phase 71 run conditions: the fast-mode switch off or on (D-04).
+export const CONDITIONS = Object.freeze(['off', 'on']);
 export const HOST_ARMS = Object.freeze(['claude', 'cursor']);
 export const SESSION_MATCHES = Object.freeze(['unique', 'multiple', 'none']);
 export const CAMPAIGN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
@@ -128,8 +133,16 @@ export function evaluateBenchSafety({ telemetryOptOut } = {}) {
  * { campaignId, runId, round, order, taskId, arm }, where order is the
  * 1-based position in the whole campaign and runId is
  * <campaignId>-r<round>-<taskId>-<arm>.
+ *
+ * Optional conditions (Phase 71, D-04): a non-empty list of distinct
+ * CONDITIONS. Slots are then (arm, condition) pairs, each arm with every
+ * condition in the given order, and odd rounds take the slots in order, even
+ * rounds in reverse. Entries add `condition` and the runId ends in
+ * -<arm>-<condition>. Without conditions (undefined or null) the path and the
+ * entries are exactly the Phase 66 ones, with no `condition` key. The task
+ * permutation depends only on mulberry32(seed + round) either way.
  */
-export function buildSchedule({ campaignId, taskIds, rounds, arms, seed } = {}) {
+export function buildSchedule({ campaignId, taskIds, rounds, arms, seed, conditions } = {}) {
   if (typeof campaignId !== 'string' || !CAMPAIGN_ID_PATTERN.test(campaignId)) {
     throw new TypeError('campaignId must be 1..80 characters of letters, digits, ".", "_" or "-"');
   }
@@ -142,6 +155,12 @@ export function buildSchedule({ campaignId, taskIds, rounds, arms, seed } = {}) 
     throw new TypeError(`arms must be distinct values from ${ARMS.join(', ')}`);
   }
   if (!Number.isSafeInteger(seed)) throw new TypeError('seed must be a safe integer');
+  const withConditions = conditions !== undefined && conditions !== null;
+  if (withConditions && (!Array.isArray(conditions) || conditions.length === 0 || new Set(conditions).size !== conditions.length
+    || !conditions.every((condition) => CONDITIONS.includes(condition)))) {
+    throw new TypeError(`conditions must be distinct values from ${CONDITIONS.join(', ')}`);
+  }
+  const slots = withConditions ? arms.flatMap((arm) => conditions.map((condition) => ({ arm, condition }))) : null;
   const sorted = [...taskIds].sort(codeUnitCompare);
   const schedule = [];
   let order = 0;
@@ -151,6 +170,16 @@ export function buildSchedule({ campaignId, taskIds, rounds, arms, seed } = {}) 
     for (let i = perm.length - 1; i > 0; i -= 1) {
       const j = Math.floor(rnd() * (i + 1));
       [perm[i], perm[j]] = [perm[j], perm[i]];
+    }
+    if (withConditions) {
+      const slotOrder = round % 2 === 1 ? slots : [...slots].reverse();
+      for (const taskId of perm) {
+        for (const { arm, condition } of slotOrder) {
+          order += 1;
+          schedule.push({ campaignId, runId: `${campaignId}-r${round}-${taskId}-${arm}-${condition}`, round, order, taskId, arm, condition });
+        }
+      }
+      continue;
     }
     const armOrder = round % 2 === 1 ? arms : [...arms].reverse();
     for (const taskId of perm) {

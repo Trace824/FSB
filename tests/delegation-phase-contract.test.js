@@ -157,7 +157,7 @@ const REFINEMENT_ROOT_TEST_COMMANDS = Object.freeze([
   'node tests/ws-client-relay-reconnect.test.js',
   'node --test tests/network-capture-debugger-lifecycle.test.js',
   'node --test tests/content-click-single-activation.test.js',
-  'node --test tests/bench-export-history.test.mjs tests/bench-stats.test.mjs tests/bench-outcome.test.mjs tests/bench-identity.test.mjs tests/bench-tasks.test.mjs tests/bench-fixture-server.test.mjs tests/bench-claude-stream.test.mjs tests/bench-corpus.test.mjs tests/bench-report.test.mjs tests/bench-drivers.test.mjs tests/bench-f5-token.test.mjs',
+  'node --test tests/bench-export-history.test.mjs tests/bench-stats.test.mjs tests/bench-outcome.test.mjs tests/bench-identity.test.mjs tests/bench-tasks.test.mjs tests/bench-fixture-server.test.mjs tests/bench-claude-stream.test.mjs tests/bench-corpus.test.mjs tests/bench-report.test.mjs tests/bench-drivers.test.mjs tests/bench-f5-token.test.mjs tests/bench-conditions.test.mjs',
   'node tests/settings-schema.test.js',
   'node tests/settings-panel-sync.test.js',
   'node tests/mcp-settings-route.test.js',

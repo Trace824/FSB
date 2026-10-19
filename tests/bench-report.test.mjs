@@ -80,12 +80,13 @@ test('RUN_ROW_KEYS, INFRA_CODES and PAUSING_INFRA_CODES match the run row contra
     'claimed', 'fsb', 'host', 'cost', 'provider', 'flags',
   ]);
   assert.deepEqual([...INFRA_CODES].sort(), [
-    'agent_auth', 'agent_cap', 'claude_no_init', 'extension_not_connected', 'fsb_agent_cap', 'host_api_error',
+    'agent_auth', 'agent_cap', 'claude_no_init', 'condition_not_applied', 'extension_not_connected', 'fsb_agent_cap', 'host_api_error',
     'host_no_result', 'hub_lost', 'mcp_session_not_found_no_calls', 'provider_error', 'spawn_failed',
   ]);
-  assert.deepEqual([...PAUSING_INFRA_CODES], ['agent_cap', 'agent_auth', 'provider_error']);
+  assert.deepEqual([...PAUSING_INFRA_CODES], ['agent_cap', 'agent_auth', 'provider_error', 'condition_not_applied']);
   assert.deepEqual([...RUN_FLAGS].sort(), [
-    'experimental_arm', 'idle_timeout_session', 'live_task', 'multiple_mcp_sessions', 'served_model_mismatch', 'session_detail_missing',
+    'experimental_arm', 'idle_timeout_session', 'jev_measurement_missing', 'live_task', 'multiple_mcp_sessions', 'served_model_mismatch',
+    'session_detail_missing',
   ]);
   for (const list of [RUN_ROW_KEYS, INFRA_CODES, PAUSING_INFRA_CODES, RUN_FLAGS]) assert.ok(Object.isFrozen(list));
 });
@@ -313,7 +314,11 @@ test('the classification case table is synthetic and covers the contract', () =>
     assert.ok(names.includes(required), `case ${required}`);
   }
   const expected = new Set(CASES.cases.map((c) => c.expected));
-  for (const code of INFRA_CODES) assert.ok(expected.has(code), `some case expects ${code}`);
+  // Phase 71: condition_not_applied is assigned by the runner when the
+  // fast-mode switch is not confirmed before t0, never by classifyInfra.
+  const runnerAssigned = ['condition_not_applied'];
+  for (const code of runnerAssigned) assert.equal(expected.has(code), false, `no classification case expects ${code}`);
+  for (const code of INFRA_CODES.filter((c) => !runnerAssigned.includes(c))) assert.ok(expected.has(code), `some case expects ${code}`);
   assert.ok(expected.has(null));
 });
 
