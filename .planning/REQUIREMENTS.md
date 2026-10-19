@@ -35,7 +35,7 @@
 
 - [ ] **MCP-01:** MCP clients receive shorter descriptions for all existing tools (the 72 tools at `8a058bdf`, 73 with the Phase 66.1 settings tool) while retaining enough argument and safety guidance to use them correctly. (code-complete; live proof deferred to V4 and V5)
 - [ ] **MCP-02:** Action tools accept an optional `expect` value and return a bounded outcome check in the same call, so the caller can distinguish verified effect from uncertainty. (code-complete; live proof deferred to V4 and V5)
-- [ ] **MCP-03:** Existing `run_task` honors the extension's Advanced Settings fast-mode toggle, applies bounded Jev decisions when enabled, and reports done, ambiguous, blocked, or needs-confirmation outcomes without claiming success from Jev's answer alone.
+- [ ] **MCP-03:** Existing `run_task` honors the extension's Advanced Settings fast-mode toggle, applies bounded Jev decisions when enabled, and reports done, ambiguous, blocked, or needs-confirmation outcomes without claiming success from Jev's answer alone. (code-complete; live proof deferred to V2-V6)
 - [x] **MCP-04:** Existing MCP tool names, required arguments, and wire contracts remain byte-stable; this milestone adds only the optional `expect` parameter on action tools and the settings tool approved on 2026-09-29 (SET-01, SET-02). (met by automated evidence in Phase 69, with the recorded D-25 redaction exception; owner items WR-05 and CR-02 in V5)
 
 ### SET — Settings Control
@@ -85,7 +85,7 @@
 | 67 — Hosted Jev Gateway, Policy, and Shadow Mode (code-complete 2026-10-15; JEV-03/JEV-06 met, JEV-01/JEV-02/JEV-04/JEV-07 live proof deferred to V2, JEV-05 calibration deferred to V3) | JEV-01, JEV-02, JEV-03, JEV-04, JEV-05, JEV-06, JEV-07 | 7 |
 | 68 — Autopilot Fast Mode (code-complete 2026-10-17; AUTO-03 met, AUTO-01 live proof deferred to V5 and V6, AUTO-02 to V3 and V5, AUTO-04 to V4, AUTO-05 to V5) | AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05 | 5 |
 | 69 — MCP Descriptions and Same-Call Checks (code-complete 2026-10-15; MCP-04 met, MCP-01/MCP-02 live proof deferred to V4 and V5) | MCP-01, MCP-02, MCP-04 | 3 |
-| 70 — Bounded MCP Fast Task | MCP-03 | 1 |
+| 70 — Bounded MCP Fast Task (code-complete 2026-10-17; MCP-03 live proof deferred to V2-V6, with the WR-01 owner decision at V4 and the D-17 amendment and MCP-enable consent review at V6) | MCP-03 | 1 |
 | 71 — Comparative Gate and Release | EVAL-01, EVAL-02, REL-01, REL-02 | 4 |
 
 **Coverage:** 25/25 requirements mapped exactly once.

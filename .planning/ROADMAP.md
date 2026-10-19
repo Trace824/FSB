@@ -248,6 +248,7 @@ Plans:
 **Goal:** Let the existing `run_task` use the bounded Jev fast loop when the extension's Advanced Settings switch is enabled.
 **Depends on:** Phases 67, 68, and 69 (provider policy, fast-loop mechanics, and additive contract gate).
 **Requirements:** MCP-03.
+**Status:** Code-complete 2026-10-17; human/live checks deferred to the Validation Block (V2 live `disabled`/`spend_cap_reached` fallbacks; V3 calibrated `run_task` profile; V4 comparative gate and typed-outcome agreement table plus the WR-01 owner decision; V5 real MCP hosts, real-page cases and the PD-70-01 confirmation; V6 release, the D-17 amendment, the MCP-enable consent review and the wording check; see `70-HUMAN-UAT.md`).
 **Success Criteria:**
 
 1. Existing `run_task` reads the extension's Advanced Settings switch and uses a bounded action, Jev-call, and wall-clock budget only when enabled; it has no separate fast-mode argument or toggle.
@@ -256,14 +257,14 @@ Plans:
 4. Existing MCP clients continue to parse responses and invoke tools without any new required argument or new tool.
 
 **Plans:** 8 plans
-- [ ] 70-01-PLAN.md — Open Phase 70 safely.
-- [ ] 70-02-PLAN.md — Let `run_task` join the fast path through the one gate Phase 68 built, with its own named budgets.
-- [ ] 70-03-PLAN.md — Record the evidence the typed outcome will be computed from.
-- [ ] 70-04-PLAN.md — Make the fast path usable on real `run_task` goals without sending more than before.
-- [ ] 70-05-PLAN.md — Compute the typed outcome.
-- [ ] 70-06-PLAN.md — Put the typed outcome on the existing `run_task` result.
-- [ ] 70-07-PLAN.md — Prove the result reaches real MCP callers unchanged except for the one additive key, and let V4 measure it.
-- [ ] 70-08-PLAN.md — Run the Phase 70 gate.
+- [x] 70-01-PLAN.md — Open Phase 70 safely.
+- [x] 70-02-PLAN.md — Let `run_task` join the fast path through the one gate Phase 68 built, with its own named budgets.
+- [x] 70-03-PLAN.md — Record the evidence the typed outcome will be computed from.
+- [x] 70-04-PLAN.md — Make the fast path usable on real `run_task` goals without sending more than before.
+- [x] 70-05-PLAN.md — Compute the typed outcome.
+- [x] 70-06-PLAN.md — Put the typed outcome on the existing `run_task` result.
+- [x] 70-07-PLAN.md — Prove the result reaches real MCP callers unchanged except for the one additive key, and let V4 measure it.
+- [x] 70-08-PLAN.md — Run the Phase 70 gate.
 
 ### Phase 71: Comparative Gate and Release
 

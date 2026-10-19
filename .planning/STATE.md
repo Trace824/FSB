@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: executing
-stopped_at: "Phase 68 code-complete; next: Phase 70"
-last_updated: "2026-10-17T13:42:55.000Z"
-last_activity: 2026-10-17 -- Phase 68 executed
+stopped_at: "Phase 70 code-complete; next: Phase 71"
+last_updated: "2026-10-19T00:39:47.000Z"
+last_activity: 2026-10-17 -- Phase 70 executed
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 72
-  completed_plans: 50
+  completed_plans: 58
   percent: 0
 ---
 
@@ -31,14 +31,14 @@ See: .planning/milestones/v0.9.91-ROADMAP.md, .planning/milestones/v0.9.91-REQUI
 See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIREMENTS.md, .planning/v1.2.0-MILESTONE-AUDIT.md (archived Showcase i18n Completeness milestone)
 
 **Core value:** Reliable single-attempt execution — the AI decides correctly, the mechanics execute precisely.
-**Current focus:** Phase 70 — Bounded MCP Fast Task (planned, 8 plans; execute next, after Phase 68)
+**Current focus:** Phase 71 — Comparative Gate and Release (planned, 12 plans; execute next, after Phase 70)
 
 ## Current Position
 
-Phase: 68 (Autopilot Fast Mode) — CODE-COMPLETE
-Plan: 12 of 12 complete (68-01..68-12), plus 12 code-review fix commits (2788ebfc..38312ca1; IN-03 and IN-05 skipped); verification `human_needed` at 38312ca1 (10/10 must-haves for the automated portion: 5/5 roadmap criteria, 0 failed; tolerant full chain 356/356; JEV-06 re-check confirmed)
-Status: Phase 68 code-complete; its 12 human/live items are deferred to the milestone-end Validation Block (V3 capture campaigns, calibration and the CR-01 eligibility decision; V4 comparative gate; V5 panel card, live fast steps, the WR-05/IN-04/WR-03 paths and the privacy translation review; V6 deployed privacy page, Web Store form, the WR-04/D-16 and IN-05 owner decisions and release; see `68-HUMAN-UAT.md`). AUTO-03 is ticked; AUTO-01 stays unticked until V5/V6, AUTO-02 until V3/V5, AUTO-04 until V4 and AUTO-05 until V5. Fast mode ships default-off and every decision stays below threshold until V3 calibration. Phases 66, 66.1, 67 and 69 remain code-complete (66-10/66-11 in V1; 66.1, 67 and 69 items in V1-V6). Next: Phase 70 (planned, 8 plans), then 71
-Last activity: 2026-10-17 -- Phase 68 executed
+Phase: 70 (Bounded MCP Fast Task) — CODE-COMPLETE
+Plan: 8 of 8 complete (70-01..70-08), plus 4 code-review fix commits (691cf5b0..9ec5093f: CR-01, WR-02, IN-01, IN-03; WR-01, IN-02 and IN-04 skipped); verification `human_needed` at 9ec5093f (12/12 must-haves for the automated portion: 4/4 roadmap criteria, 0 gaps; tolerant full chain 362/362 at the 70-08 gate, affected suites re-run on Node 24 and Node 20.20.2 after the review fixes)
+Status: Phase 70 code-complete; its 9 human/live items are deferred to the milestone-end Validation Block (V2 live `disabled`/`spend_cap_reached` fallbacks; V3 calibrated `run_task` profile; V4 comparative gate with the typed-outcome agreement table and the WR-01 owner decision; V5 real MCP hosts, real-page cases and the PD-70-01 confirmation; V6 release, the D-17 amendment, the MCP-enable consent review (release blocker) and the wording check; see `70-HUMAN-UAT.md`). M-70-01 (V1) is an explicit "none". MCP-03 stays unticked until V2-V6. Fast mode ships default-off; with the switch off `run_task` is byte-identical to the pre-edit golden, and no `mcp/` file changed. Phases 66, 66.1, 67, 68 and 69 remain code-complete (66-10/66-11 in V1; the rest in V1-V6). Next: Phase 71 (planned, 12 plans)
+Last activity: 2026-10-17 -- Phase 70 executed
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
@@ -49,7 +49,7 @@ Last activity: 2026-10-17 -- Phase 68 executed
 | 67 | Hosted Jev Gateway, Policy, and Shadow Mode | JEV-01..07 | Code-complete (13/13; JEV-03/JEV-06 met; human/live checks in Validation Block V2, V3 calibration, V4 gate, V5 owner decisions, V6 release) |
 | 68 | Autopilot Fast Mode | AUTO-01..05 | Code-complete (12/12; AUTO-03 met; human/live checks in Validation Block V3 calibration and CR-01 decision, V4 gate, V5 UAT, V6 privacy page, Web Store, WR-04/IN-05 owner decisions and release) |
 | 69 | MCP Descriptions and Same-Call Checks | MCP-01, MCP-02, MCP-04 | Code-complete (8/8; human/live checks in Validation Block V4, V5, V1 cross-check, V6 release) |
-| 70 | Bounded MCP Fast Task | MCP-03 | Not started |
+| 70 | Bounded MCP Fast Task | MCP-03 | Code-complete (8/8; human/live checks in Validation Block V2 fallbacks, V3 calibration, V4 gate and WR-01 owner decision, V5 hosts, real pages and PD-70-01, V6 release, D-17 amendment and consent review) |
 | 71 | Comparative Gate and Release | EVAL-01..02, REL-01..02 | Not started |
 
 Coverage: 25/25 v1.0.0 requirements mapped; 0/7 phases complete. See `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`. FSB supplies the Jev credential server-side to every install without a user usage quota. The only fast-mode setting is the control-panel Advanced Settings switch, which the Phase 66.1 MCP settings tool can also read and write. With Jev disabled, FSB behaves as it did before this milestone.
@@ -109,6 +109,7 @@ v1.0.0-specific decisions:
 - [Phase 69, 2026-10-15]: Phase 69 is code-complete (8/8 plans plus 7 review-fix commits; verification `human_needed`, 12/12 automated must-haves, 0 failed). MCP-04 is ticked on automated evidence (a 192-call pre/post wire diff against `f978e989` with 0 diffs; the D-25 redaction of sensitive `inputs_changed`/`value` records is its one recorded exception). MCP-01/MCP-02 stay unticked until V4 (exact `count_tokens` ratio; the ceil(chars/4) estimate is a 55.2% cut on description text but 30.4% on whole-list bytes, so the PROJECT.md "more than half" target is unconfirmed) and V5 (description read-through, real-site verdicts, live SC4). The `expect` timing constants ship uncalibrated until V4. Pending in V5: owner decisions WR-04 (an already-true predicate reports `verified`, then "Do not repeat the action" on an unknown outcome) and WR-05 (keep or widen the D-25 sensitive-name list), and the CR-02 acknowledgement (the recorder now sanitizes http(s) URLs under `observed`/`expected`/`before`/`after`, a storage-only change). Non-blocking follow-ups: review IN-01, IN-02, IN-04 (see `69-HUMAN-UAT.md` Gaps).
 - [Phase 67, 2026-10-15]: Phase 67 is code-complete (13/13 plans plus 10 review-fix commits; verification `human_needed` at `9cd522c7`, 64/64 automated must-haves, 0 failed). JEV-03 and JEV-06 are ticked on automated evidence. JEV-01, JEV-02, JEV-04 and JEV-07 stay unticked until the V2 gateway deploy. JEV-05 stays unticked until V3 calibration on the V2 pin; until then the shipped profile is UNCALIBRATED and every decision stays below threshold. The extension `jev-*.js` modules are loaded inert, and Phases 68 and 70 are their consumers. Pending owner decisions: V5 WR-06 (a failed spend seed is retried, not failed closed) and IN-02 (client `invalid_request` vs gateway `payload_too_large` for an unshrinkable request); V2 IN-04/IN-05 (refusal and 404 accounting, CORS on `/api/jev`). For Phase 68: `FsbJevPolicy.accept()` is necessary, never sufficient, so every Jev-chosen action must still pass the existing consent, permission and breaker gates. The Phase 68 verifier should check that call site (JEV-06).
 - [Phase 68, 2026-10-17]: Phase 68 is code-complete (12/12 plans plus 12 review-fix commits; verification `human_needed` at `38312ca1`, 10/10 automated must-haves, 0 failed). AUTO-03 is ticked on automated evidence. AUTO-01 (live panel V5, deployed privacy page and Web Store V6), AUTO-02 (calibrated live V3/V5), AUTO-04 (whole-task comparison V4) and AUTO-05 (real summaries V5) stay unticked. The JEV-06 re-check is confirmed: a Jev-accepted step passes the same permission hook, breakers and meta-attempt counter, and no path special-cases `source:'jev'`. Fast mode is default-off, and with the switch off the autopilot path is byte-identical (golden committed before the loop edit). Pending owner decisions: V3 CR-01 (structural fast-eligibility allowlist) before freezing the instrument; V6 WR-04 (any fallback latches the session until a calibrated answer, narrowing CONTEXT D-16; update the D-16 record) and IN-05/M-68-12 (MCP can turn the data-sharing switch on). Non-blocking follow-up: review IN-03 (a session's last held capture is not counted as dropped). Phase 70 joins `run_task` through the one gate Phase 68 built.
+- [Phase 70, 2026-10-17]: Phase 70 is code-complete (8/8 plans plus 4 review-fix commits; verification `human_needed` at `9ec5093f`, 12/12 automated must-haves, 0 gaps). MCP-03 stays unticked until its live proof runs in V2-V6. `run_task` follows the one Advanced Settings switch under its own frozen `run_task` budget profile (12 / 16 / 20,000 ms / 3 / 3, revisited at V3), with no new MCP argument or tool and no `mcp/` diff. A pure classifier maps task state plus per-call run evidence to done, ambiguous, blocked or needs_confirmation and never reads a Jev answer; the result reaches callers as one additive `fast_mode` key only when the switch was on at start, and switch-off output is byte-identical to the pre-edit golden on all 5 settle paths. Recorded amendments awaiting owner confirmation: PD-70-01 (D-14 observation set narrowed to the 9 page-reading read-only tools plus a delivered hand-off snapshot; V5) and the D-17 amendment (the `fast_mode` key under MCP-04; V6). Pending owner decisions: V4 WR-01 (keep counting a failed read-only call with a null nested result as unresolved uncertainty, or loosen with a one-line `readOnly` guard) and V6 M-70-08 (MCP-enable consent remedy among D-07 options a-d; release blocker for MCP-started page-context transfers). Non-blocking follow-ups: review IN-02 (ignored registration boolean) and IN-04 (stopped-run `jev` counts possibly off by one; read that way at V4); see `70-HUMAN-UAT.md` Gaps.
 
 v0.9.91-specific decisions so far:
 
