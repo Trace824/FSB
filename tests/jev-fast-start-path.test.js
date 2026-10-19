@@ -1174,7 +1174,7 @@ const RUN_START_URL = 'https://shop.example/cart/view?coupon=P70-MARKER-VALUE#to
 // 70-SYNC-RECHECK item r: createSessionHooks at P70_START (equal to 68 item h).
 const CREATE_SESSION_HOOKS_SHA256_P70 = '10ce1a544f31072f71121b8ee872a4ff6cdd8b07adb1c7a14171b50e4e940780';
 const EVIDENCE_RECORD = Object.freeze({ v: 1, seq: 0, fastIteration: null, pending: null, lastUncertainSeq: 0,
-  lastObservationSeq: 0, fastUnobservedSeq: 0, gate: null });
+  lastObservationSeq: 0, fastUnobservedSeq: 0, gates: [] });
 
 /** A pipeline that records register calls and forwards them to a real HookPipeline. */
 function recordingPipeline(HookPipeline, opts) {

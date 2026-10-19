@@ -93,7 +93,7 @@ function evidence(over) {
     lastUncertainSeq: 0,
     lastObservationSeq: 0,
     fastUnobservedSeq: 0,
-    gate: null
+    gates: []
   }, over || {});
 }
 
@@ -119,7 +119,8 @@ function observedEvidence() {
 
 function gateEvidence(code, cleared) {
   const tool = code === 'payment_not_approved' ? 'fill_payment_method' : 'invoke_capability';
-  return evidence({ gate: { code: code, tool: tool, seq: 3, cleared: cleared === true } });
+  const key = code === 'site_consent_required' ? '0a1b2c3d' : null;
+  return evidence({ gates: [{ code: code, tool: tool, key: key, seq: 3, cleared: cleared === true }] });
 }
 
 /**
@@ -334,9 +335,21 @@ section('d13 table', () => {
     errorSettle('fail_task'),
     { outcome: 'needs_confirmation', reason: 'payment_not_approved', uncertain_unobserved: true, human_gate: 'payment_not_approved' });
   row('a gate with a code outside the evidence gates is not a gate',
-    sessionWith(evidence({ gate: { code: 'P70-MARKER-LABEL', tool: 'invoke_capability', seq: 2, cleared: false } })),
+    sessionWith(evidence({ gates: [{ code: 'P70-MARKER-LABEL', tool: 'invoke_capability', key: null, seq: 2, cleared: false }] })),
     completeSettle('partial', 'blocked'),
     { outcome: 'blocked', reason: 'blocked', human_gate: null });
+  row('partial blocked with an uncleared payment gate and a later cleared consent gate (one entry per gate)',
+    sessionWith(evidence({ gates: [
+      { code: 'payment_not_approved', tool: 'fill_payment_method', key: null, seq: 2, cleared: false },
+      { code: 'site_consent_required', tool: 'invoke_capability', key: '0a1b2c3d', seq: 4, cleared: true }] })),
+    completeSettle('partial', 'blocked'),
+    { outcome: 'needs_confirmation', reason: 'payment_not_approved', human_gate: 'payment_not_approved' });
+  row('partial blocked with an uncleared consent gate listed before an uncleared payment gate (EVIDENCE_GATES order)',
+    sessionWith(evidence({ gates: [
+      { code: 'site_consent_required', tool: 'invoke_capability', key: '0a1b2c3d', seq: 2, cleared: false },
+      { code: 'payment_not_approved', tool: 'fill_payment_method', key: null, seq: 4, cleared: false }] })),
+    completeSettle('partial', 'blocked'),
+    { outcome: 'needs_confirmation', reason: 'payment_not_approved', human_gate: 'payment_not_approved' });
 
   // Row 4: unresolved uncertainty.
   row('success complete_task with unresolved evidence', sessionWith(uncertainEvidence()), completeSettle('success', 'complete_task'),
@@ -1062,7 +1075,7 @@ section('never throws', () => {
   Object.defineProperty(throwingOutcome.message, 'outcome', { get() { throw new Error('boom'); } });
   check(block(sessionWith(evidence()), throwingOutcome).reason === 'classifier_error', 'never throws: a throwing message.outcome getter');
   const throwingGate = sessionWith(evidence());
-  Object.defineProperty(throwingGate._fastRunEvidence, 'gate', { get() { throw new Error('boom'); } });
+  Object.defineProperty(throwingGate._fastRunEvidence, 'gates', { get() { throw new Error('boom'); } });
   check(block(throwingGate, completeSettle('partial', 'blocked')).reason === 'classifier_error', 'never throws: a throwing evidence field');
 
   const throwingField = sessionWith(evidence());

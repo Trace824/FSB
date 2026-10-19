@@ -109,7 +109,7 @@ function realBlock() {
     fastMode: { enabled: true, stored: true, source: 'mcp', budgetProfile: 'run_task' },
     status: 'completed',
     _fastRunEvidence: {
-      v: 1, seq: 6, fastIteration: null, pending: null, lastUncertainSeq: 0, lastObservationSeq: 0, fastUnobservedSeq: 0, gate: null,
+      v: 1, seq: 6, fastIteration: null, pending: null, lastUncertainSeq: 0, lastObservationSeq: 0, fastUnobservedSeq: 0, gates: [],
     },
   };
   return FsbFastPath.buildFastModeBlock(session, {

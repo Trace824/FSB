@@ -71,7 +71,7 @@ function representativeSession() {
     status: 'completed',
     _fastRunEvidence: {
       v: 1, seq: 4, fastIteration: null, pending: null,
-      lastUncertainSeq: 0, lastObservationSeq: 3, fastUnobservedSeq: 0, gate: null,
+      lastUncertainSeq: 0, lastObservationSeq: 3, fastUnobservedSeq: 0, gates: [],
     },
     _fastPath: { off: true, offReason: 'not_calibrated', offCommand: 1 },
     agentState: { jevFast: { command: 1, latched: null } },

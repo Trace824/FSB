@@ -2265,9 +2265,10 @@
   // record it, so a call that runs before the LLM's terminal tool in the same
   // turn is never lost (that tool returns before the turn's observeTools).
   // The record lives in memory only, in session._fastRunEvidence, and holds
-  // tool names, iteration numbers, sequence counters and gate codes, never a
-  // label, URL, text or value. The code-held start page (origin and path)
-  // has its own memory-only field, session._fastRunStartPage (PD-70-02).
+  // tool names, iteration numbers, sequence counters, gate codes and a gate
+  // key digest, never a label, URL, text or value. The code-held start page
+  // (origin and path) has its own memory-only field,
+  // session._fastRunStartPage (PD-70-02).
   // ---------------------------------------------------------------------------
 
   // These return inside the tool loop before their own after-tool event, so
@@ -2318,6 +2319,63 @@
   }
 
   /**
+   * The key that ties a consent gate to its site and capability: an FNV-1a
+   * digest (8 hex digits) of the result's code-held origin and slug, so the
+   * record never holds the URL itself (D-14 content rule). null for the
+   * payment gate, and for a result that names no slug.
+   */
+  function runGateKey(code, toolResult) {
+    if (code !== 'site_consent_required') return null;
+    var nested = isObject(toolResult) && isObject(toolResult.result) ? toolResult.result : null;
+    var slug = nested !== null && typeof nested.slug === 'string' ? nested.slug : '';
+    if (slug.length === 0) return null;
+    var text = (typeof nested.origin === 'string' ? nested.origin : '') + '\n' + slug;
+    var hash = 0x811c9dc5;
+    for (var i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return ('0000000' + hash.toString(16)).slice(-8);
+  }
+
+  /**
+   * Note a gate this call opened (D-15). Each gate is its own entry, so a
+   * second gate never hides the first; the same gate opened again (same
+   * code and key) reopens its entry.
+   */
+  function openRunGate(ev, code, tool, seq, toolResult) {
+    if (!Array.isArray(ev.gates)) ev.gates = [];
+    var key = runGateKey(code, toolResult);
+    for (var i = 0; i < ev.gates.length; i += 1) {
+      var entry = ev.gates[i];
+      if (isObject(entry) && entry.code === code && entry.key === key) {
+        entry.seq = seq;
+        entry.cleared = false;
+        return;
+      }
+    }
+    ev.gates.push({ code: code, tool: tool, key: key, seq: seq, cleared: false });
+  }
+
+  /**
+   * Clear the gates a later successful call of the same kind resolves
+   * (D-15): a successful fill_payment_method clears the payment gate; a
+   * successful invoke_capability clears a consent gate only when it carries
+   * the same origin and slug, so a success for another site or capability,
+   * or one that names neither, clears nothing.
+   */
+  function clearRunGates(ev, tool, toolResult) {
+    if (!Array.isArray(ev.gates)) return;
+    var consentKey = runGateKey('site_consent_required', toolResult);
+    for (var i = 0; i < ev.gates.length; i += 1) {
+      var entry = ev.gates[i];
+      if (!isObject(entry) || entry.cleared === true || entry.tool !== tool) continue;
+      if (entry.code === 'site_consent_required' && (entry.key === null || entry.key !== consentKey)) continue;
+      entry.cleared = true;
+    }
+  }
+
+  /**
    * True only when the call's own result shows the page was read: a success
    * that is not uncertain and carries a content (or CDP) answer that is not
    * itself a failure. The executor reports success for a vanished content
@@ -2346,8 +2404,9 @@
    *               (D-14 a), a fast step that showed no effect (D-14 b), a
    *               page read by the LLM that reached the page (an
    *               observation, pageWasRead) and the
-   *               two human gates, which a later success of the same tool
-   *               clears;
+   *               two human gates, one entry per gate, which a later
+   *               success of the same kind clears (openRunGate,
+   *               clearRunGates);
    *   afterIteration clears the marker (the turn's calls are over).
    * options: {startUrl} (the code-held address the task started on).
    */
@@ -2362,7 +2421,7 @@
       lastUncertainSeq: 0,
       lastObservationSeq: 0,
       fastUnobservedSeq: 0,
-      gate: null
+      gates: []
     };
     session._fastRunStartPage = runStartPageOf(opts.startUrl);
 
@@ -2398,11 +2457,8 @@
         if (fastCall && contains(FAST_UNOBSERVED_OUTCOMES, outcome)) ev.fastUnobservedSeq = seq;
         if (!fastCall && pageWasRead(name, toolResult, outcome) && isPageObservationTool(name)) ev.lastObservationSeq = seq;
         var gate = runGateCode(name, toolResult);
-        if (gate !== null) {
-          ev.gate = { code: gate, tool: name, seq: seq, cleared: false };
-        } else if (succeeded && isObject(ev.gate) && ev.gate.tool === name) {
-          ev.gate.cleared = true;
-        }
+        if (gate !== null) openRunGate(ev, gate, name, seq, toolResult);
+        else if (succeeded) clearRunGates(ev, name, toolResult);
       } catch (_e) {
         /* the record never affects the loop */
       }
@@ -2518,11 +2574,15 @@
     return 'unknown';
   }
 
-  /** An uncleared evidence gate's code (D-15), else null. */
+  /** The first uncleared evidence gate's code in EVIDENCE_GATES order (D-15), else null. */
   function openGateOf(ev) {
-    var gate = ev.gate;
-    if (!isObject(gate) || gate.cleared === true) return null;
-    return typeof gate.code === 'string' && contains(EVIDENCE_GATES, gate.code) ? gate.code : null;
+    var gates = Array.isArray(ev.gates) ? ev.gates : [];
+    for (var c = 0; c < EVIDENCE_GATES.length; c += 1) {
+      for (var i = 0; i < gates.length; i += 1) {
+        if (isObject(gates[i]) && gates[i].cleared !== true && gates[i].code === EVIDENCE_GATES[c]) return EVIDENCE_GATES[c];
+      }
+    }
+    return null;
   }
 
   /** D-13 row 7: the terminal reason in the blocked list; a reasonless error is 'error', a reasonless partial 'blocked'. */

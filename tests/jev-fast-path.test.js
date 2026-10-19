@@ -3503,7 +3503,7 @@ async function runTaskSwitchOffMidRun() {
 const PAGE_OBSERVATION_TOOLS = Object.freeze(['capture_screenshot', 'get_attribute', 'get_dom_snapshot', 'get_page_snapshot',
   'get_text', 'read_page', 'read_sheet', 'wait_for_element', 'wait_for_stable']);
 const EVIDENCE_LAYOUT = Object.freeze({ v: 1, seq: 0, fastIteration: null, pending: null, lastUncertainSeq: 0,
-  lastObservationSeq: 0, fastUnobservedSeq: 0, gate: null });
+  lastObservationSeq: 0, fastUnobservedSeq: 0, gates: [] });
 const EVIDENCE_TERMINALS = Object.freeze(['complete_task', 'partial_task', 'fail_task']);
 const EVIDENCE_START_URL = 'http://127.0.0.1:4173/r/x/fixtures/a/index.html?q=1#f';
 const EVIDENCE_START_PAGE = 'http://127.0.0.1:4173/r/x/fixtures/a/index.html';
@@ -3611,7 +3611,7 @@ async function runEvidenceLayout() {
   const session = fastSession();
   const handlers = FsbFastPath.createRunEvidenceHandlers(session, { startUrl: EVIDENCE_START_URL });
   check(JSON.stringify(session._fastRunEvidence) === JSON.stringify(EVIDENCE_LAYOUT),
-    'run evidence layout: {v:1, seq:0, fastIteration:null, pending:null, lastUncertainSeq:0, lastObservationSeq:0, fastUnobservedSeq:0, gate:null}, in that order');
+    'run evidence layout: {v:1, seq:0, fastIteration:null, pending:null, lastUncertainSeq:0, lastObservationSeq:0, fastUnobservedSeq:0, gates:[]}, in that order');
   check(session._fastRunStartPage === EVIDENCE_START_PAGE,
     'run evidence start page: origin + path of the start URL, no query or fragment (' + session._fastRunStartPage + ')');
   check(isPlainObject(handlers) && sameJson(sortedKeys(handlers), ['afterIteration', 'afterTool', 'beforeTool'])
@@ -3804,38 +3804,87 @@ async function runEvidenceHandlerRules() {
   // Human gates from existing code gates only (D-15, F7).
   ({ session, handlers } = evidenceSession());
   driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] }]);
-  check(sameJson(evidenceOf(session).gate, { code: 'payment_not_approved', tool: 'fill_payment_method', seq: 2, cleared: false }),
-    'payment gate: a declined fill_payment_method records {code:payment_not_approved, tool, seq, cleared:false}');
+  check(sameJson(evidenceOf(session).gates, [{ code: 'payment_not_approved', tool: 'fill_payment_method', key: null, seq: 2, cleared: false }]),
+    'payment gate: a declined fill_payment_method records {code:payment_not_approved, tool, key:null, seq, cleared:false}');
   ({ session, handlers } = evidenceSession());
   driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }] }]);
-  check(sameJson(evidenceOf(session).gate, { code: 'site_consent_required', tool: 'invoke_capability', seq: 2, cleared: false }),
-    'consent gate: invoke_capability with RECIPE_CONSENT_REQUIRED records {code:site_consent_required, tool, seq, cleared:false}');
+  const consentGate = evidenceOf(session).gates[0];
+  check(evidenceOf(session).gates.length === 1 && isPlainObject(consentGate)
+    && sameJson(Object.assign({}, consentGate, { key: 'K' }), { code: 'site_consent_required', tool: 'invoke_capability', key: 'K', seq: 2, cleared: false })
+    && /^[0-9a-f]{8}$/.test(consentGate.key),
+  'consent gate: invoke_capability with RECIPE_CONSENT_REQUIRED records {code:site_consent_required, tool, key (8 hex digits), seq, cleared:false}');
+  const consentText = JSON.stringify(evidenceOf(session));
+  check(consentText.indexOf('shop.example') === -1 && consentText.indexOf('checkout') === -1,
+    'consent gate: the record holds a digest of the origin and slug, never the origin or the slug (' + consentText + ')');
   ({ session, handlers } = evidenceSession());
   driveEvidence(handlers, session, [
     { iteration: 2, calls: [{ name: 'click', result: PAYMENT_DECLINED_RESULT }, { name: 'get_text', result: CONSENT_REQUIRED_RESULT }] },
     { iteration: 3, calls: [{ name: 'fill_payment_method', result: OK_RESULT({ result: { declined: false } }) }] }
   ]);
-  check(evidenceOf(session).gate === null, 'payment gate and consent gate: only the gate tool\'s own result opens a gate');
+  check(sameJson(evidenceOf(session).gates, []), 'payment gate and consent gate: only the gate tool\'s own result opens a gate');
   ({ session, handlers } = evidenceSession());
   driveEvidence(handlers, session, [
     { iteration: 2, calls: [{ name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }] },
     { iteration: 3, calls: [{ name: 'click', result: OK_RESULT() }, { name: 'invoke_capability', result: FAILED_RESULT }] }
   ]);
-  check(isPlainObject(evidenceOf(session).gate) && evidenceOf(session).gate.cleared === false,
+  check(evidenceOf(session).gates.length === 1 && evidenceOf(session).gates[0].cleared === false,
     'gate cleared: neither another tool\'s success nor a failed retry clears the gate');
   driveEvidence(handlers, session, [{ iteration: 4, calls: [{ name: 'invoke_capability', result: OK_RESULT({ result: { success: true } }) }] }]);
-  check(sameJson(evidenceOf(session).gate, { code: 'site_consent_required', tool: 'invoke_capability', seq: 2, cleared: true }),
-    'gate cleared: a later successful call of the same tool sets cleared:true');
+  check(evidenceOf(session).gates[0].cleared === false,
+    'gate cleared (review WR-02): a successful invoke_capability that names no origin and slug does not clear a consent gate');
+  driveEvidence(handlers, session, [{ iteration: 5, calls: [
+    { name: 'invoke_capability', result: OK_RESULT({ result: { success: true, origin: 'https://other.example', slug: 'checkout' } }) },
+    { name: 'invoke_capability', result: OK_RESULT({ result: { success: true, origin: 'https://shop.example', slug: 'refund' } }) }] }]);
+  check(evidenceOf(session).gates[0].cleared === false,
+    'gate cleared (review WR-02): a successful invoke_capability for another site or another capability does not clear a consent gate');
+  driveEvidence(handlers, session, [{ iteration: 6, calls: [
+    { name: 'invoke_capability', result: OK_RESULT({ result: { success: true, origin: 'https://shop.example', slug: 'checkout' } }) }] }]);
+  check(sameJson(Object.assign({}, evidenceOf(session).gates[0], { key: 'K' }),
+    { code: 'site_consent_required', tool: 'invoke_capability', key: 'K', seq: 2, cleared: true }),
+  'gate cleared: a later successful invoke_capability with the same origin and slug sets cleared:true');
   ({ session, handlers } = evidenceSession());
   driveEvidence(handlers, session, [
     { iteration: 2, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] },
     { iteration: 3, calls: [{ name: 'fill_payment_method', result: OK_RESULT({ result: { filled: true } }) }] }
   ]);
-  check(evidenceOf(session).gate.cleared === true && evidenceOf(session).gate.code === 'payment_not_approved',
-    'gate cleared: a later successful fill_payment_method clears the payment gate');
+  check(evidenceOf(session).gates.length === 1 && evidenceOf(session).gates[0].cleared === true
+    && evidenceOf(session).gates[0].code === 'payment_not_approved',
+  'gate cleared: a later successful fill_payment_method clears the payment gate');
   driveEvidence(handlers, session, [{ iteration: 4, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] }]);
-  check(sameJson(evidenceOf(session).gate, { code: 'payment_not_approved', tool: 'fill_payment_method', seq: 6, cleared: false }),
-    'gate cleared: a new decline opens the gate again');
+  check(sameJson(evidenceOf(session).gates, [{ code: 'payment_not_approved', tool: 'fill_payment_method', key: null, seq: 6, cleared: false }]),
+    'gate cleared: a new decline reopens the same gate entry');
+
+  // One entry per gate (review WR-02): a second gate never hides the first.
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [
+    { iteration: 2, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] },
+    { iteration: 3, calls: [{ name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }] },
+    { iteration: 4, calls: [{ name: 'invoke_capability', result: OK_RESULT({ result: { success: true, origin: 'https://shop.example', slug: 'checkout' } }) }] }
+  ]);
+  const both = evidenceOf(session).gates;
+  check(both.length === 2 && both[0].code === 'payment_not_approved' && both[0].cleared === false
+    && both[1].code === 'site_consent_required' && both[1].cleared === true,
+  'one entry per gate: clearing a later consent gate leaves the earlier payment gate open');
+  const partialVerdict = FsbFastPath.classifyRunTaskOutcome({ source: 'complete', kind: 'complete',
+    message: { outcome: 'partial', reason: 'blocked' }, evidence: evidenceOf(session) });
+  check(partialVerdict.outcome === 'needs_confirmation' && partialVerdict.human_gate === 'payment_not_approved',
+    'one entry per gate: [declined payment, consent required, consent cleared] then a partial terminal is needs_confirmation/payment_not_approved ('
+      + JSON.stringify(partialVerdict) + ')');
+  const otherSite = Object.assign({}, CONSENT_REQUIRED_RESULT, { result: Object.assign({}, CONSENT_REQUIRED_RESULT.result, { origin: 'https://other.example' }) });
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [
+    { iteration: 2, calls: [{ name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }, { name: 'invoke_capability', result: otherSite }] },
+    { iteration: 3, calls: [{ name: 'invoke_capability', result: OK_RESULT({ result: { success: true, origin: 'https://other.example', slug: 'checkout' } }) }] }
+  ]);
+  const sites = evidenceOf(session).gates;
+  check(sites.length === 2 && sites[0].key !== sites[1].key && sites[0].cleared === false && sites[1].cleared === true,
+    'one entry per gate: consent for two sites gives two entries, and clearing one site leaves the other open');
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [
+    { iteration: 2, calls: [{ name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }, { name: 'invoke_capability', result: CONSENT_REQUIRED_RESULT }] }
+  ]);
+  check(evidenceOf(session).gates.length === 1 && evidenceOf(session).gates[0].seq === 4,
+    'one entry per gate: the same consent gate raised twice keeps one entry with the later seq');
 }
 
 async function runEvidenceHandlerHygiene() {
