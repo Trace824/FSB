@@ -16,6 +16,8 @@
 
 ## Current Milestone: v1.0.0 Jev Fast Mode
 
+**Status (2026-10-19):** code-complete; Validation Block V1-V6 pending. Runbook: `.planning/v1.0.0-VALIDATION-BLOCK.md` (the section 1 owner decisions come first, with M-71-00 as the hard gate before V1).
+
 **Milestone goal:** Make FSB measurably faster on complete autopilot and MCP tasks by delegating bounded simple decisions to Jev while preserving the LLM's planning and writing roles and FSB's existing action and safety boundaries.
 
 **Scope:** 25 requirements in `.planning/REQUIREMENTS.md`, across Phases 66-71 plus the inserted Phase 66.1; numbering continues after the completed v0.9.91 milestone. The existing Phase 999.1 is a completed historical backlog item outside this milestone.

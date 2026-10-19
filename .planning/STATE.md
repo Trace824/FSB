@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: Jev Fast Mode
 status: executing
-stopped_at: "Phase 71 code-complete; next: the milestone audit and the Validation Block"
-last_updated: "2026-10-19T05:06:28.000Z"
-last_activity: 2026-10-17 -- Phase 71 executed
+stopped_at: "v1.0.0 code-complete; Validation Block V1-V6 pending (see .planning/v1.0.0-VALIDATION-BLOCK.md)"
+last_updated: "2026-10-19T05:45:24.000Z"
+last_activity: 2026-10-19 -- v1.0.0 Validation Block runbook and integration check written
 progress:
   total_phases: 7
   completed_phases: 0
@@ -31,14 +31,15 @@ See: .planning/milestones/v0.9.91-ROADMAP.md, .planning/milestones/v0.9.91-REQUI
 See: .planning/milestones/v1.2.0-ROADMAP.md, .planning/milestones/v1.2.0-REQUIREMENTS.md, .planning/v1.2.0-MILESTONE-AUDIT.md (archived Showcase i18n Completeness milestone)
 
 **Core value:** Reliable single-attempt execution — the AI decides correctly, the mechanics execute precisely.
-**Current focus:** v1.0.0 milestone audit, then the milestone-end Validation Block (V1-V6); every phase (66, 66.1, 67-71) is code-complete
+**Current focus:** v1.0.0 milestone-end Validation Block (V1-V6), starting with the owner decisions in `.planning/v1.0.0-VALIDATION-BLOCK.md` section 1; every phase (66, 66.1, 67-71) is code-complete
 
 ## Current Position
 
-Phase: 71 (Comparative Gate and Release) — CODE-COMPLETE
-Plan: 12 of 12 complete (71-01..71-12), plus 12 code-review fix commits (d4b840fa..9c8e5d5b: CR-01, WR-01, WR-02, WR-03 partial, WR-04, WR-06, IN-01, IN-02, IN-03, IN-04, IN-06, IN-07; WR-05 and IN-05 skipped); verification `human_needed` at 9c8e5d5b (4/4 roadmap criteria and 69/69 plan must-haves for the automated portion, 0 gaps; full chain exit 0 at the 71-12 gate `29093c4b` (348 commands) and again at 9c8e5d5b after the review fixes (bench `node --test` 573/573, `mcp-release-compat` 52/0); every new suite green on Node 20.20.2)
-Status: Phase 71 code-complete; its 18 human/live items are deferred to the milestone-end Validation Block (V1 the M-71-00 owner sign-off on the frozen gate plus the WR-03/WR-05 review follow-ups, the pinned Claude Code and Chrome, the 30-round `core-baseline-66` campaign (720 runs), the cherry-pick, the safety sidecar and the identity cross-check; V3 calibrated-profile smoke; V4 preconditions, the autopilot (720 runs) and Claude (360 runs) gate campaigns with the IN-05 switch check, the evaluation and decision file, the conditional `core-rebaseline-71` fallback and `count_tokens`; V6 step A extension 1.0.0, step B MCP 0.12.0 or the 72-count docs fallback; see `71-HUMAN-UAT.md`). M-71-V2 and M-71-V5 are explicit "none" rows. EVAL-01, EVAL-02, REL-01 and REL-02 stay unticked until V1-V6. M-71-00 is a hard pre-V1 decision: as frozen, the D-15 safety rules fail Jev 83-97% of the time with no true difference (R = 30, acted share 0.8, p = 0.5-1% per run), and a Jev safety fail disables Jev for every install. No version, CHANGELOG, `mcp/src`, `mcp/build`, `extension/{ai,ws,content}` or `showcase/server` file changed (`extension/ui/onboarding.js` is the only extension edit); `scripts/bench/results` and `scripts/bench/gate/decisions` are empty, and nothing was pushed. Phases 66, 66.1, 67, 68, 69 and 70 remain code-complete (66-10/66-11 in V1; the rest in V1-V6). Next: the v1.0.0 milestone audit, then the Validation Block
-Last activity: 2026-10-17 -- Phase 71 executed
+Milestone: v1.0.0 Jev Fast Mode — CODE-COMPLETE (Phases 66, 66.1, 67, 68, 69, 70, 71); Validation Block V1-V6 pending
+Phase: 71 (Comparative Gate and Release) — CODE-COMPLETE, the last phase; verification `human_needed` at 9c8e5d5b (4/4 roadmap criteria, 69/69 plan must-haves, 0 gaps; full chain exit 0, 348 commands, at 29093c4b and again at 9c8e5d5b)
+Plan: 70 of 72 plans complete; 66-10 and 66-11 run in Validation Block V1 from a worktree pinned at 8a058bdf, with Phase 71's gate numbers (30 rounds, 720 runs) superseding theirs
+Status: v1.0.0 code-complete; Validation Block V1-V6 pending. The runbook `.planning/v1.0.0-VALIDATION-BLOCK.md` orders every deferred item: section 1 lists 35 owner decisions due before V1 (M-71-00 is the hard gate; its D-15 false-fail finding means the frozen gate would almost surely disable Jev, so the recommendation is to amend it before V1), section 2 gives V1-V6 with commands and evidence, and section 3 traces all 25 requirements. The integration check `.planning/v1.0.0-INTEGRATION-CHECK.md` found no blockers (8/8 E2E flows wired; warnings W1-W8 carried into the runbook). No version, CHANGELOG or publish change; nothing pushed; `main` untouched; `scripts/bench/results` and `scripts/bench/gate/decisions` are still empty
+Last activity: 2026-10-19 -- v1.0.0 Validation Block runbook and integration check written
 
 ## Roadmap At A Glance (v1.0.0, Phases 66-71)
 
@@ -461,13 +462,13 @@ v2 deferred (see REQUIREMENTS.md v0.9.91 v2 section): CHAT-FUTURE-01/02 (chat-mo
 
 ## Session Continuity
 
-Last session: 2026-10-12T19:44:29.000Z
-Stopped at: 66-10 at H2: bench build ready and the bench Chrome launched; waiting on the operator's bench setup
-Resume file: .planning/phases/66-baseline-and-session-timing/66-10-PLAN.md
+Last session: 2026-10-19T05:45:24.000Z
+Stopped at: v1.0.0 code-complete; Validation Block V1-V6 pending (see .planning/v1.0.0-VALIDATION-BLOCK.md)
+Resume file: .planning/v1.0.0-VALIDATION-BLOCK.md
 
 ## Next Actions
 
-Continue Phase 66 at 66-10 H2 (bench profile setup, then the smoke), then 66-11 (H4 campaign approval, H5 restore). The baseline must precede Jev integration. 66-01 is closed; there is no history export to do.
+Owner: answer the section 1 decisions in `.planning/v1.0.0-VALIDATION-BLOCK.md` (items 1-10 are signed with M-71-00 after the 66-10 smoke), then run V1 from a worktree pinned at `8a058bdf`. Code-changing decisions (the gate amendment, the M-70-08 remedy, the D-25 widening) must land before the V4 release-candidate SHA. Nothing reaches `main` before V6.
 
 ## Performance Metrics
 
@@ -517,4 +518,4 @@ Continue Phase 66 at 66-10 H2 (bench profile setup, then the smoke), then 66-11 
 
 ## Operator Next Steps
 
-- Phase 66: complete the 66-10 H2 bench setup (load the unpacked extension in the bench Chrome, telemetry off first, xAI grok-4.3, Claude model, free the hub ports), then approve the campaign at H4.
+- Read `.planning/v1.0.0-VALIDATION-BLOCK.md` section 1 and record the decisions, then start V1: pin worktree at `8a058bdf`, pinned Claude Code and Chrome for Testing, the 66-10 bench setup and smoke, the M-71-00 sign-off, then the 30-round `core-baseline-66` campaign.
