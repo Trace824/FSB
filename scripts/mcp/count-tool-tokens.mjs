@@ -50,6 +50,10 @@ export const CAVEATS = Object.freeze([
   "Claude Code's default tool search loads only tool names at session start, so whole-schema counts overstate session-start context",
 ]);
 export const EXIT = Object.freeze({ OK: 0, FAILED: 1, USAGE: 2 });
+// Each count_tokens call, response body included, is bounded (IN-04): a
+// stalled connection must not hang the V4 M-71-09 step. deps.timeoutMs
+// overrides it (tests only).
+export const REQUEST_TIMEOUT_MS = 30000;
 
 const API_KEY_VARIABLE = 'ANTHROPIC_API_KEY';
 const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,99}$/;
@@ -164,15 +168,18 @@ async function countTokens(deps, apiKey, model, tools) {
   const body = { model };
   if (tools) body.tools = tools;
   body.messages = [{ role: 'user', content: USER_MESSAGE }];
+  const timeoutMs = Number.isSafeInteger(deps.timeoutMs) && deps.timeoutMs > 0 ? deps.timeoutMs : REQUEST_TIMEOUT_MS;
+  const signal = AbortSignal.timeout(timeoutMs);
   let response;
   try {
     response = await deps.fetch(COUNT_TOKENS_URL, {
       method: 'POST',
       headers: { 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION, 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal,
     });
   } catch {
-    throw new CountError('count_tokens request failed (network error)');
+    throw new CountError(signal.aborted ? 'count_tokens request timed out' : 'count_tokens request failed (network error)');
   }
   if (!response || !response.ok) {
     const status = response && Number.isSafeInteger(response.status) ? response.status : 'unknown';
@@ -182,7 +189,7 @@ async function countTokens(deps, apiKey, model, tools) {
   try {
     data = await response.json();
   } catch {
-    throw new CountError('count_tokens response was not JSON');
+    throw new CountError(signal.aborted ? 'count_tokens request timed out' : 'count_tokens response was not JSON');
   }
   const tokens = data && data.input_tokens;
   if (!Number.isSafeInteger(tokens) || tokens < 0) {

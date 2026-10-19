@@ -16,6 +16,7 @@ import {
   ANTHROPIC_VERSION,
   CAVEATS,
   COUNT_TOKENS_URL,
+  REQUEST_TIMEOUT_MS,
   USER_MESSAGE,
   assertBuildFresh,
   defaultDeps,
@@ -274,6 +275,36 @@ test('a network failure or a malformed response exits 1 with a fixed message and
   assert.equal(malformed.code, 1);
   assert.match(malformed.io.err.join(''), /input_tokens/);
   assertNoSecret(malformed.io);
+});
+
+test('every request is bounded by a timeout; a stalled request or body read exits 1 with a fixed message (IN-04)', async () => {
+  assert.equal(REQUEST_TIMEOUT_MS, 30000);
+  const { requests } = await run(['--model', 'm1']);
+  for (const request of requests) assert.ok(request.init.signal instanceof AbortSignal, 'each request carries an abort signal');
+
+  // Waits until the signal aborts. A real stalled request holds its socket
+  // open; the keep-alive timer stands in for it, since AbortSignal.timeout's
+  // own timer does not keep the event loop alive on Node 20.
+  const untilAborted = (signal) => new Promise((resolve, reject) => {
+    const socket = setTimeout(() => {}, 60000);
+    signal.addEventListener('abort', () => {
+      clearTimeout(socket);
+      reject(signal.reason);
+    }, { once: true });
+  });
+  // A request that never answers, and a response whose body never finishes.
+  const stalled = (url, init) => untilAborted(init.signal);
+  const stalledBody = async (url, init) => ({ ok: true, status: 200, json: () => untilAborted(init.signal) });
+  for (const fetchImpl of [stalled, stalledBody]) {
+    const io = capture();
+    const code = await main(['--model', 'm1'], {
+      env: ENV, fetch: fetchImpl, readBaseline: async () => BASELINE_TOOLS, readCurrent: async () => CURRENT_TOOLS,
+      stdout: io.stdout, stderr: io.stderr, timeoutMs: 20,
+    });
+    assert.equal(code, 1);
+    assert.match(io.err.join(''), /count_tokens request timed out/);
+    assertNoSecret(io);
+  }
 });
 
 test('default dependencies: the env, global fetch, the 8a058bdf fixture, and the build-freshness guard', async () => {
