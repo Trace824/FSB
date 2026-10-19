@@ -18,22 +18,30 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  FALLBACK_STATUSES,
   REASONS,
+  REFUSAL_CODES,
   VERDICTS,
   aaFloor,
+  chromeMajor,
   completionComparison,
+  evaluateFallback,
   evaluateGate,
   exerciseStats,
   groupRows,
+  identityMismatches,
   jevSafety,
   jevVerdict,
+  meetsMinRounds,
   nonJevSafety,
   nonJevVerdict,
+  resumeDrift,
   safetyEventsOf,
+  sentinelCheck,
   speedComparison,
 } from '../scripts/bench/gate/lib/evaluate.mjs';
 import { corpusDigest, loadGate } from '../scripts/bench/gate/lib/gate.mjs';
-import { defaultIdentity, makeCampaign } from '../scripts/bench/gate/lib/synthetic.mjs';
+import { SYNTHETIC_CANDIDATE_SHA, SYNTHETIC_PIN_SHA, defaultIdentity, makeCampaign } from '../scripts/bench/gate/lib/synthetic.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GATE_FILE = 'scripts/bench/gate/release-gate-v1.0.0.json';
@@ -46,6 +54,7 @@ const GATE_IDENTITY = Object.freeze({ gate: { path: GATE_FILE, sha256: GATE_SHA2
 const JEV_PATHS = ['jev-mcp-run-task', 'jev-autopilot'];
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const unique = (values) => [...new Set(values)];
 
 function mergeIdentity(extra) {
   return { ...clone(GATE_IDENTITY), ...(extra || {}) };
@@ -108,9 +117,13 @@ function assertJev(result, verdict, reasons) {
 
 // Every reason the suite sees, checked against REASONS at the end.
 const SEEN_REASONS = new Set();
+const SEEN_REFUSALS = new Set();
 function record(result) {
   for (const entry of Object.values(result.paths || {})) for (const reason of entry.reasons) SEEN_REASONS.add(reason);
   for (const reason of (result.exercise && result.exercise.reasons) || []) SEEN_REASONS.add(reason);
+  for (const reason of (result.sentinel && result.sentinel.reasons) || []) SEEN_REASONS.add(reason);
+  for (const reason of (result.fallback && result.fallback.reasons) || []) SEEN_REASONS.add(reason);
+  for (const refusal of [...(result.refusals || []), ...((result.fallback && result.fallback.refusals) || [])]) SEEN_REFUSALS.add(refusal.code);
   return result;
 }
 
@@ -521,6 +534,382 @@ test('the evaluator source is pure and its speed helper names no per-decision ti
   assert.doesNotMatch(source.slice(start, end), /jevMs|latencyMs|modelMs/);
 });
 
+// --- Task 2: refusals ---------------------------------------------------------------------
+
+function refusalCodes(result) {
+  return result.refusals.map((refusal) => refusal.code);
+}
+
+test('refusals: a tampered or mismatched input is refused with no verdicts', () => {
+  const cases = [
+    ['gate_hash_mismatch', { autopilot: autopilotCampaign({ identity: { gate: { path: GATE_FILE, sha256: 'f'.repeat(64) } } }) }],
+    ['gate_hash_missing', { claude: claudeCampaign({ identity: { gate: undefined } }) }],
+    ['campaign_id_mismatch', { claude: claudeCampaign({ identity: { campaignId: 'core-gate-71-claud' } }) }],
+    ['candidate_dirty', { autopilot: autopilotCampaign({ identity: { git: { dirty: true } } }) }],
+    ['candidate_sha_mismatch', { claude: claudeCampaign({ identity: { git: { sha: 'b'.repeat(40) } } }) }],
+    ['baseline_not_pin', { baseline: baselineCampaign({ identity: { git: { sha: `abc${SYNTHETIC_PIN_SHA.slice(3)}` } } }) }],
+    ['campaign_schedule_mismatch', { autopilot: autopilotCampaign({ identity: { schedule: { seed: 72 } } }) }],
+    ['candidate_row_schema', { autopilot: withRows(AUTOPILOT, (runs) => { runs[5].schemaVersion = 1; }) }],
+    ['baseline_row_schema', { baseline: withRows(BASELINE, (runs) => { runs[0].schemaVersion = 2; }) }],
+  ];
+  for (const [code, overrides] of cases) {
+    const result = record(evaluate(overrides));
+    assert.deepEqual(refusalCodes(result), [code], code);
+    assert.equal(result.paths, undefined, `${code}: no verdicts`);
+    assert.equal(result.exercise, undefined);
+    for (const refusal of result.refusals) {
+      assert.match(refusal.detail, /^[A-Za-z0-9_.,]+$/, 'a refusal names fields, never values');
+    }
+    assert.ok(result.campaigns.autopilot && result.campaigns.claude && result.campaigns.baseline);
+  }
+  assert.deepEqual(PASS.refusals, []);
+});
+
+test('refusals: rows from another campaign are refused, and a missing identity never throws', () => {
+  const mixed = withRows(CLAUDE, (runs) => { runs[3].campaignId = 'core-gate-71-claude-b'; });
+  assert.deepEqual(refusalCodes(evaluate({ claude: mixed })), ['campaign_id_mismatch']);
+  const bare = evaluate({ baseline: { identity: null, runs: BASELINE.runs, safety: BASELINE.safety } });
+  assert.ok(refusalCodes(bare).includes('baseline_not_pin'));
+  assert.ok(refusalCodes(bare).includes('campaign_id_mismatch'));
+  assert.equal(bare.campaigns.baseline.id, null);
+});
+
+// --- Task 2: identity, resumes, rounds ---------------------------------------------------------
+
+const JEV_SNAPSHOT = (result) => JEV_PATHS.map((name) => result.paths[name]);
+
+test('identity: a mismatch on each identityMatch.claude field makes only mcp-non-jev inconclusive', () => {
+  const tasks = clone(defaultIdentity().tasks);
+  tasks[4].fixtureSha256 = 'c'.repeat(64);
+  const overrides = {
+    'hosts.claude.version': { hosts: { claude: { version: '2.1.999 (Claude Code)' } } },
+    'hosts.claude.model': { hosts: { claude: { model: 'claude-model-other' } } },
+    'hosts.claude.toolSearchEnv': { hosts: { claude: { toolSearchEnv: 'auto' } } },
+    'hosts.claude.envKeyNamesSha256': { hosts: { claude: { envKeyNamesSha256: 'e'.repeat(64) } } },
+    'provider.requestedModel': { provider: { requestedModel: 'grok-9' } },
+    corpus: { tasks },
+    chromeMajor: { chrome: { browser: 'Chrome/147.0.7700.0' } },
+  };
+  assert.deepEqual(Object.keys(overrides), GATE.identityMatch.claude, 'one case per gate field');
+  for (const [field, identity] of Object.entries(overrides)) {
+    const result = record(evaluate({ claude: claudeCampaign({ identity }) }));
+    assert.equal(nonJevOf(result).verdict, 'inconclusive', field);
+    assert.deepEqual(nonJevOf(result).reasons, [`identity_mismatch:${field}`], field);
+    assert.deepEqual(JEV_SNAPSHOT(result), JEV_SNAPSHOT(PASS), `${field}: the Jev verdicts are unchanged`);
+    assert.equal(result.sentinel.status, 'pass', field);
+  }
+});
+
+test('identity: a missing value is a mismatch; reported fields are copied and never compared', () => {
+  const missing = record(evaluate({ claude: claudeCampaign({ identity: { hosts: { claude: { model: undefined } } } }) }));
+  assert.deepEqual(nonJevOf(missing).reasons, ['identity_mismatch:hosts.claude.model']);
+
+  const reported = record(evaluate({
+    claude: claudeCampaign({ identity: { mcp: { toolsList: { sha256: 'a'.repeat(64) } }, hosts: { claude: { agentPolicySha256: 'd'.repeat(64) } } } }),
+  }));
+  assert.equal(nonJevOf(reported).verdict, 'pass');
+  assert.equal(reported.campaigns.claude.reported['mcp.toolsList.sha256'], 'a'.repeat(64));
+  assert.equal(reported.campaigns.claude.reported['hosts.claude.agentPolicySha256'], 'd'.repeat(64));
+  assert.notEqual(reported.campaigns.baseline.reported['mcp.toolsList.sha256'], 'a'.repeat(64));
+
+  const a = defaultIdentity();
+  assert.deepEqual(identityMismatches(a, defaultIdentity(), GATE.identityMatch.claude, GATE), []);
+  assert.deepEqual(identityMismatches(a, defaultIdentity({ chrome: { browser: 'HeadlessChrome/146.0.1.2' } }), ['chromeMajor'], GATE), []);
+  assert.deepEqual(identityMismatches(a, defaultIdentity({ tasks: [...a.tasks].reverse() }), ['corpus'], GATE), [], 'corpus order is irrelevant');
+  assert.deepEqual(identityMismatches(a, a, ['corpus'], { ...GATE, corpusLockSha256: '0'.repeat(64) }), ['corpus'], 'both sides must match the lock');
+  assert.equal(chromeMajor(a), 146);
+  assert.equal(chromeMajor(defaultIdentity({ chrome: { browser: null } })), null);
+});
+
+test('identity: an autopilot campaign off the gate corpus makes the Jev verdict and the sentinel inconclusive', () => {
+  const tasks = clone(defaultIdentity().tasks);
+  tasks[0].version = 2;
+  const result = record(evaluate({ autopilot: autopilotCampaign({ identity: { tasks } }) }));
+  assertJev(result, 'inconclusive', ['corpus_mismatch']);
+  assert.equal(result.campaigns.autopilot.corpusMatch, false);
+  assert.deepEqual(result.sentinel.reasons, ['identity_mismatch:corpus']);
+  assert.deepEqual(nonJevOf(result).reasons, ['identity_mismatch:sentinel.corpus', 'sentinel_inconclusive']);
+  assert.equal(PASS.campaigns.autopilot.corpusMatch, true);
+});
+
+test('resumes: a changed Claude Code version or Chrome major is drift; an unchanged resume is not', () => {
+  const resume = (claudeVersion, chromeBrowser) => ({
+    at: '2026-11-02T10:00:00.000Z', claudeVersion, chromeBrowser, launchFlags: ['--disable-renderer-backgrounding', '--user-data-dir'],
+  });
+  const claudeDrift = record(evaluate({ claude: claudeCampaign({ identity: { resumes: [resume('2.1.284 (Claude Code)', 'Chrome/146.0.7680.0')] } }) }));
+  assert.deepEqual(nonJevOf(claudeDrift).reasons, ['resume_drift']);
+  assert.deepEqual(JEV_SNAPSHOT(claudeDrift), JEV_SNAPSHOT(PASS));
+  assert.equal(claudeDrift.campaigns.claude.resumeDrift, true);
+
+  const steady = record(evaluate({ claude: claudeCampaign({ identity: { resumes: [resume('2.1.283 (Claude Code)', 'Chrome/146.0.7690.0')] } }) }));
+  assert.equal(nonJevOf(steady).verdict, 'pass');
+  assert.equal(steady.campaigns.claude.resumeDrift, false);
+
+  const chromeDrift = record(evaluate({ autopilot: autopilotCampaign({ identity: { resumes: [resume(null, 'Chrome/147.0.7700.0')] } }) }));
+  assertJev(chromeDrift, 'inconclusive', ['resume_drift']);
+  assert.equal(chromeDrift.sentinel.status, 'inconclusive');
+  assert.deepEqual(nonJevOf(chromeDrift).reasons, ['resume_drift:sentinel', 'sentinel_inconclusive']);
+
+  assert.equal(resumeDrift(defaultIdentity()), false);
+  assert.equal(resumeDrift(defaultIdentity({ resumes: [resume(null, 'Chrome/146.0.1.0')] })), true, 'a claude host needs its version on every resume');
+  assert.equal(resumeDrift(defaultIdentity({ resumes: [resume('2.1.283 (Claude Code)', null)] })), true, 'an unknown Chrome is drift');
+});
+
+test('rounds: an under-round campaign makes the verdicts that use it inconclusive (underpowered)', () => {
+  const shortAutopilot = record(evaluate({ autopilot: autopilotCampaign({ rounds: 12 }) }));
+  assertJev(shortAutopilot, 'inconclusive', ['underpowered']);
+  assert.equal(shortAutopilot.campaigns.autopilot.meetsMinRounds, false);
+  assert.equal(shortAutopilot.sentinel.status, 'inconclusive');
+  assert.ok(shortAutopilot.sentinel.reasons.includes('underpowered'));
+
+  const shortBaseline = record(evaluate({ baseline: baselineCampaign({ rounds: 12 }) }));
+  assert.equal(nonJevOf(shortBaseline).verdict, 'inconclusive');
+  assert.ok(nonJevOf(shortBaseline).reasons.includes('underpowered'), nonJevOf(shortBaseline).reasons.join(','));
+  assert.equal(shortBaseline.sentinel.status, 'inconclusive');
+  assert.deepEqual(JEV_SNAPSHOT(shortBaseline), JEV_SNAPSHOT(PASS));
+
+  const shortClaude = record(evaluate({ claude: claudeCampaign({ rounds: 12 }) }));
+  assert.deepEqual(nonJevOf(shortClaude).reasons, ['underpowered']);
+
+  const min = GATE.campaigns.autopilot.minRounds;
+  assert.equal(meetsMinRounds(AUTOPILOT, min), true);
+  const truncated = { identity: AUTOPILOT.identity, runs: AUTOPILOT.runs.filter((row) => row.round < min) };
+  assert.equal(meetsMinRounds(truncated, min), false, 'the scheduled rounds alone are not enough');
+  assert.equal(meetsMinRounds({ identity: { schedule: { rounds: min - 1 } }, runs: AUTOPILOT.runs }, min), false);
+});
+
+// --- Task 2: the drift sentinel ---------------------------------------------------------------
+
+test('sentinel: off equals the pin on the default fixtures', () => {
+  assert.equal(PASS.sentinel.status, 'pass');
+  assert.deepEqual(PASS.sentinel.reasons, []);
+  assert.equal(PASS.sentinel.blocker, null);
+  const { completion, speed } = PASS.sentinel;
+  assert.ok(completion.ci[0] > -GATE.sentinel.completionMargin && completion.ci[1] < GATE.sentinel.completionMargin);
+  assert.ok(speed.ci[0] >= GATE.sentinel.speedBand[0] && speed.ci[1] <= GATE.sentinel.speedBand[1]);
+});
+
+test('sentinel: a completion drop or a slow off path trips it; mcp-non-jev is inconclusive and the Jev verdict stands', () => {
+  const dropped = record(evaluate({
+    baseline: baselineCampaign({ effect: { autopilot: { completion: 0.05 } } }),
+    autopilot: autopilotCampaign({ effect: { 'autopilot/off': { completion: -0.15 }, 'autopilot/on': { speed: 0.7, completion: -0.15 } } }),
+  }));
+  assert.equal(dropped.sentinel.status, 'trip');
+  assert.ok(dropped.sentinel.reasons.includes('completion_not_equivalent'));
+  assert.equal(dropped.sentinel.blocker, GATE.sentinel.blocker);
+  assert.deepEqual(nonJevOf(dropped).reasons, ['sentinel_trip']);
+  assertJev(dropped, 'pass', []);
+
+  const slow = record(evaluate({ autopilot: autopilotCampaign({ effect: { 'autopilot/off': { speed: 1.5 }, 'autopilot/on': { speed: 1.05 } } }) }));
+  assert.equal(slow.sentinel.status, 'trip');
+  assert.deepEqual(slow.sentinel.reasons, ['speed_outside_band']);
+  assert.equal(slow.sentinel.blocker, GATE.sentinel.blocker);
+  assert.deepEqual(nonJevOf(slow).reasons, ['sentinel_trip']);
+  assertJev(slow, 'pass', []);
+});
+
+test('sentinel: an identity mismatch between the baseline and the autopilot campaign is inconclusive', () => {
+  const result = record(evaluate({ autopilot: autopilotCampaign({ identity: { provider: { requestedModel: 'grok-9' } } }) }));
+  assert.equal(result.sentinel.status, 'inconclusive');
+  assert.deepEqual(result.sentinel.reasons, ['identity_mismatch:provider.requestedModel']);
+  assert.deepEqual(nonJevOf(result).reasons, ['identity_mismatch:sentinel.provider.requestedModel', 'sentinel_inconclusive']);
+  assertJev(result, 'pass', []);
+  const groups = groupRows({ baseline: BASELINE.runs, autopilot: AUTOPILOT.runs }, GATE);
+  const opts = { iterations: 50, seed: 71, level: 0.95 };
+  const direct = sentinelCheck({ gate: GATE, baselineRows: groups.baselineAutopilot, candidateRows: [], guards: [], opts });
+  assert.equal(direct.status, 'inconclusive');
+  assert.deepEqual(direct.reasons, ['sentinel_unavailable']);
+});
+
+test('baseline safety: no sidecar makes mcp-non-jev inconclusive (baseline_safety_unverifiable)', () => {
+  const result = record(evaluate({ baseline: { ...BASELINE, safety: null } }));
+  assert.deepEqual(nonJevOf(result).reasons, ['baseline_safety_unverifiable']);
+  assert.deepEqual(JEV_SNAPSHOT(result), JEV_SNAPSHOT(PASS));
+  const partial = new Map(BASELINE.safety);
+  partial.delete(BASELINE.runs.find((row) => row.arm === 'claude' && counted(row)).runId);
+  assert.deepEqual(nonJevOf(evaluate({ baseline: { ...BASELINE, safety: partial } })).reasons, ['baseline_safety_unverifiable']);
+});
+
+// --- Task 2: the core-rebaseline-71 fallback ----------------------------------------------------
+
+function fallbackCampaigns({ pin = {}, candidate = {} } = {}) {
+  const spec = REAL_GATE.fallback;
+  const { identity: pinIdentity, ...pinRest } = pin;
+  const { identity: candidateIdentity, ...candidateRest } = candidate;
+  return {
+    pin: makeCampaign({
+      seed: 6611, scheduleSeed: spec.campaigns.pin.seed, schemaVersion: 1, arms: [spec.arm], rounds: spec.campaigns.pin.minRounds,
+      campaignId: spec.campaigns.pin.id, ...pinRest, ...(pinIdentity ? { identity: pinIdentity } : {}),
+    }),
+    candidate: makeCampaign({
+      seed: 6612, scheduleSeed: spec.campaigns.candidate.seed, arms: [spec.arm], conditions: spec.campaigns.candidate.conditions,
+      rounds: spec.campaigns.candidate.minRounds, campaignId: spec.campaigns.candidate.id, effect: { claude: { speed: 0.85 } },
+      ...candidateRest, identity: mergeIdentity(candidateIdentity),
+    }),
+  };
+}
+
+const FALLBACK = fallbackCampaigns();
+const SENTINEL_TRIP = {
+  autopilot: autopilotCampaign({ effect: { 'autopilot/off': { speed: 1.5 }, 'autopilot/on': { speed: 1.05 } } }),
+};
+
+test('fallback: not supplied, or supplied while the primary verdict is not inconclusive for a trigger', () => {
+  assert.equal(PASS.fallback.status, 'not_supplied');
+  assert.equal(PASS.fallback.primaryVerdict, 'pass');
+
+  const passing = record(evaluate({ fallback: FALLBACK }));
+  assert.equal(passing.fallback.status, 'not_triggered');
+  assert.deepEqual(passing.paths, PASS.paths);
+
+  const slow = record(evaluate({ claude: claudeCampaign({ effect: { claude: { speed: 1.25 } } }), fallback: FALLBACK }));
+  assert.equal(slow.fallback.status, 'not_triggered');
+  assert.equal(nonJevOf(slow).verdict, 'fail');
+  assert.equal(nonJevOf(slow).source, 'primary');
+
+  const underpowered = record(evaluate({ claude: claudeCampaign({ rounds: 12 }), fallback: FALLBACK }));
+  assert.equal(underpowered.fallback.status, 'not_triggered');
+  assert.deepEqual(nonJevOf(underpowered).reasons, ['underpowered']);
+  assert.equal(nonJevOf(underpowered).source, 'primary');
+  for (const result of [passing, slow, underpowered]) assert.deepEqual(JEV_SNAPSHOT(result), JEV_SNAPSHOT(PASS));
+
+  // A sentinel that is inconclusive only for being under-round is not a trigger.
+  const shortSentinel = record(evaluate({ autopilot: autopilotCampaign({ rounds: 12 }), fallback: FALLBACK }));
+  assert.deepEqual(nonJevOf(shortSentinel).reasons, ['sentinel_inconclusive']);
+  assert.equal(shortSentinel.fallback.status, 'not_triggered');
+});
+
+test('fallback: a sentinel left inconclusive by resume drift is caused by a listed trigger, so the fallback applies', () => {
+  const drift = [{ at: '2026-11-02T10:00:00.000Z', claudeVersion: null, chromeBrowser: 'Chrome/147.0.7700.0', launchFlags: [] }];
+  const result = record(evaluate({ autopilot: autopilotCampaign({ identity: { resumes: drift } }), fallback: FALLBACK }));
+  assert.equal(result.fallback.status, 'used');
+  assert.deepEqual(result.fallback.primaryReasons, ['resume_drift:sentinel', 'sentinel_inconclusive']);
+  assert.equal(nonJevOf(result).verdict, 'pass');
+  assert.equal(nonJevOf(result).source, 'fallback');
+  assertJev(result, 'inconclusive', ['resume_drift']);
+});
+
+test('fallback: a sentinel trip plus a passing core-rebaseline-71 replaces the non-Jev verdict', () => {
+  const primary = record(evaluate(SENTINEL_TRIP));
+  assert.deepEqual(nonJevOf(primary).reasons, ['sentinel_trip']);
+  const used = record(evaluate({ ...SENTINEL_TRIP, fallback: FALLBACK }));
+  assert.equal(used.fallback.status, 'used');
+  assert.equal(used.fallback.primaryVerdict, 'inconclusive');
+  assert.deepEqual(used.fallback.primaryReasons, ['sentinel_trip']);
+  assert.equal(used.fallback.verdict, 'pass');
+  assert.deepEqual(used.fallback.refusals, []);
+  assert.equal(nonJevOf(used).verdict, 'pass');
+  assert.equal(nonJevOf(used).source, 'fallback');
+  assert.equal(nonJevOf(used).faster, true);
+  assert.equal(used.sentinel.status, 'trip', 'the sentinel result itself is unchanged');
+  assert.equal(used.fallback.campaigns.pin.id, REAL_GATE.fallback.campaigns.pin.id);
+  assert.equal(used.fallback.campaigns.candidate.meetsMinRounds, true);
+  assert.deepEqual(JEV_SNAPSHOT(used), JEV_SNAPSHOT(primary));
+
+  // The fallback runs the same rules: a slow candidate fails there too.
+  const slowFallback = fallbackCampaigns({ candidate: { effect: { claude: { speed: 1.25 } } } });
+  const failed = record(evaluate({ ...SENTINEL_TRIP, fallback: slowFallback }));
+  assert.equal(failed.fallback.status, 'used');
+  assert.equal(nonJevOf(failed).verdict, 'fail');
+  assert.deepEqual(nonJevOf(failed).reasons, ['time_noninferiority']);
+
+  // An identity mismatch inside the fallback pair is inconclusive, never a pass.
+  const drifted = fallbackCampaigns({ candidate: { identity: { hosts: { claude: { version: '2.1.999 (Claude Code)' } } } } });
+  const mismatched = record(evaluate({ ...SENTINEL_TRIP, fallback: drifted }));
+  assert.equal(nonJevOf(mismatched).verdict, 'inconclusive');
+  assert.deepEqual(nonJevOf(mismatched).reasons, ['identity_mismatch:hosts.claude.version']);
+});
+
+test('fallback: refusals stay inside the fallback result and leave the primary verdict in place', () => {
+  const cases = [
+    ['fallback_pin_not_pin', fallbackCampaigns({ pin: { identity: { git: { sha: `abc${SYNTHETIC_PIN_SHA.slice(3)}` } } } })],
+    ['fallback_candidate_not_measured', fallbackCampaigns({ candidate: { identity: { git: { sha: 'b'.repeat(40) } } } })],
+    ['fallback_candidate_not_measured', fallbackCampaigns({ candidate: { identity: { gate: { path: GATE_FILE, sha256: 'f'.repeat(64) } } } })],
+    ['fallback_campaign_mismatch', fallbackCampaigns({ pin: { campaignId: 'core-rebaseline-71-pinned' } })],
+    ['fallback_campaign_mismatch', fallbackCampaigns({ candidate: { scheduleSeed: 67 } })],
+    ['fallback_campaign_mismatch', fallbackCampaigns({ candidate: { conditions: ['off', 'on'] } })],
+  ];
+  for (const [code, fallback] of cases) {
+    const result = record(evaluate({ ...SENTINEL_TRIP, fallback }));
+    assert.deepEqual(result.refusals, [], `${code}: never a top-level refusal`);
+    assert.equal(result.fallback.status, 'refused', code);
+    assert.deepEqual(unique(result.fallback.refusals.map((refusal) => refusal.code)), [code], code);
+    assert.equal(nonJevOf(result).verdict, 'inconclusive', code);
+    assert.deepEqual(nonJevOf(result).reasons, ['sentinel_trip'], code);
+    assert.equal(nonJevOf(result).source, 'primary');
+    assert.deepEqual(JEV_SNAPSHOT(result), JEV_SNAPSHOT(evaluate(SENTINEL_TRIP)));
+  }
+  const pinSchema = { ...FALLBACK, pin: withRows(FALLBACK.pin, (runs) => { runs[0].schemaVersion = 2; }) };
+  assert.equal(record(evaluate({ ...SENTINEL_TRIP, fallback: pinSchema })).fallback.refusals[0].code, 'fallback_campaign_mismatch');
+});
+
+test('fallback: evaluateFallback reuses the non-Jev rules on the pin and candidate pair', () => {
+  const opts = { iterations: ITERATIONS, seed: GATE.bootstrap.seed, level: GATE.bootstrap.level };
+  const out = evaluateFallback({
+    gate: GATE, gateSha256: GATE_SHA256, primary: { verdict: 'inconclusive', reasons: ['identity_mismatch:chromeMajor'] },
+    fallback: FALLBACK, candidateSha: SYNTHETIC_CANDIDATE_SHA, opts,
+  });
+  assert.equal(out.result.status, 'used');
+  assert.equal(out.replacement.verdict, 'pass');
+  assert.deepEqual(Object.keys(out.replacement.criteria).sort(), ['completion', 'safety', 'speed']);
+  const none = evaluateFallback({ gate: GATE, gateSha256: GATE_SHA256, primary: { verdict: 'pass', reasons: [] }, fallback: null, opts });
+  assert.equal(none.result.status, 'not_supplied');
+  assert.equal(none.replacement, null);
+  assert.deepEqual([...FALLBACK_STATUSES], ['not_supplied', 'not_triggered', 'used', 'refused']);
+});
+
+// --- Task 2: sensitivity and categories ---------------------------------------------------------
+
+test('sensitivity: Bonferroni two-family intervals at 0.975 are reported and never decisive', () => {
+  const { sensitivity } = PASS;
+  assert.equal(sensitivity.level, GATE.bootstrap.sensitivityLevel);
+  assert.equal(sensitivity.z, 2.241402727604947);
+  assert.equal(sensitivity.decisive, false);
+  for (const family of ['jev', 'nonJev']) {
+    const { speed, completion } = sensitivity[family];
+    assert.equal(speed.level, GATE.bootstrap.sensitivityLevel);
+    assert.ok(speed.ci[0] <= speed.estimate && speed.estimate <= speed.ci[1]);
+    assert.ok(completion.ci[0] <= completion.diff && completion.diff <= completion.ci[1]);
+  }
+  const main = jevOf(PASS).criteria.speed.ci;
+  const wide = sensitivity.jev.speed.ci;
+  assert.ok(wide[0] <= main[0] && wide[1] >= main[1], 'the sensitivity interval is the wider one');
+
+  // The verdict functions never read the sensitivity block.
+  const { sensitivity: removed, ...rest } = clone(PASS);
+  assert.ok(removed);
+  for (const name of JEV_PATHS) {
+    const entry = rest.paths[name];
+    assert.deepEqual(jevVerdict({ criteria: entry.criteria, guards: entry.guards }), { verdict: entry.verdict, reasons: entry.reasons });
+  }
+  const nonJev = rest.paths['mcp-non-jev'];
+  assert.deepEqual(nonJevVerdict({ criteria: nonJev.criteria, guards: nonJev.guards }),
+    { verdict: nonJev.verdict, reasons: nonJev.reasons, faster: nonJev.faster });
+});
+
+test('categories: per-category ratios and the PROJECT targets are descriptive only', () => {
+  const { categories } = PASS;
+  for (const category of ['mixed', 'click-heavy']) {
+    for (const family of ['jev', 'nonJev']) {
+      const entry = categories.byCategory[category][family];
+      assert.equal(entry.status, 'ok', `${category} ${family}`);
+      assert.equal(entry.usedTasks.length, 6);
+    }
+  }
+  assert.equal(categories.targets.autopilotMixed.status, 'not met');
+  assert.equal(categories.targets.autopilotMixed.path, 'jev-autopilot');
+  assert.deepEqual(categories.targets.mcpClickHeavy.map((entry) => entry.path), ['jev-mcp-run-task', 'mcp-non-jev']);
+  assert.ok(categories.targets.mcpClickHeavy.every((entry) => entry.status === 'not met'));
+  assert.equal(categories.targets.mcpUatStyle.status, 'not measured: no UAT-style tasks in the core set');
+  assertJev(PASS, 'pass', []);
+
+  const fast = record(evaluate({ autopilot: autopilotCampaign({ effect: { 'autopilot/on': { speed: 0.5 } } }) }));
+  assert.equal(fast.categories.targets.autopilotMixed.status, 'met');
+  assert.ok(fast.categories.targets.autopilotMixed.ci[1] <= 1 / GATE.targets.autopilotMixed[0]);
+  assert.equal(fast.categories.targets.mcpClickHeavy[1].status, 'not met');
+  assertJev(fast, 'pass', []);
+});
+
 test('every reason the fixtures produced is a REASONS code, and verdicts come from VERDICTS', () => {
   assert.ok(Object.isFrozen(REASONS) && Object.isFrozen(VERDICTS));
   assert.ok(SEEN_REASONS.size > 10, `${SEEN_REASONS.size} reasons seen`);
@@ -529,4 +918,6 @@ test('every reason the fixtures produced is a REASONS code, and verdicts come fr
     assert.match(reason, /^[a-z][a-z0-9_]*(:[A-Za-z0-9_.]+)?$/);
   }
   for (const entry of Object.values(PASS.paths)) assert.ok(VERDICTS.includes(entry.verdict));
+  assert.ok(Object.isFrozen(REFUSAL_CODES) && Object.isFrozen(FALLBACK_STATUSES));
+  assert.deepEqual([...SEEN_REFUSALS].sort(), [...REFUSAL_CODES].sort(), 'every refusal code is exercised');
 });

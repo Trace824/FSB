@@ -23,12 +23,44 @@
  * - A path passes only when every criterion passes (D-14). The comparison code
  *   lives here and never in report.mjs (Pitfall 2).
  *
+ * The guards come first (D-05, D-06; Pitfalls 1, 7, 8):
+ * - Refusals, which give no verdict at all: a candidate gate hash that is
+ *   missing or differs from the file's, a wrong campaign id or schedule, a
+ *   dirty candidate, two candidate SHAs, a baseline that is not the pin, and
+ *   rows of the wrong schema.
+ * - Inconclusive, never a pass: an identity mismatch on the gate's D-06 fields
+ *   (the corpus is compared with the gate's lock), resume drift, a campaign
+ *   under its minRounds, and a drift sentinel that is not 'pass'. A sentinel
+ *   trip carries the gate's blocker and leaves the within-campaign Jev verdict
+ *   unaffected.
+ * - The predeclared core-rebaseline-71 fallback replaces only a non-Jev
+ *   verdict that is inconclusive for one of the gate's listed triggers, and
+ *   runs the same non-Jev rules on its own pin and candidate campaigns.
+ * The Bonferroni two-family sensitivity line and the per-category targets are
+ * descriptive and never feed a verdict.
+ *
  * Reasons are fixed snake_case codes from REASONS, optionally followed by
- * ':<field>' (identity_mismatch only), so the CLI can map them to text.
+ * ':<detail>' (identity_mismatch names the field; a cause inherited from the
+ * sentinel names 'sentinel'), so the CLI can map them to text. Refusals are
+ * {code, detail} with a code from REFUSAL_CODES and a detail that names
+ * fields, never values.
  */
+
+import { isDeepStrictEqual } from 'node:util';
 
 import { END_LABELS, isClaimedSuccess } from '../../lib/runs.mjs';
 import { aaNoiseFloor, geoMeanMedianRatio, newcombeDifference, wilson } from '../../lib/stats.mjs';
+import { corpusDigest } from './gate.mjs';
+
+// The V1 baseline and the fallback pin campaign run at this commit (D-03).
+export const PIN_SHA_PREFIX = '8a058bdf';
+// Two-sided z at gate.bootstrap.sensitivityLevel 0.975: the Bonferroni
+// two-family line (D-14). Never decisive.
+export const SENSITIVITY_Z = 2.241402727604947;
+export const SENSITIVITY_LABEL = 'Bonferroni two-family sensitivity (never decisive)';
+// The core-set categories reported as context (D-12).
+export const CATEGORIES = Object.freeze(['mixed', 'click-heavy']);
+export const UAT_NOT_MEASURED = 'not measured: no UAT-style tasks in the core set';
 
 export const VERDICTS = Object.freeze(['pass', 'fail', 'inconclusive', 'not_exercised']);
 
@@ -44,7 +76,20 @@ export const REASONS = Object.freeze([
   'suites_not_run', 'suites_incomplete', 'tighten_only_suite_failed',
   // The exercised precondition (D-16)
   'no_on_runs', 'uncalibrated', 'acted_share_below_min', 'model_instrument_pair', 'condition_leak',
+  // Guards (D-05, D-06; Pitfalls 1, 8)
+  'underpowered', 'resume_drift', 'corpus_mismatch', 'identity_mismatch', 'sentinel_trip', 'sentinel_inconclusive',
+  // The sentinel's own result
+  'completion_not_equivalent', 'speed_outside_band', 'sentinel_unavailable',
 ]);
+
+export const REFUSAL_CODES = Object.freeze([
+  'gate_hash_missing', 'gate_hash_mismatch', 'campaign_id_mismatch', 'campaign_schedule_mismatch', 'candidate_dirty',
+  'candidate_sha_mismatch', 'baseline_not_pin', 'candidate_row_schema', 'baseline_row_schema',
+  // Inside result.fallback only, never top-level
+  'fallback_campaign_mismatch', 'fallback_pin_not_pin', 'fallback_candidate_not_measured',
+]);
+
+export const FALLBACK_STATUSES = Object.freeze(['not_supplied', 'not_triggered', 'used', 'refused']);
 
 const TIERS = Object.freeze({ fail: 'fail', inconclusive: 'inconclusive', pass: 'pass' });
 const META_LOOP_BREAK = 'meta_cognitive_loop_break';
@@ -496,6 +541,342 @@ function endLabelCounts(rows) {
   return out;
 }
 
+// --- Identity, resumes and rounds (D-06; Pitfalls 1, 8) -------------------------------------
+
+function majorOf(browser) {
+  if (typeof browser !== 'string') return null;
+  const match = /Chrome\/(\d+)/.exec(browser);
+  return match ? Number(match[1]) : null;
+}
+
+/** The Chrome major version of an identity (chrome.browser), or null. */
+export function chromeMajor(identity) {
+  return isPlainObject(identity) && isPlainObject(identity.chrome) ? majorOf(identity.chrome.browser) : null;
+}
+
+// One identity field: 'corpus' is the corpus digest of identity.tasks,
+// 'chromeMajor' the parsed major, anything else a dotted path. Missing is null.
+function identityValue(identity, field) {
+  if (!isPlainObject(identity)) return null;
+  if (field === 'corpus') return Array.isArray(identity.tasks) ? corpusDigest(identity.tasks) : null;
+  if (field === 'chromeMajor') return chromeMajor(identity);
+  let value = identity;
+  for (const key of field.split('.')) {
+    if (!isPlainObject(value) || !Object.prototype.hasOwnProperty.call(value, key)) return null;
+    value = value[key];
+  }
+  return value === undefined ? null : value;
+}
+
+/**
+ * The fields (from the gate's identityMatch lists) on which two campaign
+ * identities differ. A missing value on either side is a mismatch, and
+ * 'corpus' mismatches unless both corpus digests equal gate.corpusLockSha256.
+ */
+export function identityMismatches(a, b, fields, gate) {
+  return fields.filter((field) => {
+    const left = identityValue(a, field);
+    const right = identityValue(b, field);
+    if (left === null || right === null) return true;
+    if (field === 'corpus') return left !== gate.corpusLockSha256 || right !== gate.corpusLockSha256;
+    return !isDeepStrictEqual(left, right);
+  });
+}
+
+/**
+ * True when a resume changed what the campaign measured (Pitfall 8): any
+ * identity.resumes[] entry whose claudeVersion differs from
+ * hosts.claude.version (when the campaign has a claude host) or whose Chrome
+ * major differs from the original. An unknown version on either side is drift.
+ */
+export function resumeDrift(identity) {
+  if (!isPlainObject(identity) || !Array.isArray(identity.resumes)) return false;
+  const host = isPlainObject(identity.hosts) && isPlainObject(identity.hosts.claude) ? identity.hosts.claude : null;
+  const major = chromeMajor(identity);
+  return identity.resumes.some((entry) => {
+    if (!isPlainObject(entry)) return true;
+    if (host && (typeof host.version !== 'string' || entry.claudeVersion !== host.version)) return true;
+    const resumed = majorOf(entry.chromeBrowser);
+    return resumed === null || major === null || resumed !== major;
+  });
+}
+
+function observedRounds(runs) {
+  const rounds = listOf(runs).map((row) => row.round).filter((round) => Number.isSafeInteger(round));
+  return rounds.length ? Math.max(...rounds) : null;
+}
+
+/**
+ * A campaign meets minRounds when its identity schedules at least minRounds
+ * rounds and its rows reach round minRounds (Pitfall 1).
+ */
+export function meetsMinRounds(campaign, minRounds) {
+  const identity = isPlainObject(campaign) ? campaign.identity : null;
+  const scheduled = isPlainObject(identity) && isPlainObject(identity.schedule) ? identity.schedule.rounds : null;
+  const observed = observedRounds(isPlainObject(campaign) ? campaign.runs : null);
+  return Number.isSafeInteger(scheduled) && scheduled >= minRounds && observed !== null && observed >= minRounds;
+}
+
+function stringOrNull(value) {
+  return typeof value === 'string' ? value : null;
+}
+
+function campaignFacts(campaign, minRounds, gate) {
+  const identity = isPlainObject(campaign) && isPlainObject(campaign.identity) ? campaign.identity : null;
+  const git = identity && isPlainObject(identity.git) ? identity.git : {};
+  const schedule = identity && isPlainObject(identity.schedule) ? identity.schedule : {};
+  return {
+    id: identity ? stringOrNull(identity.campaignId) : null,
+    createdAt: identity ? stringOrNull(identity.createdAt) : null,
+    gitSha: stringOrNull(git.sha),
+    gitDirty: typeof git.dirty === 'boolean' ? git.dirty : null,
+    rounds: Number.isSafeInteger(schedule.rounds) ? schedule.rounds : null,
+    observedRounds: observedRounds(isPlainObject(campaign) ? campaign.runs : null),
+    minRounds,
+    meetsMinRounds: meetsMinRounds(campaign, minRounds),
+    resumeDrift: resumeDrift(identity),
+    corpusMatch: identityValue(identity, 'corpus') === gate.corpusLockSha256,
+    reported: Object.fromEntries(gate.identityMatch.reported.map((field) => [field, identityValue(identity, field)])),
+  };
+}
+
+// --- Refusals (D-05, D-06, D-11; Pitfall 7) --------------------------------------------------
+
+function scheduleMismatches(identity, spec) {
+  const schedule = isPlainObject(identity) && isPlainObject(identity.schedule) ? identity.schedule : null;
+  if (!schedule) return ['arms', 'seed', 'conditions'];
+  const conditions = schedule.conditions === undefined ? null : schedule.conditions;
+  const out = [];
+  if (!isDeepStrictEqual(schedule.arms, [...spec.arms])) out.push('arms');
+  if (schedule.seed !== spec.seed) out.push('seed');
+  if (!isDeepStrictEqual(conditions, spec.conditions === null ? null : [...spec.conditions])) out.push('conditions');
+  return out;
+}
+
+function campaignOf(input, role) {
+  const campaign = isPlainObject(input[role]) ? input[role] : {};
+  return { identity: isPlainObject(campaign.identity) ? campaign.identity : null, runs: listOf(campaign.runs), safety: campaign.safety };
+}
+
+function gitOf(identity) {
+  return identity && isPlainObject(identity.git) ? identity.git : {};
+}
+
+function recordedGateSha(identity) {
+  return identity && isPlainObject(identity.gate) && typeof identity.gate.sha256 === 'string' && identity.gate.sha256
+    ? identity.gate.sha256 : null;
+}
+
+function refusalsOf(input, gate) {
+  const out = [];
+  const add = (code, detail) => out.push({ code, detail });
+  const campaigns = { baseline: campaignOf(input, 'baseline'), autopilot: campaignOf(input, 'autopilot'), claude: campaignOf(input, 'claude') };
+  const candidates = ['autopilot', 'claude'];
+  for (const role of candidates) {
+    const recorded = recordedGateSha(campaigns[role].identity);
+    if (recorded === null) add('gate_hash_missing', `${role}.gate.sha256`);
+    else if (recorded !== input.gateSha256) add('gate_hash_mismatch', `${role}.gate.sha256`);
+  }
+  for (const role of ['baseline', ...candidates]) {
+    const spec = gate.campaigns[role];
+    const { identity, runs } = campaigns[role];
+    if (!identity || identity.campaignId !== spec.id) add('campaign_id_mismatch', `${role}.campaignId`);
+    if (runs.some((row) => row.campaignId !== spec.id)) add('campaign_id_mismatch', `${role}.rows.campaignId`);
+    for (const field of scheduleMismatches(identity, spec)) add('campaign_schedule_mismatch', `${role}.schedule.${field}`);
+  }
+  for (const role of candidates) if (gitOf(campaigns[role].identity).dirty !== false) add('candidate_dirty', `${role}.git.dirty`);
+  const autopilotSha = gitOf(campaigns.autopilot.identity).sha;
+  if (typeof autopilotSha !== 'string' || !autopilotSha || autopilotSha !== gitOf(campaigns.claude.identity).sha) {
+    add('candidate_sha_mismatch', 'autopilot.git.sha,claude.git.sha');
+  }
+  const pinSha = gitOf(campaigns.baseline.identity).sha;
+  if (typeof pinSha !== 'string' || !pinSha.startsWith(PIN_SHA_PREFIX)) add('baseline_not_pin', 'baseline.git.sha');
+  for (const role of candidates) {
+    if (campaigns[role].runs.some((row) => row.schemaVersion !== gate.campaigns[role].rowSchema)) add('candidate_row_schema', `${role}.rows.schemaVersion`);
+  }
+  if (campaigns.baseline.runs.some((row) => row.schemaVersion !== gate.campaigns.baseline.rowSchema)) {
+    add('baseline_row_schema', 'baseline.rows.schemaVersion');
+  }
+  return out;
+}
+
+// --- The drift sentinel (D-05) ----------------------------------------------------------------
+
+/**
+ * The baseline's autopilot rows against the autopilot campaign's 'off' rows
+ * (68 D-01: with the switch off, autopilot equals the pin). `guards` (an
+ * identity mismatch on identityMatch.autopilot, an under-round or drifted
+ * campaign) make it inconclusive. Otherwise the completion interval must lie
+ * inside (-margin, +margin) and the speed interval inside speedBand, or it
+ * trips and carries the gate's blocker.
+ */
+export function sentinelCheck({ gate, baselineRows, candidateRows, guards = [], opts }) {
+  const rule = gate.sentinel;
+  const completion = completionComparison(baselineRows, candidateRows, gate.criteria.z);
+  const speed = speedComparison(baselineRows, candidateRows, opts);
+  const numbers = {
+    completion: { diff: completion.diff, ci: completion.ci, baseline: completion.control, candidate: completion.treatment },
+    speed: { estimate: speed.estimate, ci: speed.ci, usedTasks: speed.usedTasks, droppedTasks: speed.droppedTasks },
+    completionMargin: rule.completionMargin,
+    speedBand: [...rule.speedBand],
+  };
+  if (guards.length) return { status: 'inconclusive', reasons: [...guards], ...numbers, blocker: null };
+  if (completion.diff === null || speed.status !== 'ok') return { status: 'inconclusive', reasons: ['sentinel_unavailable'], ...numbers, blocker: null };
+  const reasons = [];
+  const margin = rule.completionMargin;
+  if (!(completion.ci[0] > -margin && completion.ci[1] < margin)) reasons.push('completion_not_equivalent');
+  const [low, high] = rule.speedBand;
+  if (!(speed.ci[0] >= low && speed.ci[1] <= high)) reasons.push('speed_outside_band');
+  if (reasons.length) return { status: 'trip', reasons, ...numbers, blocker: rule.blocker };
+  return { status: 'pass', reasons: [], ...numbers, blocker: null };
+}
+
+// What the non-Jev verdict inherits from a sentinel that is not 'pass'. A
+// cause that is a fallback trigger keeps its code, namespaced 'sentinel', so
+// the gate's "inconclusive for a listed trigger" rule sees it.
+function sentinelGuards(sentinel, gate) {
+  if (sentinel.status === 'trip') return ['sentinel_trip'];
+  if (sentinel.status !== 'inconclusive') return [];
+  const inherited = [];
+  for (const reason of sentinel.reasons) {
+    const [code, detail] = reason.split(':');
+    if (!gate.fallback.triggers.includes(code)) continue;
+    inherited.push(detail === undefined ? `${code}:sentinel` : `${code}:sentinel.${detail}`);
+  }
+  return [...inherited, 'sentinel_inconclusive'];
+}
+
+// --- The core-rebaseline-71 fallback (D-06) ----------------------------------------------------
+
+function fallbackRefusals({ gate, gateSha256, pin, candidate, candidateSha }) {
+  const spec = gate.fallback;
+  const out = [];
+  const add = (code, detail) => out.push({ code, detail });
+  for (const [role, campaign] of [['pin', pin], ['candidate', candidate]]) {
+    const rule = spec.campaigns[role];
+    const { identity, runs } = campaign;
+    if (!identity || identity.campaignId !== rule.id) add('fallback_campaign_mismatch', `${role}.campaignId`);
+    if (runs.some((row) => row.campaignId !== rule.id)) add('fallback_campaign_mismatch', `${role}.rows.campaignId`);
+    for (const field of scheduleMismatches(identity, { arms: [spec.arm], seed: rule.seed, conditions: rule.conditions })) {
+      add('fallback_campaign_mismatch', `${role}.schedule.${field}`);
+    }
+    if (runs.some((row) => row.schemaVersion !== rule.rowSchema)) add('fallback_campaign_mismatch', `${role}.rows.schemaVersion`);
+  }
+  const pinSha = gitOf(pin.identity).sha;
+  if (typeof pinSha !== 'string' || !pinSha.startsWith(PIN_SHA_PREFIX)) add('fallback_pin_not_pin', 'pin.git.sha');
+  const git = gitOf(candidate.identity);
+  if (typeof git.sha !== 'string' || git.sha !== candidateSha) add('fallback_candidate_not_measured', 'candidate.git.sha');
+  if (git.dirty !== false) add('fallback_candidate_not_measured', 'candidate.git.dirty');
+  if (recordedGateSha(candidate.identity) !== gateSha256) add('fallback_candidate_not_measured', 'candidate.gate.sha256');
+  return out;
+}
+
+/**
+ * The predeclared fallback (gate.fallback). Returns { result, replacement }:
+ * result is the reported fallback block; replacement is null unless the
+ * fallback was used, and then holds the non-Jev verdict, reasons, faster,
+ * guards and criteria computed by the same rules (nonJevCriteria and
+ * nonJevVerdict) on the pin campaign as baseline and the candidate campaign
+ * as candidate, with identityMatch.claude compared between the two, minRounds
+ * from gate.fallback.campaigns, the pin's sidecar for baseline safety and no
+ * sentinel. Refusals stay inside the result and never reach the top level.
+ */
+export function evaluateFallback({ gate, gateSha256, primary, fallback, candidateSha = null, opts }) {
+  const spec = gate.fallback;
+  const base = { primaryVerdict: primary.verdict, primaryReasons: [...primary.reasons] };
+  if (!isPlainObject(fallback)) {
+    return { result: { status: 'not_supplied', ...base, verdict: null, reasons: [], refusals: [], campaigns: null }, replacement: null };
+  }
+  const pin = campaignOf(fallback, 'pin');
+  const candidate = campaignOf(fallback, 'candidate');
+  const campaigns = {
+    pin: campaignFacts(pin, spec.campaigns.pin.minRounds, gate),
+    candidate: campaignFacts(candidate, spec.campaigns.candidate.minRounds, gate),
+  };
+  const refusals = fallbackRefusals({ gate, gateSha256, pin, candidate, candidateSha });
+  if (refusals.length) return { result: { status: 'refused', ...base, verdict: null, reasons: [], refusals, campaigns }, replacement: null };
+  const triggered = primary.verdict === 'inconclusive'
+    && primary.reasons.some((reason) => spec.triggers.some((trigger) => reason.startsWith(trigger)));
+  if (!triggered) return { result: { status: 'not_triggered', ...base, verdict: null, reasons: [], refusals: [], campaigns }, replacement: null };
+
+  const scope = gate.criteria.scope;
+  const candidateCondition = gate.paths[spec.replaces].candidateCondition;
+  const pinRows = pin.runs.filter((row) => row.set === scope && row.arm === spec.arm);
+  const candidateRows = candidate.runs.filter((row) => row.set === scope && row.arm === spec.arm && row.condition === candidateCondition);
+  const criteria = nonJevCriteria(pinRows, candidateRows, pin.safety instanceof Map ? pin.safety : null, gate, opts);
+  const guards = unique([
+    ...identityMismatches(pin.identity, candidate.identity, gate.identityMatch.claude, gate).map((field) => `identity_mismatch:${field}`),
+    ...(campaigns.pin.meetsMinRounds && campaigns.candidate.meetsMinRounds ? [] : ['underpowered']),
+    ...(campaigns.pin.resumeDrift || campaigns.candidate.resumeDrift ? ['resume_drift'] : []),
+  ]);
+  const decided = nonJevVerdict({ criteria, guards });
+  return {
+    result: { status: 'used', ...base, verdict: decided.verdict, reasons: [...decided.reasons], refusals: [], campaigns },
+    replacement: { verdict: decided.verdict, reasons: decided.reasons, faster: decided.faster, guards, criteria },
+  };
+}
+
+// --- Sensitivity and categories (descriptive) ----------------------------------------------------
+
+function speedSummary(speed) {
+  return {
+    status: speed.status, estimate: speed.estimate, ci: speed.ci, level: speed.level, usedTasks: speed.usedTasks, droppedTasks: speed.droppedTasks,
+  };
+}
+
+function completionSummary(completion) {
+  return { diff: completion.diff, ci: completion.ci, z: completion.z };
+}
+
+function sensitivityOf(groups, gate, opts) {
+  const level = gate.bootstrap.sensitivityLevel;
+  const wide = { ...opts, level };
+  return {
+    label: SENSITIVITY_LABEL,
+    decisive: false,
+    level,
+    z: SENSITIVITY_Z,
+    jev: {
+      speed: speedSummary(speedComparison(groups.autopilotOff, groups.autopilotOn, wide)),
+      completion: completionSummary(completionComparison(groups.autopilotOff, groups.autopilotOn, SENSITIVITY_Z)),
+    },
+    nonJev: {
+      speed: speedSummary(speedComparison(groups.baselineClaude, groups.claudeOff, wide)),
+      completion: completionSummary(completionComparison(groups.baselineClaude, groups.claudeOff, SENSITIVITY_Z)),
+    },
+  };
+}
+
+function targetCheck(pathName, category, speed, speedup) {
+  const ratioAtMost = 1 / speedup[0];
+  let status = 'n/a';
+  if (speed.status === 'ok') status = speed.ci[1] <= ratioAtMost ? 'met' : 'not met';
+  return { path: pathName, category, speedup: [...speedup], ratioAtMost, estimate: speed.estimate, ci: speed.ci, status };
+}
+
+function categoriesOf(groups, gate, opts) {
+  const inCategory = (rows, category) => rows.filter((row) => row.category === category);
+  const byCategory = {};
+  for (const category of CATEGORIES) {
+    byCategory[category] = {
+      jev: speedSummary(speedComparison(inCategory(groups.autopilotOff, category), inCategory(groups.autopilotOn, category), opts)),
+      nonJev: speedSummary(speedComparison(inCategory(groups.baselineClaude, category), inCategory(groups.claudeOff, category), opts)),
+    };
+  }
+  return {
+    use: gate.targets.use,
+    byCategory,
+    targets: {
+      autopilotMixed: targetCheck('jev-autopilot', 'mixed', byCategory.mixed.jev, gate.targets.autopilotMixed),
+      mcpClickHeavy: [
+        targetCheck('jev-mcp-run-task', 'click-heavy', byCategory['click-heavy'].jev, gate.targets.mcpClickHeavy),
+        targetCheck('mcp-non-jev', 'click-heavy', byCategory['click-heavy'].nonJev, gate.targets.mcpClickHeavy),
+      ],
+      mcpUatStyle: { speedup: [...gate.targets.mcpUatStyle], status: UAT_NOT_MEASURED },
+    },
+  };
+}
+
 // --- The evaluator --------------------------------------------------------------------------
 
 function jevCriteria(groups, gate, input, opts) {
@@ -527,8 +908,9 @@ function exercisePublic(exercise) {
  * evaluateGate({ gate, gateSha256, baseline: {identity, runs, safety},
  * autopilot: {identity, runs}, claude: {identity, runs}, suites: {ran,
  * results}, fallback }, { iterations }) -> verdicts per path with every
- * criterion's numbers. iterations defaults to gate.bootstrap.iterations;
- * the seed and level always come from gate.bootstrap.
+ * criterion's numbers. iterations defaults to gate.bootstrap.iterations; the
+ * seed and level always come from gate.bootstrap. With any refusal the result
+ * holds only refusals, campaigns and inputs.
  */
 export function evaluateGate(input, { iterations } = {}) {
   const { gate } = input;
@@ -537,13 +919,40 @@ export function evaluateGate(input, { iterations } = {}) {
     seed: gate.bootstrap.seed,
     level: gate.bootstrap.level,
   };
-  const baseline = isPlainObject(input.baseline) ? input.baseline : {};
-  const autopilot = isPlainObject(input.autopilot) ? input.autopilot : {};
-  const claude = isPlainObject(input.claude) ? input.claude : {};
+  const inputs = { iterations: opts.iterations, seed: opts.seed, level: opts.level };
+  const baseline = campaignOf(input, 'baseline');
+  const autopilot = campaignOf(input, 'autopilot');
+  const claude = campaignOf(input, 'claude');
+  const campaigns = {
+    baseline: campaignFacts(baseline, gate.campaigns.baseline.minRounds, gate),
+    autopilot: campaignFacts(autopilot, gate.campaigns.autopilot.minRounds, gate),
+    claude: campaignFacts(claude, gate.campaigns.claude.minRounds, gate),
+  };
+  const refusals = refusalsOf(input, gate);
+  if (refusals.length) return { refusals, campaigns, inputs };
+
   const groups = groupRows({ baseline: baseline.runs, autopilot: autopilot.runs, claude: claude.runs }, gate);
 
+  // The sentinel: baseline autopilot vs autopilot 'off' (cross-campaign).
+  const sentinel = sentinelCheck({
+    gate,
+    baselineRows: groups.baselineAutopilot,
+    candidateRows: groups.autopilotOff,
+    guards: unique([
+      ...identityMismatches(baseline.identity, autopilot.identity, gate.identityMatch.autopilot, gate).map((field) => `identity_mismatch:${field}`),
+      ...(campaigns.baseline.meetsMinRounds && campaigns.autopilot.meetsMinRounds ? [] : ['underpowered']),
+      ...(campaigns.baseline.resumeDrift || campaigns.autopilot.resumeDrift ? ['resume_drift'] : []),
+    ]),
+    opts,
+  });
+
+  // The Jev paths: one within-campaign comparison, two labels.
   const jev = jevCriteria(groups, gate, input, opts);
-  const jevGuards = [];
+  const jevGuards = [
+    ...(campaigns.autopilot.meetsMinRounds ? [] : ['underpowered']),
+    ...(campaigns.autopilot.resumeDrift ? ['resume_drift'] : []),
+    ...(campaigns.autopilot.corpusMatch ? [] : ['corpus_mismatch']),
+  ];
   const jevResult = jevVerdict({ criteria: jev, guards: jevGuards });
   const jevPath = (name) => ({
     label: gate.paths[name].label,
@@ -553,26 +962,45 @@ export function evaluateGate(input, { iterations } = {}) {
     criteria: { speed: jev.speed, completion: jev.completion, safety: jev.safety, exercise: exercisePublic(jev.exercise) },
   });
 
+  // The non-Jev MCP path: the pin against the candidate on the claude driver.
   const nonJev = nonJevCriteria(groups.baselineClaude, groups.claudeOff, baseline.safety instanceof Map ? baseline.safety : null, gate, opts);
-  const nonJevGuards = [];
+  const nonJevGuards = unique([
+    ...identityMismatches(baseline.identity, claude.identity, gate.identityMatch.claude, gate).map((field) => `identity_mismatch:${field}`),
+    ...(campaigns.baseline.meetsMinRounds && campaigns.claude.meetsMinRounds ? [] : ['underpowered']),
+    ...(campaigns.baseline.resumeDrift || campaigns.claude.resumeDrift ? ['resume_drift'] : []),
+    ...sentinelGuards(sentinel, gate),
+  ]);
   const nonJevResult = nonJevVerdict({ criteria: nonJev, guards: nonJevGuards });
+  const primaryNonJev = {
+    label: gate.paths['mcp-non-jev'].label,
+    verdict: nonJevResult.verdict,
+    reasons: nonJevResult.reasons,
+    faster: nonJevResult.faster,
+    source: 'primary',
+    guards: nonJevGuards,
+    criteria: nonJev,
+  };
+
+  const fallback = evaluateFallback({
+    gate, gateSha256: input.gateSha256, primary: nonJevResult, fallback: input.fallback, candidateSha: campaigns.autopilot.gitSha, opts,
+  });
+  const nonJevPath = fallback.replacement
+    ? { ...primaryNonJev, ...fallback.replacement, source: 'fallback' }
+    : primaryNonJev;
 
   return {
     refusals: [],
+    campaigns,
     exercise: jev.exercise,
+    sentinel,
     paths: {
       'jev-mcp-run-task': jevPath('jev-mcp-run-task'),
       'jev-autopilot': jevPath('jev-autopilot'),
-      'mcp-non-jev': {
-        label: gate.paths['mcp-non-jev'].label,
-        verdict: nonJevResult.verdict,
-        reasons: nonJevResult.reasons,
-        faster: nonJevResult.faster,
-        source: 'primary',
-        guards: [...nonJevGuards],
-        criteria: nonJev,
-      },
+      'mcp-non-jev': nonJevPath,
     },
+    fallback: fallback.result,
+    categories: categoriesOf(groups, gate, opts),
+    sensitivity: sensitivityOf(groups, gate, opts),
     diagnostics: {
       endLabels: { off: endLabelCounts(groups.autopilotOff), on: endLabelCounts(groups.autopilotOn) },
       metaLoopBreaks: {
@@ -580,6 +1008,6 @@ export function evaluateGate(input, { iterations } = {}) {
         on: groups.autopilotOn.filter((row) => isCounted(row) && row.endLabel === META_LOOP_BREAK).length,
       },
     },
-    inputs: { iterations: opts.iterations, seed: opts.seed, level: opts.level },
+    inputs,
   };
 }
