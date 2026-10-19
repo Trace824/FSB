@@ -36,7 +36,7 @@
  * CLI: node scripts/bench/fixture-server.mjs [--port N] [--root DIR]
  */
 
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -412,8 +412,13 @@ export async function startFixtureServer(options = {}) {
   const handle = {
     port,
     baseUrl,
+    // 24 lowercase letters (about 112.8 bits), each drawn uniformly with
+    // randomInt. A token with upper case and digits made the Jev scrubber's
+    // high-entropy rule redact the start URL in most rendered goals, so those
+    // goals were refused as sensitive_goal (Phase 71 F5).
     newRunToken() {
-      const token = randomBytes(16).toString('base64url');
+      let token = '';
+      for (let i = 0; i < 24; i += 1) token += String.fromCharCode(97 + randomInt(26));
       logFor(token);
       return token;
     },
