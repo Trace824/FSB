@@ -52,6 +52,7 @@ import {
   checkClaims,
   describePath,
   formatClaimValue,
+  renderClaim,
   validateDecision,
 } from '../scripts/bench/gate/lib/decision.mjs';
 import { corpusDigest, loadGate } from '../scripts/bench/gate/lib/gate.mjs';
@@ -1302,6 +1303,77 @@ test('claims: every token carries an allowed source, the checker re-renders each
   const decisionWithBadClaim = clone(PASS_SCENARIO.decision);
   decisionWithBadClaim.claims = tampered;
   assert.ok(validateDecision(decisionWithBadClaim).errors.includes('claim_source:claims[0].tokens[0].source'));
+});
+
+test('claims: validateDecision ties every claim to the verdicts and the criteria numbers (WR-06)', () => {
+  const errorsOf = (decision) => validateDecision(decision).errors;
+  const claimOf = (decision, id) => clone(decision.claims.find((entry) => entry.id === id));
+  // A re-rendered claim: the hand edit keeps text and tokens in step, so only the verdict and criteria checks can catch it.
+  const rerendered = (entry, edits) => {
+    const tokens = entry.tokens.map((item) => (Object.prototype.hasOwnProperty.call(edits, item.name) ? { ...item, value: edits[item.name] } : item));
+    return { id: entry.id, text: renderClaim(entry.id, tokens), tokens };
+  };
+  for (const { decision } of [PASS_SCENARIO, SAFETY_SCENARIO, NOT_EXERCISED_SCENARIO, FASTER_SCENARIO, LEVEL_SCENARIO]) {
+    assert.deepEqual(validateDecision(decision), { ok: true, errors: [] });
+  }
+
+  // A Jev whole-task claim in a decision whose Jev verdict is fail.
+  const failWithPassClaim = clone(SAFETY_SCENARIO.decision);
+  failWithPassClaim.claims.unshift(claimOf(PASS_SCENARIO.decision, 'jev-whole-task'));
+  assert.ok(errorsOf(failWithPassClaim).includes('claim_not_allowed:claims[0].id'), errorsOf(failWithPassClaim).join(','));
+  // The disable sentence is required exactly when the Jev paths are disabled.
+  const noDisabled = clone(SAFETY_SCENARIO.decision);
+  noDisabled.claims = noDisabled.claims.filter((entry) => entry.id !== 'jev-disabled');
+  assert.ok(errorsOf(noDisabled).includes('claim_missing:claims.jev-disabled'));
+  const extraDisabled = clone(NOT_EXERCISED_SCENARIO.decision);
+  extraDisabled.claims.push(claimOf(SAFETY_SCENARIO.decision, 'jev-disabled'));
+  assert.ok(errorsOf(extraDisabled).includes(`claim_not_allowed:claims[${extraDisabled.claims.length - 1}].id`));
+  // A Jev pass needs its whole-task sentence and never says no speedup.
+  const passWithout = clone(PASS_SCENARIO.decision);
+  passWithout.claims = passWithout.claims.filter((entry) => entry.id !== 'jev-whole-task');
+  passWithout.claims.unshift(claimOf(SAFETY_SCENARIO.decision, 'jev-no-speedup'));
+  assert.ok(errorsOf(passWithout).includes('claim_missing:claims.jev-whole-task'));
+  assert.ok(errorsOf(passWithout).includes('claim_not_allowed:claims[0].id'));
+
+  // "faster" only with faster true; no non-Jev sentence without a non-Jev pass.
+  assert.equal(LEVEL_SCENARIO.decision.paths['mcp-non-jev'].faster, false);
+  const notFaster = clone(LEVEL_SCENARIO.decision);
+  notFaster.claims.push(claimOf(FASTER_SCENARIO.decision, 'mcp-non-jev-faster'));
+  assert.ok(errorsOf(notFaster).includes(`claim_not_allowed:claims[${notFaster.claims.length - 1}].id`));
+  const fasterMissing = clone(FASTER_SCENARIO.decision);
+  fasterMissing.claims = fasterMissing.claims.filter((entry) => entry.id !== 'mcp-non-jev-faster');
+  assert.ok(errorsOf(fasterMissing).includes('claim_missing:claims.mcp-non-jev-faster'));
+  const withheld = scenario({ claude: claudeCampaign({ effect: { claude: { speed: 1.25 } } }) }).decision;
+  const withheldTime = clone(withheld);
+  withheldTime.claims.push(claimOf(FASTER_SCENARIO.decision, 'mcp-non-jev-time'));
+  assert.ok(errorsOf(withheldTime).includes(`claim_not_allowed:claims[${withheldTime.claims.length - 1}].id`));
+
+  // The cost sentence only on a Jev pass, and once.
+  const costOnFail = clone(SAFETY_SCENARIO.decision);
+  costOnFail.claims.push(claimOf(PASS_SCENARIO.decision, 'cost'));
+  assert.ok(errorsOf(costOnFail).includes(`claim_not_allowed:claims[${costOnFail.claims.length - 1}].id`));
+  const twoCosts = clone(PASS_SCENARIO.decision);
+  twoCosts.claims.push(claimOf(PASS_SCENARIO.decision, 'cost'));
+  assert.ok(errorsOf(twoCosts).includes(`claim_repeated:claims[${twoCosts.claims.length - 1}].id`));
+
+  // A ratio edited in both token and text, a completion difference and a non-Jev CI bound no longer match the criteria.
+  const halved = clone(PASS_SCENARIO.decision);
+  const at = halved.claims.findIndex((entry) => entry.id === 'jev-whole-task');
+  halved.claims[at] = rerendered(halved.claims[at], { ratio: 0.5 });
+  assert.deepEqual(checkClaims(halved.claims), { ok: true, errors: [] }, 'the text still matches its tokens');
+  assert.deepEqual(errorsOf(halved), [`claim_value:claims[${at}].tokens[0].value`]);
+  const diffEdited = clone(PASS_SCENARIO.decision);
+  diffEdited.claims[at] = rerendered(diffEdited.claims[at], { completionDiffLow: 0.02 });
+  assert.deepEqual(errorsOf(diffEdited), [`claim_value:claims[${at}].tokens[4].value`]);
+  const boundEdited = clone(FASTER_SCENARIO.decision);
+  const fasterAt = boundEdited.claims.findIndex((entry) => entry.id === 'mcp-non-jev-faster');
+  boundEdited.claims[fasterAt] = rerendered(boundEdited.claims[fasterAt], { ratioHigh: 0.8 });
+  assert.deepEqual(errorsOf(boundEdited), [`claim_value:claims[${fasterAt}].tokens[0].value`]);
+
+  // The two Jev paths come from one comparison.
+  const split = clone(PASS_SCENARIO.decision);
+  split.paths['jev-autopilot'].criteria.speed.estimate = 0.5;
+  assert.ok(errorsOf(split).includes('inconsistent:paths.jev-autopilot.criteria'));
 });
 
 test('report: every required section in order, costs on separate lines, and no per-decision timing before the diagnostics', () => {

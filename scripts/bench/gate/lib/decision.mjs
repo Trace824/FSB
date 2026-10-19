@@ -25,7 +25,9 @@
  *
  * validateDecision is an exact-key validator in the runs.mjs style: errors
  * are codes with a path and never carry a value. Strings are at most 200
- * characters (claims[].text at most 400) and never contain "://".
+ * characters (claims[].text at most 400) and never contain "://". It also
+ * ties the claims to the verdicts: the claim ids the paths require and allow,
+ * and every quoted criterion number equal to the path's criteria.
  */
 
 import { FALLBACK_STATUSES, VERDICTS, groupRows } from './evaluate.mjs';
@@ -603,6 +605,73 @@ function validateFallback(fallback, nonJevSource, errors) {
   }
 }
 
+// The claim ids a decision's verdicts allow (WR-06), as buildClaims writes
+// them: required ids must appear, and no other id may.
+function claimRules(paths) {
+  const jevPass = JEV_PATHS.every((name) => paths[name].verdict === 'pass');
+  const jevDisabled = JEV_PATHS.some((name) => paths[name].v6Action === 'disable_jev_operator_switch');
+  const nonJev = paths[NON_JEV];
+  const nonJevPass = nonJev.verdict === 'pass';
+  return {
+    required: [
+      ...(jevPass ? ['jev-whole-task'] : ['jev-no-speedup']),
+      ...(jevDisabled ? ['jev-disabled'] : []),
+      ...(nonJevPass ? ['mcp-non-jev-time'] : []),
+      ...(nonJevPass && nonJev.faster === true ? ['mcp-non-jev-faster'] : []),
+    ],
+    // The cost sentence is optional (it needs the rows) and only on a Jev pass.
+    optional: jevPass ? ['cost', 'cost-estimated'] : [],
+  };
+}
+
+// Token name -> the criterion number it must equal, per claim id.
+function criterionValues(id, paths) {
+  const numbers = (entry) => {
+    const { speed, completion } = entry.criteria;
+    return {
+      ratio: speed.estimate, ratioLow: speed.ci[0], ratioHigh: speed.ci[1],
+      completionDiff: completion.diff, completionDiffLow: completion.ci[0], completionDiffHigh: completion.ci[1],
+    };
+  };
+  if (id === 'jev-whole-task') return numbers(paths[JEV_PATHS[0]]);
+  if (id === 'mcp-non-jev-time') return numbers(paths[NON_JEV]);
+  if (id === 'mcp-non-jev-faster') return { ratioHigh: paths[NON_JEV].criteria.speed.ci[1] };
+  return {};
+}
+
+/**
+ * The claims against the verdicts (WR-06): every claim id the verdicts
+ * require appears once, no claim the verdicts do not allow appears, a
+ * sentence that quotes a criterion carries exactly the criterion's numbers,
+ * and the two Jev paths (one comparison) carry the same speed and completion.
+ * Runs only on structurally valid paths and claims.
+ */
+function checkClaimConsistency(decision, errors) {
+  const { paths, claims } = decision;
+  const { required, optional } = claimRules(paths);
+  const ids = claims.map((entry) => entry.id);
+  // The two cost sentences are one claim with two wordings.
+  const groups = ids.map((id) => (id === 'cost-estimated' ? 'cost' : id));
+  for (const id of required) if (!ids.includes(id)) errors.push(`claim_missing:claims.${id}`);
+  claims.forEach((entry, index) => {
+    const at = `claims[${index}]`;
+    if (!required.includes(entry.id) && !optional.includes(entry.id)) errors.push(`claim_not_allowed:${at}.id`);
+    else if (groups.indexOf(groups[index]) !== index) errors.push(`claim_repeated:${at}.id`);
+    const expected = criterionValues(entry.id, paths);
+    entry.tokens.forEach((item, k) => {
+      if (Object.prototype.hasOwnProperty.call(expected, item.name) && item.value !== expected[item.name]) {
+        errors.push(`claim_value:${at}.tokens[${k}].value`);
+      }
+    });
+  });
+  const [first, second] = JEV_PATHS.map((name) => paths[name].criteria);
+  if (!isDeepStrictEqualJson([first.speed, first.completion], [second.speed, second.completion])) errors.push('inconsistent:paths.jev-autopilot.criteria');
+}
+
+function isDeepStrictEqualJson(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 /** { ok, errors } for a decision file; never throws, never echoes a value. */
 export function validateDecision(decision) {
   const errors = [];
@@ -647,14 +716,17 @@ export function validateDecision(decision) {
   }
 
   let nonJevSource = null;
+  let pathsValid = false;
   if (checkKeys(decision.paths, DECISION_PATHS, 'paths', errors)) {
     const facts = {};
+    const before = errors.length;
     for (const name of DECISION_PATHS) {
       if (decision.paths[name] === undefined) continue;
       const fact = validatePath(name, decision.paths[name], errors);
       if (fact) facts[name] = fact;
     }
     if (DECISION_PATHS.every((name) => facts[name])) {
+      pathsValid = errors.length === before;
       const expected = v6ActionsFor(facts);
       for (const name of DECISION_PATHS) {
         if (Object.prototype.hasOwnProperty.call(V6_ACTIONS, facts[name].v6Action) && facts[name].v6Action !== expected[name]) {
@@ -666,7 +738,9 @@ export function validateDecision(decision) {
   }
 
   validateFallback(decision.fallback, nonJevSource, errors);
-  errors.push(...checkClaims(decision.claims).errors);
+  const claimCheck = checkClaims(decision.claims);
+  errors.push(...claimCheck.errors);
+  if (pathsValid && claimCheck.ok) checkClaimConsistency(decision, errors);
 
   if (checkKeys(decision.evaluator, DECISION_KEYS.evaluator, 'evaluator', errors)) {
     const { evaluator } = decision;
