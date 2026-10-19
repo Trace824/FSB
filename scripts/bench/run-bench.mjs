@@ -49,8 +49,15 @@
  * runs. The preflight refuses --conditions on a build whose settings tool
  * does not report the key as a boolean (the 8a058bdf pin has no settings
  * tool), with an armed capture, or when CDP cannot verify. --gate <file>
- * records the gate file's path and the sha256 of its bytes in identity, and
- * the gate hash and the conditions join the fields a resume must keep. Raw
+ * loads the predeclared gate through its exact-key validator (gate_invalid
+ * lists only error codes), records the gate file's path and the sha256 of its
+ * bytes in identity, and the gate hash and the conditions join the fields a
+ * resume must keep. In --campaign mode, fresh or resumed, the gate campaign
+ * preflight (Plan 71-05) refuses gate_campaign_mismatch before any client
+ * opens when the campaign id, arms, seed, conditions, set, a --tasks subset or
+ * too few --rounds differ from the gate's campaign for that id, when the
+ * loaded tasks do not match the gate's corpus digest, or when a gate
+ * campaign id runs without --gate; it prints only the field names. Raw
  * records are schema 2: they add the condition, the session's
  * jevMeasurement (autopilot only), its terminal-reason token, the safety
  * counts and the request log's dropped count. An 'on' run waits for
@@ -69,6 +76,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { startFixtureServer } from './fixture-server.mjs';
+import { GATE_RUNNER_CAMPAIGN_IDS, corpusDigest, gateCampaignFor, loadGate } from './gate/lib/gate.mjs';
 import {
   browserVersion,
   closeTargets,
@@ -165,7 +173,8 @@ export const USAGE = [
   '  --campaign-id <id>           default <set>-<YYYYMMDD>-<git short sha>',
   '  --cooldown-ms N              pause between runs (default 3000)',
   '  --conditions off,on          interleave the fast-mode switch per run (written via the settings tool, read back over CDP)',
-  '  --gate <file>                record the predeclared gate\'s sha256 in identity',
+  '  --gate <file>                record the predeclared gate\'s sha256 in identity; the file must pass the gate validator,',
+  '                               and a --campaign run must use the gate\'s arguments for its campaign id',
   '  --tasks-root <dir>           task definitions (default scripts/bench/tasks)',
   '  --fixtures-root <dir>        fixture pages (default scripts/bench/fixtures)',
   '',
@@ -1449,6 +1458,37 @@ function productionArms({ deps, client, options, providerKeyNames }) {
 
 // --- Main --------------------------------------------------------------------------------
 
+const MAX_GATE_CODES_SHOWN = 20;
+
+// Ordered list equality; two absent lists (null or undefined) are equal.
+function sameList(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return a == null && b == null;
+  return a.length === b.length && a.every((item, index) => item === b[index]);
+}
+
+/**
+ * The gate campaign preflight (Plan 71-05). Pure: returns the names of the
+ * mismatched fields, in a fixed order, or [] when the run may start.
+ * - No gate: a gate runner campaign id (GATE_RUNNER_CAMPAIGN_IDS) is `gate`.
+ * - A gate: an id that is not one of its runner campaigns is `campaign_id`;
+ *   otherwise arms and conditions are compared as ordered lists, the seed
+ *   exactly, the set must be core, no --tasks subset, and the rounds must be
+ *   at least the campaign's minRounds.
+ */
+export function gateCampaignIssues(options, campaignId, gate) {
+  if (!gate) return GATE_RUNNER_CAMPAIGN_IDS.includes(campaignId) ? ['gate'] : [];
+  const expected = gateCampaignFor(gate, campaignId);
+  if (!expected) return ['campaign_id'];
+  const issues = [];
+  if (!sameList(options.arms, expected.arms)) issues.push('arms');
+  if (options.seed !== expected.seed) issues.push('seed');
+  if (!sameList(options.conditions, expected.conditions)) issues.push('conditions');
+  if (options.set !== 'core') issues.push('set');
+  if (options.tasks !== null && options.tasks !== undefined) issues.push('tasks');
+  if (!Number.isSafeInteger(options.rounds) || !Number.isSafeInteger(expected.minRounds) || options.rounds < expected.minRounds) issues.push('rounds');
+  return issues;
+}
+
 function selectTasks(options) {
   let tasks = loadTasks({ tasksRoot: options.tasksRoot, fixturesRoot: options.fixturesRoot, set: options.set });
   if (options.tasks) {
@@ -1493,19 +1533,31 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
   }
   const mode = options.mode;
 
-  // The predeclared gate (Phase 71, D-11): read once, before any client
-  // opens; identity keeps its repo-relative path and the sha256 of its bytes.
-  // Plan 71-05 adds the full gate validation here.
+  // The predeclared gate (Phase 71, D-11): read once through the exact-key
+  // validator, before any client opens; identity keeps its repo-relative path
+  // and the sha256 of its raw bytes. The refusal lists only error codes.
   let gate = null;
+  let gateDoc = null;
   if (options.gatePath) {
-    let bytes;
+    let loaded;
     try {
-      bytes = fs.readFileSync(options.gatePath);
-      JSON.parse(bytes.toString('utf8'));
-    } catch {
-      return refuse('refusing to start', [issue('gate_invalid', '--gate must name a readable JSON file')]);
+      loaded = loadGate(options.gatePath);
+    } catch (error) {
+      const codes = Array.isArray(error && error.codes) ? error.codes : ['unreadable'];
+      const shown = codes.slice(0, MAX_GATE_CODES_SHOWN).join(', ');
+      const more = codes.length > MAX_GATE_CODES_SHOWN ? ` (+${codes.length - MAX_GATE_CODES_SHOWN} more)` : '';
+      return refuse('refusing to start', [issue('gate_invalid', `${shown}${more}`)]);
     }
-    gate = { path: path.relative(deps.repoRoot, options.gatePath).split(path.sep).join('/'), sha256: sha256Hex(bytes) };
+    gateDoc = loaded.gate;
+    gate = { path: path.relative(deps.repoRoot, options.gatePath).split(path.sep).join('/'), sha256: loaded.sha256 };
+  }
+
+  // The gate campaign preflight (Plan 71-05; D-11 amendment of 2026-10-16):
+  // a --campaign run, fresh or resumed, must use the gate's arguments for its
+  // campaign id, so a typing error cannot start hundreds of paid runs.
+  if (mode === 'campaign' && !options.dryRun) {
+    const mismatched = gateCampaignIssues(options, options.campaignId, gateDoc);
+    if (mismatched.length) return refuse('refusing to start', [issue('gate_campaign_mismatch', mismatched.join(', '))]);
   }
 
   // Tasks, fixture hashes and the schedule (everything but --preflight).
@@ -1529,6 +1581,11 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
       err(`run-bench: fixtures could not be hashed: ${safeMessage(error)}`);
       return EXIT.ERROR;
     }
+    // A gate campaign also runs the gate's frozen corpus: a --tasks-root or
+    // --fixtures-root that changes it is refused before any client opens.
+    if (mode === 'campaign' && !options.dryRun && gateDoc && corpusDigest(lock) !== gateDoc.corpusLockSha256) {
+      return refuse('refusing to start', [issue('gate_campaign_mismatch', 'corpus')]);
+    }
     if (!campaignId) campaignId = defaultCampaignId(options, deps);
     if (!CAMPAIGN_ID_PATTERN.test(campaignId)) return refuse('refusing to start', [issue('campaign_id_invalid', 'the campaign id is not valid')]);
     const scheduleArgs = { campaignId, taskIds: tasks.map((task) => task.id), rounds: options.rounds, arms: options.arms, seed: options.seed };
@@ -1539,7 +1596,8 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
   if (options.dryRun) {
     out(JSON.stringify({
       campaignId, mode, set: options.set, runs: schedule.length, arms: options.arms, rounds: options.rounds,
-      seed: options.seed, ...(options.conditions ? { conditions: options.conditions } : {}), tasks: lock,
+      seed: options.seed, ...(options.conditions ? { conditions: options.conditions } : {}),
+      ...(gate ? { gateSha256: gate.sha256 } : {}), tasks: lock,
     }));
     return EXIT.OK;
   }

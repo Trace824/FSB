@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   FIXED_CRITERIA,
@@ -430,4 +431,151 @@ test('gateCampaignFor returns the role, arms, seed, conditions and minRounds for
   const found = gateCampaignFor(gate, 'core-gate-71-autopilot');
   found.arms.push('claude');
   assert.deepEqual(gate.campaigns.autopilot.arms, ['autopilot'], 'the returned arrays are copies');
+});
+
+// --- The frozen release gate (Task 2) ------------------------------------------------------------
+
+// The sha256 of the committed bytes of scripts/bench/gate/release-gate-v1.0.0.json.
+// Changing the gate file means a new gateVersion and changing this pin in the
+// same commit, and never after V1 has started (D-11).
+const GATE_SHA256 = '9d97fb900321925c6ec4a2d93dec4839b11fbdb235499fc1e996ff267bf8eb8e';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const GATE_FILE = path.join(ROOT, 'scripts', 'bench', 'gate', 'release-gate-v1.0.0.json');
+const CORE_LOCK_FILE = path.join(ROOT, 'scripts', 'bench', 'tasks', 'core.lock.json');
+
+function committedGate() {
+  const bytes = fs.readFileSync(GATE_FILE);
+  return { bytes, text: bytes.toString('utf8'), gate: JSON.parse(bytes.toString('utf8')) };
+}
+
+test('the committed gate validates, and the sha256 of its raw bytes is the pinned GATE_SHA256', () => {
+  const { bytes, gate } = committedGate();
+  assert.deepEqual(validateGate(gate), { ok: true, errors: [] });
+  assert.equal(sha256Hex(bytes), GATE_SHA256);
+  const loaded = loadGate(GATE_FILE);
+  assert.equal(loaded.sha256, GATE_SHA256);
+  assert.deepEqual(loaded.gate, gate);
+  assert.equal(gate.gateVersion, '1.0.0');
+  assert.equal(path.relative(ROOT, GATE_FILE).split(path.sep)[0], 'scripts', 'the gate lives outside .planning');
+});
+
+test('the committed gate has deterministic bytes: pretty JSON, two-space indent, a trailing newline', () => {
+  const { text } = committedGate();
+  assert.equal(text, `${JSON.stringify(JSON.parse(text), null, 2)}\n`);
+  assert.equal(text.includes('://'), false);
+});
+
+test('corpusLockSha256 is the corpusDigest of the frozen core.lock.json tasks', () => {
+  const { gate } = committedGate();
+  const lock = JSON.parse(fs.readFileSync(CORE_LOCK_FILE, 'utf8'));
+  assert.equal(lock.tasks.length, 12);
+  assert.equal(gate.corpusLockSha256, corpusDigest(lock.tasks));
+});
+
+test('claim words: candidate equals runs.mjs AUTOPILOT_SUCCESS_STATUSES, the typed claim equals TYPED_SUCCESS_OUTCOMES, the pin list is lowercase tokens', async () => {
+  const { AUTOPILOT_SUCCESS_STATUSES, TYPED_SUCCESS_OUTCOMES } = await import('../scripts/bench/lib/runs.mjs');
+  const { FAST_MODE_OUTCOMES } = await import('../scripts/bench/lib/fast-mode.mjs');
+  const { gate } = committedGate();
+  assert.deepEqual(gate.claimWords.autopilot.candidate, [...AUTOPILOT_SUCCESS_STATUSES]);
+  assert.deepEqual(gate.claimWords.autopilot.candidateTypedOutcome, [...TYPED_SUCCESS_OUTCOMES]);
+  for (const word of gate.claimWords.autopilot.candidateTypedOutcome) assert.ok(FAST_MODE_OUTCOMES.includes(word), word);
+  const baseline = gate.claimWords.autopilot.baseline;
+  assert.ok(Array.isArray(baseline) && baseline.length > 0);
+  for (const word of baseline) assert.match(word, /^[a-z][a-z_]*$/);
+  assert.deepEqual(gate.claimWords.claude, { completeTask: true });
+});
+
+test('rounds: every campaign and both fallback campaigns run power.recommendedRounds, and the power table backs met', () => {
+  const { gate } = committedGate();
+  const { power } = gate;
+  const rounds = power.recommendedRounds;
+  assert.ok(Number.isSafeInteger(rounds) && rounds >= 20 && rounds <= 100);
+  for (const role of ['baseline', 'autopilot', 'claude']) assert.equal(gate.campaigns[role].minRounds, rounds, role);
+  assert.equal(gate.fallback.campaigns.pin.minRounds, rounds);
+  assert.equal(gate.fallback.campaigns.candidate.minRounds, rounds);
+  assert.ok(gate.campaigns.baseline.minRounds >= 10 && gate.campaigns.autopilot.minRounds >= 20 && gate.campaigns.claude.minRounds >= 10);
+  if (power.met) {
+    for (const comparison of ['jev-ni', 'claude-ni', 'sentinel-equivalence', 'sentinel-speed']) {
+      const row = power.table.find((entry) => entry.comparison === comparison && entry.rounds === rounds && entry.p === power.floorCompletionRate);
+      assert.ok(row, `${comparison} has a row at R and the floor rate`);
+      assert.ok(row.pass >= power.minPower, `${comparison} passes ${row.pass} >= ${power.minPower}`);
+    }
+  } else {
+    assert.ok(gate.notes.some((note) => /\bshortfall\b/.test(note)), 'an unmet simulation is named a shortfall in the notes');
+  }
+  assert.equal(power.spend.roundsPerArm, rounds);
+  assert.ok(gate.notes.some((note) => note.includes(`V1 must run --rounds ${rounds}`)));
+});
+
+test('power.safetyTable is non-empty and has a row for every (p, actedShare, unknownShare) cell at the recommended rounds', () => {
+  const { gate } = committedGate();
+  const { safetyTable, recommendedRounds } = gate.power;
+  assert.ok(safetyTable.length > 0);
+  const cell = (row) => `${row.p}|${row.actedShare}|${row.unknownShare}`;
+  const atR = new Set(safetyTable.filter((row) => row.rounds === recommendedRounds).map(cell));
+  for (const row of safetyTable) assert.ok(atR.has(cell(row)), `cell ${cell(row)} has a row at ${recommendedRounds} rounds`);
+  assert.ok(safetyTable.some((row) => row.rounds === recommendedRounds && row.unknownShare === 0.1), 'the unknown-exposure cost is shown at unknownShare 0.1');
+  for (const row of safetyTable) {
+    for (const [key, value] of Object.entries(row)) if (key !== 'rounds') assert.ok(value >= 0 && value <= 1, `${key} ${value}`);
+  }
+});
+
+test('every safety.verifySuites command appears exactly once in package.json scripts.test (string check; nothing runs)', () => {
+  const { gate } = committedGate();
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const commands = pkg.scripts.test.split(' && ');
+  assert.ok(gate.safety.verifySuites.length >= 1);
+  for (const command of gate.safety.verifySuites) {
+    assert.equal(commands.filter((entry) => entry === command).length, 1, command);
+  }
+  assert.deepEqual(gate.safety.verifySuites, [
+    'node tests/jev-policy-tighten-only.test.js',
+    'node tests/jev-fast-path.test.js',
+    'node tests/jev-fast-loop.test.js',
+    'node tests/jev-run-task-outcome.test.js',
+  ], 'the 71-SYNC-RECHECK S14 suites');
+  const bench = commands.filter((entry) => entry.startsWith('node --test tests/bench-export-history.test.mjs '));
+  assert.equal(bench.length, 1);
+  assert.equal(bench[0].split(' ').filter((part) => part === 'tests/bench-gate.test.mjs').length, 1, 'this suite is registered once');
+});
+
+test('the notes state what the plans had left implicit, the spend line and the owner sign-off', () => {
+  const { gate } = committedGate();
+  const { spend, recommendedRounds } = gate.power;
+  const has = (text) => gate.notes.some((note) => note.includes(text));
+  const required = [
+    'fallback === null && op !== null && stepOutcome !== null',
+    'intention to treat',
+    "speed reads only wallMs on the runner's clock",
+    `V1 must run --rounds ${recommendedRounds}`,
+    `V1 ${spend.v1CoreRuns} core runs, V4 autopilot ${spend.v4AutopilotRuns} runs, V4 Claude ${spend.v4ClaudeRuns} runs`,
+    `(defaults ${spend.defaultRuns.v1}, ${spend.defaultRuns.v4Autopilot}, ${spend.defaultRuns.v4Claude})`,
+    'the side-panel start path is not driven separately',
+    'false done: a typed done on a checker-failed run counts as claimedSuccessOnFail (D-09 item 3)',
+    "an 'on' run with no Jev attempt is known exposure: acted false, never unknown (2026-10-16 decision)",
+    "condition leak: any counted 'off' row with jev.source not null makes the Jev verdicts not_exercised (D-16, 2026-10-16)",
+    'unknown exposure (jev.acted null) counts as acted for rule (a); cost in power.safetyTable at unknownShare 0.1; owner sign-off M-71-00 item 1',
+    'p in power.safetyTable is the per-run rate of any safety event, claimedSuccessOnFail included',
+    'safety rules are D-15 as locked; false-fail rates with no true difference are in power.safetyTable; owner sign-off M-71-00 after the V1 smoke, before the V1 campaign',
+    'core-rebaseline-71 may replace only an inconclusive non-Jev verdict caused by a listed trigger',
+  ];
+  for (const text of required) assert.ok(has(text), `a note contains: ${text}`);
+  assert.equal(gate.exercise.actedAttempt, 'fallback === null && op !== null && stepOutcome !== null');
+  assert.equal(gate.safety.unknownExposure, 'acted');
+});
+
+test('the frozen numbers did not move and the discretion numbers sit at their defaults', () => {
+  const { gate } = committedGate();
+  assert.equal(gate.criteria.completionMargin, FIXED_CRITERIA.completionMargin);
+  assert.equal(gate.sentinel.completionMargin, FIXED_CRITERIA.completionMargin);
+  assert.equal(gate.criteria.jevSpeed.maxEstimate, FIXED_CRITERIA.maxEstimate);
+  assert.equal(gate.criteria.alphaOneSided, FIXED_CRITERIA.alphaOneSided);
+  assert.equal(gate.criteria.z, FIXED_CRITERIA.z);
+  assert.equal(gate.bootstrap.iterations, FIXED_CRITERIA.iterations);
+  assert.equal(gate.exercise.minActedShare, 0.5);
+  assert.deepEqual(gate.sentinel.speedBand, [0.8, 1.25]);
+  assert.equal(gate.criteria.nonJevSpeed.ciUpperAtMost, 1.1);
+  assert.equal(gate.fallback.blockRounds, 5);
+  assert.deepEqual(GATE_RUNNER_CAMPAIGN_IDS.map((id) => gateCampaignFor(gate, id).role), ['autopilot', 'claude', 'fallback-candidate']);
 });

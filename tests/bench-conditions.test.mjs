@@ -26,6 +26,12 @@
 //   run_task fast_mode summary reports Jev attempts.
 // - The gate's sha256 and the conditions join the identity a resume must keep.
 //
+// Phase 71 Plan 05 Task 2 (EVAL-02; CONTEXT D-11 and its 2026-10-16
+// amendment): --gate loads the file through the gate's exact-key validator
+// (gate_invalid lists only error codes), the dry run prints gateSha256, and
+// the "gate campaign preflight" refuses gate_campaign_mismatch in --campaign
+// mode, fresh or resumed, before any client opens.
+//
 // Fakes only: no MCP server, no browser, no host CLI, no socket. The 71-03
 // tests write only under os.tmpdir().
 import assert from 'node:assert/strict';
@@ -35,6 +41,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { GATE_RUNNER_CAMPAIGN_IDS, gateCampaignFor, loadGate } from '../scripts/bench/gate/lib/gate.mjs';
 import { projectFastMode } from '../scripts/bench/lib/fast-mode.mjs';
 import { sha256Hex } from '../scripts/bench/lib/identity.mjs';
 import { readSetting, writeSetting } from '../scripts/bench/lib/mcp-client.mjs';
@@ -53,6 +60,7 @@ import {
   conditionPreflight,
   createConditionApplier,
   createRunExecutor,
+  gateCampaignIssues,
   main,
   parseArgs,
   resolveOptions,
@@ -65,6 +73,13 @@ const V1_FIXTURE = JSON.parse(fs.readFileSync(
   path.join(ROOT, 'tests', 'fixtures', 'bench', 'schedule-v1-core-baseline-66.json'), 'utf8'));
 const CORE_LOCK = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'bench', 'tasks', 'core.lock.json'), 'utf8'));
 const CORE_IDS = Object.freeze(CORE_LOCK.tasks.map((task) => task.id));
+const GATE_FILE = path.join(ROOT, 'scripts', 'bench', 'gate', 'release-gate-v1.0.0.json');
+
+// The committed gate re-serialized with another indent: valid, with different
+// bytes and so a different sha256 (indent 2 gives the committed bytes).
+function gateBytes(indent = 2) {
+  return Buffer.from(`${JSON.stringify(JSON.parse(fs.readFileSync(GATE_FILE, 'utf8')), null, indent)}\n`, 'utf8');
+}
 
 function taskOrderByRound(schedule, rounds) {
   const out = [];
@@ -623,7 +638,7 @@ test('71-03 --gate: identity.gate is the repo-relative posix path and the sha256
   try {
     const gateFile = path.join(repoRoot, 'scripts', 'bench', 'gate', 'release-gate-test.json');
     fs.mkdirSync(path.dirname(gateFile), { recursive: true });
-    const bytes = Buffer.from('{ "schemaVersion": 1,\n    "note": "café"   }\n', 'utf8');
+    const bytes = gateBytes(4);
     fs.writeFileSync(gateFile, bytes);
     deps.repoRoot = repoRoot;
     const code = await main(['--preflight', '--arms', 'autopilot', '--expect-extension-id', VALID_EXTENSION_ID,
@@ -646,6 +661,225 @@ test('71-03 --gate: identity.gate is the repo-relative posix path and the sha256
     assert.equal(plain.calls.includes('readSetting'), false, 'no --conditions, no settings read');
   } finally {
     plain.cleanup();
+  }
+});
+
+// --- 71-05: the gate is validated, and campaigns are checked against it --------------------
+
+test('71-05 --gate: a file that fails validateGate is gate_invalid (exit 2) listing only error codes, before any client opens', async () => {
+  const dir = tempDir('gate-invalid');
+  try {
+    const gate = JSON.parse(fs.readFileSync(GATE_FILE, 'utf8'));
+    gate.criteria.completionMargin = 0.05;
+    gate.safety.unknownExposure = 'secret-exposure-word';
+    gate.extraKey = 'secret-extra-value';
+    const file = path.join(dir, 'gate-invalid.json');
+    fs.writeFileSync(file, JSON.stringify(gate, null, 2));
+    for (const mode of [['--dry-run'], ['--preflight'], ['--campaign', '--campaign-id', 'core-gate-71-autopilot', '--seed', '71', '--rounds', '30',
+      '--conditions', 'off,on']]) {
+      const deps = liveDeps();
+      try {
+        const code = await main([...mode, '--arms', 'autopilot', '--expect-extension-id', VALID_EXTENSION_ID, '--chrome-profile', deps.localRoot,
+          '--gate', file], deps);
+        assert.equal(code, 2, `${mode[0]}: ${deps.out.text()}`);
+        const text = deps.out.text();
+        assert.match(text, /gate_invalid: /);
+        assert.match(text, /extra_key:extraKey/);
+        assert.match(text, /fixed:criteria\.completionMargin/);
+        assert.match(text, /fixed:safety\.unknownExposure/);
+        assert.equal(/secret|0\.05/.test(text), false, 'no value from the file is printed');
+        assert.deepEqual(deps.calls, [], 'no client, preflight or CDP call');
+        assert.deepEqual([...filesUnder(deps.localRoot), ...filesUnder(deps.resultsRoot)], []);
+      } finally {
+        deps.cleanup();
+      }
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('71-05 --gate: with the real gate the dry run prints gateSha256, the sha256 of its raw bytes; without --gate there is no gateSha256', async () => {
+  const deps = liveDeps();
+  try {
+    const code = await main(['--dry-run', '--arms', 'autopilot', '--conditions', 'off,on', '--rounds', '1', '--gate', GATE_FILE,
+      '--campaign-id', 'gate-dry-71'], deps);
+    assert.equal(code, 0, deps.out.text());
+    const summary = JSON.parse(deps.out.out());
+    assert.match(summary.gateSha256, /^[0-9a-f]{64}$/);
+    assert.equal(summary.gateSha256, sha256Hex(fs.readFileSync(GATE_FILE)));
+    assert.equal(summary.gateSha256, loadGate(GATE_FILE).sha256, 'tests/bench-gate.test.mjs pins this value as GATE_SHA256');
+    assert.deepEqual(Object.keys(summary), ['campaignId', 'mode', 'set', 'runs', 'arms', 'rounds', 'seed', 'conditions', 'gateSha256', 'tasks']);
+    assert.deepEqual(deps.calls, []);
+  } finally {
+    deps.cleanup();
+  }
+  const plain = liveDeps();
+  try {
+    assert.equal(await main(['--dry-run', '--arms', 'autopilot', '--rounds', '1', '--campaign-id', 'plain-dry-71'], plain), 0);
+    assert.equal(Object.prototype.hasOwnProperty.call(JSON.parse(plain.out.out()), 'gateSha256'), false);
+  } finally {
+    plain.cleanup();
+  }
+});
+
+const REAL_GATE = loadGate(GATE_FILE).gate;
+const GATE_R = REAL_GATE.campaigns.autopilot.minRounds;
+
+// The argument sets each gate campaign must be run with (M-71-06, M-71-07, M-71-08b).
+function gateCampaignArgs(deps, campaign, { gate = true } = {}) {
+  const common = ['--expect-extension-id', VALID_EXTENSION_ID, '--chrome-profile', deps.localRoot, '--cooldown-ms', '0'];
+  const withGate = gate ? ['--gate', GATE_FILE] : [];
+  if (campaign === 'core-gate-71-autopilot') {
+    return ['--campaign', '--arms', 'autopilot', '--conditions', 'off,on', '--rounds', String(REAL_GATE.campaigns.autopilot.minRounds),
+      '--seed', '71', '--campaign-id', campaign, ...withGate, ...common];
+  }
+  if (campaign === 'core-gate-71-claude') {
+    return ['--campaign', '--arms', 'claude', '--conditions', 'off', '--rounds', String(REAL_GATE.campaigns.claude.minRounds),
+      '--seed', '66', '--claude-model', 'claude-model-fixture', '--campaign-id', campaign, ...withGate, ...common];
+  }
+  return ['--campaign', '--arms', 'claude', '--conditions', 'off', '--rounds', String(REAL_GATE.fallback.campaigns.candidate.minRounds),
+    '--seed', '66', '--claude-model', 'claude-model-fixture', '--campaign-id', campaign, ...withGate, ...common];
+}
+
+function withoutFlag(argv, flag) {
+  const index = argv.indexOf(flag);
+  return index === -1 ? argv : [...argv.slice(0, index), ...argv.slice(index + 2)];
+}
+
+function replaceFlag(argv, flag, value) {
+  const index = argv.indexOf(flag);
+  return [...argv.slice(0, index), flag, value, ...argv.slice(index + 2)];
+}
+
+async function refusedFields(argv) {
+  const deps = liveDeps();
+  try {
+    const code = await main(argv(deps), deps);
+    const text = deps.out.text();
+    assert.equal(code, 2, text);
+    const match = text.match(/gate_campaign_mismatch: ([a-z_, ]+)\n/);
+    assert.ok(match, `gate_campaign_mismatch is printed: ${text}`);
+    assert.deepEqual(deps.calls, [], 'no client, preflight or CDP call, so no paid run can start');
+    assert.deepEqual([...filesUnder(deps.localRoot), ...filesUnder(deps.resultsRoot)], [], 'nothing is written');
+    return match[1].split(', ');
+  } finally {
+    deps.cleanup();
+  }
+}
+
+test('71-05 gate campaign preflight: each wrong argument is refused gate_campaign_mismatch naming only the field, before any client opens', async () => {
+  const autopilot = (deps) => gateCampaignArgs(deps, 'core-gate-71-autopilot');
+  const cases = [
+    ['no --seed (the runner default 66)', (deps) => withoutFlag(autopilot(deps), '--seed'), ['seed']],
+    ['--rounds R-1', (deps) => replaceFlag(autopilot(deps), '--rounds', String(GATE_R - 1)), ['rounds']],
+    ['no --rounds (the campaign default 10)', (deps) => withoutFlag(autopilot(deps), '--rounds'), ['rounds']],
+    ['--arms autopilot,claude', (deps) => [...replaceFlag(autopilot(deps), '--arms', 'autopilot,claude'), '--claude-model', 'm'], ['arms']],
+    ['--conditions on', (deps) => replaceFlag(autopilot(deps), '--conditions', 'on'), ['conditions']],
+    ['--conditions on,off', (deps) => replaceFlag(autopilot(deps), '--conditions', 'on,off'), ['conditions']],
+    ['no --conditions', (deps) => withoutFlag(autopilot(deps), '--conditions'), ['conditions']],
+    ['--set live', (deps) => [...autopilot(deps), '--set', 'live'], ['set']],
+    ['a --tasks subset', (deps) => [...autopilot(deps), '--tasks', CORE_IDS.slice(0, 3).join(',')], ['tasks']],
+    ['--campaign-id core-gate-71-claud', (deps) => replaceFlag(autopilot(deps), '--campaign-id', 'core-gate-71-claud'), ['campaign_id']],
+    ['--campaign-id core-baseline-66 (a pin-runner campaign)', (deps) => replaceFlag(autopilot(deps), '--campaign-id', 'core-baseline-66'),
+      ['campaign_id']],
+    ['--campaign-id core-rebaseline-71-pin (a pin-runner campaign)', (deps) => replaceFlag(autopilot(deps), '--campaign-id', 'core-rebaseline-71-pin'),
+      ['campaign_id']],
+    ['--gate with no campaign id', (deps) => withoutFlag(autopilot(deps), '--campaign-id'), ['campaign_id']],
+    ['the claude campaign with seed 71', (deps) => replaceFlag(gateCampaignArgs(deps, 'core-gate-71-claude'), '--seed', '71'), ['seed']],
+    ['the claude campaign with the autopilot arm', (deps) => withoutFlag(replaceFlag(gateCampaignArgs(deps, 'core-gate-71-claude'), '--arms', 'autopilot'),
+      '--claude-model'), ['arms']],
+    ['the fallback candidate below its rounds', (deps) => replaceFlag(gateCampaignArgs(deps, 'core-rebaseline-71-candidate'), '--rounds', '10'),
+      ['rounds']],
+    ['the fallback candidate with conditions off,on', (deps) => replaceFlag(gateCampaignArgs(deps, 'core-rebaseline-71-candidate'), '--conditions',
+      'off,on'), ['conditions']],
+    ['several fields at once', (deps) => replaceFlag(withoutFlag(autopilot(deps), '--seed'), '--rounds', '20'), ['seed', 'rounds']],
+    ['another corpus through --tasks-root and --fixtures-root', (deps) => [...autopilot(deps), '--tasks-root', SAMPLE_TASKS,
+      '--fixtures-root', SAMPLE_FIXTURES], ['corpus']],
+  ];
+  for (const [label, argv, fields] of cases) {
+    assert.deepEqual(await refusedFields(argv), fields, label);
+  }
+});
+
+test('71-05 gate campaign preflight: a gate campaign id without --gate is refused with the field gate; --resume is checked too', async () => {
+  for (const campaign of GATE_RUNNER_CAMPAIGN_IDS) {
+    assert.deepEqual(await refusedFields((deps) => gateCampaignArgs(deps, campaign, { gate: false })), ['gate'], campaign);
+  }
+  const resumed = (deps) => replaceFlag(gateCampaignArgs(deps, 'core-gate-71-autopilot'), '--campaign-id', 'core-gate-71-autopilot')
+    .map((arg) => (arg === '--campaign-id' ? '--resume' : arg));
+  assert.deepEqual(await refusedFields((deps) => withoutFlag(resumed(deps), '--seed')), ['seed'], '--resume without --seed');
+  assert.deepEqual(await refusedFields((deps) => withoutFlag(resumed(deps), '--gate')), ['gate'], '--resume without --gate');
+
+  // The right resume arguments pass the gate check and reach the resume check.
+  const deps = liveDeps();
+  try {
+    const code = await main(resumed(deps), deps);
+    assert.equal(code, 2, deps.out.text());
+    assert.match(deps.out.text(), /resume_not_found/);
+    assert.doesNotMatch(deps.out.text(), /gate_campaign_mismatch/);
+    assert.deepEqual(deps.calls, []);
+  } finally {
+    deps.cleanup();
+  }
+});
+
+test('71-05 gate campaign preflight: the right argument sets give no issue and main goes on to the injected preflight; smoke and dry runs are never checked', async () => {
+  for (const campaign of GATE_RUNNER_CAMPAIGN_IDS) {
+    const deps = liveDeps({
+      openRunnerClient: async () => {
+        deps.calls.push('openRunnerClient');
+        throw new Error('stop after the gate check');
+      },
+    });
+    try {
+      const argv = gateCampaignArgs(deps, campaign);
+      const { options, errors } = resolveOptions(parseArgs(argv).raw);
+      assert.deepEqual(errors, [], campaign);
+      assert.deepEqual(gateCampaignIssues(options, options.campaignId, REAL_GATE), [], campaign);
+      const code = await main(argv, deps);
+      assert.equal(code, 1, deps.out.text());
+      assert.doesNotMatch(deps.out.text(), /gate_campaign_mismatch/);
+      assert.match(deps.out.text(), /stop after the gate check/);
+      assert.deepEqual(deps.calls, ['openRunnerClient'], `${campaign}: main reached the client`);
+    } finally {
+      deps.cleanup();
+    }
+  }
+  // More rounds than minRounds are allowed: rounds only go up.
+  const more = resolveOptions(parseArgs(['--campaign', '--arms', 'autopilot', '--conditions', 'off,on', '--seed', '71', '--rounds', String(GATE_R + 5),
+    '--expect-extension-id', VALID_EXTENSION_ID, '--campaign-id', 'core-gate-71-autopilot']).raw).options;
+  assert.deepEqual(gateCampaignIssues(more, more.campaignId, REAL_GATE), []);
+  // A non-gate campaign without --gate is not checked; with --gate it is a campaign_id mismatch.
+  assert.deepEqual(gateCampaignIssues(more, 'core-20261018-abcdef0', null), []);
+  assert.deepEqual(gateCampaignIssues(more, 'core-20261018-abcdef0', REAL_GATE), ['campaign_id']);
+  assert.deepEqual(gateCampaignIssues(more, 'core-gate-71-autopilot', null), ['gate']);
+  assert.deepEqual(gateCampaignFor(REAL_GATE, 'core-gate-71-autopilot').seed, 71);
+
+  // --smoke and --dry-run with a gate campaign id and wrong arguments are never refused by the check.
+  const smoke = liveDeps();
+  try {
+    const code = await main(['--dry-run', '--campaign', '--arms', 'autopilot', '--rounds', '1', '--campaign-id', 'core-gate-71-autopilot',
+      '--gate', GATE_FILE, '--expect-extension-id', VALID_EXTENSION_ID], smoke);
+    assert.equal(code, 0, smoke.out.text());
+    assert.doesNotMatch(smoke.out.text(), /gate_campaign_mismatch/);
+  } finally {
+    smoke.cleanup();
+  }
+  const smokeRun = liveDeps({
+    openRunnerClient: async () => {
+      smokeRun.calls.push('openRunnerClient');
+      throw new Error('stop after the gate check');
+    },
+  });
+  try {
+    const code = await main(['--smoke', '--arms', 'autopilot', '--campaign-id', 'core-gate-71-autopilot', '--expect-extension-id', VALID_EXTENSION_ID,
+      '--chrome-profile', smokeRun.localRoot, '--tasks-root', SAMPLE_TASKS, '--fixtures-root', SAMPLE_FIXTURES], smokeRun);
+    assert.equal(code, 1, smokeRun.out.text());
+    assert.doesNotMatch(smokeRun.out.text(), /gate_campaign_mismatch/);
+    assert.deepEqual(smokeRun.calls, ['openRunnerClient']);
+  } finally {
+    smokeRun.cleanup();
   }
 });
 
@@ -1093,7 +1327,7 @@ test('71-03 main --smoke --conditions off,on --gate: the switch is written and r
   try {
     deps.repoRoot = repoRoot;
     const gateFile = path.join(repoRoot, 'gate.json');
-    fs.writeFileSync(gateFile, '{"schemaVersion":1}\n');
+    fs.writeFileSync(gateFile, gateBytes());
     const campaignId = 'cond-smoke-71';
     const code = await main(smokeArgs(deps, campaignId, ['--conditions', 'off,on', '--gate', gateFile]), deps);
     assert.equal(code, 0, deps.out.text());
@@ -1181,8 +1415,8 @@ test('71-03 resume: a different gate sha256 or different conditions is resume_id
     deps.repoRoot = repoRoot;
     const gateA = path.join(repoRoot, 'gate-a.json');
     const gateB = path.join(repoRoot, 'gate-b.json');
-    fs.writeFileSync(gateA, '{"gate":"a"}\n');
-    fs.writeFileSync(gateB, '{"gate":"b"}\n');
+    fs.writeFileSync(gateA, gateBytes(2));
+    fs.writeFileSync(gateB, gateBytes(4));
     const campaignId = 'cond-resume-71';
     const resumeArgs = (extra) => smokeArgs(deps, campaignId, ['--resume', campaignId, ...extra]);
     freshOutput(deps);
@@ -1221,7 +1455,7 @@ test('71-03 resume: a different gate sha256 or different conditions is resume_id
     assert.equal(JSON.parse(fs.readFileSync(identityPath, 'utf8')).resumes.length, 1);
     const withGate = freshOutput(v1);
     const gateFile = path.join(v1.localRoot, 'late-gate.json');
-    fs.writeFileSync(gateFile, '{}\n');
+    fs.writeFileSync(gateFile, gateBytes(0));
     assert.equal(await main(smokeArgs(v1, campaignId, ['--resume', campaignId, '--gate', gateFile]), v1), 2);
     assert.match(withGate.text(), /resume_identity_mismatch[^\n]*\bgate\b/);
   } finally {
