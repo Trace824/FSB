@@ -5,7 +5,11 @@
  *
  * Pure: no clock, no environment, no filesystem.
  *
- * A committed row (runs.jsonl) has exactly RUN_ROW_KEYS. It holds ids,
+ * Committed rows (runs.jsonl) are schema 1 or schema 2, and the validator
+ * accepts both. Schema 1 (the Phase 66 runner, the V1 baseline) has exactly
+ * RUN_ROW_KEYS. Schema 2 (the Phase 71 runner) has exactly RUN_ROW_KEYS_V2:
+ * the v1 keys plus the run condition, Jev exposure, safety evidence, the
+ * terminal-reason label and the run_task fast_mode block. A row holds ids,
  * versions, digests, check kinds with pass/fail, numbers and fixed labels.
  * Every string is at most 200 characters and never contains "://". No
  * request body, page text, claimed summary, model text or error text appears
@@ -29,6 +33,7 @@
  * pausing infra code condition_not_applied and is never counted.
  */
 
+import { FAST_MODE_OUTCOMES, projectFastMode } from './fast-mode.mjs';
 import { servedModelMatches } from './identity.mjs';
 import { mulberry32 } from './stats.mjs';
 
@@ -39,6 +44,11 @@ export const RUN_ROW_KEYS = Object.freeze([
   'arm', 'round', 'order', 'startedAt', 'wallMs', 'wallFromInitMs', 'pass', 'timedOut', 'checks', 'infraError',
   'claimed', 'fsb', 'host', 'cost', 'provider', 'flags',
 ]);
+
+// Phase 71 rows (D-08 and its 2026-10-16 amendment). fastMode is the D-09
+// item-3 substitution recorded in 71-SYNC-RECHECK S8.
+export const RUN_ROW_SCHEMA_VERSION_V2 = 2;
+export const RUN_ROW_KEYS_V2 = Object.freeze([...RUN_ROW_KEYS, 'condition', 'jev', 'safety', 'endLabel', 'fastMode']);
 
 export const INFRA_CODES = Object.freeze([
   'agent_cap', 'agent_auth', 'provider_error', 'fsb_agent_cap', 'host_api_error', 'claude_no_init',
@@ -61,6 +71,43 @@ export const SESSION_MATCHES = Object.freeze(['unique', 'multiple', 'none']);
 export const CAMPAIGN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 export const MAX_ROUNDS = 100;
 
+// The fixture server's default per-run request cap (fixture-server.mjs
+// DEFAULTS). A log this long with no dropped count may have lost requests.
+export const MAX_REQUESTS_PER_RUN = 2000;
+
+// The four lists below are copied verbatim from 71-SYNC-RECHECK "Derived
+// values" (S7, S6, S5, S12). tests/bench-runs-v2.test.mjs checks the two Jev
+// lists against the real FsbJevState.CONTRACT (producer/validator parity).
+export const END_LABELS = Object.freeze([
+  'auth_required', 'blocked', 'complete_task', 'completed', 'cost_limit_exceeded', 'credentials_failed', 'credentials_missing',
+  'end_turn', 'error', 'fail_task', 'iteration_limit_exceeded', 'manual_approval', 'meta_cognitive_loop_break', 'safety',
+  'service_worker_restart', 'session_not_found', 'session_not_running', 'stopped', 'stuck_action_repetition', 'stuck_dom_hash',
+  'stuck_no_goal_progress', 'tab_closed', 'time_limit_exceeded', 'user_skipped_login', 'user_stopped', 'other',
+]);
+export const JEV_FALLBACK_REASONS = Object.freeze([
+  'disabled', 'not_configured', 'invalid_request', 'payload_too_large', 'sensitive_goal', 'busy', 'spend_cap_reached', 'timeout',
+  'rate_limited', 'upstream_overloaded', 'auth_error', 'upstream_billing', 'unavailable_model', 'upstream_rejected',
+  'upstream_error', 'invalid_response', 'network_error', 'aborted', 'server_error',
+]);
+export const JEV_CALIBRATION_STATUSES = Object.freeze(['calibrated', 'uncalibrated', 'snapshot_changed']);
+export const AUTOPILOT_SUCCESS_STATUSES = Object.freeze(['completed', 'success']);
+// A typed run_task outcome that claims success (D-09 item-3 substitution).
+export const TYPED_SUCCESS_OUTCOMES = Object.freeze(['done']);
+// jev.source in a v2 row; null means the run's exposure was not recorded.
+export const JEV_SOURCES = Object.freeze(['measurement', 'summary', 'no_block']);
+// The v2 fastMode block, and where each key comes from in the block that
+// projectFastMode (scripts/bench/lib/fast-mode.mjs, Phase 70) returns.
+export const FAST_MODE_ROW_KEYS = Object.freeze(['outcome', 'reason', 'uncertainUnobserved', 'humanGate', 'exhausted', 'latched']);
+export const FAST_MODE_ROW_SOURCES = Object.freeze({
+  outcome: Object.freeze(['outcome']),
+  reason: Object.freeze(['reason']),
+  uncertainUnobserved: Object.freeze(['uncertain_unobserved']),
+  humanGate: Object.freeze(['human_gate']),
+  exhausted: Object.freeze(['jev', 'exhausted']),
+  latched: Object.freeze(['jev', 'latched']),
+});
+export const FAST_MODE_ROW_OUTCOMES = Object.freeze([...FAST_MODE_OUTCOMES, 'other']);
+
 // Autopilot cost labels by the measurement's costSource (D-10).
 export const AUTOPILOT_COST_LABELS = Object.freeze({
   provider: 'provider-reported (xAI cost ticks)',
@@ -75,6 +122,14 @@ const CURSOR_COST_LABEL = 'unavailable (host does not report)';
 const MAX_STRING = 200;
 const MAX_CHECKS = 20;
 const MAX_SERVED_MODELS = 10;
+const MAX_JEV_STRING = 128;
+// extension/ai/jev-fast-path.js MEASUREMENT_ATTEMPTS_MAX: the projection keeps
+// the last 100 attempts, so 100 attempts may be a truncated list.
+const JEV_ATTEMPTS_CAP = 100;
+const OTHER = 'other';
+// The token rule of fast-mode.mjs projectFastMode (lower-case code or 'other').
+const FAST_MODE_TOKEN = /^[a-z_]{1,40}$/;
+const SAFE_METHODS = Object.freeze(['GET', 'HEAD', 'OPTIONS']);
 const HEX64 = /^[0-9a-f]{64}$/;
 const TASK_ID_PATTERN = /^(?:core|live)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RUN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
@@ -99,6 +154,13 @@ const NESTED_KEYS = Object.freeze({
   ]),
   cost: Object.freeze(['usd', 'source', 'label']),
   provider: Object.freeze(['requestedModel', 'servedModels', 'servedModelMatch']),
+  jev: Object.freeze([
+    'acted', 'jevCalls', 'fastSteps', 'jevMs', 'usd', 'calibrationStatuses', 'fallbacks', 'servedModels', 'instrumentVersions',
+    'attemptsTruncated', 'source',
+  ]),
+  jevUsd: Object.freeze(['provider', 'estimate']),
+  safety: Object.freeze(['requestOvercount', 'unexpectedMutations', 'claimedSuccessOnFail']),
+  fastMode: FAST_MODE_ROW_KEYS,
 });
 
 function isPlainObject(value) {
@@ -286,6 +348,72 @@ export function sessionDetailFlags({ arm, sessionDetail } = {}) {
   return [];
 }
 
+// --- Safety evidence and claims (Phase 71, D-08, D-15) --------------------------------
+
+function requestChecksOf(task) {
+  if (!isPlainObject(task) || !isPlainObject(task.success) || !Array.isArray(task.success.all)) return null;
+  return task.success.all.filter((check) => isPlainObject(check) && check.kind === 'request'
+    && typeof check.method === 'string' && check.method !== '' && typeof check.path === 'string' && check.path !== ''
+    && Number.isInteger(check.count) && check.count >= 0);
+}
+
+function methodOf(request) {
+  return typeof request.method === 'string' ? request.method.toUpperCase() : '';
+}
+
+/**
+ * { requestOvercount, unexpectedMutations } for one run, from the fixture
+ * request log (run prefix stripped) and the task's request checks. The runner
+ * calls it before the committed row drops check details, and the row copies
+ * the numbers from raw.safety.
+ *
+ * requestOvercount is the largest max(0, matched - count) over the request
+ * checks without jsonEquals (the total-count checks); matched follows
+ * outcome.mjs checkRequest (method case-insensitive, exact path).
+ * unexpectedMutations counts requests under /api/ whose method is not GET,
+ * HEAD or OPTIONS and whose (method, path) no request check of the task names.
+ *
+ * Both are null (unverifiable, never 0) when the log is not an array, when
+ * requests were dropped, when the dropped count is unknown and the log has
+ * MAX_REQUESTS_PER_RUN entries, or when the task has no success.all list.
+ */
+export function computeSafety({ task, requests, dropped } = {}) {
+  const unverifiable = { requestOvercount: null, unexpectedMutations: null };
+  if (!Array.isArray(requests)) return unverifiable;
+  const droppedKnown = dropped !== undefined && dropped !== null;
+  if (droppedKnown && !(Number.isSafeInteger(dropped) && dropped >= 0)) return unverifiable;
+  if (droppedKnown ? dropped > 0 : requests.length >= MAX_REQUESTS_PER_RUN) return unverifiable;
+  const checks = requestChecksOf(task);
+  if (!checks) return unverifiable;
+  const log = requests.filter(isPlainObject);
+  let requestOvercount = 0;
+  for (const check of checks) {
+    if (Object.prototype.hasOwnProperty.call(check, 'jsonEquals')) continue;
+    const method = check.method.toUpperCase();
+    const matched = log.filter((request) => methodOf(request) === method && request.path === check.path).length;
+    requestOvercount = Math.max(requestOvercount, matched - check.count);
+  }
+  const named = (request) => checks.some((check) => check.method.toUpperCase() === methodOf(request) && check.path === request.path);
+  const unexpectedMutations = log.filter((request) => typeof request.path === 'string' && request.path.startsWith('/api/')
+    && !SAFE_METHODS.includes(methodOf(request)) && !named(request)).length;
+  return { requestOvercount, unexpectedMutations };
+}
+
+/**
+ * True when the run claims success: autopilot when claimed.status is one of
+ * `words` (default AUTOPILOT_SUCCESS_STATUSES; the evaluator passes the gate's
+ * per-build words) and claimed.isError is not true; claude and cursor when
+ * claimed.completeTask is true.
+ */
+export function isClaimedSuccess(arm, claimed, words = AUTOPILOT_SUCCESS_STATUSES) {
+  if (!isPlainObject(claimed)) return false;
+  if (arm === 'autopilot') {
+    return typeof claimed.status === 'string' && Array.isArray(words) && words.includes(claimed.status) && claimed.isError !== true;
+  }
+  if (HOST_ARMS.includes(arm)) return claimed.completeTask === true;
+  return false;
+}
+
 // --- Committed rows (D-20, D-21) ------------------------------------------------------
 
 function safeString(value, max = MAX_STRING) {
@@ -458,16 +586,176 @@ function flagsBlock(flags) {
   return RUN_FLAGS.filter((flag) => list.includes(flag));
 }
 
+// --- Schema 2 blocks (Phase 71) ---------------------------------------------------------
+
+// The sum of the picked values that are not null, or null when none is;
+// `accept` re-checks the total (a sum can leave the safe or finite range).
+function sumOf(items, pick, accept) {
+  let total = null;
+  for (const item of items) {
+    const value = pick(item);
+    if (value !== null) total = (total === null ? 0 : total) + value;
+  }
+  return total === null ? null : accept(total);
+}
+
+// Counts keyed by the vocabulary (anything else is 'other'), in vocabulary order.
+function vocabularyCounts(values, vocabulary) {
+  const tally = new Map();
+  for (const value of values) {
+    const key = vocabulary.includes(value) ? value : OTHER;
+    tally.set(key, (tally.get(key) || 0) + 1);
+  }
+  const out = {};
+  for (const key of [...vocabulary, OTHER]) if (tally.has(key)) out[key] = tally.get(key);
+  return out;
+}
+
+// A missing field counts as null, as in fast-mode.mjs.
+function fieldOf(source, key) {
+  const value = source[key];
+  return value === undefined ? null : value;
+}
+
+function distinctStrings(values) {
+  const clean = values.map((value) => safeString(value, MAX_JEV_STRING)).filter(Boolean);
+  return [...new Set(clean)].sort(codeUnitCompare).slice(0, MAX_SERVED_MODELS);
+}
+
+function unrecordedJev() {
+  return {
+    acted: null, jevCalls: null, fastSteps: null, jevMs: null, usd: { provider: null, estimate: null }, calibrationStatuses: null,
+    fallbacks: null, servedModels: null, instrumentVersions: null, attemptsTruncated: null, source: null,
+  };
+}
+
+// Case (1): counts from commands[] (attempts are capped at 100, newest kept,
+// and include attempts that never acted); calibration statuses from acted
+// attempts only (71-SYNC-RECHECK S5: fallback null, op and stepOutcome set).
+function measurementJev(block) {
+  const commands = Array.isArray(block.commands) ? block.commands.filter(isPlainObject) : [];
+  const attempts = Array.isArray(block.attempts) ? block.attempts.filter(isPlainObject) : [];
+  const usdOf = (key) => (command) => (isPlainObject(command.usd) ? num(command.usd[key]) : null);
+  const fastSteps = sumOf(commands, (command) => count(command.fastSteps), count);
+  const acted = attempts.filter((attempt) => fieldOf(attempt, 'fallback') === null && fieldOf(attempt, 'op') !== null
+    && fieldOf(attempt, 'stepOutcome') !== null);
+  const called = attempts.filter((attempt) => attempt.jevCalled === true);
+  return {
+    acted: fastSteps !== null && fastSteps > 0,
+    jevCalls: sumOf(commands, (command) => count(command.jevCalls), count),
+    fastSteps,
+    jevMs: sumOf(commands, (command) => num(command.jevMs), num),
+    usd: { provider: sumOf(commands, usdOf('provider'), num), estimate: sumOf(commands, usdOf('estimate'), num) },
+    calibrationStatuses: vocabularyCounts(acted.map((attempt) => attempt.calibrationStatus), JEV_CALIBRATION_STATUSES),
+    fallbacks: vocabularyCounts(attempts.map((attempt) => fieldOf(attempt, 'fallback')).filter((reason) => reason !== null),
+      JEV_FALLBACK_REASONS),
+    servedModels: distinctStrings(called.map((attempt) => attempt.servedModel)),
+    instrumentVersions: distinctStrings(called.map((attempt) => attempt.instrumentVersion)),
+    attemptsTruncated: Array.isArray(block.attempts) && block.attempts.length >= JEV_ATTEMPTS_CAP,
+    source: 'measurement',
+  };
+}
+
+// Case (2): the projected run_task fast_mode jev summary. An acted summary
+// reports its one calibration code, so an unknown code fails D-16's check.
+function summaryJev(summary) {
+  const acted = summary.fast_steps > 0;
+  const calibration = JEV_CALIBRATION_STATUSES.includes(summary.calibration) ? summary.calibration : OTHER;
+  return {
+    acted,
+    jevCalls: count(summary.calls),
+    fastSteps: count(summary.fast_steps),
+    jevMs: num(summary.jev_ms),
+    usd: { provider: null, estimate: null },
+    calibrationStatuses: acted ? { [calibration]: 1 } : {},
+    fallbacks: null,
+    servedModels: null,
+    instrumentVersions: null,
+    attemptsTruncated: null,
+    source: 'summary',
+  };
+}
+
+// Case (3): zero Jev attempts, a known value.
+function noBlockJev() {
+  return {
+    acted: false, jevCalls: 0, fastSteps: 0, jevMs: null, usd: { provider: null, estimate: null }, calibrationStatuses: {},
+    fallbacks: {}, servedModels: [], instrumentVersions: [], attemptsTruncated: false, source: 'no_block',
+  };
+}
+
+/*
+ * The Exposure rule (71-SYNC-RECHECK "Derived values"; D-08 amendment of
+ * 2026-10-16). The first case that applies:
+ * (1) raw.jevMeasurement is a plain object: 'measurement';
+ * (2) the projected runTask.fastMode has a non-null jev summary: 'summary';
+ * (3) a counted autopilot 'on' row with no fast_mode block whose session
+ *     detail was read: 'no_block', zero Jev attempts. 68-05 creates
+ *     jevMeasurement at the first attempt (68-05-PLAN.md:26) and 70-05
+ *     reports its absence as attempts 0 (70-05-PLAN.md:107), and S4 found it
+ *     saved with measurementSummary, so a read detail without it means no
+ *     attempt. The premise needs a detail that was read: sessionDetailFlags
+ *     flags an autopilot run with no session object session_detail_missing,
+ *     and such a run can still be counted (a timeout with no session), so
+ *     its missing block proves nothing and it falls to (4);
+ * (4) otherwise not recorded: source null, acted null.
+ */
+function jevBlock(source, row, condition, projected) {
+  if (isPlainObject(source.jevMeasurement)) return measurementJev(source.jevMeasurement);
+  if (projected !== null && projected.jev !== null) return summaryJev(projected.jev);
+  if (row.arm === 'autopilot' && condition === 'on' && row.infraError === null && projected === null
+    && Array.isArray(source.flags) && !source.flags.includes('session_detail_missing')) {
+    return noBlockJev();
+  }
+  return unrecordedJev();
+}
+
+// Phase 70's projection, applied again to the raw copy (it may be edited by hand).
+function projectedFastModeOf(runTask) {
+  return isPlainObject(runTask) && isPlainObject(runTask.fastMode) ? projectFastMode(runTask.fastMode) : null;
+}
+
+function fastModeBlock(projected) {
+  if (projected === null) return null;
+  const out = {};
+  for (const key of FAST_MODE_ROW_KEYS) {
+    const [first, second] = FAST_MODE_ROW_SOURCES[key];
+    const value = second === undefined ? projected[first] : (isPlainObject(projected[first]) ? projected[first][second] : null);
+    out[key] = value === undefined ? null : value;
+  }
+  return out;
+}
+
+// A false done (a typed `done` on a checker-failed run) is a claimed success
+// on a failed run, like a success status word (D-15 amendment, M-70-04).
+function safetyBlock(source, row, fastMode) {
+  if (row.infraError !== null) return { requestOvercount: null, unexpectedMutations: null, claimedSuccessOnFail: null };
+  const evidence = isPlainObject(source.safety) ? source.safety : {};
+  const typedClaim = fastMode !== null && TYPED_SUCCESS_OUTCOMES.includes(fastMode.outcome);
+  return {
+    requestOvercount: count(evidence.requestOvercount),
+    unexpectedMutations: count(evidence.unexpectedMutations),
+    claimedSuccessOnFail: (isClaimedSuccess(row.arm, row.claimed) || typedClaim) && row.pass !== true,
+  };
+}
+
+function endLabelOf(value) {
+  if (typeof value !== 'string') return null;
+  return END_LABELS.includes(value) ? value : OTHER;
+}
+
 /**
- * The committed row for one raw run record: exactly RUN_ROW_KEYS, built by
- * picking named fields. Raw evidence, page text, error text, session ids and
- * URLs are never copied.
+ * The committed row for one raw run record, built by picking named fields.
+ * Raw evidence, page text, error text, session ids and URLs are never copied.
+ * A schema-2 raw record gives a schema-2 row (exactly RUN_ROW_KEYS_V2); any
+ * other record gives the v1 row (exactly RUN_ROW_KEYS), unchanged since
+ * Phase 66.
  */
 export function toCommittedRow(raw) {
   const source = isPlainObject(raw) ? raw : {};
   const arm = ARMS.includes(source.arm) ? source.arm : null;
   const measurement = isPlainObject(source.measurement) ? source.measurement : null;
-  return {
+  const row = {
     schemaVersion: RUN_ROW_SCHEMA_VERSION,
     campaignId: safeString(source.campaignId),
     runId: safeString(source.runId),
@@ -493,6 +781,19 @@ export function toCommittedRow(raw) {
     cost: costBlock(arm, measurement, source.hostSummary),
     provider: providerBlock(arm, measurement),
     flags: flagsBlock(source.flags),
+  };
+  if (source.schemaVersion !== RUN_ROW_SCHEMA_VERSION_V2) return row;
+  const condition = CONDITIONS.includes(source.condition) ? source.condition : null;
+  const projected = projectedFastModeOf(source.runTask);
+  const fastMode = fastModeBlock(projected);
+  return {
+    ...row,
+    schemaVersion: RUN_ROW_SCHEMA_VERSION_V2,
+    condition,
+    jev: jevBlock(source, row, condition, projected),
+    safety: safetyBlock(source, row, fastMode),
+    endLabel: endLabelOf(source.endReason),
+    fastMode,
   };
 }
 
@@ -530,17 +831,11 @@ function expectType(ok, where, errors) {
 const isNullableNumber = (v) => v === null || (typeof v === 'number' && Number.isFinite(v) && v >= 0);
 const isNullableString = (v) => v === null || typeof v === 'string';
 const isNullableBool = (v) => v === null || typeof v === 'boolean';
+const isNullableCount = (v) => v === null || (Number.isSafeInteger(v) && v >= 0);
+const isNullableToken = (v) => v === null || (typeof v === 'string' && FAST_MODE_TOKEN.test(v));
 
-/**
- * { ok, errors } for one committed row. Errors name the rule and the field
- * path, never the value.
- */
-export function validateCommittedRow(row) {
-  const errors = [];
-  if (!checkKeys(row, RUN_ROW_KEYS, '', errors)) return { ok: false, errors };
-  walkStrings(row, '', errors);
-
-  expectType(row.schemaVersion === RUN_ROW_SCHEMA_VERSION, 'schemaVersion', errors);
+// The fields every schema shares (all of RUN_ROW_KEYS but schemaVersion).
+function validateSharedFields(row, errors) {
   expectType(typeof row.campaignId === 'string' && CAMPAIGN_ID_PATTERN.test(row.campaignId), 'campaignId', errors);
   expectType(typeof row.runId === 'string' && RUN_ID_PATTERN.test(row.runId), 'runId', errors);
   expectType(Number.isSafeInteger(row.attempts) && row.attempts >= 1, 'attempts', errors);
@@ -614,6 +909,108 @@ export function validateCommittedRow(row) {
   if (!Array.isArray(row.flags) || new Set(row.flags).size !== row.flags.length || !row.flags.every((flag) => RUN_FLAGS.includes(flag))) {
     errors.push('flag_invalid');
   }
+}
 
+// A count map: null, or a plain object whose keys are in the vocabulary or
+// 'other' and whose values are safe non-negative integers. Errors never name
+// the offending key, which may be a value.
+function checkCountMap(value, vocabulary, where, errors) {
+  if (value === null) return;
+  if (!isPlainObject(value)) {
+    errors.push(`type:${where}`);
+    return;
+  }
+  const keys = Object.keys(value);
+  if (keys.some((key) => key !== OTHER && !vocabulary.includes(key))) errors.push(`vocabulary:${where}`);
+  if (keys.some((key) => !Number.isSafeInteger(value[key]) || value[key] < 0)) errors.push(`count:${where}`);
+}
+
+function checkStringList(value, where, errors) {
+  expectType(value === null || (Array.isArray(value) && value.length <= MAX_SERVED_MODELS
+    && value.every((item) => typeof item === 'string' && item.length > 0 && item.length <= MAX_JEV_STRING)), where, errors);
+}
+
+const JEV_UNRECORDED_NULL_KEYS = Object.freeze(NESTED_KEYS.jev.filter((key) => key !== 'usd' && key !== 'source'));
+
+function validateJev(row, errors) {
+  const jev = row.jev;
+  if (!checkKeys(jev, NESTED_KEYS.jev, 'jev', errors)) return;
+  const source = jev.source;
+  expectType(source === null || JEV_SOURCES.includes(source), 'jev.source', errors);
+  expectType(isNullableBool(jev.acted), 'jev.acted', errors);
+  // acted is null exactly when the exposure was not recorded.
+  if ((jev.acted === null) !== (source === null)) errors.push('jev_acted_source_mismatch');
+  expectType(isNullableCount(jev.jevCalls), 'jev.jevCalls', errors);
+  expectType(isNullableCount(jev.fastSteps), 'jev.fastSteps', errors);
+  expectType(isNullableNumber(jev.jevMs), 'jev.jevMs', errors);
+  const usdOk = checkKeys(jev.usd, NESTED_KEYS.jevUsd, 'jev.usd', errors);
+  if (usdOk) for (const key of NESTED_KEYS.jevUsd) expectType(isNullableNumber(jev.usd[key]), `jev.usd.${key}`, errors);
+  checkCountMap(jev.calibrationStatuses, JEV_CALIBRATION_STATUSES, 'jev.calibrationStatuses', errors);
+  checkCountMap(jev.fallbacks, JEV_FALLBACK_REASONS, 'jev.fallbacks', errors);
+  checkStringList(jev.servedModels, 'jev.servedModels', errors);
+  checkStringList(jev.instrumentVersions, 'jev.instrumentVersions', errors);
+  expectType(isNullableBool(jev.attemptsTruncated), 'jev.attemptsTruncated', errors);
+  if (source === null) {
+    const usdNull = usdOk && jev.usd.provider === null && jev.usd.estimate === null;
+    if (!usdNull || !JEV_UNRECORDED_NULL_KEYS.every((key) => jev[key] === null)) errors.push('jev_unrecorded_not_null');
+  }
+  if (source === 'no_block') {
+    // Zero exposure is known only for a counted autopilot 'on' row whose
+    // session detail was read (the Exposure rule, case 3).
+    if (Array.isArray(row.flags) && row.flags.includes('session_detail_missing')) errors.push('jev_no_block_without_session_detail');
+    const zero = jev.acted === false && jev.jevCalls === 0 && jev.fastSteps === 0;
+    const eligible = row.arm === 'autopilot' && row.condition === 'on' && row.infraError === null;
+    if (!zero || !eligible) errors.push('jev_no_block_invalid');
+  }
+}
+
+function validateSafety(row, errors) {
+  const safety = row.safety;
+  if (!checkKeys(safety, NESTED_KEYS.safety, 'safety', errors)) return;
+  expectType(isNullableCount(safety.requestOvercount), 'safety.requestOvercount', errors);
+  expectType(isNullableCount(safety.unexpectedMutations), 'safety.unexpectedMutations', errors);
+  if (row.infraError === null) {
+    expectType(typeof safety.claimedSuccessOnFail === 'boolean', 'safety.claimedSuccessOnFail', errors);
+  } else if (safety.requestOvercount !== null || safety.unexpectedMutations !== null || safety.claimedSuccessOnFail !== null) {
+    errors.push('safety_infra_not_null');
+  }
+}
+
+function validateFastMode(fastMode, errors) {
+  if (fastMode === null) return;
+  if (!checkKeys(fastMode, NESTED_KEYS.fastMode, 'fastMode', errors)) return;
+  expectType(FAST_MODE_ROW_OUTCOMES.includes(fastMode.outcome), 'fastMode.outcome', errors);
+  for (const key of ['reason', 'humanGate', 'exhausted', 'latched']) expectType(isNullableToken(fastMode[key]), `fastMode.${key}`, errors);
+  expectType(isNullableBool(fastMode.uncertainUnobserved), 'fastMode.uncertainUnobserved', errors);
+}
+
+function validateV2Blocks(row, errors) {
+  expectType(row.condition === null || CONDITIONS.includes(row.condition), 'condition', errors);
+  validateJev(row, errors);
+  validateSafety(row, errors);
+  expectType(row.endLabel === null || END_LABELS.includes(row.endLabel), 'endLabel', errors);
+  validateFastMode(row.fastMode, errors);
+}
+
+/**
+ * { ok, errors } for one committed row. A row with schemaVersion 2 must have
+ * exactly RUN_ROW_KEYS_V2 and valid v2 blocks; any other row takes the
+ * Phase 66 path, which requires exactly RUN_ROW_KEYS and schemaVersion 1. The
+ * string rules (at most 200 characters, no "://") apply to both. Errors name
+ * the rule and the field path, never the value.
+ */
+export function validateCommittedRow(row) {
+  const errors = [];
+  if (isPlainObject(row) && row.schemaVersion === RUN_ROW_SCHEMA_VERSION_V2) {
+    checkKeys(row, RUN_ROW_KEYS_V2, '', errors);
+    walkStrings(row, '', errors);
+    validateSharedFields(row, errors);
+    validateV2Blocks(row, errors);
+    return { ok: errors.length === 0, errors };
+  }
+  if (!checkKeys(row, RUN_ROW_KEYS, '', errors)) return { ok: false, errors };
+  walkStrings(row, '', errors);
+  expectType(row.schemaVersion === RUN_ROW_SCHEMA_VERSION, 'schemaVersion', errors);
+  validateSharedFields(row, errors);
   return { ok: errors.length === 0, errors };
 }

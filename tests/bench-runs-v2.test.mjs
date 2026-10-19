@@ -677,7 +677,7 @@ test('false done: a typed done on a checker-failed run is a claimed success on a
     jev: { ...ACTED_SUMMARY, latched: 'https://evil.example/latch', exhausted: 'Has Caps', note: 'FASTMODE_SENTINEL_96' },
   }, { claimed: errorStatus, outcome: FAILED_OUTCOME }));
   const json = JSON.stringify(hostile);
-  for (const sentinel of ['FASTMODE_SENTINEL_94', 'FASTMODE_SENTINEL_95', 'FASTMODE_SENTINEL_96', 'reason_sentinel_', 'evil.example', '://', 'Has Caps', 'pageText', 'label']) {
+  for (const sentinel of ['FASTMODE_SENTINEL_94', 'FASTMODE_SENTINEL_95', 'FASTMODE_SENTINEL_96', 'reason_sentinel_', 'evil.example', '://', 'Has Caps', 'pageText', '"note"']) {
     assert.equal(json.includes(sentinel), false, `row must not carry ${sentinel}`);
   }
   assert.deepEqual(hostile.fastMode, { outcome: 'done', reason: 'other', uncertainUnobserved: null, humanGate: 'other', exhausted: 'other', latched: 'other' });
