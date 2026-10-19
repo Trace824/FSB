@@ -7,7 +7,8 @@
  * summary.json and report.md. Every row is checked with
  * validateCommittedRow first; one invalid row fails the report.
  *
- * Per set (core, and live reported separately) and per arm it gives:
+ * Per set (core, and live reported separately) and per arm, and per arm and
+ * condition for Phase 71 campaigns, it gives:
  * completion with a Wilson 95% CI, where infra errors leave the denominator
  * and are listed by code; per-task median and p90 wall time over completed
  * runs; wall time per completed task as the geometric mean of the per-task
@@ -22,6 +23,15 @@
  * baseline. Nothing in either output carries a URL, page text or a value
  * that is not a number, an id, a version or a fixed label.
  *
+ * Phase 71 (D-07, D-10, D-18; Pitfalls 2, 3, 15): schema-2 rows with a run
+ * condition form their own group, keyed `${arm}/${condition}`, so the off and
+ * on runs are never pooled; schema-1 rows and condition-null rows keep the
+ * bare arm key. A group with schema-2 rows also gets descriptive Jev
+ * exposure, the Jev cost (FSB-borne, beside the LLM cost and never added to
+ * it), typed-outcome counts, safety counts and end labels. No per-decision
+ * timing appears here, and every comparison, interval and verdict lives in
+ * the gate evaluator, not in this file.
+ *
  * CLI: node scripts/bench/report.mjs <campaignDir>
  *   exit 0 written, 1 invalid rows or unreadable input, 2 usage.
  */
@@ -31,7 +41,16 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { COST_LABEL_LIST_PRICE } from './lib/host-stream.mjs';
-import { INFRA_CODES, validateCommittedRow } from './lib/runs.mjs';
+import {
+  CONDITIONS,
+  FAST_MODE_ROW_OUTCOMES,
+  INFRA_CODES,
+  JEV_CALIBRATION_STATUSES,
+  JEV_FALLBACK_REASONS,
+  JEV_SOURCES,
+  RUN_ROW_SCHEMA_VERSION_V2,
+  validateCommittedRow,
+} from './lib/runs.mjs';
 import { aaNoiseFloor, median, quantile, summarize, wilson } from './lib/stats.mjs';
 
 export const REPORT_SCHEMA_VERSION = 1;
@@ -46,6 +65,10 @@ const AA_TWO_ROUNDS = 'needs at least 2 rounds';
 const AA_NO_TASKS = 'no task has completed runs in both odd and even rounds';
 const ARM_ORDER = Object.freeze(['autopilot', 'claude', 'cursor']);
 const SETS = Object.freeze(['core', 'live']);
+export const JEV_COST_LABEL = 'Jev cost (FSB-borne), reported beside the LLM cost and never added to it';
+const EXPOSURE_UNKNOWN = 'unknown';
+const NO_TYPED_OUTCOME = 'none';
+const OTHER = 'other';
 
 export const METHOD_NOTES = Object.freeze([
   "Wall time is measured on the runner's own clock: t0 immediately before run_task or before the host CLI is spawned, t1 when run_task settles or at the host's result event. Session endTime is never used.",
@@ -56,6 +79,11 @@ export const METHOD_NOTES = Object.freeze([
   'The arms are not compared with each other. Phase 71 compares each arm with its own fast-mode run, using the geometric mean of per-task median ratios with a hierarchical bootstrap CI.',
   'The A/A noise floor splits one arm\'s completed runs into odd and even rounds and runs the same bootstrap; its CI width is the smallest effect a later comparison can claim.',
   `A campaign under ${BASELINE_MIN_ROUNDS} rounds is a smoke test, not a baseline. Live-site tasks are reported separately and never enter the core aggregates.`,
+  'Conditions are interleaved run by run in the seeded ABBA schedule. The fast-mode switch is written through the MCP settings tool before t0 and read back over CDP, and the capture arm must read off; a run whose switch is not confirmed is the infra error condition_not_applied and is never counted.',
+  'The fast condition means "switch on", whether or not Jev acted in a given run (intention to treat). Runs where Jev acted appear only as descriptive exposure counts.',
+  'Wall time per completed task covers completed runs only, so it is read together with completion: a condition that turns slow successes into fast failures can look faster.',
+  'Runs after Phase 71 use 24-letter lowercase run tokens, while the 8a058bdf baseline used base64url tokens, so the start URL in each instruction differs in its token alphabet only.',
+  'Jev cost is FSB-borne and LLM cost is user-borne; the two are shown side by side and never summed.',
 ]);
 
 function isPlainObject(value) {
@@ -286,6 +314,95 @@ function summarizeArm(rows, options) {
   };
 }
 
+// --- Phase 71 groups: descriptive exposure, Jev cost, safety and end labels ----------------
+
+function isV2(row) {
+  return row.schemaVersion === RUN_ROW_SCHEMA_VERSION_V2;
+}
+
+// The row's run condition; schema-1 rows and condition-null rows have none.
+function conditionOf(row) {
+  return isV2(row) && CONDITIONS.includes(row.condition) ? row.condition : null;
+}
+
+function sumOrNull(values) {
+  const list = values.filter((value) => finite(value) !== null);
+  return list.length ? list.reduce((sum, value) => sum + value, 0) : null;
+}
+
+// Count maps summed key by key, in vocabulary order with 'other' last.
+function sumCounts(maps, vocabulary) {
+  const totals = new Map();
+  for (const map of maps) {
+    if (!isPlainObject(map)) continue;
+    for (const [key, value] of Object.entries(map)) {
+      if (Number.isSafeInteger(value) && value >= 0) totals.set(key, (totals.get(key) || 0) + value);
+    }
+  }
+  const out = {};
+  for (const key of [...vocabulary, OTHER]) if (totals.has(key)) out[key] = totals.get(key);
+  return out;
+}
+
+function distinctSorted(lists) {
+  const values = lists.flatMap((list) => (Array.isArray(list) ? list : [])).filter((value) => typeof value === 'string' && value);
+  return [...new Set(values)].sort(codeUnitCompare);
+}
+
+// Descriptive exposure over the counted schema-2 rows of one group. jev.source
+// null is unknown exposure. Jev cost is FSB-borne and stays apart from the LLM
+// cost (D-10); per-decision timing is not reported here.
+function exposureFor(counted, completedCount) {
+  const exposureSources = Object.fromEntries([...JEV_SOURCES, EXPOSURE_UNKNOWN].map((source) => [source, 0]));
+  for (const row of counted) exposureSources[JEV_SOURCES.includes(row.jev.source) ? row.jev.source : EXPOSURE_UNKNOWN] += 1;
+  const jevCost = (key) => {
+    const total = sumOrNull(counted.map((row) => row.jev.usd[key]));
+    return total !== null && completedCount > 0 ? total / completedCount : null;
+  };
+  const typedOutcomes = {};
+  for (const outcome of [...FAST_MODE_ROW_OUTCOMES, NO_TYPED_OUTCOME]) {
+    const matching = counted.filter((row) => (row.fastMode ? row.fastMode.outcome : NO_TYPED_OUTCOME) === outcome);
+    if (matching.length) typedOutcomes[outcome] = { pass: matching.filter((row) => row.pass).length, fail: matching.filter((row) => !row.pass).length };
+  }
+  return {
+    exposureSources,
+    actedRuns: counted.filter((row) => row.jev.acted === true).length,
+    jevCallsTotal: sumOrNull(counted.map((row) => row.jev.jevCalls)),
+    fallbacks: sumCounts(counted.map((row) => row.jev.fallbacks), JEV_FALLBACK_REASONS),
+    calibrationStatuses: sumCounts(counted.map((row) => row.jev.calibrationStatuses), JEV_CALIBRATION_STATUSES),
+    servedModels: distinctSorted(counted.map((row) => row.jev.servedModels)),
+    instrumentVersions: distinctSorted(counted.map((row) => row.jev.instrumentVersions)),
+    missingMeasurement: counted.filter((row) => row.flags.includes('jev_measurement_missing')).length,
+    jevCostPerCompletedTask: { provider: jevCost('provider'), estimate: jevCost('estimate'), label: JEV_COST_LABEL },
+    typedOutcomes,
+  };
+}
+
+// Safety counts over counted schema-2 rows; a run with an unknown count is unverifiable.
+function safetyFor(counted) {
+  const verifiable = counted.filter((row) => row.safety.requestOvercount !== null && row.safety.unexpectedMutations !== null);
+  return {
+    verifiableRuns: verifiable.length,
+    unverifiableRuns: counted.length - verifiable.length,
+    requestOvercountRuns: counted.filter((row) => row.safety.requestOvercount > 0).length,
+    unexpectedMutationRuns: counted.filter((row) => row.safety.unexpectedMutations > 0).length,
+    claimedSuccessOnFailRuns: counted.filter((row) => row.safety.claimedSuccessOnFail === true).length,
+  };
+}
+
+// summarizeArm for one group; groups with schema-2 rows add the Phase 71 blocks.
+function summarizeGroup(rows, options) {
+  const stats = summarizeArm(rows, options);
+  if (!rows.some(isV2)) return stats;
+  const counted = rows.filter((row) => isV2(row) && row.infraError === null);
+  return {
+    ...stats,
+    exposure: exposureFor(counted, counted.filter((row) => row.pass).length),
+    safety: safetyFor(counted),
+    endLabels: countBy(counted.map((row) => row.endLabel)),
+  };
+}
+
 function identitySummary(identity) {
   if (!isPlainObject(identity)) return null;
   const pick = (object, keys) => Object.fromEntries(keys.map((key) => [key, isPlainObject(object) ? object[key] ?? null : null]));
@@ -299,8 +416,16 @@ function identitySummary(identity) {
     mode: safeText(identity.mode),
     set: safeText(identity.set),
     createdAt: safeText(identity.createdAt),
-    schedule: isPlainObject(identity.schedule) ? pick(identity.schedule, ['runs', 'rounds', 'arms', 'seed']) : null,
+    schedule: isPlainObject(identity.schedule)
+      ? {
+        ...pick(identity.schedule, ['runs', 'rounds', 'arms', 'seed']),
+        ...(Array.isArray(identity.schedule.conditions)
+          ? { conditions: identity.schedule.conditions.filter((condition) => CONDITIONS.includes(condition)) }
+          : {}),
+      }
+      : null,
     git: pick(identity.git, ['sha', 'dirty']),
+    ...(isPlainObject(identity.gate) ? { gate: { sha256: safeText(identity.gate.sha256) } } : {}),
     extension: {
       id: safeText(extension.id),
       version: safeText(extension.version),
@@ -347,10 +472,14 @@ export function buildSummary({ identity = null, runs = [] } = {}, { iterations =
       sets[set] = null;
       continue;
     }
+    // One group per arm and run condition, never pooled (Pitfall 3).
     const arms = {};
     for (const arm of ARM_ORDER) {
-      const armRows = setRows.filter((row) => row.arm === arm);
-      if (armRows.length) arms[arm] = summarizeArm(armRows, { iterations, seed });
+      for (const condition of [null, ...CONDITIONS]) {
+        const groupRows = setRows.filter((row) => row.arm === arm && conditionOf(row) === condition);
+        const key = condition === null ? arm : `${arm}/${condition}`;
+        if (groupRows.length) arms[key] = summarizeGroup(groupRows, { iterations, seed });
+      }
     }
     sets[set] = { runs: setRows.length, arms };
   }
@@ -390,6 +519,11 @@ function fmtUsd(value) {
   return finite(value) === null ? 'n/a' : `$${value.toFixed(4)}`;
 }
 
+// Jev costs are fractions of a cent per task, so they get six decimals.
+function fmtUsdFine(value) {
+  return finite(value) === null ? 'n/a' : `$${value.toFixed(6)}`;
+}
+
 function fmtNum(value, digits = 2) {
   return finite(value) === null ? 'n/a' : value.toFixed(digits);
 }
@@ -412,6 +546,7 @@ function renderIdentity(identity) {
   const lines = [];
   const git = identity.git || {};
   lines.push(`- Git: ${git.sha || 'unknown'} (tracked changes: ${git.dirty === true ? 'yes' : git.dirty === false ? 'no' : 'unknown'})`);
+  if (identity.gate) lines.push(`- Gate: sha256 ${identity.gate.sha256 || 'n/a'}`);
   const ext = identity.extension || {};
   const marker = ext.measurement || {};
   lines.push(`- Extension: ${ext.id || 'unknown'} version ${ext.version || 'unknown'}; Phase 66 marker callTiming ${marker.callTiming ?? 'n/a'}, sessionDetailJournal ${marker.sessionDetailJournal ?? 'n/a'}; telemetry opted out: ${ext.telemetryOptOut ? 'yes' : 'no'}`);
@@ -429,7 +564,8 @@ function renderIdentity(identity) {
   const chrome = identity.chrome || {};
   lines.push(`- Bench Chrome: ${chrome.browser || 'unknown'}; launch flags ${chrome.launchFlags && chrome.launchFlags.length ? chrome.launchFlags.join(' ') : 'not recorded'}`);
   const schedule = identity.schedule || {};
-  lines.push(`- Schedule: ${schedule.rounds ?? 'n/a'} rounds, arms ${Array.isArray(schedule.arms) ? schedule.arms.join(', ') : 'n/a'}, seed ${schedule.seed ?? 'n/a'}, ${identity.taskCount ?? 'n/a'} tasks${identity.resumes ? `, resumed ${identity.resumes} time(s)` : ''}`);
+  const conditions = Array.isArray(schedule.conditions) ? `, conditions ${schedule.conditions.join(', ')}` : '';
+  lines.push(`- Schedule: ${schedule.rounds ?? 'n/a'} rounds, arms ${Array.isArray(schedule.arms) ? schedule.arms.join(', ') : 'n/a'}${conditions}, seed ${schedule.seed ?? 'n/a'}, ${identity.taskCount ?? 'n/a'} tasks${identity.resumes ? `, resumed ${identity.resumes} time(s)` : ''}`);
   return lines;
 }
 
@@ -513,6 +649,42 @@ function renderHost(summary) {
   return lines.length ? lines : ['- n/a (no measured sessions)'];
 }
 
+// Phase 71: one block of lines per group with schema-2 rows; empty when there is none.
+function renderExposure(summary) {
+  const lines = [];
+  for (const setName of SETS) {
+    const set = summary.sets[setName];
+    if (!set) continue;
+    for (const [group, stats] of Object.entries(set.arms)) {
+      const exposure = stats.exposure;
+      if (!exposure) continue;
+      const name = `${setName} / ${group}`;
+      const sources = Object.entries(exposure.exposureSources).map(([source, count]) => `${source} ${count}`).join(', ');
+      const typed = Object.entries(exposure.typedOutcomes).map(([outcome, counts]) => `${outcome} ${counts.pass}/${counts.fail}`).join(', ');
+      const llm = stats.costPerCompletedTask;
+      const jevCost = exposure.jevCostPerCompletedTask;
+      const safety = stats.safety;
+      lines.push(
+        `- ${name} exposure (counted runs by source): ${sources}; Jev acted in ${plural(exposure.actedRuns, 'run')}; Jev calls ${exposure.jevCallsTotal === null ? 'n/a' : exposure.jevCallsTotal}; jev_measurement_missing in ${plural(exposure.missingMeasurement, 'run')}`,
+        `- ${name} calibration of acted attempts: ${fmtCounts(exposure.calibrationStatuses)}; fallbacks: ${fmtCounts(exposure.fallbacks)}; served models: ${exposure.servedModels.length ? exposure.servedModels.join(', ') : 'none'}; instrument versions: ${exposure.instrumentVersions.length ? exposure.instrumentVersions.join(', ') : 'none'}`,
+        `- ${name} cost per completed task: LLM ${fmtUsd(llm.usd)} (label: ${llm.label}); Jev provider ${fmtUsdFine(jevCost.provider)}, estimate ${fmtUsdFine(jevCost.estimate)} (${jevCost.label})`,
+        `- ${name} typed outcomes (passed/failed): ${typed || 'none'}`,
+        `- ${name} safety: ${safety.verifiableRuns} verifiable and ${safety.unverifiableRuns} unverifiable runs; request overcount in ${plural(safety.requestOvercountRuns, 'run')}; unexpected mutations in ${plural(safety.unexpectedMutationRuns, 'run')}; claimed success on a failed run in ${plural(safety.claimedSuccessOnFailRuns, 'run')}`,
+        `- ${name} end labels: ${fmtCounts(stats.endLabels)}`,
+      );
+    }
+  }
+  if (!lines.length) return [];
+  return [
+    '## Fast-mode exposure and safety (descriptive)',
+    '',
+    'Counted runs of each group only. Descriptive: nothing here compares groups or gives a verdict, and per-decision Jev timing is not reported.',
+    '',
+    ...lines,
+    '',
+  ];
+}
+
 /** report.md for a summary. Contains no URL, NaN, Infinity or null percentage. */
 export function renderMarkdown(summary) {
   const lines = [
@@ -539,6 +711,7 @@ export function renderMarkdown(summary) {
     '',
     ...renderHost(summary),
     '',
+    ...renderExposure(summary),
     '## Live set (reported separately)',
     '',
     ...(renderSetCompletion(summary.sets.live) || ['No live runs in this campaign. Live tasks never enter the core aggregates.', '']),

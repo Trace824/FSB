@@ -1129,3 +1129,266 @@ test('report.mjs labels smoke campaigns and passes the Claude list-price label t
   assert.ok(/list-price estimate/.test(source) || /COST_LABEL_LIST_PRICE/.test(source));
   assert.equal(/geoMeanMedianRatio\(|cross-arm|autopilot.*\/.*claude.*ratio/i.test(source.replace(/\/\/.*$/gm, '')), false, 'no cross-arm speed ratio');
 });
+
+// --- Phase 71 (71-03 Task 2): (arm, condition) groups, descriptive exposure, cost and --
+// --- safety, and the method notes (D-07, D-10, D-18; Pitfalls 2, 3, 15) ------------------
+
+const JEV_REAL_SHAPE = JSON.parse(fs.readFileSync(path.join(BENCH_FIXTURES, 'jev-measurement-real-shape.json'), 'utf8')).jevMeasurement;
+const EXPOSURE_KEYS = ['exposure', 'safety', 'endLabels'];
+
+function fastModeBlockFor(attempts, outcome = 'done') {
+  const jev = attempts === null ? null : {
+    attempts, calls: attempts, fast_steps: attempts > 0 ? 1 : 0, jev_ms: attempts > 0 ? 360 : null,
+    calibration: attempts > 0 ? 'calibrated' : null, latched: null, exhausted: null, escalations: {},
+  };
+  return { outcome, reason: outcome === 'done' ? 'complete_task' : 'blocked', uncertain_unobserved: false, human_gate: null, budget_profile: 'run_task', jev };
+}
+
+// One schema-2 autopilot raw record through toCommittedRow, as the 71-03 runner writes it.
+function v2Raw({
+  campaignId = 'cmp-v2', taskId = 'core-alpha-one', round = 1, order = 1, condition = 'on', pass = true, wallMs = 60000,
+  infraError = null, jevMeasurement = null, fastMode = null, safety = { requestOvercount: 0, unexpectedMutations: 0 },
+  endReason = 'complete_task', flags = [], outcome = null, costUsd = 0.03,
+} = {}) {
+  return rawRecord({
+    schemaVersion: 2,
+    campaignId,
+    runId: `${campaignId}-r${round}-${taskId}-autopilot${condition ? `-${condition}` : ''}`,
+    attempt: 1,
+    taskId,
+    category: 'click-heavy',
+    arm: 'autopilot',
+    round,
+    order,
+    condition,
+    wallMs,
+    wallFromInitMs: null,
+    timedOut: false,
+    outcome: outcome || { pass, checks: [{ kind: 'request', pass }, { kind: 'marker', pass }] },
+    infraError,
+    measurement: { ...AUTOPILOT_MEASUREMENT, costUsd },
+    sessions: [],
+    sessionMatch: 'unique',
+    hostSummary: null,
+    claimed: { status: 'success', partialOutcome: null, isError: false, subtype: null, completeTask: null },
+    runTask: { isError: false, status: 'success', partialOutcome: null, swEvicted: false, sessionIdSource: 'run_task', ...(fastMode ? { fastMode } : {}) },
+    jevMeasurement,
+    endReason,
+    safety,
+    flags,
+  });
+}
+
+function v2Row(spec) {
+  const row = toCommittedRow(v2Raw(spec));
+  assert.deepEqual(validateCommittedRow(row), { ok: true, errors: [] }, `v2 row ${row.runId}`);
+  assert.equal(row.schemaVersion, 2);
+  return row;
+}
+
+// 6 tasks x 4 rounds x 2 conditions = 48 schema-2 autopilot rows, off and on
+// alternating ABBA. The on rows cover every exposure source; a few rows carry
+// a failure, an infra error, a safety event or a meta-loop end label.
+function v2Rows({ rounds = 4, campaignId = 'cmp-v2' } = {}) {
+  const rows = [];
+  let order = 0;
+  for (let round = 1; round <= rounds; round += 1) {
+    for (const [taskIndex, taskId] of REPORT_TASKS.entries()) {
+      for (const condition of round % 2 === 1 ? ['off', 'on'] : ['on', 'off']) {
+        order += 1;
+        const base = Math.round((BASE_WALL[taskId] || 60000) * (1 + (((round * 7 + taskIndex * 3) % 5) - 2) * 0.05));
+        const spec = { campaignId, taskId, round, order, condition, wallMs: condition === 'on' ? Math.round(base * 0.8) : base };
+        if (condition === 'off') {
+          if (taskIndex === 0 && round === 3) Object.assign(spec, { pass: false, endReason: 'stuck_dom_hash' });
+        } else {
+          if (taskIndex === 0 || taskIndex === 5) Object.assign(spec, { jevMeasurement: JEV_REAL_SHAPE, fastMode: fastModeBlockFor(4) });
+          if (taskIndex === 1) Object.assign(spec, { fastMode: fastModeBlockFor(2), flags: ['jev_measurement_missing'] });
+          if (taskIndex === 2) spec.fastMode = fastModeBlockFor(0);
+          if (taskIndex === 4) spec.fastMode = fastModeBlockFor(null, 'ambiguous');
+          if (taskIndex === 1 && round === 2) spec.pass = false;
+          if (taskIndex === 0 && round === 4) Object.assign(spec, { pass: false, endReason: 'meta_cognitive_loop_break' });
+          if (taskIndex === 2 && round === 3) {
+            Object.assign(spec, {
+              infraError: 'condition_not_applied', wallMs: null, fastMode: null, safety: null, endReason: null,
+              outcome: { pass: false, checks: [] },
+            });
+          }
+          if (taskIndex === 3 && round === 4) spec.safety = { requestOvercount: 1, unexpectedMutations: 0 };
+          if (taskIndex === 4 && round === 1) spec.safety = { requestOvercount: 0, unexpectedMutations: 2 };
+          if (taskIndex === 5 && round === 2) spec.safety = { requestOvercount: null, unexpectedMutations: null };
+        }
+        rows.push(v2Row(spec));
+      }
+    }
+  }
+  return rows;
+}
+
+const V2_IDENTITY = Object.freeze({
+  ...REPORT_IDENTITY,
+  campaignId: 'cmp-v2',
+  schedule: { runs: 48, rounds: 4, arms: ['autopilot'], seed: 71, cooldownMs: 3000, conditions: ['off', 'on'] },
+  gate: { path: 'scripts/bench/gate/release-gate-v1.0.0.json', sha256: 'e'.repeat(64) },
+  hosts: {},
+});
+
+test('71-03 report: v1 campaigns keep the per-arm keys and gain no exposure, safety, endLabels, gate or conditions', async () => {
+  const { buildSummary } = await loadReport();
+  const summary = buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows() }, { iterations: 200 });
+  assert.deepEqual(Object.keys(summary.sets.core.arms), ['autopilot', 'claude']);
+  for (const arm of ['autopilot', 'claude']) {
+    for (const key of EXPOSURE_KEYS) assert.equal(Object.prototype.hasOwnProperty.call(summary.sets.core.arms[arm], key), false, `${arm}.${key}`);
+  }
+  assert.equal(Object.prototype.hasOwnProperty.call(summary.identity, 'gate'), false);
+  assert.deepEqual(Object.keys(summary.identity.schedule), ['runs', 'rounds', 'arms', 'seed']);
+});
+
+test('71-03 report: v2 rows group by arm/condition and never pool off and on', async () => {
+  const { buildSummary } = await loadReport();
+  const rows = v2Rows();
+  assert.equal(rows.length, 48);
+  const summary = buildSummary({ identity: V2_IDENTITY, runs: rows }, { iterations: 300, seed: 71 });
+  assert.deepEqual(Object.keys(summary.sets.core.arms), ['autopilot/off', 'autopilot/on']);
+  assert.equal(Object.prototype.hasOwnProperty.call(summary.sets.core.arms, 'autopilot'), false, 'no pooled autopilot group');
+  const off = summary.sets.core.arms['autopilot/off'];
+  const on = summary.sets.core.arms['autopilot/on'];
+  assert.equal(off.runs, 24);
+  assert.equal(on.runs, 24);
+  assert.equal(off.denominator, 24);
+  assert.equal(on.denominator, 23, 'the condition_not_applied run leaves only the on denominator');
+  assert.equal(off.completed, 23);
+  assert.equal(on.completed, 21);
+  assert.deepEqual(on.infraErrors.byCode, { condition_not_applied: 1 });
+  assert.deepEqual(off.infraErrors.byCode, {});
+
+  // Each group is built from its own rows only: the same as a summary of that condition alone.
+  for (const condition of ['off', 'on']) {
+    const alone = buildSummary({ identity: V2_IDENTITY, runs: rows.filter((row) => row.condition === condition) }, { iterations: 300, seed: 71 });
+    assert.deepEqual(alone.sets.core.arms[`autopilot/${condition}`], summary.sets.core.arms[`autopilot/${condition}`], `${condition} is never pooled`);
+    assert.equal(alone.sets.core.arms[`autopilot/${condition}`].aaNoiseFloor.status, 'ok', 'the A/A floor is computed per group');
+  }
+
+  const unconditioned = [1, 2].map((round) => v2Row({ campaignId: 'cmp-v2-plain', taskId: 'core-alpha-one', round, order: round, condition: null }));
+  const plain = buildSummary({ identity: null, runs: unconditioned }, { iterations: 100 });
+  assert.deepEqual(Object.keys(plain.sets.core.arms), ['autopilot'], 'v2 rows with condition null group under the bare arm');
+  assert.ok(plain.sets.core.arms.autopilot.exposure, 'a group with v2 rows carries the exposure block');
+});
+
+test('71-03 report: groups with v2 rows carry descriptive exposure, cost, typed outcomes, safety and end labels', async () => {
+  const { buildSummary } = await loadReport();
+  const rows = v2Rows();
+  const summary = buildSummary({ identity: V2_IDENTITY, runs: rows }, { iterations: 200, seed: 71 });
+  const on = summary.sets.core.arms['autopilot/on'];
+  const off = summary.sets.core.arms['autopilot/off'];
+  const measured = rows.find((row) => row.jev.source === 'measurement');
+
+  assert.deepEqual(Object.keys(on.exposure), [
+    'exposureSources', 'actedRuns', 'jevCallsTotal', 'fallbacks', 'calibrationStatuses', 'servedModels', 'instrumentVersions',
+    'missingMeasurement', 'jevCostPerCompletedTask', 'typedOutcomes',
+  ]);
+  assert.deepEqual(on.exposure.exposureSources, { measurement: 8, summary: 7, no_block: 4, unknown: 4 });
+  assert.equal(on.exposure.actedRuns, 12);
+  assert.equal(on.exposure.jevCallsTotal, 8 * measured.jev.jevCalls + 4 * 2);
+  assert.deepEqual(on.exposure.fallbacks, { sensitive_goal: 8, timeout: 8 });
+  assert.deepEqual(on.exposure.calibrationStatuses, { calibrated: 12 });
+  assert.deepEqual(on.exposure.servedModels, measured.jev.servedModels);
+  assert.deepEqual(on.exposure.instrumentVersions, measured.jev.instrumentVersions);
+  assert.equal(on.exposure.missingMeasurement, 4);
+  const jevCost = on.exposure.jevCostPerCompletedTask;
+  assert.deepEqual(Object.keys(jevCost), ['provider', 'estimate', 'label']);
+  assert.ok(Math.abs(jevCost.provider - (8 * measured.jev.usd.provider) / 21) < 1e-15);
+  assert.equal(jevCost.estimate, null);
+  assert.equal(jevCost.label, 'Jev cost (FSB-borne), reported beside the LLM cost and never added to it');
+  assert.ok(Math.abs(on.costPerCompletedTask.usd - (23 * 0.03) / 21) < 1e-12, 'the LLM cost is unchanged and kept apart');
+  assert.deepEqual(on.exposure.typedOutcomes, { done: { pass: 13, fail: 2 }, ambiguous: { pass: 4, fail: 0 }, none: { pass: 4, fail: 0 } });
+  assert.deepEqual(on.safety, {
+    verifiableRuns: 22, unverifiableRuns: 1, requestOvercountRuns: 1, unexpectedMutationRuns: 1, claimedSuccessOnFailRuns: 2,
+  });
+  assert.deepEqual(on.endLabels, { complete_task: 22, meta_cognitive_loop_break: 1 });
+
+  assert.deepEqual(off.exposure.exposureSources, { measurement: 0, summary: 0, no_block: 0, unknown: 24 });
+  assert.equal(off.exposure.actedRuns, 0);
+  assert.equal(off.exposure.jevCallsTotal, null, 'no recorded Jev calls is n/a, never 0');
+  assert.deepEqual(off.exposure.fallbacks, {});
+  assert.deepEqual(off.exposure.calibrationStatuses, {});
+  assert.deepEqual(off.exposure.servedModels, []);
+  assert.equal(off.exposure.missingMeasurement, 0);
+  assert.deepEqual(off.exposure.jevCostPerCompletedTask.provider, null);
+  assert.deepEqual(off.exposure.typedOutcomes, { none: { pass: 23, fail: 1 } });
+  assert.deepEqual(off.safety, {
+    verifiableRuns: 24, unverifiableRuns: 0, requestOvercountRuns: 0, unexpectedMutationRuns: 0, claimedSuccessOnFailRuns: 1,
+  });
+  assert.deepEqual(off.endLabels, { complete_task: 23, stuck_dom_hash: 1 });
+});
+
+test('71-03 report: markdown has a heading per group and the descriptive exposure section, and no per-decision timing, URL or broken number', async () => {
+  const { buildSummary, renderMarkdown } = await loadReport();
+  const summary = buildSummary({ identity: V2_IDENTITY, runs: v2Rows() }, { iterations: 200, seed: 71 });
+  const markdown = renderMarkdown(summary);
+  assert.ok(markdown.includes('\n### autopilot/off\n'));
+  assert.ok(markdown.includes('\n### autopilot/on\n'));
+  assert.ok(markdown.includes('\n## Fast-mode exposure and safety (descriptive)\n'));
+  const section = markdown.slice(markdown.indexOf('## Fast-mode exposure and safety (descriptive)'), markdown.indexOf('## Live set'));
+  assert.match(section, /core \/ autopilot\/on/);
+  assert.match(section, /measurement 8, summary 7, no_block 4, unknown 4/);
+  assert.match(section, /Jev cost \(FSB-borne\), reported beside the LLM cost and never added to it/);
+  assert.match(section, /claimed success on a failed run in 2 runs/);
+  assert.match(markdown, /- Gate: sha256 e{64}/);
+  assert.match(markdown, /conditions off, on/);
+  for (const text of [markdown, JSON.stringify(summary)]) {
+    for (const banned of ['jevMs', 'latencyMs', '://']) assert.equal(text.includes(banned), false, banned);
+    assert.equal(/NaN|null%|Infinity|undefined/.test(text), false);
+  }
+  const v1 = renderMarkdown(buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows() }, { iterations: 200 }));
+  assert.equal(v1.includes('Fast-mode exposure and safety'), false, 'v1 reports have no exposure section');
+  assert.equal(v1.includes('- Gate:'), false);
+});
+
+test('71-03 report: identitySummary adds gate.sha256 and schedule.conditions only when the identity has them', async () => {
+  const { buildSummary } = await loadReport();
+  const summary = buildSummary({ identity: V2_IDENTITY, runs: v2Rows({ rounds: 1 }) }, { iterations: 100 });
+  assert.deepEqual(summary.identity.gate, { sha256: 'e'.repeat(64) });
+  assert.deepEqual(summary.identity.schedule, { runs: 48, rounds: 4, arms: ['autopilot'], seed: 71, conditions: ['off', 'on'] });
+  assert.equal(JSON.stringify(summary.identity).includes('release-gate'), false, 'the gate path is not repeated in the summary');
+});
+
+test('71-03 report: the method notes keep every Phase 66 sentence and disclose conditions, ITT, survivorship, the token alphabet and the cost split', async () => {
+  const { METHOD_NOTES, buildSummary, renderMarkdown } = await loadReport();
+  const method = renderMarkdown(buildSummary({ identity: REPORT_IDENTITY, runs: baselineRows() }, { iterations: 100 }));
+  const notes = method.slice(method.indexOf('## Method'));
+  for (const pattern of [
+    /runner's own clock/, /never counted/, /upper bound/, /queue wait is not measured/i, /not compared with each other/,
+    /interleaved run by run/, /written through the MCP settings tool before t0 and read back over CDP/, /condition_not_applied/,
+    /intention to treat/, /whether or not Jev acted/,
+    /completed runs only/, /read together with completion/,
+    /24-letter lowercase run tokens/, /8a058bdf baseline used base64url tokens/, /token alphabet only/,
+    /FSB-borne/, /user-borne/, /side by side and never summed/,
+  ]) {
+    assert.match(notes, pattern);
+  }
+  assert.equal(METHOD_NOTES.filter((note) => /not compared with each other/.test(note)).length, 1);
+  for (const note of METHOD_NOTES) assert.equal(/jevMs|latencyMs|:\/\//.test(note), false);
+});
+
+test('71-03 report.mjs: no per-decision timing names and still no ratio code', () => {
+  const source = fs.readFileSync(REPORT, 'utf8');
+  assert.equal(/jevMs|latencyMs/.test(source), false);
+  assert.equal(/geoMeanMedianRatio\(|cross-arm|autopilot.*\/.*claude.*ratio/i.test(source.replace(/\/\/.*$/gm, '')), false);
+  assert.equal(/newcombe|verdict\s*:/i.test(source.replace(/\/\/.*$/gm, '').replace(/verdict: result\.verdict/g, '')), false,
+    'no Newcombe interval or new verdict here');
+});
+
+test('71-03 report parity: condition, jev, safety, endLabel and fastMode each change a summary field', async () => {
+  const { buildSummary } = await loadReport();
+  const base = { taskId: 'core-alpha-one', round: 1, order: 1, condition: 'on', fastMode: fastModeBlockFor(0) };
+  const summarize = (spec) => buildSummary({ identity: null, runs: [v2Row({ ...base, ...spec })] }, { iterations: 50 }).sets.core.arms;
+  const before = summarize({});
+  const group = (arms) => arms['autopilot/on'];
+
+  assert.deepEqual(Object.keys(summarize({ condition: 'off' })), ['autopilot/off'], 'condition picks the group');
+  assert.notDeepEqual(group(summarize({ jevMeasurement: JEV_REAL_SHAPE })).exposure.exposureSources, group(before).exposure.exposureSources, 'jev');
+  assert.notDeepEqual(group(summarize({ safety: { requestOvercount: 2, unexpectedMutations: 0 } })).safety, group(before).safety, 'safety');
+  assert.notDeepEqual(group(summarize({ endReason: 'stuck_dom_hash' })).endLabels, group(before).endLabels, 'endLabel');
+  assert.notDeepEqual(group(summarize({ fastMode: fastModeBlockFor(0, 'blocked') })).exposure.typedOutcomes, group(before).exposure.typedOutcomes, 'fastMode');
+  assert.deepEqual(group(before).exposure.typedOutcomes, { done: { pass: 1, fail: 0 } });
+});
