@@ -292,6 +292,12 @@
       "confidence": "LOW",
       "source_url": "internal-fallback",
       "notes": "Conservative fallback; Hermes Agent lets the user wire OpenRouter / Nemotron / Mimo / etc. -- no Hermes-side single price-able default exists."
+    },
+    "Cline": {
+      "model": "claude-sonnet-4-6",
+      "confidence": "LOW",
+      "source_url": "internal-fallback",
+      "notes": "Conservative fallback; Cline is bring-your-own-model (Cline provider, Anthropic, OpenRouter, local models, etc.) with no single Cline-side default."
     }
   }
 }

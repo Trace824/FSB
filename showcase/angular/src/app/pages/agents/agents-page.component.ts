@@ -386,6 +386,7 @@ const HOST_CHIPS: readonly HostChip[] = [
   { name: 'VS Code', logo: 'vscode.svg' },
   { name: 'Windsurf', logo: 'windsurf.svg' },
   { name: 'OpenCode', logo: 'opencode.svg' },
+  { name: 'Cline', logo: 'cline.svg' },
 ];
 
 const BASE_INSTALL_COMMAND = 'npx -y fsb-mcp-server@latest install';
@@ -406,6 +407,7 @@ const INSTALL_HOSTS: readonly InstallHost[] = [
   { name: 'vscode', flag: '--vscode' },
   { name: 'windsurf', flag: '--windsurf' },
   { name: 'opencode', flag: '--opencode' },
+  { name: 'cline', flag: '--cline' },
   { name: 'all', flag: '--all' },
 ];
 

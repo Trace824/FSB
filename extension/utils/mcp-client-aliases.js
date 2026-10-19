@@ -15,6 +15,9 @@
     codexcli: 'codex',
     opencode: 'opencode',
     opencodecli: 'opencode',
+    cline: 'cline',
+    // Cline's SDK-based clients, such as the Cline CLI, identify as the SDK package.
+    '@cline/core': 'cline',
     openclaw: 'openclaw'
   });
 

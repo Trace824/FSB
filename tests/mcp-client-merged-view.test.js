@@ -198,6 +198,9 @@ async function main() {
     ['codexcli', 'codex'],
     ['opencode', 'opencode'],
     ['opencodecli', 'opencode'],
+    ['cline', 'cline'],
+    ['  Cline  ', 'cline'],
+    ['@cline/core', 'cline'],
     ['openclaw', 'openclaw']
   ]);
   for (const [name, expected] of aliasesExpected) {

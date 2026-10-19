@@ -1,4 +1,4 @@
-import { PLATFORMS, resolvePlatformTarget, getEntryForPlatform } from './platforms.js';
+import { PLATFORMS, resolvePlatformTarget, getEntryForPlatform, CLINE_TIMEOUT_SECONDS } from './platforms.js';
 import { installToConfig, removeFromConfig, serializeByFormat } from './config-writer.js';
 import { FSB_MCP_VERSION, FSB_SERVER_NAME } from './version.js';
 import { execSync } from 'node:child_process';
@@ -279,7 +279,9 @@ export function getInstallNextStep(platformKey, variant = null) {
         case 'codex':
             return 'Restart Codex or reload the MCP server list after editing ~/.codex/config.toml.';
         case 'cline':
-            return 'Reload VS Code/Cline after editing the MCP settings file.';
+            return variant === 'legacy-vscode'
+                ? 'Reload VS Code/Cline after editing the MCP settings file. Current Cline releases read ~/.cline/data/settings/cline_mcp_settings.json instead; update Cline and rerun this install if fsb does not appear.'
+                : 'Cline reloads ~/.cline/data/settings/cline_mcp_settings.json on its own. If fsb does not appear, restart it under MCP Servers in Cline, or start a new Cline CLI session.';
         case 'zed':
             return 'Reload Zed after editing settings.json.';
         case 'gemini':
@@ -473,6 +475,26 @@ export function getSetupSections(httpEndpoint, cursorDeeplink) {
                 '  }',
                 'Next step:',
                 '  Press refresh in Windsurf or reload the client after editing the matching config file.',
+            ],
+        },
+        {
+            title: 'Cline (VS Code, JetBrains, CLI)',
+            lines: [
+                'Config: ~/.cline/data/settings/cline_mcp_settings.json',
+                '  (CLINE_MCP_SETTINGS_PATH, CLINE_DATA_DIR, or CLINE_DIR move it, as in Cline)',
+                'Add:',
+                '  {',
+                '    "mcpServers": {',
+                '      "fsb": {',
+                '        "command": "npx",',
+                '        "args": ["-y", "fsb-mcp-server@latest"],',
+                '        "timeout": ' + CLINE_TIMEOUT_SECONDS,
+                '      }',
+                '    }',
+                '  }',
+                'timeout is in seconds. Cline\'s 60-second default cuts off long run_task calls.',
+                'Next step:',
+                '  ' + getInstallNextStep('cline'),
             ],
         },
         // New platforms

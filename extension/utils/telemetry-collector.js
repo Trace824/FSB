@@ -112,6 +112,7 @@ var MCP_CLIENT_LABELS = {
   'grok': 'Grok',
   'gemini': 'Gemini',
   'hermes': 'Hermes',
+  'cline': 'Cline',
   'unknown': 'unknown'
 };
 

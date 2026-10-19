@@ -6403,7 +6403,7 @@
         <target state="translated">모든 클라이언트</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">95</context>
+          <context context-type="linenumber">97</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.install.manualFlag" datatype="html">
@@ -6411,7 +6411,7 @@
         <target state="translated">수동</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">98</context>
+          <context context-type="linenumber">100</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.meta.title" datatype="html">
@@ -6419,7 +6419,7 @@
         <target state="translated">Full Self-Browsing | AI 브라우저 자동화 및 MCP</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">147</context>
+          <context context-type="linenumber">149</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.meta.description" datatype="html">
@@ -6427,7 +6427,7 @@
         <target state="translated">자연어 지시로 Chrome을 자동화하거나 MCP로 AI 에이전트를 연결하세요. FSB는 오픈 소스이며 실제 브라우저 세션에서 작동합니다.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">148</context>
+          <context context-type="linenumber">150</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.description" datatype="html">
@@ -6435,7 +6435,7 @@
         <target state="translated">AI 에이전트가 사용자의 브라우저에서 행동하고, 관찰하고, 검증하고, 트리거 감시자를 사용하고, 실제 파일을 업로드하고, 보호된 1자 API 기능을 호출할 수 있게 하는 로컬 우선 Chrome 자동화 및 MCP 브라우저 계층</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">303</context>
+          <context context-type="linenumber">305</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.subcategory" datatype="html">
@@ -6443,7 +6443,7 @@
         <target state="translated">AI 브라우저 자동화 및 MCP 도구</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">306</context>
+          <context context-type="linenumber">308</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.mcp" datatype="html">
@@ -6451,7 +6451,7 @@
         <target state="translated">Claude Code, Codex, Cursor, Windsurf, OpenClaw를 위한 MCP 서버</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">312</context>
+          <context context-type="linenumber">314</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.browser" datatype="html">
@@ -6459,7 +6459,7 @@
         <target state="translated">로컬 Chrome 확장 프로그램을 통한 실제 브라우저 자동화</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">313</context>
+          <context context-type="linenumber">315</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.triggers" datatype="html">
@@ -6467,7 +6467,7 @@
         <target state="translated">반응형 DOM 모니터링을 위한 트리거 감시자</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">314</context>
+          <context context-type="linenumber">316</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.capabilities" datatype="html">
@@ -6475,7 +6475,7 @@
         <target state="translated">보호된 invoke_capability 호출을 갖춘 네이티브 1자 API 기능 카탈로그</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">315</context>
+          <context context-type="linenumber">317</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.uploads" datatype="html">
@@ -6483,7 +6483,7 @@
         <target state="translated">upload_file을 통한 실제 파일 업로드와 합성 drop_file 지원</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">316</context>
+          <context context-type="linenumber">318</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.vault" datatype="html">
@@ -6491,7 +6491,7 @@
         <target state="translated">원본 비밀 정보가 MCP 브리지를 넘지 않는 볼트 및 결제 자동 입력 경계</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">317</context>
+          <context context-type="linenumber">319</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.dom" datatype="html">
@@ -6499,7 +6499,7 @@
         <target state="translated">DOM 기반 페이지 이해, 브라우저 동작, 시각적 피드백, 로컬 메모리, 사용자 소유 모델 키</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">318</context>
+          <context context-type="linenumber">320</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.keywords" datatype="html">
@@ -6507,7 +6507,7 @@
         <target state="translated">MCP 브라우저 자동화, AI 브라우저 에이전트, 트리거 감시자, 1자 API 기능 호출, Claude Code 브라우저 테스트, Codex 브라우저 테스트, 셀프 브라우징 자동화</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">320</context>
+          <context context-type="linenumber">322</context>
         </context-group>
       </trans-unit>
       <trans-unit id="lattice.screen.label" datatype="html">
