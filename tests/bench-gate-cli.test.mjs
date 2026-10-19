@@ -153,7 +153,7 @@ function listTree(dir) {
 
 // --- Fakes --------------------------------------------------------------------------------------
 
-function fakeGit({ log = { status: 0, stdout: `${AUTHOR_BEFORE}\n${AUTHOR_BEFORE}\n` }, diff = { status: 0, stdout: '' } } = {}) {
+function fakeGit({ log = { status: 0, stdout: `${AUTHOR_BEFORE}\t${AUTHOR_BEFORE}\n` }, diff = { status: 0, stdout: '' } } = {}) {
   const calls = [];
   const git = (args) => {
     calls.push([...args]);
@@ -303,19 +303,19 @@ test('evaluate-gate refuses a gate that is not committed or not predeclared, by 
   const notCommitted = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: '' } }) });
   assert.equal(notCommitted.code, 2);
   assert.match(notCommitted.io.text(), /gate_not_committed/);
-  assert.deepEqual(notCommitted.git.calls, [['log', '-1', '--format=%aI%n%cI', '--', GATE_REL]]);
+  assert.deepEqual(notCommitted.git.calls, [['log', '--format=%aI%x09%cI', '--', GATE_REL]]);
 
   const failed = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 128, stdout: '' } }) });
   assert.equal(failed.code, 2);
   assert.match(failed.io.text(), /git_failed/);
 
   const after = '2026-11-03T00:00:00Z';
-  const late = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${after}\n${after}\n` } }) });
+  const late = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${after}\t${after}\n` } }) });
   assert.equal(late.code, 2);
   assert.match(late.io.text(), /gate_not_predeclared/);
   assert.match(late.io.text(), /baseline\.createdAt/);
 
-  const equal = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${CLAUDE.identity.createdAt}\n${AUTHOR_BEFORE}\n` } }) });
+  const equal = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${CLAUDE.identity.createdAt}\t${AUTHOR_BEFORE}\n` } }) });
   assert.equal(equal.code, 2, 'an author date equal to a createdAt is not strictly before it');
   assert.match(equal.io.text(), /gate_not_predeclared/);
 
@@ -324,8 +324,21 @@ test('evaluate-gate refuses a gate that is not committed or not predeclared, by 
   assert.equal(v1.code, 2, 'the V1 baseline is included in the date check');
   assert.match(v1.io.text(), /gate_not_predeclared/);
 
+  // WR-03: every commit touching the gate is checked, not only the last one, so
+  // an older-authored commit on top cannot hide a later edit beneath it.
+  const buried = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${AUTHOR_BEFORE}\t${after}\n${after}\t${after}\n` } }) });
+  assert.equal(buried.code, 2, buried.io.text());
+  assert.match(buried.io.text(), /gate_not_predeclared/);
+  const garbled = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${AUTHOR_BEFORE}\t${AUTHOR_BEFORE}\nnot-a-date\n` } }) });
+  assert.equal(garbled.code, 2);
+  assert.match(garbled.io.text(), /git_output_invalid/);
+  const older = '2026-10-10T09:00:00-07:00';
+  const twoBefore = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${AUTHOR_BEFORE}\t${AUTHOR_BEFORE}\n${older}\t${older}\n` } }) });
+  assert.equal(twoBefore.code, 0, twoBefore.io.text());
+  assert.equal(JSON.parse(fs.readFileSync(dirs.out, 'utf8')).gate.authorDate, AUTHOR_BEFORE, 'the decision records the last commit');
+
   // Pitfall 6: a rebase rewrites the committer date; the author date decides.
-  const rebased = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${AUTHOR_BEFORE}\n${after}\n` } }) });
+  const rebased = await runEvaluate(argvOf(dirs), { git: fakeGit({ log: { status: 0, stdout: `${AUTHOR_BEFORE}\t${after}\n` } }) });
   assert.equal(rebased.code, 0, rebased.io.text());
   const decision = JSON.parse(fs.readFileSync(dirs.out, 'utf8'));
   assert.equal(decision.gate.authorDate, AUTHOR_BEFORE);
@@ -397,7 +410,7 @@ test('evaluate-gate writes the decision and the report beside it, prints one lin
   assert.deepEqual(listTree(path.join(dirs.root, 'results')), before, 'nothing is written into a campaign directory');
   assert.deepEqual(listTree(path.join(dirs.root, 'decisions')), ['core-gate-71.json', 'core-gate-71.report.md']);
   assert.deepEqual(spawn.calls, [], 'no suite runs without --verify-suites');
-  assert.deepEqual(git.calls, [['log', '-1', '--format=%aI%n%cI', '--', GATE_REL]]);
+  assert.deepEqual(git.calls, [['log', '--format=%aI%x09%cI', '--', GATE_REL]]);
 
   const decision = JSON.parse(fs.readFileSync(dirs.out, 'utf8'));
   assert.deepEqual(validateDecision(decision).errors, []);

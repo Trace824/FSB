@@ -18,10 +18,13 @@
  *    any invalid row. The two --campaign directories map to the gate's
  *    autopilot and claude roles by identity.campaignId. A safety.jsonl
  *    sidecar beside the baseline (and the fallback pin) is read when present.
- * 2. Predeclaration (D-11): the last commit touching the gate must exist, and
- *    its author date (kept through rebase and cherry-pick, Pitfall 6) must be
- *    strictly before the createdAt of every campaign it evaluates, the V1
- *    baseline and the fallback campaigns included. There is no override.
+ * 2. Predeclaration (D-11): a commit touching the gate must exist, and the
+ *    author date (kept through rebase and cherry-pick, Pitfall 6) of every
+ *    commit touching it must be strictly before the createdAt of every
+ *    campaign it evaluates, the V1 baseline and the fallback campaigns
+ *    included. There is no override. An amend or an interactive-rebase edit
+ *    also keeps the author date, so git dates cannot detect one; the
+ *    candidates' recorded gate sha256 binds the gate from V4 on.
  * 3. With --verify-suites: the working tree's code must equal the measured
  *    sha (results and decisions excluded), then every tighten-only suite the
  *    gate lists runs and its exit code is recorded. Without the flag the
@@ -82,7 +85,7 @@ export const USAGE = [
   '  --fallback-candidate <dir>  is read like the baseline\'s',
   '  --help                      this text',
   '',
-  'Needs git history: the last commit touching the gate must be authored before every campaign\'s createdAt. There is no override.',
+  'Needs git history: every commit touching the gate must be authored before every campaign\'s createdAt. There is no override.',
   'Exit codes: 0 written, 1 invalid input or I/O, 2 usage or refusal.',
 ].join('\n');
 
@@ -275,18 +278,28 @@ function readSidecar(deps, dir, label, issues) {
 
 const isIsoDate = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
 
-// D-11 and Pitfall 6: the gate's last author date against every createdAt.
+// D-11 and Pitfall 6: the author date of EVERY commit that touched the gate
+// against every createdAt (WR-03). Checking only the last commit let an
+// older-authored commit on top (a cherry-pick) hide a later edit beneath it.
+// The author date is kept because a rebase rewrites committer dates
+// (Pitfall 6); the decision records the last commit's two dates.
+export const GATE_LOG_ARGS = Object.freeze(['log', '--format=%aI%x09%cI']);
+
 function predeclaration(deps, gateRel, dated) {
-  const log = deps.git(['log', '-1', '--format=%aI%n%cI', '--', gateRel], deps.repoRoot);
+  const log = deps.git([...GATE_LOG_ARGS, '--', gateRel], deps.repoRoot);
   if (!isPlainObject(log) || log.status !== 0) return { issues: [{ code: 'git_failed', detail: 'git log' }] };
-  const [authorDate = '', committerDate = ''] = String(log.stdout || '').split('\n').map((line) => line.trim());
-  if (!authorDate) return { issues: [{ code: 'gate_not_committed', detail: gateRel }] };
-  if (!isIsoDate(authorDate) || !isIsoDate(committerDate)) return { issues: [{ code: 'git_output_invalid', detail: 'git log' }] };
-  const author = Date.parse(authorDate);
+  const commits = String(log.stdout || '').split('\n').map((line) => line.trim()).filter(Boolean)
+    .map((line) => line.split('\t').map((part) => part.trim()));
+  if (!commits.length) return { issues: [{ code: 'gate_not_committed', detail: gateRel }] };
+  if (!commits.every((parts) => parts.length === 2 && isIsoDate(parts[0]) && isIsoDate(parts[1]))) {
+    return { issues: [{ code: 'git_output_invalid', detail: 'git log' }] };
+  }
+  const [[authorDate, committerDate]] = commits;
+  const latestAuthor = Math.max(...commits.map(([author]) => Date.parse(author)));
   const issues = [];
   for (const [role, campaign] of dated) {
     const createdAt = isPlainObject(campaign.identity) ? campaign.identity.createdAt : null;
-    if (!(isIsoDate(createdAt) && author < Date.parse(createdAt))) issues.push({ code: 'gate_not_predeclared', detail: `${role}.createdAt` });
+    if (!(isIsoDate(createdAt) && latestAuthor < Date.parse(createdAt))) issues.push({ code: 'gate_not_predeclared', detail: `${role}.createdAt` });
   }
   return { issues, authorDate, committerDate };
 }
