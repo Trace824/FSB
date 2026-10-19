@@ -11831,8 +11831,8 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0993.015.keysPerLanguage" datatype="html">
-        <source>1,146 keys per language</source>
-        <target state="translated">每種語言 1,146 個鍵</target>
+        <source>1,230 keys per language</source>
+        <target state="translated">每種語言 1,230 個鍵</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">235,238</context>
@@ -11863,8 +11863,8 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0993.019.eachLanguageShipsA" datatype="html">
-        <source>Each language ships a catalog of 1,146 keys, and a message missing from a catalog falls back to English instead of showing a blank label.</source>
-        <target state="translated">每種語言都附有一份包含 1,146 個鍵的翻譯目錄，目錄中缺少的訊息會以英文顯示，而不是留下空白標籤。</target>
+        <source>Each language ships a catalog of 1,230 keys, and a message missing from a catalog falls back to English instead of showing a blank label.</source>
+        <target state="translated">每種語言都附有一份包含 1,230 個鍵的翻譯目錄，目錄中缺少的訊息會以英文顯示，而不是留下空白標籤。</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">244,245</context>
@@ -12111,8 +12111,8 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0993.050.languagesKeys" datatype="html">
-        <source>7 languages × 1,146 keys</source>
-        <target state="translated">7 種語言 × 1,146 個鍵</target>
+        <source>7 languages × 1,230 keys</source>
+        <target state="translated">7 種語言 × 1,230 個鍵</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">390,392</context>
