@@ -146,6 +146,6 @@ export class ReleaseNotesPageComponent implements OnInit, OnDestroy {
    column, and deriving one list from the other would make that impossible.
    Declared in the module tail so it does not shift the $localize line pins above. */
 const DOCUMENTED_VERSIONS: ReadonlySet<string> = new Set([
-  '0.9.92', '0.9.91', '0.9.90', '0.9.70', '0.9.60', '0.9.50', '0.9.30', '0.9.20',
-  '0.9.8', '0.9.4', '0.9.1', '0.9.0', '0.3', '0.2', '0.1',
+  '0.9.93', '0.9.92', '0.9.91', '0.9.90', '0.9.70', '0.9.60', '0.9.50', '0.9.30',
+  '0.9.20', '0.9.8', '0.9.4', '0.9.1', '0.9.0', '0.3', '0.2', '0.1',
 ]);
