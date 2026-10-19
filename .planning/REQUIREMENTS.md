@@ -45,13 +45,13 @@
 
 ### EVAL — Comparative Release Gate
 
-- [ ] **EVAL-01:** An operator can compare whole-task completion rate, wall time per completed task, and cost across baseline, fast mode, and a non-Jev control on the same task set.
-- [ ] **EVAL-02:** Fast-mode release evidence reports pass or fail against predeclared speed, completion, and safety criteria; failed criteria keep the affected fast path experimental or disabled rather than being reported as a win.
+- [ ] **EVAL-01:** An operator can compare whole-task completion rate, wall time per completed task, and cost across baseline, fast mode, and a non-Jev control on the same task set. (code-complete; live proof deferred to V1, V3 and V4)
+- [ ] **EVAL-02:** Fast-mode release evidence reports pass or fail against predeclared speed, completion, and safety criteria; failed criteria keep the affected fast path experimental or disabled rather than being reported as a win. (code-complete; live proof deferred to V4, with the M-71-00 gate sign-off at V1 and the verdicts applied at V6)
 
 ### REL — Versioned Release
 
-- [ ] **REL-01:** The extension is versioned as 1.0.0 through a `CHANGELOG.md` v1.0.0 entry followed by `npm run version:set:extension -- 1.0.0`.
-- [ ] **REL-02:** The MCP package receives the planned minor version bump for its additive optional parameters and the new settings tool, with compatibility checks against existing callers.
+- [ ] **REL-01:** The extension is versioned as 1.0.0 through a `CHANGELOG.md` v1.0.0 entry followed by `npm run version:set:extension -- 1.0.0`. (code-complete; live proof deferred to V6)
+- [ ] **REL-02:** The MCP package receives the planned minor version bump for its additive optional parameters and the new settings tool, with compatibility checks against existing callers. (code-complete; live proof deferred to V4 and V6)
 
 ## Future Requirements
 
@@ -86,6 +86,6 @@
 | 68 — Autopilot Fast Mode (code-complete 2026-10-17; AUTO-03 met, AUTO-01 live proof deferred to V5 and V6, AUTO-02 to V3 and V5, AUTO-04 to V4, AUTO-05 to V5) | AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05 | 5 |
 | 69 — MCP Descriptions and Same-Call Checks (code-complete 2026-10-15; MCP-04 met, MCP-01/MCP-02 live proof deferred to V4 and V5) | MCP-01, MCP-02, MCP-04 | 3 |
 | 70 — Bounded MCP Fast Task (code-complete 2026-10-17; MCP-03 live proof deferred to V2-V6, with the WR-01 owner decision at V4 and the D-17 amendment and MCP-enable consent review at V6) | MCP-03 | 1 |
-| 71 — Comparative Gate and Release | EVAL-01, EVAL-02, REL-01, REL-02 | 4 |
+| 71 — Comparative Gate and Release (code-complete 2026-10-17; EVAL-01 live proof deferred to V1, V3 and V4, EVAL-02 to V4 with the M-71-00 gate sign-off at V1 and the verdicts applied at V6, REL-01 to V6, REL-02 to V4 `count_tokens` and the V6 bump and publish) | EVAL-01, EVAL-02, REL-01, REL-02 | 4 |
 
 **Coverage:** 25/25 requirements mapped exactly once.

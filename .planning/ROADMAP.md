@@ -271,6 +271,7 @@ Plans:
 **Goal:** Compare full-task outcomes, decide which fast paths merit release, and version the extension and MCP package honestly.
 **Depends on:** Phases 66-70.
 **Requirements:** EVAL-01, EVAL-02, REL-01, REL-02.
+**Status:** Code-complete 2026-10-17; human/live checks deferred to the Validation Block (V1 the M-71-00 owner sign-off on the frozen gate, a hard pre-V1 decision that also takes the WR-03/WR-05 review follow-ups, plus the pinned Claude Code and Chrome, the 30-round `core-baseline-66` campaign, the cherry-pick, the safety sidecar and the identity cross-check; V3 calibrated-profile smoke; V4 the autopilot and Claude gate campaigns, the evaluation and decision file, the conditional `core-rebaseline-71` fallback, `count_tokens` and the IN-05 switch check; V6 step A extension 1.0.0, step B MCP 0.12.0 or the 72-count docs fallback; see `71-HUMAN-UAT.md`).
 **Success Criteria:**
 
 1. The same outcome-checked corpus compares baseline, fast mode, and a non-Jev control on completion rate, wall time per completed task, and cost, with uncertainty and failure cases included.
@@ -279,18 +280,18 @@ Plans:
 4. The MCP package receives its planned minor bump for optional `expect` and the approved settings tool, with compatibility checks for existing callers and no unreviewed tool additions.
 
 **Plans:** 12 plans
-- [ ] 71-01-PLAN.md — Record the sync re-check of every upstream interface Phase 71 depends on, record the pre-edit regression-sweep baseline ($P71_START), and fix F5 in the bench: the fixture run token stops making every bench goal `sensitive_goal`, proven against the real 67-06 scrubber.
-- [ ] 71-02-PLAN.md — Extend the bench's single row contract (scripts/bench/lib/runs.mjs) for the three-arm comparison: a run-condition dimension in the seeded ABBA schedule, the `condition_not_applied` infra code and the `jev_measurement_missing` flag (set by 71-03 only when a switched-on run's fast_mode summary reports Jev attempts but its jevMeasurement never arrived), and an additive, versioned v2 run row with `condition`, `jev`, `safety`, `endLabel` and `fastMode` blocks, while schema-1 rows (the V1 baseline) validate unchanged.
-- [ ] 71-03-PLAN.md — Wire the condition dimension into the live runner (apply and verify the fast-mode switch before t0, gate hash in identity, v2 raw records) and make the campaign report group rows by (arm, condition) with honest method notes.
-- [ ] 71-04-PLAN.md — Add the completion-difference statistic, the shared synthetic-campaign generator, and the power and coverage simulation whose output decides the round counts the gate will freeze.
-- [ ] 71-05-PLAN.md — Write the gate's exact-key validator, then author and freeze `scripts/bench/gate/release-gate-v1.0.0.json` from the 71-04 simulation and the sync re-check, pin its sha256, and make the runner refuse an invalid gate.
-- [ ] 71-06-PLAN.md — Build the pure gate evaluator and prove every verdict branch on synthetic campaigns.
-- [ ] 71-07-PLAN.md — Turn evaluator results into the decision file, the release claims and the gate report, and add the two CLIs V4 will run: the gate evaluator (git and suite checks injected) and the baseline safety sidecar.
-- [ ] 71-08-PLAN.md — Fix the version setter's MCP README compatibility templates so each MCP release states its own declared minimum extension version, and rehearse both release steps (extension 1.0.0, then MCP 0.12.0) in a temp root with every parity phrase checked.
-- [ ] 71-09-PLAN.md — Build the three REL-02 checks that can run now: the reviewed tools/list delta for MCP 0.12.0, the release-diff checker that binds shipped code to the V4-measured SHA, and the count_tokens script V4 will run.
-- [ ] 71-10-PLAN.md — Update the gate-independent documentation: tool counts at 73 in both READMEs with tables that sum to the built tools/list length, the `settings` row and the `expect` reference, the skill decision tree, and count-free onboarding copy, with the parity pins moved in the same commits.
-- [ ] 71-11-PLAN.md — Move the showcase copy, the llms sources and outputs, and all seven xlf catalogs from 68 to 73 tools with digit-only, line-stable edits, recompute the affected allowlist hashes, and extend the parity test's stale-count ban to 68 and 69.
-- [ ] 71-12-PLAN.md — Run the Phase 71 gate: the full chain, Node 20 runs of every new suite, the regression sweep against the 71-01 baseline, the footprint audit, and the final 71-VALIDATION.md statuses and sign-off.
+- [x] 71-01-PLAN.md — Record the sync re-check of every upstream interface Phase 71 depends on, record the pre-edit regression-sweep baseline ($P71_START), and fix F5 in the bench: the fixture run token stops making every bench goal `sensitive_goal`, proven against the real 67-06 scrubber.
+- [x] 71-02-PLAN.md — Extend the bench's single row contract (scripts/bench/lib/runs.mjs) for the three-arm comparison: a run-condition dimension in the seeded ABBA schedule, the `condition_not_applied` infra code and the `jev_measurement_missing` flag (set by 71-03 only when a switched-on run's fast_mode summary reports Jev attempts but its jevMeasurement never arrived), and an additive, versioned v2 run row with `condition`, `jev`, `safety`, `endLabel` and `fastMode` blocks, while schema-1 rows (the V1 baseline) validate unchanged.
+- [x] 71-03-PLAN.md — Wire the condition dimension into the live runner (apply and verify the fast-mode switch before t0, gate hash in identity, v2 raw records) and make the campaign report group rows by (arm, condition) with honest method notes.
+- [x] 71-04-PLAN.md — Add the completion-difference statistic, the shared synthetic-campaign generator, and the power and coverage simulation whose output decides the round counts the gate will freeze.
+- [x] 71-05-PLAN.md — Write the gate's exact-key validator, then author and freeze `scripts/bench/gate/release-gate-v1.0.0.json` from the 71-04 simulation and the sync re-check, pin its sha256, and make the runner refuse an invalid gate.
+- [x] 71-06-PLAN.md — Build the pure gate evaluator and prove every verdict branch on synthetic campaigns.
+- [x] 71-07-PLAN.md — Turn evaluator results into the decision file, the release claims and the gate report, and add the two CLIs V4 will run: the gate evaluator (git and suite checks injected) and the baseline safety sidecar.
+- [x] 71-08-PLAN.md — Fix the version setter's MCP README compatibility templates so each MCP release states its own declared minimum extension version, and rehearse both release steps (extension 1.0.0, then MCP 0.12.0) in a temp root with every parity phrase checked.
+- [x] 71-09-PLAN.md — Build the three REL-02 checks that can run now: the reviewed tools/list delta for MCP 0.12.0, the release-diff checker that binds shipped code to the V4-measured SHA, and the count_tokens script V4 will run.
+- [x] 71-10-PLAN.md — Update the gate-independent documentation: tool counts at 73 in both READMEs with tables that sum to the built tools/list length, the `settings` row and the `expect` reference, the skill decision tree, and count-free onboarding copy, with the parity pins moved in the same commits.
+- [x] 71-11-PLAN.md — Move the showcase copy, the llms sources and outputs, and all seven xlf catalogs from 68 to 73 tools with digit-only, line-stable edits, recompute the affected allowlist hashes, and extend the parity test's stale-count ban to 68 and 69.
+- [x] 71-12-PLAN.md — Run the Phase 71 gate: the full chain, Node 20 runs of every new suite, the regression sweep against the 71-01 baseline, the footprint audit, and the final 71-VALIDATION.md statuses and sign-off.
 
 ## Completed Milestones
 
