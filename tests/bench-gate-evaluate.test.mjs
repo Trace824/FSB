@@ -25,6 +25,7 @@ import {
   REFUSAL_CODES,
   VERDICTS,
   aaFloor,
+  campaignCompleteness,
   chromeMajor,
   completionComparison,
   evaluateFallback,
@@ -700,6 +701,57 @@ test('rounds: an under-round campaign makes the verdicts that use it inconclusiv
   assert.equal(meetsMinRounds({ identity: { schedule: { rounds: min - 1 } }, runs: AUTOPILOT.runs }, min), false);
 });
 
+test('rounds: a campaign whose rows are not exactly its schedule, or that is still paused, is inconclusive (campaign_incomplete; WR-02)', () => {
+  const COMPLETE = { complete: true, missingRuns: 0, unscheduledRows: 0, pausedRuns: 0 };
+  for (const campaign of [BASELINE, AUTOPILOT, CLAUDE]) assert.deepEqual(campaignCompleteness(campaign), COMPLETE);
+  for (const role of ['baseline', 'autopilot', 'claude']) assert.equal(PASS.campaigns[role].complete, true);
+  const lastOrders = (runs, count) => [...runs].sort((a, b) => b.order - a.order).slice(0, count).map((row) => row.runId);
+
+  // Paused part-way through the last round on condition_not_applied and never resumed: the rows still reach round 30.
+  const paused = withRows(AUTOPILOT, (runs) => {
+    const dropped = new Set(lastOrders(runs, 5));
+    const kept = runs.filter((row) => !dropped.has(row.runId));
+    runs.length = 0;
+    runs.push(...kept);
+    const last = runs.reduce((a, b) => (b.order > a.order ? b : a));
+    last.infraError = 'condition_not_applied';
+  });
+  assert.equal(meetsMinRounds(paused, ROUNDS), true, 'the highest round alone still reads complete');
+  assert.deepEqual(campaignCompleteness(paused), { complete: false, missingRuns: 5, unscheduledRows: 0, pausedRuns: 1 });
+  const pausedResult = record(evaluate({ autopilot: paused }));
+  assertJev(pausedResult, 'inconclusive', ['campaign_incomplete']);
+  assert.ok(pausedResult.sentinel.reasons.includes('campaign_incomplete'), pausedResult.sentinel.reasons.join(','));
+  assert.equal(pausedResult.campaigns.autopilot.complete, false);
+  assert.equal(pausedResult.campaigns.autopilot.missingRuns, 5);
+
+  // A pausing infra row that was never re-run, with every scheduled run present.
+  const pending = withRows(AUTOPILOT, (runs) => { runs[runs.length - 1].infraError = 'provider_error'; });
+  assert.deepEqual(campaignCompleteness(pending), { complete: false, missingRuns: 0, unscheduledRows: 0, pausedRuns: 1 });
+  // A non-pausing infra row is an ordinary uncounted run, and the campaign stays complete.
+  const hubLost = withRows(AUTOPILOT, (runs) => { runs[runs.length - 1].infraError = 'hub_lost'; });
+  assert.deepEqual(campaignCompleteness(hubLost), COMPLETE);
+
+  // A schema-2 row with no condition would fall out of both Jev groups silently.
+  const noCondition = withRows(AUTOPILOT, (runs) => { runs.find((row) => row.condition === 'on').condition = null; });
+  assert.deepEqual(campaignCompleteness(noCondition), { complete: false, missingRuns: 1, unscheduledRows: 0, pausedRuns: 0 });
+  assertJev(record(evaluate({ autopilot: noCondition })), 'inconclusive', ['campaign_incomplete']);
+
+  // A dropped row, a duplicated row and an unrebuildable schedule on the claude side make only mcp-non-jev inconclusive.
+  const dropped = withRows(CLAUDE, (runs) => { runs.splice(3, 1); });
+  assert.deepEqual(campaignCompleteness(dropped), { complete: false, missingRuns: 1, unscheduledRows: 0, pausedRuns: 0 });
+  const droppedResult = record(evaluate({ claude: dropped }));
+  assert.deepEqual(nonJevOf(droppedResult).reasons, ['campaign_incomplete']);
+  assert.deepEqual(JEV_SNAPSHOT(droppedResult), JEV_SNAPSHOT(PASS));
+  const duplicated = withRows(CLAUDE, (runs) => { runs.push(clone(runs[0])); });
+  assert.deepEqual(campaignCompleteness(duplicated), { complete: false, missingRuns: 0, unscheduledRows: 1, pausedRuns: 0 });
+  const noTasks = { identity: { ...clone(CLAUDE.identity), tasks: null }, runs: CLAUDE.runs };
+  assert.deepEqual(campaignCompleteness(noTasks), { complete: false, missingRuns: null, unscheduledRows: null, pausedRuns: 0 });
+
+  // The baseline is checked the same way (the fallback campaigns are covered in the fallback tests).
+  const shortBaseline = withRows(BASELINE, (runs) => { runs.splice(0, 2); });
+  assert.ok(nonJevOf(record(evaluate({ baseline: shortBaseline }))).reasons.includes('campaign_incomplete'));
+});
+
 // --- Task 2: the drift sentinel ---------------------------------------------------------------
 
 test('sentinel: off equals the pin on the default fixtures', () => {
@@ -834,6 +886,14 @@ test('fallback: a sentinel trip plus a passing core-rebaseline-71 replaces the n
   assert.equal(failed.fallback.status, 'used');
   assert.equal(nonJevOf(failed).verdict, 'fail');
   assert.deepEqual(nonJevOf(failed).reasons, ['time_noninferiority']);
+
+  // A fallback candidate that never finished its schedule is inconclusive, never a pass (WR-02).
+  const unfinished = { ...FALLBACK, candidate: withRows(FALLBACK.candidate, (runs) => { runs.pop(); }) };
+  const incomplete = record(evaluate({ ...SENTINEL_TRIP, fallback: unfinished }));
+  assert.equal(incomplete.fallback.status, 'used');
+  assert.equal(incomplete.fallback.campaigns.candidate.complete, false);
+  assert.equal(nonJevOf(incomplete).verdict, 'inconclusive');
+  assert.deepEqual(nonJevOf(incomplete).reasons, ['campaign_incomplete']);
 
   // An identity mismatch inside the fallback pair is inconclusive, never a pass.
   const drifted = fallbackCampaigns({ candidate: { identity: { hosts: { claude: { version: '2.1.999 (Claude Code)' } } } } });

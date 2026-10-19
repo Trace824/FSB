@@ -30,7 +30,9 @@
  *   rows of the wrong schema.
  * - Inconclusive, never a pass: an identity mismatch on the gate's D-06 fields
  *   (the corpus is compared with the gate's lock), resume drift, a campaign
- *   under its minRounds, and a drift sentinel that is not 'pass'. A sentinel
+ *   under its minRounds, a campaign whose rows are not exactly its schedule
+ *   or that is still paused (campaign_incomplete), and a drift sentinel that
+ *   is not 'pass'. A sentinel
  *   trip carries the gate's blocker and leaves the within-campaign Jev verdict
  *   unaffected.
  * - The predeclared core-rebaseline-71 fallback replaces only a non-Jev
@@ -48,7 +50,7 @@
 
 import { isDeepStrictEqual } from 'node:util';
 
-import { END_LABELS, isClaimedSuccess } from '../../lib/runs.mjs';
+import { END_LABELS, PAUSING_INFRA_CODES, buildSchedule, isClaimedSuccess } from '../../lib/runs.mjs';
 import { aaNoiseFloor, geoMeanMedianRatio, newcombeDifference, wilson } from '../../lib/stats.mjs';
 import { corpusDigest } from './gate.mjs';
 
@@ -77,7 +79,7 @@ export const REASONS = Object.freeze([
   // The exercised precondition (D-16)
   'no_on_runs', 'uncalibrated', 'acted_share_below_min', 'model_instrument_pair', 'condition_leak',
   // Guards (D-05, D-06; Pitfalls 1, 8)
-  'underpowered', 'resume_drift', 'corpus_mismatch', 'identity_mismatch', 'sentinel_trip', 'sentinel_inconclusive',
+  'underpowered', 'campaign_incomplete', 'resume_drift', 'corpus_mismatch', 'identity_mismatch', 'sentinel_trip', 'sentinel_inconclusive',
   // The sentinel's own result
   'completion_not_equivalent', 'speed_outside_band', 'sentinel_unavailable',
 ]);
@@ -617,6 +619,58 @@ export function meetsMinRounds(campaign, minRounds) {
   return Number.isSafeInteger(scheduled) && scheduled >= minRounds && observed !== null && observed >= minRounds;
 }
 
+// The identity's seeded schedule rebuilt with the runner's own buildSchedule
+// (identity.tasks and identity.schedule), or null when it cannot be rebuilt.
+function scheduleOf(identity) {
+  const schedule = isPlainObject(identity) && isPlainObject(identity.schedule) ? identity.schedule : null;
+  if (!schedule || !Array.isArray(identity.tasks)) return null;
+  try {
+    return buildSchedule({
+      campaignId: identity.campaignId,
+      taskIds: identity.tasks.map((task) => (isPlainObject(task) ? task.id : null)),
+      rounds: schedule.rounds,
+      arms: schedule.arms,
+      seed: schedule.seed,
+      conditions: schedule.conditions === undefined ? null : schedule.conditions,
+    });
+  } catch {
+    return null;
+  }
+}
+
+const conditionOf = (value) => (value === undefined ? null : value);
+
+/**
+ * Whether a campaign's rows are exactly its schedule (WR-02). The highest
+ * round alone does not show it: a campaign paused part-way through a round
+ * and never resumed, a dropped row or a row with no condition would all still
+ * reach minRounds. Complete means one row for every run the identity
+ * scheduled, matching the entry's arm, round, task and condition, no other
+ * row, and no row whose latest attempt is a pausing infra code (the campaign
+ * paused there and was never resumed). The counts are null when the identity
+ * cannot rebuild its schedule, which is never complete.
+ */
+export function campaignCompleteness(campaign) {
+  const identity = isPlainObject(campaign) && isPlainObject(campaign.identity) ? campaign.identity : null;
+  const rows = listOf(isPlainObject(campaign) ? campaign.runs : null);
+  const pausedRuns = rows.filter((row) => PAUSING_INFRA_CODES.includes(row.infraError)).length;
+  const schedule = scheduleOf(identity);
+  if (schedule === null) return { complete: false, missingRuns: null, unscheduledRows: null, pausedRuns };
+  const expected = new Set(schedule.map((entry) => entry.runId));
+  const byRunId = new Map();
+  let unscheduledRows = 0;
+  for (const row of rows) {
+    if (!expected.has(row.runId) || byRunId.has(row.runId)) unscheduledRows += 1;
+    else byRunId.set(row.runId, row);
+  }
+  const missingRuns = schedule.filter((entry) => {
+    const row = byRunId.get(entry.runId);
+    return !row || row.arm !== entry.arm || row.round !== entry.round || row.taskId !== entry.taskId
+      || conditionOf(row.condition) !== conditionOf(entry.condition);
+  }).length;
+  return { complete: missingRuns === 0 && unscheduledRows === 0 && pausedRuns === 0, missingRuns, unscheduledRows, pausedRuns };
+}
+
 function stringOrNull(value) {
   return typeof value === 'string' ? value : null;
 }
@@ -625,6 +679,7 @@ function campaignFacts(campaign, minRounds, gate) {
   const identity = isPlainObject(campaign) && isPlainObject(campaign.identity) ? campaign.identity : null;
   const git = identity && isPlainObject(identity.git) ? identity.git : {};
   const schedule = identity && isPlainObject(identity.schedule) ? identity.schedule : {};
+  const completeness = campaignCompleteness(campaign);
   return {
     id: identity ? stringOrNull(identity.campaignId) : null,
     createdAt: identity ? stringOrNull(identity.createdAt) : null,
@@ -634,6 +689,10 @@ function campaignFacts(campaign, minRounds, gate) {
     observedRounds: observedRounds(isPlainObject(campaign) ? campaign.runs : null),
     minRounds,
     meetsMinRounds: meetsMinRounds(campaign, minRounds),
+    complete: completeness.complete,
+    missingRuns: completeness.missingRuns,
+    unscheduledRows: completeness.unscheduledRows,
+    pausedRuns: completeness.pausedRuns,
     resumeDrift: resumeDrift(identity),
     corpusMatch: identityValue(identity, 'corpus') === gate.corpusLockSha256,
     reported: Object.fromEntries(gate.identityMatch.reported.map((field) => [field, identityValue(identity, field)])),
@@ -807,6 +866,7 @@ export function evaluateFallback({ gate, gateSha256, primary, fallback, candidat
   const guards = unique([
     ...identityMismatches(pin.identity, candidate.identity, gate.identityMatch.claude, gate).map((field) => `identity_mismatch:${field}`),
     ...(campaigns.pin.meetsMinRounds && campaigns.candidate.meetsMinRounds ? [] : ['underpowered']),
+    ...(campaigns.pin.complete && campaigns.candidate.complete ? [] : ['campaign_incomplete']),
     ...(campaigns.pin.resumeDrift || campaigns.candidate.resumeDrift ? ['resume_drift'] : []),
   ]);
   const decided = nonJevVerdict({ criteria, guards });
@@ -941,6 +1001,7 @@ export function evaluateGate(input, { iterations } = {}) {
     guards: unique([
       ...identityMismatches(baseline.identity, autopilot.identity, gate.identityMatch.autopilot, gate).map((field) => `identity_mismatch:${field}`),
       ...(campaigns.baseline.meetsMinRounds && campaigns.autopilot.meetsMinRounds ? [] : ['underpowered']),
+      ...(campaigns.baseline.complete && campaigns.autopilot.complete ? [] : ['campaign_incomplete']),
       ...(campaigns.baseline.resumeDrift || campaigns.autopilot.resumeDrift ? ['resume_drift'] : []),
     ]),
     opts,
@@ -950,6 +1011,7 @@ export function evaluateGate(input, { iterations } = {}) {
   const jev = jevCriteria(groups, gate, input, opts);
   const jevGuards = [
     ...(campaigns.autopilot.meetsMinRounds ? [] : ['underpowered']),
+    ...(campaigns.autopilot.complete ? [] : ['campaign_incomplete']),
     ...(campaigns.autopilot.resumeDrift ? ['resume_drift'] : []),
     ...(campaigns.autopilot.corpusMatch ? [] : ['corpus_mismatch']),
   ];
@@ -967,6 +1029,7 @@ export function evaluateGate(input, { iterations } = {}) {
   const nonJevGuards = unique([
     ...identityMismatches(baseline.identity, claude.identity, gate.identityMatch.claude, gate).map((field) => `identity_mismatch:${field}`),
     ...(campaigns.baseline.meetsMinRounds && campaigns.claude.meetsMinRounds ? [] : ['underpowered']),
+    ...(campaigns.baseline.complete && campaigns.claude.complete ? [] : ['campaign_incomplete']),
     ...(campaigns.baseline.resumeDrift || campaigns.claude.resumeDrift ? ['resume_drift'] : []),
     ...sentinelGuards(sentinel, gate),
   ]);
