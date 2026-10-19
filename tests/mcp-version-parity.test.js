@@ -339,6 +339,7 @@ async function run() {
     ['root README', rootReadme],
     ['MCP README', packageReadme],
     ['extension onboarding', readText('extension/ui/onboarding.js')],
+    ['showcase home page', readText('showcase/angular/src/app/pages/home/home-page.component.html')],
     ['showcase about page', readText('showcase/angular/src/app/pages/about/about-page.component.html')],
     ['showcase agents page', readText('showcase/angular/src/app/pages/agents/agents-page.component.html')],
     ['showcase agents metadata', readText('showcase/angular/src/app/pages/agents/agents-page.component.ts')],
@@ -388,8 +389,11 @@ async function run() {
     assert(content.includes(`fsb-mcp-server ${canonicalVersion}`), `${name} advertises the canonical MCP release`);
   }
   for (const [name, content] of liveToolCountSources) {
-    assert(!/\b66(?:-tool| MCP| granular| registered)|\(66 tools\)|Tools \(66 Total\)/u.test(content),
-      `${name} contains no stale 66-tool surface claim`);
+    // Phase 71 (71-11): 68 and 69 are stale too, including the '68 available'
+    // summary form and the '68 <span>MCP</span> tools' / '68 <x .../>MCP'
+    // placeholder form in the templates and the xlf catalogs.
+    assert(!/\b6[689](?:-tool| MCP| granular| registered| tools| Tools| available)|\b6[689] <(?:span|x)\b[^>]*>MCP|\(6[689] tools\)|Tools \(6[689] Total\)/u.test(content),
+      `${name} contains no stale 66/68/69-tool surface claim`);
   }
   // Phase 71 D-27: the documented count follows the Tool Count Contract marker
   // in mcp/README.md against the built tools/list length, never a literal.
