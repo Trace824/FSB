@@ -50,6 +50,7 @@ import {
   buildDecision,
   checkClaims,
   describePath,
+  formatClaimValue,
   validateDecision,
 } from '../scripts/bench/gate/lib/decision.mjs';
 import { corpusDigest, loadGate } from '../scripts/bench/gate/lib/gate.mjs';
@@ -1136,6 +1137,22 @@ test('claims: the cost sentence states LLM cost for control and fast and the FSB
   const expectedLlm = on.reduce((sum, row) => sum + row.cost.usd, 0) / on.filter((row) => row.pass).length;
   assert.ok(Math.abs(cost.tokens[1].value - expectedLlm) < 1e-12);
   assert.equal(buildClaims(PASS_SCENARIO.result).some((entry) => entry.id === 'cost'), false, 'no rows, no cost sentence');
+});
+
+test('claims: a sub-cent cost keeps two significant digits and never reads $0.0000 (CR-01)', () => {
+  assert.equal(formatClaimValue('cost', 0.0000378), '$0.000038');
+  assert.notEqual(formatClaimValue('cost', 0.0000378), '$0.0000');
+  assert.equal(formatClaimValue('cost', 3.78e-7), '$0.00000038');
+  assert.equal(formatClaimValue('cost', 0.009999), '$0.009999');
+  assert.equal(formatClaimValue('cost', 0.0123456), '$0.0123');
+  assert.equal(formatClaimValue('cost', 0), '$0.0000');
+  assert.equal(formatClaimValue('cost', null), 'unavailable');
+  const cost = PASS_SCENARIO.decision.claims.find((entry) => entry.id === 'cost');
+  const jevOn = cost.tokens.find((item) => item.name === 'jevOn');
+  assert.ok(jevOn.value > 0 && jevOn.value < 0.01, `${jevOn.value}`);
+  assert.equal(/\$0\.0000\b/.test(cost.text), false, cost.text);
+  assert.ok(cost.text.includes(`with it on was ${formatClaimValue('cost', jevOn.value)} (provider-reported)`), cost.text);
+  assert.deepEqual(checkClaims(PASS_SCENARIO.decision.claims), { ok: true, errors: [] });
 });
 
 test('claims: every token carries an allowed source, the checker re-renders each text, and a jevMs token fails it', () => {

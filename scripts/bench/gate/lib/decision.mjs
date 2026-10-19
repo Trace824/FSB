@@ -149,12 +149,23 @@ function signedOneDecimal(points) {
   return `${sign}${Math.abs(rounded).toFixed(1)}`;
 }
 
+// Dollars: four decimals from a cent up, and at least two significant digits
+// below it (never fewer than six decimals, as report.mjs fmtUsdFine), since
+// Jev cost per completed task is a fraction of a cent and must never read
+// $0.0000.
+function usd(value) {
+  const magnitude = Math.abs(value);
+  if (magnitude === 0 || magnitude >= 0.01) return `$${value.toFixed(4)}`;
+  const decimals = Math.min(20, Math.max(6, 1 - Math.floor(Math.log10(magnitude))));
+  return `$${value.toFixed(decimals)}`;
+}
+
 // One formatter per source; a missing value reads 'unavailable', never null or NaN.
 const FORMATTERS = Object.freeze({
   'wallMs-ratio': (value) => `${(value * 100).toFixed(1)}%`,
   'completion-diff': (value) => signedOneDecimal(value * 100),
   'completion-count': (value) => String(Math.round(value)),
-  cost: (value) => `$${value.toFixed(4)}`,
+  cost: usd,
 });
 
 /** The rendered value of one token, by its source's formatter. */
