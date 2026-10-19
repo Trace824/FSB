@@ -2273,8 +2273,10 @@
   // session._fastRunStartPage (PD-70-02).
   // ---------------------------------------------------------------------------
 
-  // These return inside the tool loop before their own after-tool event, so
-  // they are never marked in flight.
+  // These end the task inside the tool loop, before their own after-tool
+  // event, so they are never marked in flight. (A partial_task that inline
+  // auth resolution resumes does not end the task: it gets an after-tool
+  // event and is recorded like any other call.)
   var RUN_TERMINAL_TOOLS = ['complete_task', 'partial_task', 'fail_task'];
   // A Jev-chosen step whose effect nothing showed (D-14 b).
   var FAST_UNOBSERVED_OUTCOMES = ['unconfirmed', 'uncertain', 'no_effect'];
@@ -2400,8 +2402,15 @@
    * nothing without one, never throws and returns undefined, so it can
    * change nothing in the loop:
    *   beforeTool  calls run one at a time, so it first clears the in-flight
-   *               marker (a permission-denied call gets no after event), then
-   *               marks this call in flight unless it is a terminal tool;
+   *               marker, then marks this call in flight unless it is a
+   *               terminal tool. Two kinds of call get no after event: a
+   *               permission-denied call, which never ran, and a call whose
+   *               dispatch threw, which may have run; the loop then retries
+   *               the iteration under the same number, and the retry's first
+   *               call clears that marker too, so D-14 c counts such a call
+   *               only when the task ends before another call (a known
+   *               residual; a retried turn usually fails on the unpaired
+   *               tool call and leaves the marker set);
    *   afterTool   clears the marker; notes an uncertain result of any call
    *               (D-14 a), a fast step that showed no effect (D-14 b), a
    *               page read by the LLM that reached the page (an
