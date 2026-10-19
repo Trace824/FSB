@@ -1,14 +1,14 @@
 # Changelog
 
-All notable changes to the FSB product (Chrome extension + showcase dashboard) are documented in this file. Entries are organized by FSB milestone. The extension version is `0.9.93`; milestone versions such as `v0.11.0` and `v0.12.0` are the meaningful release units.
+All notable changes to the FSB product (Chrome extension + showcase dashboard) are documented in this file. Entries are organized by FSB milestone. The extension version is `0.9.95`; milestone versions such as `v0.11.0` and `v0.12.0` are the meaningful release units.
 
 The independently published `fsb-mcp-server` npm package keeps its own semver changelog in [`mcp/CHANGELOG.md`](./mcp/CHANGELOG.md).
 
 ## [Unreleased]
 
-## v0.9.93 — Multilingual Extension Interface — 2026-10-18
+## v0.9.95 — Multilingual Extension Interface and Official Cline Support — 2026-10-18
 
-The extension, showcase, skill, documentation, and store metadata align at `0.9.93`. The independently versioned `fsb-mcp-server` stays at `0.11.2`; see [`mcp/CHANGELOG.md`](./mcp/CHANGELOG.md) for its package-specific release notes. MCP tool schemas and bridge messages are unchanged, so `fsb-mcp-server` 0.11.2 works with this release as is.
+The extension, showcase, skill, documentation, and store metadata align at `0.9.95`. The independently versioned `fsb-mcp-server` advances to `0.11.5` with the accompanying Cline installer fix; see [`mcp/CHANGELOG.md`](./mcp/CHANGELOG.md) for its package-specific release notes and compatibility requirements. The language work leaves MCP tool schemas and bridge messages unchanged.
 
 ### Added
 
@@ -17,7 +17,12 @@ The extension, showcase, skill, documentation, and store metadata align at `0.9.
 - **A language picker in Advanced Settings switches without restarting Chrome.** The control panel's Advanced Settings › Appearance group carries a Language card next to Theme that lists every language by its own name. The choice is saved in `chrome.storage.local` under `fsbUiLocale`, and open FSB pages and in-page overlays re-render as soon as it changes. Choosing Automatic clears the saved choice, so FSB follows Chrome's language list again.
 - **The extension's name and description follow the browser language.** The manifest declares `default_locale` and reads its name and description through `__MSG_ext_name__` and `__MSG_ext_description__`. Chrome resolves them in the browser's UI language, so the picker inside FSB does not change them, and the control panel says so beside the picker. The name on `chrome://extensions` is now `FSB`, without a version suffix.
 - **Catalog gaps fail CI.** `scripts/verify-extension-i18n.mjs` fails on a missing key, an empty message, mismatched placeholders between languages, unreviewed copied English, or a dropped protected term such as FSB; `scripts/verify-extension-copy.mjs` fails when one of the 13 in-scope UI files keeps package-owned English outside the catalogs. Both run at the start of `npm test`, so a new key has to land in all seven catalogs in the same change.
-- **Release notes for 0.9.93 on the showcase.** The release-notes page documents this release in all seven site languages.
+- **Release notes for 0.9.95 on the showcase.** The release-notes page documents this release in all seven site languages.
+- **Cline is an officially supported MCP client.** The onboarding and showcase install pickers offer `install --cline` with the Cline logo, and the READMEs document Cline's shared settings file. A Cline session is labeled Cline on the owner chip and in the client inventory whether it connects from the VS Code extension or the SDK-based Cline CLI, and anonymous usage stats count it as Cline instead of `unknown`, with the same conservative cost fallback as other bring-your-own-model clients. The companion installer fix ships in `fsb-mcp-server` 0.11.5.
+
+### Changed
+
+- The Grok Bot plugin launches `fsb-mcp-server@0.11.5`; it previously pinned 0.11.0.
 
 ### Unchanged
 

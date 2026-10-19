@@ -40,11 +40,12 @@
     { id: 'windsurf', name: 'Windsurf', logo: 'windsurf.svg', flag: '--windsurf', cmd: 'npx -y fsb-mcp-server@latest install --windsurf' },
     { id: 'codex', name: 'Codex', logo: 'openai.svg', flag: '--codex', cmd: 'npx -y fsb-mcp-server@latest install --codex' },
     { id: 'opencode', name: 'OpenCode', logo: 'opencode.svg', flag: '--opencode', cmd: 'npx -y fsb-mcp-server@latest install --opencode' },
+    { id: 'cline', name: 'Cline', logo: 'cline.svg', flag: '--cline', cmd: 'npx -y fsb-mcp-server@latest install --cline' },
     { id: 'openclaw', name: 'OpenClaw', logo: 'openclaw.svg', flag: '', cmd: 'npx -y fsb-mcp-server@latest' },
     { id: 'all', name: 'All Clients', logo: 'all.svg', flag: '--all', cmd: 'npx -y fsb-mcp-server@latest install --all' }
   ];
 
-  const ROLL_CLIENTS = INSTALL_CLIENTS.slice(0, 7);
+  const ROLL_CLIENTS = INSTALL_CLIENTS.slice(0, 8);
   const ALL_INSTALL_CLIENT_IDS = [
     'claude-code',
     'claude-desktop',
@@ -52,7 +53,8 @@
     'vscode',
     'windsurf',
     'codex',
-    'opencode'
+    'opencode',
+    'cline'
   ];
   const FSB_AGENT_PROVIDERS_STORAGE_KEY = 'fsbAgentProviders';
   function ob(key, english, subs) {

@@ -79,6 +79,45 @@ function mergeServerEntry(data, serverMapKey, serverName, entry, mergeStrategy) 
     }
 }
 /**
+ * Find the current server entry, if any, under the platform's root key.
+ * @param data - Current config data
+ * @param serverMapKey - Root key
+ * @param serverName - Server name
+ * @param mergeStrategy - How entries are stored: 'object-map' or 'named-array'
+ * @returns The existing entry, or undefined when there is none
+ */
+function findExistingEntry(data, serverMapKey, serverName, mergeStrategy) {
+    const container = data[serverMapKey];
+    if (mergeStrategy === 'named-array') {
+        return Array.isArray(container)
+            ? container.find((item) => item?.name === serverName)
+            : undefined;
+    }
+    if (!container || typeof container !== 'object' || Array.isArray(container))
+        return undefined;
+    return container[serverName];
+}
+/**
+ * Copy the platform's preserved keys from the existing entry onto the new one,
+ * in the order the existing entry lists them, so a reinstall keeps settings the
+ * user chose in the client and an otherwise unchanged entry still compares equal.
+ * @param entry - Server entry FSB would write
+ * @param existing - Entry currently in the config, if any
+ * @param keys - Keys the client owns on the entry
+ * @returns The entry to write
+ */
+function carryOverPreservedKeys(entry, existing, keys) {
+    if (!keys?.length || !existing || typeof existing !== 'object' || Array.isArray(existing)) {
+        return entry;
+    }
+    const merged = { ...entry };
+    for (const [key, value] of Object.entries(existing)) {
+        if (keys.includes(key) && value !== undefined)
+            merged[key] = value;
+    }
+    return merged;
+}
+/**
  * Check if FSB is already configured identically (idempotency check).
  * @param data - Current config data
  * @param serverMapKey - Root key
@@ -142,7 +181,7 @@ export async function installToConfig(configPath, platform, serverName, entry = 
             };
         }
         // 2. Build the server entry (use caller-provided entry or fall back to default)
-        const serverEntry = entry || { ...getServerEntry() };
+        const baseEntry = entry || { ...getServerEntry() };
         const strategy = platform.mergeStrategy;
         // 3. Read existing file or start fresh, backup before any mutation
         let data = {};
@@ -153,6 +192,8 @@ export async function installToConfig(configPath, platform, serverName, entry = 
             const raw = await readFile(configPath, 'utf-8');
             data = parseByFormat(raw, platform.format);
         }
+        // Keep client-owned settings from an existing entry (e.g. Cline's auto-approve list)
+        const serverEntry = carryOverPreservedKeys(baseEntry, findExistingEntry(data, platform.serverMapKey, serverName, strategy), platform.preservedEntryKeys);
         // 4. Check idempotency (INST-04) -- skip if already identical
         if (checkIdempotent(data, platform.serverMapKey, serverName, serverEntry, strategy)) {
             return {

@@ -487,6 +487,7 @@ function canonicalLabelFromClientInfo(clientInfo) {
   if (name.includes('opencode')) return 'OpenCode';
   if (name.includes('cursor')) return 'Cursor';
   if (name.includes('windsurf')) return 'Windsurf';
+  if (name.includes('cline')) return 'Cline';
   return null;
 }
 

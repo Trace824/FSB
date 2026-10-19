@@ -38,11 +38,18 @@ Use this package when you want your AI client to drive the browser directly whil
 
 > **PhantomStream (engineering milestone 0.12.0):** the dashboard live-preview and remote-control relay are now powered by the published `@full-self-browsing/phantom-stream` package on the extension and showcase side. This is an internal capture/renderer/transport change — the MCP tool schemas, routes, and bridge contracts in this server are unchanged.
 
+### What's New In v0.11.5
+
+- `install --cline` writes `~/.cline/data/settings/cline_mcp_settings.json`, the settings file Cline's VS Code extension, JetBrains plugin, and CLI share. Earlier versions wrote a VS Code extension-storage file that current Cline ignores after its one-time import, so rerun the install if FSB never appeared in Cline.
+- Cline entries set `timeout: 1800` (seconds) so long `run_task` calls are not cut off by Cline's fixed 60-second request timeout.
+- Reinstalling keeps the `timeout`, `disabled`, and `autoApprove` settings Cline stores on the `fsb` entry.
+- **Compatibility:** `fsb-mcp-server` 0.11.5 requires FSB extension 0.9.95 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
+
 ### What's New In v0.11.2
 
 - The FSB dark logo ships with the MCP package and is advertised as an embedded PNG server icon. Update the package and restart the MCP host to make it available to clients that render MCP icons.
 - The MCP Registry uses the matching hosted dark logo. Rendering remains client-controlled.
-- **Compatibility:** `fsb-mcp-server` 0.11.2 requires FSB extension 0.9.93 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
+- **0.11.2 compatibility:** `fsb-mcp-server` 0.11.2 requires FSB extension 0.9.92 or newer for `mcp:task-status`. Upgrade the extension and restart the MCP host together.
 
 ### What's New In v0.11.1
 
@@ -122,7 +129,7 @@ Common file or CLI targets:
 | `--cursor` | Cursor |
 | `--vscode` | VS Code |
 | `--windsurf` | Windsurf |
-| `--cline` | Cline |
+| `--cline` | Cline (VS Code, JetBrains, CLI) |
 | `--zed` | Zed |
 | `--codex` | Codex CLI / Codex IDE |
 | `--gemini` | Gemini CLI |
@@ -152,7 +159,7 @@ command: npx
 args: -y fsb-mcp-server@latest
 ```
 
-For file-based targets, existing config files are parsed, updated, and serialized back in the platform's expected format: JSON, JSONC, TOML, or YAML. For Claude Code, the installer delegates to the `claude mcp add --scope user` CLI command. For instruction-only targets, it prints steps instead of guessing at a private config path.
+For file-based targets, existing config files are parsed, updated, and serialized back in the platform's expected format: JSON, JSONC, TOML, or YAML. Cline entries also set `timeout: 1800`, and reinstalling keeps the `timeout`, `disabled`, and `autoApprove` settings Cline stores on the entry. For Claude Code, the installer delegates to the `claude mcp add --scope user` CLI command. For instruction-only targets, it prints steps instead of guessing at a private config path.
 
 Use `--dry-run` before `--all` when you want to see planned writes without changing files.
 
@@ -189,6 +196,7 @@ npx -y fsb-mcp-server@latest install --cursor
 npx -y fsb-mcp-server@latest install --vscode
 npx -y fsb-mcp-server@latest install --windsurf
 npx -y fsb-mcp-server@latest install --codex
+npx -y fsb-mcp-server@latest install --cline
 npx -y fsb-mcp-server@latest install --all
 ```
 
@@ -263,6 +271,20 @@ VS Code uses the `servers` root key and requires `type: "stdio"`:
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "fsb-mcp-server@latest"]
+    }
+  }
+}
+```
+
+Cline (`~/.cline/data/settings/cline_mcp_settings.json`) is shared by the Cline VS Code extension, JetBrains plugin, and CLI. The installer honors `CLINE_MCP_SETTINGS_PATH`, `CLINE_DATA_DIR`, and `CLINE_DIR` the way Cline does, and falls back to the VS Code extension-storage file used by older Cline builds only when no shared settings directory exists. `timeout` is in seconds: Cline applies one fixed timeout per request, 60 seconds by default, which would cut off a long `run_task`.
+
+```json
+{
+  "mcpServers": {
+    "fsb": {
+      "command": "npx",
+      "args": ["-y", "fsb-mcp-server@latest"],
+      "timeout": 1800
     }
   }
 }
@@ -664,9 +686,9 @@ The build command copies `extension/ai/tool-definitions.js` into `mcp/ai/tool-de
 
 ### Versioning
 
-The MCP package has its own version (`0.11.2`) because it is published independently from the extension release (`0.9.93`). Use `npm run version:set:mcp -- X.Y.Z` for MCP releases and `npm run version:set:extension -- X.Y.Z` for extension releases; `npm run version:check` verifies both domains without requiring them to match.
+The MCP package has its own version (`0.11.5`) because it is published independently from the extension release (`0.9.95`). Use `npm run version:set:mcp -- X.Y.Z` for MCP releases and `npm run version:set:extension -- X.Y.Z` for extension releases; `npm run version:check` verifies both domains without requiring them to match.
 
-Compatibility for this release: MCP 0.11.2 requires extension 0.9.93 or newer for the `mcp:task-status` route used by `complete_task`, `partial_task`, and `fail_task`. Existing `0.10.0` tool routes remain additive and unchanged.
+Compatibility for this release: MCP 0.11.5 requires extension 0.9.95 or newer for the `mcp:task-status` route used by `complete_task`, `partial_task`, and `fail_task`. Existing `0.10.0` tool routes remain additive and unchanged.
 
 Contract-sensitive changes should be covered by tests before publishing:
 
@@ -680,14 +702,14 @@ Contract-sensitive changes should be covered by tests before publishing:
 - trigger contract: `trigger`, `stop_trigger`, `get_trigger_status`, `list_triggers`, blocking/detached reporting, and local browser-open limits
 - terminal task-outcome contract: `mcp:task-status`, agent/ownership context, serialized lifecycle ordering, and `fail_task` acknowledgement semantics
 
-### Releasing 0.11.2
+### Releasing 0.11.5
 
-This 0.11.2 build is release-prep ready. Merging a new MCP version into `main` automatically publishes the verified npm package to `latest` and creates its `mcp-vX.Y.Z` tag and GitHub release. Main pushes whose MCP version is already published skip publishing. Bump the MCP version with `npm run version:set:mcp -- X.Y.Z` before merging a new release.
+This 0.11.5 build is release-prep ready. Merging a new MCP version into `main` automatically publishes the verified npm package to `latest` and creates its `mcp-vX.Y.Z` tag and GitHub release. Main pushes whose MCP version is already published skip publishing. Bump the MCP version with `npm run version:set:mcp -- X.Y.Z` before merging a new release.
 
 To publish:
 
 - Preferred: merge the versioned release into `main`; the npm workflow builds the Windows native-host artifacts, verifies the packed payload, publishes to npm, and creates the release automatically.
-- Explicit tag alternative: for an unpublished version already on `main`, run `git tag mcp-v0.11.2 && git push origin mcp-v0.11.2`. Tag-triggered releases still require the tag to match the package version and reject an already-published version.
+- Explicit tag alternative: for an unpublished version already on `main`, run `git tag mcp-v0.11.5 && git push origin mcp-v0.11.5`. Tag-triggered releases still require the tag to match the package version and reject an already-published version.
 - Manual MCP fallback: from the release commit, run `cd mcp && npm publish --tag latest` only after confirming `npm whoami`, `npm --prefix mcp run build`, and the MCP smoke/parity/schema gates all pass.
 
 Use the release workflow for normal releases so the native-host packaging and integrity checks run before publication.

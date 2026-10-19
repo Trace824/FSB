@@ -2,6 +2,28 @@
 
 All notable changes to `fsb-mcp-server` are documented in this file. Each entry corresponds to a published npm release; FSB extension milestones map to MCP package versions in the entry header.
 
+<a id="v0.11.5"></a>
+
+## 0.11.5 (2026-10-18)
+
+Patch release making Cline an officially supported install target, released alongside FSB extension 0.9.95.
+
+### Fixed
+
+- **`install --cline` writes the file current Cline reads.** Cline's VS Code extension, JetBrains plugin, and CLI share `~/.cline/data/settings/cline_mcp_settings.json`, and Cline imports its older VS Code extension-storage file only once, on upgrade. The installer still wrote the old file, so on an upgraded Cline it reported success and FSB never appeared. It now targets the shared file, honors `CLINE_MCP_SETTINGS_PATH`, `CLINE_DATA_DIR`, and `CLINE_DIR` the way Cline does, and uses the old file only when no shared settings directory exists.
+- **Long tool calls finish in Cline.** Cline applies one fixed timeout to every MCP request, 60 seconds unless configured, and does not extend it on progress notifications, so `run_task` was cut off. Cline entries now set `timeout: 1800` (seconds).
+
+### Changed
+
+- Reinstalling into Cline keeps the `timeout`, `disabled`, and `autoApprove` settings Cline stores on the `fsb` entry, so `install --all` no longer resets a Cline user's auto-approved tools.
+- `setup` prints a Cline section with the settings path and entry.
+
+### Compatibility and update
+
+- Server identity, capabilities, tool schemas, bridge contracts, and dependency versions are unchanged. Only the installer and its `setup` guidance changed. Pair it with FSB extension 0.9.95, which adds Cline to onboarding and labels Cline sessions as Cline.
+- Cline users who installed with an earlier version should rerun `npx -y fsb-mcp-server@latest install --cline` so FSB lands in the shared settings file.
+- Merging this release into `main` automatically publishes `fsb-mcp-server@0.11.5` and creates the `mcp-v0.11.5` GitHub release. Later main pushes skip publication when the MCP version is already on npm; explicit MCP release tags remain supported.
+
 <a id="v0.11.2"></a>
 
 ## 0.11.2 (2026-10-14)
@@ -16,7 +38,6 @@ Patch release adding the FSB dark logo to MCP server metadata.
 ### Compatibility and update
 
 - Extension compatibility remains FSB 0.9.92 or newer. Server identity, capabilities, tool schemas, installer configuration, and dependency versions are unchanged.
-- FSB extension 0.9.93 (2026-10-18) ships against this same package: its multilingual interface changes no MCP tool schemas or bridge messages, so there is no MCP release for it. The README compatibility line tracks the current extension release and now names 0.9.93; pair `fsb-mcp-server` 0.11.2 with extension 0.9.93.
 - Icon rendering depends on the MCP client; clients that ignore icon metadata keep their existing display.
 - Merging this release into `main` automatically publishes `fsb-mcp-server@0.11.2` and creates the `mcp-v0.11.2` GitHub release. Later main pushes skip publication when the MCP version is already on npm; explicit MCP release tags remain supported.
 

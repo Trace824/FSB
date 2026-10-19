@@ -18,7 +18,8 @@ const ALL_CLIENT_IDS = [
   'vscode',
   'windsurf',
   'codex',
-  'opencode'
+  'opencode',
+  'cline'
 ];
 
 function sha256(filePath) {
@@ -138,7 +139,7 @@ function createHarness(initialStore, options) {
   const allIdsMatch = ONBOARDING_SOURCE.match(/const ALL_INSTALL_CLIENT_IDS = \[([\s\S]*?)\];/);
   assert(allIdsMatch, 'all-client expansion constant exists');
   const sourceAllIds = Array.from(allIdsMatch[1].matchAll(/'([^']+)'/g), (match) => match[1]);
-  assert.deepStrictEqual(sourceAllIds, ALL_CLIENT_IDS, 'all expands to the exact seven flag-backed ids');
+  assert.deepStrictEqual(sourceAllIds, ALL_CLIENT_IDS, 'all expands to the exact eight flag-backed ids');
   assert(!sourceAllIds.includes('openclaw'), 'all expansion excludes openclaw');
 
   const copyCommandSource = extractFunction(ONBOARDING_SOURCE, 'copyCommand');
@@ -229,7 +230,7 @@ function createHarness(initialStore, options) {
     await harness.api.flushCopyWrites();
     const envelope = plain(harness.store.fsbAgentProviders);
     assert.deepStrictEqual(Object.keys(envelope.clicked).sort(), ALL_CLIENT_IDS.slice().sort(),
-      'all writes exactly seven clicked entries');
+      'all writes exactly eight clicked entries');
     ALL_CLIENT_IDS.forEach((id) => {
       assert.deepStrictEqual(envelope.clicked[id], {
         count: 1,

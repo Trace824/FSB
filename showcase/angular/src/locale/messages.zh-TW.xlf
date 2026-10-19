@@ -6403,7 +6403,7 @@
         <target state="translated">所有用戶端</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">95</context>
+          <context context-type="linenumber">97</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.install.manualFlag" datatype="html">
@@ -6411,7 +6411,7 @@
         <target state="translated">手動</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">98</context>
+          <context context-type="linenumber">100</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.meta.title" datatype="html">
@@ -6419,7 +6419,7 @@
         <target state="translated">Full Self-Browsing | AI 瀏覽器自動化與 MCP</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">147</context>
+          <context context-type="linenumber">149</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.meta.description" datatype="html">
@@ -6427,7 +6427,7 @@
         <target state="translated">透過自然語言指令自動操作 Chrome，或透過 MCP 連接 AI 代理程式。FSB 是開源軟體，可在你的真實瀏覽器工作階段中運作。</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">148</context>
+          <context context-type="linenumber">150</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.description" datatype="html">
@@ -6435,7 +6435,7 @@
         <target state="translated">本機優先的 Chrome 自動化與 MCP 瀏覽器層，讓 AI 代理能在使用者的瀏覽器中操作、觀察、驗證、使用觸發器監看、上傳真實檔案，並呼叫受保護的第一方 API 能力</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">303</context>
+          <context context-type="linenumber">305</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.subcategory" datatype="html">
@@ -6443,7 +6443,7 @@
         <target state="translated">AI 瀏覽器自動化與 MCP 工具</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">306</context>
+          <context context-type="linenumber">308</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.mcp" datatype="html">
@@ -6451,7 +6451,7 @@
         <target state="translated">適用於 Claude Code、Codex、Cursor、Windsurf 與 OpenClaw 的 MCP 伺服器</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">312</context>
+          <context context-type="linenumber">314</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.browser" datatype="html">
@@ -6459,7 +6459,7 @@
         <target state="translated">透過本機 Chrome 擴充功能執行真實瀏覽器自動化</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">313</context>
+          <context context-type="linenumber">315</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.triggers" datatype="html">
@@ -6467,7 +6467,7 @@
         <target state="translated">用於即時 DOM 監控的觸發器監看器</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">314</context>
+          <context context-type="linenumber">316</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.capabilities" datatype="html">
@@ -6475,7 +6475,7 @@
         <target state="translated">具備受保護 invoke_capability 呼叫的原生第一方 API 能力目錄</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">315</context>
+          <context context-type="linenumber">317</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.uploads" datatype="html">
@@ -6483,7 +6483,7 @@
         <target state="translated">透過 upload_file 上傳真實檔案，並支援 drop_file 合成拖放</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">316</context>
+          <context context-type="linenumber">318</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.vault" datatype="html">
@@ -6491,7 +6491,7 @@
         <target state="translated">Vault 與付款自動填寫邊界，確保原始機密資料不會跨越 MCP 橋接器</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">317</context>
+          <context context-type="linenumber">319</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.feature.dom" datatype="html">
@@ -6499,7 +6499,7 @@
         <target state="translated">以 DOM 為基礎的頁面理解、瀏覽器操作、視覺回饋、本機記憶，以及自備模型金鑰</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">318</context>
+          <context context-type="linenumber">320</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.schema.keywords" datatype="html">
@@ -6507,7 +6507,7 @@
         <target state="translated">MCP 瀏覽器自動化、AI 瀏覽器代理、觸發器監看、第一方 API 能力呼叫、Claude Code 瀏覽器測試、Codex 瀏覽器測試、自主瀏覽自動化</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/home/home-page.component.ts</context>
-          <context context-type="linenumber">320</context>
+          <context context-type="linenumber">322</context>
         </context-group>
       </trans-unit>
       <trans-unit id="lattice.screen.label" datatype="html">

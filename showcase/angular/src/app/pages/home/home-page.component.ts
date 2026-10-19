@@ -82,6 +82,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     { id: 'windsurf', name: 'Windsurf', logo: 'windsurf.svg', flag: '--windsurf' },
     { id: 'codex', name: 'Codex', logo: 'openai.svg', flag: '--codex' },
     { id: 'opencode', name: 'OpenCode', logo: 'opencode.svg', flag: '--opencode' },
+    { id: 'cline', name: 'Cline', logo: 'cline.svg', flag: '--cline' },
   ];
   readonly allClients: readonly InstallClient[] = [
     { id: 'claude-code', name: 'Claude Code', logo: 'claude.svg', flag: '--claude-code', cmd: `${BASE_INSTALL_COMMAND} --claude-code` },
@@ -91,6 +92,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     { id: 'windsurf', name: 'Windsurf', logo: 'windsurf.svg', flag: '--windsurf', cmd: `${BASE_INSTALL_COMMAND} --windsurf` },
     { id: 'codex', name: 'Codex', logo: 'openai.svg', flag: '--codex', cmd: `${BASE_INSTALL_COMMAND} --codex` },
     { id: 'opencode', name: 'OpenCode', logo: 'opencode.svg', flag: '--opencode', cmd: `${BASE_INSTALL_COMMAND} --opencode` },
+    { id: 'cline', name: 'Cline', logo: 'cline.svg', flag: '--cline', cmd: `${BASE_INSTALL_COMMAND} --cline` },
     { id: 'openclaw', name: 'OpenClaw', logo: 'openclaw.svg', flag: '', cmd: 'npx -y fsb-mcp-server@latest' },
     { id: 'all', name: $localize`:@@home.install.allClients:All Clients`, logo: 'all.svg', flag: '--all', cmd: `${BASE_INSTALL_COMMAND} --all` },
   ];
@@ -543,6 +545,7 @@ const ENG_CHIPS: Readonly<Record<EngMode, readonly EngChip[]>> = {
     { name: 'VS Code', logo: 'vscode.svg' },
     { name: 'Windsurf', logo: 'windsurf.svg' },
     { name: 'OpenCode', logo: 'opencode.svg' },
+    { name: 'Cline', logo: 'cline.svg' },
     { name: 'OpenClaw', logo: 'openclaw.svg' },
     { name: 'Hermes', logo: 'hermes.png' },
   ],

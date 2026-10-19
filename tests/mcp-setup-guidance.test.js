@@ -52,6 +52,10 @@ const requiredSetupLines = [
     needles: ['~/.codeium/windsurf/mcp_config.json', '~/.codeium/mcp_config.json', 'reload'],
   },
   {
+    label: 'Cline documents the shared settings file and the request timeout it needs',
+    needles: ['~/.cline/data/settings/cline_mcp_settings.json', 'CLINE_MCP_SETTINGS_PATH', '"timeout": 1800'],
+  },
+  {
     label: 'OpenCode includes the manual mcp.local snippet',
     needles: ['OpenCode', '"mcp"', '"type": "local"', '"command": ["npx", "-y", "fsb-mcp-server@latest"]'],
   },

@@ -8,7 +8,7 @@
  *   - 50-event batch cap     (400 batch_too_large)
  *   - versioned allowlist    (400 unknown_field)
  *   - UUIDv4 shape           (400 invalid_event_id / invalid_install_uuid)
- *   - 13 + 'unknown' mcp_client allowlist (400 invalid_mcp_client)
+ *   - 14 + 'unknown' mcp_client allowlist (400 invalid_mcp_client)
  *   - event_type allowlist   (400 invalid_event_type)
  *   - timestamp tolerance    (+5min / -7d window; drop offending events; 400 if any dropped)
  *   - per-IP rate limit      (30 batches/min via express-rate-limit; CVE-2026-30827 fixed)
@@ -57,10 +57,11 @@ const ALLOWED_EVENT_FIELDS = new Set([
   'active_count_version',
 ]);
 
-// 13 labels from mcp/src/tools/visual-session.ts (v0.9.36 allowlist) + 'unknown'.
+// The 13 v0.9.36 labels from mcp/src/tools/visual-session.ts, Cline, and 'unknown'.
 const MCP_CLIENT_ALLOWLIST = new Set([
   'Claude', 'Codex', 'ChatGPT', 'Perplexity', 'Windsurf', 'Cursor',
   'Antigravity', 'OpenCode', 'OpenClaw', 'OpenClaw 🦀', 'Grok', 'Gemini', 'Hermes',
+  'Cline',
   'unknown',
 ]);
 

@@ -28,6 +28,7 @@ const cliPath = path.join(repoRoot, 'mcp', 'build', 'index.js');
 const PRODUCT_VERSION = require('../extension/manifest.json').version;
 const EXTENSION_ID = 'badgafnfchcihdfnjneklogedcdkmjfk';
 const DEVELOPMENT_EXTENSION_ID = 'abcdefghijklmnopabcdefghijklmnop';
+const CLINE_ENV_KEYS = ['CLINE_DIR', 'CLINE_DATA_DIR', 'CLINE_MCP_SETTINGS_PATH'];
 
 function runCli(args, fixture, options = {}) {
   const env = {
@@ -38,6 +39,9 @@ function runCli(args, fixture, options = {}) {
     ...(options.env ?? {}),
   };
   if (!Object.hasOwn(options.env ?? {}, 'npm_execpath')) delete env.npm_execpath;
+  for (const key of CLINE_ENV_KEYS) {
+    if (!Object.hasOwn(options.env ?? {}, key)) delete env[key];
+  }
   return spawnSync(process.execPath, [cliPath, ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
@@ -73,6 +77,23 @@ function writeText(filePath, content) {
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
+}
+
+function readJson(filePath) {
+  return JSON.parse(readText(filePath));
+}
+
+function clineSettingsPath(fixture) {
+  return path.join(fixture.home, '.cline', 'data', 'settings', 'cline_mcp_settings.json');
+}
+
+function clineLegacySettingsPath(fixture) {
+  const storage = ['User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json'];
+  if (process.platform === 'darwin') {
+    return path.join(fixture.home, 'Library', 'Application Support', 'Code', ...storage);
+  }
+  if (process.platform === 'win32') return path.join(fixture.appData, 'Code', ...storage);
+  return path.join(fixture.home, '.config', 'Code', ...storage);
 }
 
 function assertIncludes(text, needle, msg) {
@@ -169,6 +190,12 @@ function run() {
       '.codeium/windsurf/mcp_config.json',
       'dry-run shows the Windsurf app config path',
     );
+    assertIncludes(
+      output,
+      path.join('.cline', 'data', 'settings', 'cline_mcp_settings.json'),
+      'dry-run shows the shared Cline settings path',
+    );
+    assertIncludes(output, '"timeout": 1800', 'dry-run shows the Cline request timeout');
     assertNotIncludes(output, 'Native messaging host', 'install --all excludes the native messaging host');
     assertNotIncludes(output, 'native-host', 'install --all output does not widen to the native target');
   });
@@ -296,6 +323,142 @@ function run() {
       config,
       '"fsb"',
       'windsurf plugin-path install updates the JetBrains/Cascade config when that is the only Windsurf config surface',
+    );
+  });
+
+  console.log('\n--- cline shared settings install + uninstall ---');
+  withTempHome('mcp-install-cline-shared', (fixture) => {
+    const settingsPath = clineSettingsPath(fixture);
+    const existingServer = {
+      transport: { type: 'stdio', command: 'uvx', args: ['existing-server'] },
+      autoApprove: ['search'],
+    };
+    writeText(settingsPath, JSON.stringify({ mcpServers: { existing: existingServer } }, null, 2));
+
+    const result = runCli(['install', '--cline'], fixture);
+    const output = `${result.stdout}${result.stderr}`;
+    const config = readJson(settingsPath);
+
+    assertEqual(result.status, 0, 'cline install exits cleanly');
+    assertIncludes(output, 'Installed to Cline: ', 'cline install reports the shared settings target');
+    assertEqual(
+      JSON.stringify(config.mcpServers.fsb),
+      JSON.stringify({ command: 'npx', args: ['-y', 'fsb-mcp-server@latest'], timeout: 1800 }),
+      'cline install writes the stdio entry with a 30-minute request timeout',
+    );
+    assertEqual(
+      JSON.stringify(config.mcpServers.existing),
+      JSON.stringify(existingServer),
+      'cline install preserves other servers byte-for-byte',
+    );
+
+    const uninstallResult = runCli(['uninstall', '--cline'], fixture);
+    const uninstalled = readJson(settingsPath);
+    assertEqual(uninstallResult.status, 0, 'cline uninstall exits cleanly');
+    assertIncludes(
+      `${uninstallResult.stdout}${uninstallResult.stderr}`,
+      'Removed from Cline',
+      'cline uninstall reports a successful removal',
+    );
+    assert(!Object.hasOwn(uninstalled.mcpServers, 'fsb'), 'cline uninstall removes the fsb entry');
+    assert(Object.hasOwn(uninstalled.mcpServers, 'existing'), 'cline uninstall keeps other servers');
+  });
+
+  console.log('\n--- cline reinstall keeps client-owned settings ---');
+  withTempHome('mcp-install-cline-preserve', (fixture) => {
+    const settingsPath = clineSettingsPath(fixture);
+    const userEntry = {
+      command: 'npx',
+      args: ['-y', 'fsb-mcp-server@latest'],
+      timeout: 3600,
+      autoApprove: ['navigate', 'read_page'],
+      disabled: false,
+    };
+    writeText(settingsPath, JSON.stringify({ mcpServers: { fsb: userEntry } }, null, 2));
+
+    const unchanged = runCli(['install', '--cline'], fixture);
+    assertIncludes(
+      `${unchanged.stdout}${unchanged.stderr}`,
+      'Cline already configured',
+      'an entry that differs only in Cline-owned settings counts as configured',
+    );
+    assertEqual(
+      JSON.stringify(readJson(settingsPath).mcpServers.fsb),
+      JSON.stringify(userEntry),
+      'reinstall leaves the timeout, auto-approve list, and toggle untouched',
+    );
+
+    writeText(settingsPath, JSON.stringify({
+      mcpServers: {
+        fsb: {
+          transport: { type: 'stdio', command: 'node', args: ['/old/fsb/build/index.js'] },
+          disabled: true,
+          autoApprove: ['click'],
+        },
+      },
+    }, null, 2));
+    const nested = runCli(['install', '--cline'], fixture);
+    assertIncludes(
+      `${nested.stdout}${nested.stderr}`,
+      'Updated Cline',
+      'a stale nested-transport entry is updated',
+    );
+    assertEqual(
+      JSON.stringify(readJson(settingsPath).mcpServers.fsb),
+      JSON.stringify({
+        command: 'npx',
+        args: ['-y', 'fsb-mcp-server@latest'],
+        timeout: 1800,
+        disabled: true,
+        autoApprove: ['click'],
+      }),
+      'updating a nested entry replaces its transport and keeps Cline-owned settings',
+    );
+  });
+
+  console.log('\n--- cline legacy VS Code settings fallback ---');
+  withTempHome('mcp-install-cline-legacy', (fixture) => {
+    const legacyPath = clineLegacySettingsPath(fixture);
+    writeText(legacyPath, JSON.stringify({ mcpServers: {} }, null, 2));
+
+    const legacyResult = runCli(['install', '--cline'], fixture);
+    assertEqual(legacyResult.status, 0, 'legacy cline install exits cleanly');
+    assertIncludes(
+      `${legacyResult.stdout}${legacyResult.stderr}`,
+      'Installed to Cline (legacy VS Code settings)',
+      'cline falls back to the legacy VS Code settings when no shared settings exist',
+    );
+    assert(Object.hasOwn(readJson(legacyPath).mcpServers, 'fsb'), 'legacy fallback writes the fsb entry');
+
+    fs.mkdirSync(path.dirname(clineSettingsPath(fixture)), { recursive: true });
+    const sharedPreview = runCli(['install', '--cline', '--dry-run'], fixture);
+    assertIncludes(
+      `${sharedPreview.stdout}${sharedPreview.stderr}`,
+      clineSettingsPath(fixture),
+      'a shared settings directory outranks a leftover legacy settings file',
+    );
+  });
+
+  console.log('\n--- cline settings path environment overrides ---');
+  withTempHome('mcp-install-cline-env', (fixture) => {
+    const explicitPath = path.join(fixture.root, 'explicit', 'cline_mcp_settings.json');
+    const clineDir = path.join(fixture.root, 'cline-home');
+    fs.mkdirSync(path.dirname(explicitPath), { recursive: true });
+    fs.mkdirSync(path.join(clineDir, 'data', 'settings'), { recursive: true });
+
+    const explicitResult = runCli(['install', '--cline'], fixture, {
+      env: { CLINE_MCP_SETTINGS_PATH: explicitPath, CLINE_DIR: clineDir },
+    });
+    assertEqual(explicitResult.status, 0, 'cline install honors CLINE_MCP_SETTINGS_PATH');
+    assert(fs.existsSync(explicitPath), 'CLINE_MCP_SETTINGS_PATH outranks CLINE_DIR');
+
+    const dirPreview = runCli(['install', '--cline', '--dry-run'], fixture, {
+      env: { CLINE_DIR: clineDir },
+    });
+    assertIncludes(
+      `${dirPreview.stdout}${dirPreview.stderr}`,
+      path.join(clineDir, 'data', 'settings', 'cline_mcp_settings.json'),
+      'cline install honors CLINE_DIR',
     );
   });
 

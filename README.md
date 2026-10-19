@@ -1,4 +1,4 @@
-# FSB v0.9.93 Full Self Browsing
+# FSB v0.9.95 Full Self Browsing
 
 <div align="center">
 
@@ -9,7 +9,7 @@
 </picture>
 
 ![FSB](https://img.shields.io/badge/FSB-Full_Self_Browsing-000000?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-0.9.93-0078D4?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.9.95-0078D4?style=for-the-badge)
 ![Manifest V3](https://img.shields.io/badge/Manifest_V3-Chrome-34A853?style=for-the-badge&logo=googlechrome&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-F5C518?style=for-the-badge)
 
@@ -32,7 +32,7 @@
 
 FSB (Full Self Browsing) is an open source Chrome extension for AI powered browser automation. Describe a task in plain English; FSB reads the live DOM, builds a plan, executes browser actions, verifies results, and reports progress through the popup, side panel, or MCP.
 
-> FSB v0.9.93 is functional and production ready for supervised automation. Browser automation can still behave unpredictably on complex or sensitive sites, so monitor actions and test on non critical pages first.
+> FSB v0.9.95 is functional and production ready for supervised automation. Browser automation can still behave unpredictably on complex or sensitive sites, so monitor actions and test on non critical pages first.
 
 ### Why DOM First
 
@@ -57,6 +57,7 @@ Project Mariner, Claude Computer Use, and OpenAI Operator rely heavily on visual
 | VS Code | `npx -y fsb-mcp-server@latest install --vscode` |
 | Windsurf | `npx -y fsb-mcp-server@latest install --windsurf` |
 | Codex | `npx -y fsb-mcp-server@latest install --codex` |
+| Cline | `npx -y fsb-mcp-server@latest install --cline` |
 | All at once | `npx -y fsb-mcp-server@latest install --all` |
 
 Preview before writing: append `--dry-run`. Sanity check with `npx -y fsb-mcp-server@latest doctor`. Restart the client so the new MCP server appears.
@@ -85,7 +86,7 @@ Want to run FSB standalone from the extension popup/side panel? Open settings, p
 - Uploads real local files to file inputs through the supervised `upload_file` tool with sensitive-path safeguards.
 - Maintains long term memory for past sites, workflows, selectors, and task outcomes.
 - Includes secure credential and payment vault flows for supervised autofill.
-- Exposes a local MCP server so Claude Code, Codex, Cursor, VS Code, Windsurf, and other MCP clients can drive the browser.
+- Exposes a local MCP server so Claude Code, Codex, Cursor, VS Code, Windsurf, Cline, and other MCP clients can drive the browser.
 
 Background agents are retired. Existing `chrome.storage.local['bgAgents']` data is preserved for users who had old agents, but scheduled or recurring automation is no longer an active FSB feature.
 
@@ -302,6 +303,7 @@ npx -y fsb-mcp-server@latest install --cursor
 npx -y fsb-mcp-server@latest install --vscode
 npx -y fsb-mcp-server@latest install --windsurf
 npx -y fsb-mcp-server@latest install --codex
+npx -y fsb-mcp-server@latest install --cline
 npx -y fsb-mcp-server@latest install --all
 ```
 
@@ -337,6 +339,20 @@ VS Code (`mcp.json`):
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "fsb-mcp-server@latest"]
+    }
+  }
+}
+```
+
+Cline (`~/.cline/data/settings/cline_mcp_settings.json`, shared by the VS Code extension, JetBrains plugin, and CLI). `timeout` is in seconds; Cline's 60-second default would cut off long `run_task` calls:
+
+```json
+{
+  "mcpServers": {
+    "fsb": {
+      "command": "npx",
+      "args": ["-y", "fsb-mcp-server@latest"],
+      "timeout": 1800
     }
   }
 }
