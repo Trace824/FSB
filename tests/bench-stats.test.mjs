@@ -1,6 +1,10 @@
 // Phase 66 benchmark statistics (D-16): known answers, a known 0.7x effect,
 // an A/A null, dropped tasks, seeded determinism and the odd/even noise floor.
+// Phase 71 (D-13): the Newcombe hybrid score difference interval, and a pin
+// proving the verbatim Pattern 9 block is untouched.
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -8,6 +12,7 @@ import {
   geoMeanMedianRatio,
   median,
   mulberry32,
+  newcombeDifference,
   quantile,
   summarize,
   wilson,
@@ -161,4 +166,63 @@ test('aaNoiseFloor drops tasks that lack either half', () => {
   assert.deepEqual(floor.usedTasks, ['both']);
   assert.deepEqual(floor.droppedTasks, ['odd-only', 'even-only', 'empty']);
   assert.equal(floor.label, 'A/A odd-vs-even rounds');
+});
+
+// --- Phase 71: the completion difference (D-13) ------------------------------
+
+// sha256 of the Pattern 9 block, from its opening marker line through its
+// closing marker line (no trailing newline), measured before Phase 71 added
+// newcombeDifference. It equals the value at $P71_START and at 8a058bdf.
+const PATTERN_9_BLOCK_SHA256 = 'fda24eaa275a2574a43548060015c28b23964e057df1422175a9301e9718896e';
+
+test('the verbatim Pattern 9 block is byte-identical to its pre-Phase-71 text', () => {
+  const text = readFileSync(new URL('../scripts/bench/lib/stats.mjs', import.meta.url), 'utf8');
+  const start = text.indexOf('// --- 66-RESEARCH.md Pattern 9 (verbatim)');
+  const endMarker = text.indexOf('// --- end Pattern 9');
+  assert.ok(start >= 0 && endMarker > start, 'both Pattern 9 markers are present, in order');
+  const end = text.indexOf('\n', endMarker);
+  const block = text.slice(start, end);
+  assert.equal(createHash('sha256').update(block).digest('hex'), PATTERN_9_BLOCK_SHA256);
+  assert.ok(text.indexOf('export function newcombeDifference') > end, 'newcombeDifference sits after the block');
+});
+
+test('newcombeDifference reproduces the four method-10 reference vectors to 1e-4', () => {
+  const vectors = [
+    [[56, 70, 48, 80], [0.0524, 0.3339]],
+    [[9, 10, 3, 10], [0.1705, 0.8090]],
+    [[5, 56, 0, 29], [-0.0381, 0.1926]],
+    [[0, 10, 0, 20], [-0.1611, 0.2775]],
+  ];
+  for (const [[x1, n1, x2, n2], [lo, hi]] of vectors) {
+    const result = newcombeDifference(x1, n1, x2, n2);
+    assert.deepEqual(Object.keys(result), ['diff', 'ci']);
+    assert.ok(Math.abs(result.diff - (x1 / n1 - x2 / n2)) < 1e-12, `diff for ${[x1, n1, x2, n2]}`);
+    assert.ok(Math.abs(result.ci[0] - lo) < 1e-4, `lo ${result.ci[0]} for ${[x1, n1, x2, n2]}`);
+    assert.ok(Math.abs(result.ci[1] - hi) < 1e-4, `hi ${result.ci[1]} for ${[x1, n1, x2, n2]}`);
+  }
+  const explicitZ = newcombeDifference(56, 70, 48, 80, 1.959963984540054);
+  assert.deepEqual(explicitZ, newcombeDifference(56, 70, 48, 80), 'the default z is the 95% two-sided value');
+  const wider = newcombeDifference(56, 70, 48, 80, 2.241402727604947);
+  assert.ok(wider.ci[0] < explicitZ.ci[0] && wider.ci[1] > explicitZ.ci[1], 'a larger z widens the interval');
+});
+
+test('newcombeDifference returns null (never NaN or 0) when either arm has no runs', () => {
+  assert.deepEqual(newcombeDifference(0, 0, 3, 10), { diff: null, ci: [null, null] });
+  assert.deepEqual(newcombeDifference(3, 10, 0, 0), { diff: null, ci: [null, null] });
+  assert.deepEqual(newcombeDifference(0, 0, 0, 0), { diff: null, ci: [null, null] });
+});
+
+test('newcombeDifference contains diff and stays within [-1, 1] for 200 seeded (x, n) pairs', () => {
+  const rnd = mulberry32(71);
+  for (let i = 0; i < 200; i += 1) {
+    const n1 = 1 + Math.floor(rnd() * 300);
+    const n2 = 1 + Math.floor(rnd() * 300);
+    const x1 = Math.floor(rnd() * (n1 + 1));
+    const x2 = Math.floor(rnd() * (n2 + 1));
+    const { diff, ci } = newcombeDifference(x1, n1, x2, n2);
+    const where = `(${x1}, ${n1}, ${x2}, ${n2})`;
+    assert.ok(Number.isFinite(diff) && Number.isFinite(ci[0]) && Number.isFinite(ci[1]), `finite ${where}`);
+    assert.ok(ci[0] <= diff + 1e-12 && diff <= ci[1] + 1e-12, `contains diff ${where}`);
+    assert.ok(ci[0] >= -1 - 1e-12 && ci[1] <= 1 + 1e-12, `within [-1, 1] ${where}`);
+  }
 });

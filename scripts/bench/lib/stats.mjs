@@ -12,6 +12,9 @@
  * The A/A noise floor splits one arm's runs into odd and even rounds and runs
  * the same bootstrap; its CI width is the smallest effect a later comparison
  * can claim.
+ *
+ * Completion differences (Phase 71, D-13) use the Newcombe hybrid score
+ * interval on pooled counted runs.
  */
 
 export const AA_NOISE_FLOOR_LABEL = 'A/A odd-vs-even rounds';
@@ -87,4 +90,24 @@ export function aaNoiseFloor(tasks, opts) {
     return { id: task.id, a, b };
   });
   return { ...geoMeanMedianRatio(split, opts), label: AA_NOISE_FLOOR_LABEL };
+}
+
+// Completion difference p1 - p2 with the Newcombe (1998) hybrid score
+// interval, method 10, built on wilson() above: each arm's Wilson bounds are
+// combined by squared distance from its own rate. x1 of n1 and x2 of n2 are
+// counted runs (infra errors already removed); z defaults to the 95%
+// two-sided value, a one-sided test at 2.5%. An arm with no runs gives
+// { diff: null, ci: [null, null] } (never NaN or 0), so "no data" cannot read
+// as a measured difference.
+export function newcombeDifference(x1, n1, x2, n2, z = 1.959963984540054) {
+  if (!n1 || !n2) return { diff: null, ci: [null, null] };
+  const p1 = x1 / n1;
+  const p2 = x2 / n2;
+  const [l1, u1] = wilson(x1, n1, z);
+  const [l2, u2] = wilson(x2, n2, z);
+  const diff = p1 - p2;
+  return {
+    diff,
+    ci: [diff - Math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2), diff + Math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)],
+  };
 }
