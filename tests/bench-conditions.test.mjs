@@ -796,6 +796,12 @@ test('71-05 gate campaign preflight: each wrong argument is refused gate_campaig
     ['several fields at once', (deps) => replaceFlag(withoutFlag(autopilot(deps), '--seed'), '--rounds', '20'), ['seed', 'rounds']],
     ['another corpus through --tasks-root and --fixtures-root', (deps) => [...autopilot(deps), '--tasks-root', SAMPLE_TASKS,
       '--fixtures-root', SAMPLE_FIXTURES], ['corpus']],
+    // WR-04: the evaluator refuses a dirty candidate, so --allow-dirty would start runs it can never evaluate.
+    ['--allow-dirty', (deps) => [...autopilot(deps), '--allow-dirty'], ['allow_dirty']],
+    ['the claude campaign with --allow-dirty', (deps) => [...gateCampaignArgs(deps, 'core-gate-71-claude'), '--allow-dirty'], ['allow_dirty']],
+    ['the fallback candidate with --allow-dirty', (deps) => [...gateCampaignArgs(deps, 'core-rebaseline-71-candidate'), '--allow-dirty'],
+      ['allow_dirty']],
+    ['--allow-dirty with another wrong field', (deps) => [...withoutFlag(autopilot(deps), '--seed'), '--allow-dirty'], ['seed', 'allow_dirty']],
   ];
   for (const [label, argv, fields] of cases) {
     assert.deepEqual(await refusedFields(argv), fields, label);
@@ -855,6 +861,12 @@ test('71-05 gate campaign preflight: the right argument sets give no issue and m
   assert.deepEqual(gateCampaignIssues(more, 'core-20261018-abcdef0', REAL_GATE), ['campaign_id']);
   assert.deepEqual(gateCampaignIssues(more, 'core-gate-71-autopilot', null), ['gate']);
   assert.deepEqual(gateCampaignFor(REAL_GATE, 'core-gate-71-autopilot').seed, 71);
+  // --allow-dirty is refused only for a gate runner campaign id (WR-04).
+  const dirty = { ...more, allowDirty: true };
+  assert.deepEqual(gateCampaignIssues(dirty, dirty.campaignId, REAL_GATE), ['allow_dirty']);
+  assert.deepEqual(gateCampaignIssues(dirty, 'core-gate-71-autopilot', null), ['gate', 'allow_dirty']);
+  assert.deepEqual(gateCampaignIssues(dirty, 'core-20261018-abcdef0', null), []);
+  assert.deepEqual(gateCampaignIssues(dirty, 'core-20261018-abcdef0', REAL_GATE), ['campaign_id']);
 
   // --smoke and --dry-run with a gate campaign id and wrong arguments are never refused by the check.
   const smoke = liveDeps();

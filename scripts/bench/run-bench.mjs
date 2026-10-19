@@ -56,8 +56,9 @@
  * preflight (Plan 71-05) refuses gate_campaign_mismatch before any client
  * opens when the campaign id, arms, seed, conditions, set, a --tasks subset or
  * too few --rounds differ from the gate's campaign for that id, when the
- * loaded tasks do not match the gate's corpus digest, or when a gate
- * campaign id runs without --gate; it prints only the field names. Raw
+ * loaded tasks do not match the gate's corpus digest, when a gate campaign
+ * id runs without --gate, or with --allow-dirty (the evaluator refuses a
+ * dirty candidate); it prints only the field names. Raw
  * records are schema 2: they add the condition, the session's
  * jevMeasurement (autopilot only), its terminal-reason token, the safety
  * counts and the request log's dropped count. An 'on' run waits for
@@ -189,7 +190,7 @@ export const USAGE = [
   '                               required with --pair-via-cdp, --smoke and --campaign',
   '  --chrome-launch-record <f>   launch record whose flag names go into identity (default scripts/bench/.local/bench-chrome.json)',
   '  --pair-via-cdp               deliver the `pair --json` code to the bench extension over CDP (never printed)',
-  '  --allow-dirty                let a campaign run on a tree with tracked changes',
+  '  --allow-dirty                let a campaign run on a tree with tracked changes (never a gate campaign)',
   '  --help                       show this help',
   '',
   'Exit codes: 0 ok, 1 error, 2 refusal or usage, 75 paused (infra error; resume later), 130 SIGINT, 143 SIGTERM.',
@@ -1474,9 +1475,15 @@ function sameList(a, b) {
  *   otherwise arms and conditions are compared as ordered lists, the seed
  *   exactly, the set must be core, no --tasks subset, and the rounds must be
  *   at least the campaign's minRounds.
+ * - Either way a gate runner campaign id with --allow-dirty is `allow_dirty`
+ *   (WR-04): the evaluator refuses any gate campaign whose git.dirty is not
+ *   false, so the flag would only start paid runs that can never be
+ *   evaluated. Without it, evaluatePreflight refuses a tree that is not
+ *   known clean (dirty_tree).
  */
 export function gateCampaignIssues(options, campaignId, gate) {
-  if (!gate) return GATE_RUNNER_CAMPAIGN_IDS.includes(campaignId) ? ['gate'] : [];
+  const allowDirty = GATE_RUNNER_CAMPAIGN_IDS.includes(campaignId) && options.allowDirty === true ? ['allow_dirty'] : [];
+  if (!gate) return GATE_RUNNER_CAMPAIGN_IDS.includes(campaignId) ? ['gate', ...allowDirty] : [];
   const expected = gateCampaignFor(gate, campaignId);
   if (!expected) return ['campaign_id'];
   const issues = [];
@@ -1486,7 +1493,7 @@ export function gateCampaignIssues(options, campaignId, gate) {
   if (options.set !== 'core') issues.push('set');
   if (options.tasks !== null && options.tasks !== undefined) issues.push('tasks');
   if (!Number.isSafeInteger(options.rounds) || !Number.isSafeInteger(expected.minRounds) || options.rounds < expected.minRounds) issues.push('rounds');
-  return issues;
+  return [...issues, ...allowDirty];
 }
 
 function selectTasks(options) {
