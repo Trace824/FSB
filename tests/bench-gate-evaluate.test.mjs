@@ -1,5 +1,7 @@
 // Phase 71 Plan 06 (EVAL-02, EVAL-01; CONTEXT D-05, D-10..D-16, D-19 and the
-// 2026-10-16 amendments): the pure gate evaluator.
+// 2026-10-16 amendments): the pure gate evaluator. Plan 07 (D-17, D-18) adds
+// the decision file, the typed release claims and the gate report, built from
+// the same fixtures.
 //
 // One seeded synthetic campaign recipe per verdict branch, built with
 // makeCampaign (scripts/bench/gate/lib/synthetic.mjs). Every campaign runs the
@@ -40,7 +42,26 @@ import {
   sentinelCheck,
   speedComparison,
 } from '../scripts/bench/gate/lib/evaluate.mjs';
+import {
+  ALLOWED_CLAIM_SOURCES,
+  CLAIM_TEMPLATES,
+  V6_ACTIONS,
+  buildClaims,
+  buildDecision,
+  checkClaims,
+  describePath,
+  validateDecision,
+} from '../scripts/bench/gate/lib/decision.mjs';
 import { corpusDigest, loadGate } from '../scripts/bench/gate/lib/gate.mjs';
+import {
+  CALLER_EFFECT_SENTENCE,
+  DIAGNOSTICS_HEADING,
+  FALSE_DONE_SENTENCE,
+  GATE_REPORT_SECTIONS,
+  NO_ATTEMPT_SENTENCE,
+  buildTables,
+  renderGateReport,
+} from '../scripts/bench/gate/lib/gate-report.mjs';
 import { SYNTHETIC_CANDIDATE_SHA, SYNTHETIC_PIN_SHA, defaultIdentity, makeCampaign } from '../scripts/bench/gate/lib/synthetic.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -920,4 +941,373 @@ test('every reason the fixtures produced is a REASONS code, and verdicts come fr
   for (const entry of Object.values(PASS.paths)) assert.ok(VERDICTS.includes(entry.verdict));
   assert.ok(Object.isFrozen(REFUSAL_CODES) && Object.isFrozen(FALLBACK_STATUSES));
   assert.deepEqual([...SEEN_REFUSALS].sort(), [...REFUSAL_CODES].sort(), 'every refusal code is exercised');
+});
+
+// --- Plan 07: the decision file, release claims and gate report (D-17, D-18) --------------------
+
+const DECISION_META = Object.freeze({
+  gate: {
+    path: GATE_FILE, sha256: GATE_SHA256, gateVersion: REAL_GATE.gateVersion,
+    authorDate: '2026-10-17T09:00:00-07:00', committerDate: '2026-10-17T09:00:00-07:00',
+  },
+  measuredSha: SYNTHETIC_CANDIDATE_SHA,
+});
+const ALL_PATHS = ['jev-mcp-run-task', 'jev-autopilot', 'mcp-non-jev'];
+const FORBIDDEN_CLAIM_TEXT = /jevMs|latencyMs|per decision|ms per call/i;
+
+// The evaluator input and result of one scenario, with its decision and report.
+function scenario({ autopilot = AUTOPILOT, claude = CLAUDE, baseline = BASELINE, suites = passingSuites(), fallback } = {}) {
+  const input = { gate: GATE, gateSha256: GATE_SHA256, baseline, autopilot, claude, suites, ...(fallback === undefined ? {} : { fallback }) };
+  const result = evaluateGate(input, { iterations: ITERATIONS });
+  const decision = buildDecision(result, { ...clone(DECISION_META), suites, input });
+  return { input, result, decision };
+}
+
+const PASS_SCENARIO = scenario();
+const SAFETY_SCENARIO = scenario({
+  autopilot: autopilotCampaign({ safety: { events: [{ kind: 'requestOvercount', arm: 'autopilot', condition: 'on', acted: true, count: 1 }] } }),
+});
+const NOT_EXERCISED_SCENARIO = scenario({ autopilot: autopilotCampaign({ jev: { actRate: 0.3 } }) });
+const FASTER_SCENARIO = scenario({ claude: claudeCampaign({ effect: { claude: { speed: 0.95 } } }) });
+const LEVEL_SCENARIO = scenario({ claude: claudeCampaign({ effect: { claude: { speed: 1.02 } } }) });
+
+const actionsOf = (decision) => Object.fromEntries(ALL_PATHS.map((name) => [name, decision.paths[name].v6Action]));
+const claimIds = (decision) => decision.claims.map((entry) => entry.id);
+const pct = (value) => `${(value * 100).toFixed(1)}%`;
+
+function reportOf({ input, result, decision }) {
+  return renderGateReport(input, result, decision);
+}
+
+test('decision: each verdict maps to exactly one V6 action (D-17), and every built decision validates', () => {
+  const cases = [
+    ['Jev and non-Jev pass', PASS_SCENARIO, ['ship_opt_in_default_off', 'ship_opt_in_default_off', 'publish_mcp_0_12_0']],
+    ['Jev safety fail disables both Jev paths', SAFETY_SCENARIO, ['disable_jev_operator_switch', 'disable_jev_operator_switch', 'publish_mcp_0_12_0']],
+    ['Jev not_exercised', NOT_EXERCISED_SCENARIO, ['ship_experimental_no_speed_claim', 'ship_experimental_no_speed_claim', 'publish_mcp_0_12_0']],
+    ['Jev speed fail', scenario({ autopilot: autopilotCampaign({ effect: { 'autopilot/on': { speed: 1.0 } } }) }),
+      ['ship_experimental_no_speed_claim', 'ship_experimental_no_speed_claim', 'publish_mcp_0_12_0']],
+    ['Jev inconclusive (suites not run)', scenario({ suites: { ran: false, results: [] } }),
+      ['ship_experimental_no_speed_claim', 'ship_experimental_no_speed_claim', 'publish_mcp_0_12_0']],
+    ['non-Jev inconclusive (no baseline sidecar)', scenario({ baseline: { ...BASELINE, safety: null } }),
+      ['ship_opt_in_default_off', 'ship_opt_in_default_off', 'withhold_mcp_0_12_0']],
+    ['non-Jev fail (time)', scenario({ claude: claudeCampaign({ effect: { claude: { speed: 1.25 } } }) }),
+      ['ship_opt_in_default_off', 'ship_opt_in_default_off', 'withhold_mcp_0_12_0']],
+  ];
+  for (const [name, { result, decision }, expected] of cases) {
+    assert.deepEqual(Object.values(actionsOf(decision)), expected, name);
+    for (const path of ALL_PATHS) {
+      assert.equal(decision.paths[path].verdict, result.paths[path].verdict, `${name}: ${path}`);
+      assert.equal(decision.paths[path].recommendation, V6_ACTIONS[decision.paths[path].v6Action], `${name}: ${path}`);
+    }
+    const check = validateDecision(decision);
+    assert.deepEqual(check.errors, [], name);
+    assert.equal(check.ok, true, name);
+  }
+  assert.equal(SAFETY_SCENARIO.decision.paths['jev-autopilot'].criteria.safety.verdict, 'fail');
+  assert.match(V6_ACTIONS.disable_jev_operator_switch, /fly secrets set JEV_ENABLED=false/);
+  assert.equal(NOT_EXERCISED_SCENARIO.decision.paths['jev-mcp-run-task'].verdict, 'not_exercised');
+  assert.equal(NOT_EXERCISED_SCENARIO.decision.paths['jev-mcp-run-task'].criteria.exercised.status, 'not_exercised');
+});
+
+test('decision: the file records the gate, the campaigns, the suites, the evaluator and an empty fallback', () => {
+  const { decision, result } = PASS_SCENARIO;
+  assert.deepEqual(decision.gate, DECISION_META.gate);
+  assert.equal(decision.schemaVersion, 1);
+  assert.equal(decision.measuredSha, SYNTHETIC_CANDIDATE_SHA);
+  assert.deepEqual(decision.campaigns.autopilot, {
+    id: REAL_GATE.campaigns.autopilot.id, createdAt: AUTOPILOT.identity.createdAt, gitSha: SYNTHETIC_CANDIDATE_SHA, rounds: ROUNDS,
+  });
+  assert.equal(decision.campaigns.baseline.gitSha, SYNTHETIC_PIN_SHA);
+  assert.deepEqual(decision.suites, passingSuites());
+  assert.deepEqual(decision.sentinel, { status: 'pass', reasons: [], blocker: null });
+  assert.deepEqual(decision.fallback, {
+    status: 'not_supplied', primaryVerdict: null, primaryReasons: [], reasons: [], campaigns: { pin: null, candidate: null },
+  });
+  assert.deepEqual(decision.evaluator, result.inputs);
+  const jev = decision.paths['jev-mcp-run-task'];
+  assert.equal(jev.faster, null);
+  assert.equal(jev.source, null);
+  assert.equal(jev.criteria.identity, null);
+  assert.equal(jev.criteria.exercised.actedShare, result.exercise.actedShare);
+  assert.deepEqual(jev.criteria.speed, {
+    verdict: 'pass', estimate: result.paths['jev-mcp-run-task'].criteria.speed.estimate, ci: result.paths['jev-mcp-run-task'].criteria.speed.ci,
+  });
+  const nonJev = decision.paths['mcp-non-jev'];
+  assert.equal(nonJev.source, 'primary');
+  assert.equal(typeof nonJev.faster, 'boolean');
+  assert.equal(nonJev.criteria.exercised, null);
+  assert.deepEqual(nonJev.criteria.identity, { verdict: 'pass', mismatches: [] });
+  const mismatch = scenario({ claude: claudeCampaign({ identity: { hosts: { claude: { model: 'claude-other' } } } }) });
+  assert.deepEqual(mismatch.decision.paths['mcp-non-jev'].criteria.identity, { verdict: 'inconclusive', mismatches: ['hosts.claude.model'] });
+  assert.equal(mismatch.decision.paths['mcp-non-jev'].v6Action, 'withhold_mcp_0_12_0');
+  assert.throws(() => buildDecision({ refusals: [{ code: 'candidate_dirty', detail: 'claude.git.dirty' }], campaigns: {}, inputs: {} }, DECISION_META));
+});
+
+test('validateDecision rejects extra and missing keys, unknown actions, long strings and URLs, naming paths and never values', () => {
+  const { decision } = PASS_SCENARIO;
+  const SECRET = 'SECRETVALUE';
+  const mutate = (edit) => {
+    const copy = clone(decision);
+    edit(copy);
+    const check = validateDecision(copy);
+    assert.equal(check.ok, false);
+    for (const error of check.errors) assert.equal(error.includes(SECRET), false, `an error echoed a value: ${error}`);
+    return check.errors;
+  };
+  assert.ok(mutate((d) => { d.extra = SECRET; }).includes('extra_key:extra'));
+  assert.ok(mutate((d) => { d.paths['jev-autopilot'].criteria.speed.note = SECRET; }).includes('extra_key:paths.jev-autopilot.criteria.speed.note'));
+  assert.ok(mutate((d) => { delete d.paths['mcp-non-jev'].v6Action; }).includes('missing_key:paths.mcp-non-jev.v6Action'));
+  assert.ok(mutate((d) => { delete d.fallback.campaigns; }).includes('missing_key:fallback.campaigns'));
+  assert.ok(mutate((d) => { d.paths['jev-autopilot'].v6Action = `ship_${SECRET}`; }).includes('type:paths.jev-autopilot.v6Action'));
+  assert.ok(mutate((d) => { d.paths['jev-autopilot'].v6Action = 'withhold_mcp_0_12_0'; }).includes('inconsistent:paths.jev-autopilot.v6Action'));
+  assert.ok(mutate((d) => { d.paths['mcp-non-jev'].v6Action = 'withhold_mcp_0_12_0'; }).includes('inconsistent:paths.mcp-non-jev.v6Action'));
+  const long = mutate((d) => { d.paths['jev-mcp-run-task'].recommendation = `${SECRET}${'x'.repeat(201 - SECRET.length)}`; });
+  assert.ok(long.includes('string_too_long:paths.jev-mcp-run-task.recommendation'), long.join(','));
+  assert.ok(mutate((d) => { d.claims[0].text = `${SECRET}${'y'.repeat(401 - SECRET.length)}`; }).includes('string_too_long:claims[0].text'));
+  const atLimit = mutate((d) => { d.claims[0].text = 'y'.repeat(400); });
+  assert.equal(atLimit.includes('string_too_long:claims[0].text'), false, 'a claim text may hold 400 characters');
+  assert.ok(atLimit.includes('claim_text:claims[0].text'), 'a hand-edited claim text no longer matches its tokens');
+  assert.ok(mutate((d) => { d.gate.path = `https://${SECRET}`; }).includes('url_in_string:gate.path'));
+  assert.ok(mutate((d) => { d.paths['jev-mcp-run-task'].reasons = [`x://${SECRET}`]; }).includes('url_in_string:paths.jev-mcp-run-task.reasons[0]'));
+  assert.ok(mutate((d) => { d.claims[0].text = `${d.claims[0].text} file://${SECRET}`; }).includes('url_in_string:claims[0].text'));
+  assert.ok(mutate((d) => { d.paths['mcp-non-jev'].source = 'fallback'; }).includes('inconsistent:paths.mcp-non-jev.source'));
+  assert.ok(mutate((d) => { d.suites.results[0].exitCode = SECRET; }).includes('type:suites.results[0].exitCode'));
+  assert.ok(mutate((d) => { d.gate.sha256 = SECRET; }).includes('type:gate.sha256'));
+  assert.deepEqual(validateDecision(null).errors, ['type:']);
+});
+
+test('claims: a Jev pass quotes the wallMs ratio, its CI, the completion difference in points and the counted runs', () => {
+  const { decision, result } = PASS_SCENARIO;
+  const jevClaim = decision.claims.find((entry) => entry.id === 'jev-whole-task');
+  assert.ok(jevClaim, claimIds(decision).join(','));
+  const { speed, completion } = result.paths['jev-mcp-run-task'].criteria;
+  for (const value of [speed.estimate, speed.ci[0], speed.ci[1]]) assert.ok(jevClaim.text.includes(pct(value)), `${pct(value)} in ${jevClaim.text}`);
+  const points = (value) => `${Math.abs(Math.round(value * 1000) / 10).toFixed(1)}`;
+  for (const value of [completion.diff, completion.ci[0], completion.ci[1]]) assert.ok(jevClaim.text.includes(points(value)), jevClaim.text);
+  assert.ok(jevClaim.text.includes(`${completion.treatment.completed} of ${completion.treatment.counted} counted runs`), jevClaim.text);
+  assert.ok(jevClaim.text.includes(`${completion.control.completed} of ${completion.control.counted} with it off`), jevClaim.text);
+  assert.ok(jevClaim.text.length <= 400, `${jevClaim.text.length}`);
+  assert.equal(claimIds(decision).includes('jev-no-speedup'), false);
+});
+
+test('claims: any other Jev verdict says exactly that no whole-task speedup was demonstrated; a safety fail adds the disable sentence', () => {
+  const NO_SPEEDUP = 'No whole-task speedup from fast mode was demonstrated on the 12-task core set.';
+  const DISABLED = 'Fast mode is disabled for every install for this release.';
+  for (const { decision } of [NOT_EXERCISED_SCENARIO, scenario({ autopilot: autopilotCampaign({ effect: { 'autopilot/on': { speed: 1.0 } } }) })]) {
+    const jevClaims = decision.claims.filter((entry) => entry.id.startsWith('jev-'));
+    assert.deepEqual(jevClaims.map((entry) => entry.text), [NO_SPEEDUP]);
+  }
+  const safetyClaims = SAFETY_SCENARIO.decision.claims.filter((entry) => entry.id.startsWith('jev-'));
+  assert.deepEqual(safetyClaims.map((entry) => entry.text), [NO_SPEEDUP, DISABLED]);
+  assert.deepEqual(safetyClaims.map((entry) => entry.tokens), [[], []]);
+});
+
+test('claims: a non-Jev pass states time non-inferiority within the bound, with "faster" only when faster is true; no claim otherwise', () => {
+  for (const { decision, result } of [FASTER_SCENARIO, LEVEL_SCENARIO]) {
+    const entry = result.paths['mcp-non-jev'];
+    assert.equal(entry.verdict, 'pass');
+    const time = decision.claims.find((item) => item.id === 'mcp-non-jev-time');
+    assert.ok(time, claimIds(decision).join(','));
+    assert.match(time.text, /non-inferiority bound of 110\.0%/);
+    assert.ok(time.text.includes(pct(entry.criteria.speed.estimate)) && time.text.includes(pct(entry.criteria.speed.ci[1])), time.text);
+    assert.match(time.text, /completion changed by [+-]?\d+\.\d points/);
+    const faster = decision.claims.filter((item) => /faster/i.test(item.text));
+    if (entry.faster) {
+      assert.deepEqual(faster.map((item) => item.id), ['mcp-non-jev-faster']);
+    } else {
+      assert.deepEqual(faster, [], 'no "faster" wording when the CI upper bound is not below 1');
+    }
+  }
+  assert.equal(FASTER_SCENARIO.result.paths['mcp-non-jev'].faster, true);
+  assert.equal(LEVEL_SCENARIO.result.paths['mcp-non-jev'].faster, false);
+  for (const failing of [scenario({ claude: claudeCampaign({ effect: { claude: { speed: 1.25 } } }) }), scenario({ baseline: { ...BASELINE, safety: null } })]) {
+    assert.deepEqual(failing.decision.claims.filter((item) => item.id.startsWith('mcp-non-jev')), []);
+  }
+});
+
+test('claims: the cost sentence states LLM cost for control and fast and the FSB-borne Jev cost apart', () => {
+  const { decision, input } = PASS_SCENARIO;
+  const cost = decision.claims.find((entry) => entry.id === 'cost');
+  assert.ok(cost);
+  assert.deepEqual(cost.tokens.map((item) => [item.name, item.source]), [['llmOff', 'cost'], ['llmOn', 'cost'], ['jevOn', 'cost']]);
+  assert.match(cost.text, /^LLM cost per completed task was \$\d+\.\d{4} with fast mode off and \$\d+\.\d{4} with it on; Jev cost/);
+  assert.match(cost.text, /which FSB bears and which is not included in the LLM cost\./);
+  const on = groupRows({ autopilot: input.autopilot.runs }, GATE).autopilotOn.filter(counted);
+  const expectedLlm = on.reduce((sum, row) => sum + row.cost.usd, 0) / on.filter((row) => row.pass).length;
+  assert.ok(Math.abs(cost.tokens[1].value - expectedLlm) < 1e-12);
+  assert.equal(buildClaims(PASS_SCENARIO.result).some((entry) => entry.id === 'cost'), false, 'no rows, no cost sentence');
+});
+
+test('claims: every token carries an allowed source, the checker re-renders each text, and a jevMs token fails it', () => {
+  const scenarios = [PASS_SCENARIO, SAFETY_SCENARIO, NOT_EXERCISED_SCENARIO, FASTER_SCENARIO, LEVEL_SCENARIO];
+  for (const { decision } of scenarios) {
+    for (const entry of decision.claims) {
+      for (const item of entry.tokens) assert.ok(ALLOWED_CLAIM_SOURCES.includes(item.source), `${entry.id}.${item.name}: ${item.source}`);
+      assert.equal(FORBIDDEN_CLAIM_TEXT.test(entry.text), false, entry.text);
+      assert.ok(Object.prototype.hasOwnProperty.call(CLAIM_TEMPLATES, entry.id));
+    }
+    assert.deepEqual(checkClaims(decision.claims), { ok: true, errors: [] });
+  }
+  for (const template of Object.values(CLAIM_TEMPLATES)) assert.equal(FORBIDDEN_CLAIM_TEXT.test(template), false, template);
+  assert.deepEqual([...ALLOWED_CLAIM_SOURCES], ['wallMs-ratio', 'completion-diff', 'completion-count', 'cost']);
+
+  const tampered = clone(PASS_SCENARIO.decision.claims);
+  tampered[0].tokens[0].source = 'jevMs';
+  const check = checkClaims(tampered);
+  assert.equal(check.ok, false);
+  assert.ok(check.errors.includes('claim_source:claims[0].tokens[0].source'), check.errors.join(','));
+  const extra = clone(PASS_SCENARIO.decision.claims);
+  extra[0].tokens.push({ name: 'jevMsPerCall', value: 120, source: 'cost' });
+  assert.equal(checkClaims(extra).ok, false);
+  const edited = clone(PASS_SCENARIO.decision.claims);
+  edited[0].text = edited[0].text.replace('whole-task', 'per decision');
+  assert.ok(checkClaims(edited).errors.includes('claim_forbidden_text:claims[0].text'));
+  const decisionWithBadClaim = clone(PASS_SCENARIO.decision);
+  decisionWithBadClaim.claims = tampered;
+  assert.ok(validateDecision(decisionWithBadClaim).errors.includes('claim_source:claims[0].tokens[0].source'));
+});
+
+test('report: every required section in order, costs on separate lines, and no per-decision timing before the diagnostics', () => {
+  const report = reportOf(PASS_SCENARIO);
+  let last = -1;
+  for (const heading of GATE_REPORT_SECTIONS) {
+    const at = report.indexOf(`\n${heading}\n`);
+    assert.ok(at > last, `${heading} present and in order`);
+    last = at;
+  }
+  assert.deepEqual(GATE_REPORT_SECTIONS.slice(-2), [DIAGNOSTICS_HEADING, '## Method']);
+  const diagnosticsAt = report.indexOf(`\n${DIAGNOSTICS_HEADING}\n`);
+  for (const word of ['jevMs', 'latencyMs', 'ms per Jev call']) {
+    const first = report.indexOf(word);
+    assert.ok(first > diagnosticsAt, `${word} appears only after the diagnostics heading`);
+  }
+  const lines = report.slice(report.indexOf('\n## Autopilot driver\n')).split('\n');
+  const llm = lines.filter((line) => line.startsWith('- LLM cost per completed task'));
+  const jev = lines.filter((line) => line.startsWith('- Jev cost per completed task'));
+  assert.ok(llm.length >= 2 && jev.length >= 1, 'LLM cost and Jev cost on their own labelled lines');
+  for (const line of llm) assert.equal(/Jev/.test(line), false, line);
+  assert.equal(/total cost|combined cost|LLM \+ Jev|Jev \+ LLM/i.test(report), false);
+  const method = report.slice(report.indexOf('\n## Method\n'));
+  assert.match(method, /[Ii]ntention to treat/);
+  assert.match(method, /wallMs on the runner's clock/);
+  assert.match(method, /side-panel start path was not driven separately/);
+  assert.match(method, /token alphabet/);
+  for (const bad of ['://', 'NaN', 'null%', 'Infinity', 'undefined']) assert.equal(report.includes(bad), false, bad);
+  const verdicts = report.slice(report.indexOf('\n## Verdicts\n'), report.indexOf('\n## Release claims\n'));
+  for (const name of ALL_PATHS) assert.ok(verdicts.includes(`${name}: pass -> ${PASS_SCENARIO.decision.paths[name].v6Action}`), name);
+  const claims = report.slice(report.indexOf('\n## Release claims\n'), report.indexOf('\n## Autopilot driver\n'));
+  for (const entry of PASS_SCENARIO.decision.claims) assert.ok(claims.includes(`- ${entry.text}`), entry.id);
+  for (const { input, result, decision } of [SAFETY_SCENARIO, NOT_EXERCISED_SCENARIO]) {
+    const other = renderGateReport(input, result, decision);
+    for (const bad of ['://', 'NaN', 'null%', 'Infinity', 'undefined']) assert.equal(other.includes(bad), false, bad);
+  }
+});
+
+test('report: the fast-mode exercise section lists fallbacks (sensitive_goal even at 0), sources, missing measurements and unknown exposure', () => {
+  const autopilot = autopilotCampaign({ jev: { missingRate: 0.1, noBlockRate: 0.1, detailMissingRate: 0.05 } });
+  const run = scenario({ autopilot });
+  const tables = buildTables(run.input, run.result);
+  const on = autopilot.runs.filter((row) => row.condition === 'on' && counted(row));
+  const bySource = (source) => on.filter((row) => row.jev.source === source).length;
+  assert.deepEqual(tables.exercise.bySource, {
+    measurement: bySource('measurement'), summary: bySource('summary'), no_block: bySource('no_block'), unknown: bySource(null),
+  });
+  assert.ok(tables.exercise.bySource.summary > 0 && tables.exercise.bySource.no_block > 0 && tables.exercise.bySource.unknown > 0);
+  assert.equal(tables.exercise.missingMeasurement, on.filter((row) => row.flags.includes('jev_measurement_missing')).length);
+  assert.equal(tables.exercise.unknownExposure, bySource(null));
+  assert.equal(tables.exercise.fallbacks.sensitive_goal, 0);
+  const report = reportOf(run);
+  const section = report.slice(report.indexOf('\n## Fast-mode exercise\n'), report.indexOf('\n## Typed outcome agreement'));
+  assert.match(section, /sensitive_goal: 0/);
+  assert.ok(section.includes(NO_ATTEMPT_SENTENCE));
+  assert.ok(section.includes(`measurement ${bySource('measurement')}, summary ${bySource('summary')}, no_block ${bySource('no_block')}, unknown ${bySource(null)}`));
+  assert.match(section, new RegExp(`jev_measurement_missing: ${tables.exercise.missingMeasurement} run`));
+  assert.match(section, new RegExp(`treated as acted for rule \\(a\\)\\): ${bySource(null)}`));
+  assert.match(section, /jev-1\.13\.0 \/ fsb-jev-instrument-1/);
+  assert.match(section, /Condition leaks \(control runs with Jev activity\): 0/);
+
+  const leak = scenario({ autopilot: autopilotCampaign({ jev: { leakOff: { count: 1, kind: 'local' } } }) });
+  const leakTables = buildTables(leak.input, leak.result);
+  assert.equal(leakTables.exercise.leakRuns, 1);
+  const diagnostics = reportOf(PASS_SCENARIO).slice(reportOf(PASS_SCENARIO).indexOf(`\n${DIAGNOSTICS_HEADING}\n`));
+  assert.match(diagnostics, /meta_cognitive_loop_break stops \(M-68-05 watch\): control \d+, fast \d+/);
+  assert.match(diagnostics, /Per-protocol view \(acted fast runs only, never decisive\)/);
+});
+
+test('report: the typed outcome agreement table counts exactly the injected false done, ambiguous on pass and missing blocks', () => {
+  const base = autopilotCampaign({
+    fastMode: { falseDone: [{ count: 2 }, { count: 1, statusMismatch: true }], ambiguousOnPass: [{ count: 2 }] },
+  });
+  const blockedIds = base.runs
+    .filter((row) => row.condition === 'on' && counted(row) && row.fastMode && row.fastMode.outcome === 'blocked')
+    .slice(0, 4).map((row) => row.runId);
+  assert.equal(blockedIds.length, 4);
+  const autopilot = withRows(base, (runs) => {
+    for (const row of runs) if (blockedIds.includes(row.runId)) row.fastMode = null;
+  });
+  const run = scenario({ autopilot });
+  const { agreement } = buildTables(run.input, run.result);
+  const cellOf = (outcome) => agreement.table.find((row) => row.outcome === outcome);
+  assert.equal(agreement.falseDone, 3);
+  assert.equal(cellOf('done').fail, 3);
+  assert.equal(agreement.doneWithoutSuccessWord, 1);
+  assert.equal(agreement.falseAmbiguous, 2);
+  assert.deepEqual(cellOf('ambiguous'), { outcome: 'ambiguous', pass: 2, fail: 0 });
+  assert.equal(agreement.noBlock, 4);
+  assert.deepEqual(cellOf('no block'), { outcome: 'no block', pass: 0, fail: 4 });
+  assert.deepEqual(agreement.table.map((row) => row.outcome), ['done', 'ambiguous', 'blocked', 'needs_confirmation', 'other', 'no block']);
+  const on = autopilot.runs.filter((row) => row.condition === 'on' && counted(row));
+  assert.equal(agreement.table.reduce((sum, row) => sum + row.pass + row.fail, 0), on.length);
+  assert.equal(agreement.uncertainUnobserved, 0);
+  assert.deepEqual(agreement.humanGate, {});
+  const longOn = on.filter((row) => row.wallMs > 60000).length;
+  assert.deepEqual(agreement.longRuns.autopilotOn, { over: longOn, counted: on.length });
+  const report = reportOf(run);
+  const section = report.slice(report.indexOf('\n## Typed outcome agreement'), report.indexOf('\n## MCP caller effect'));
+  assert.ok(section.includes(`- False done (done on a failed run): 3. ${FALSE_DONE_SENTENCE}`));
+  assert.match(section, /Done runs whose status word is not a success word: 1/);
+  assert.match(section, /False ambiguous \(ambiguous on a passing run, F18 watch\): 2/);
+  assert.match(section, /no fast_mode block \(F17 watch\): 4/);
+  assert.match(section, /\| no block \| 0 \| 4 \|/);
+  assert.match(section, /Runs over 60,000 ms wall time: /);
+});
+
+test('report: the MCP caller effect gives median host turns and FSB calls per completed run, pin against candidate', () => {
+  const tables = buildTables(PASS_SCENARIO.input, PASS_SCENARIO.result);
+  const { callerEffect } = tables;
+  assert.equal(callerEffect.perTask.length, 12);
+  const pinDone = groupRows({ baseline: PASS_SCENARIO.input.baseline.runs }, GATE).baselineClaude.filter((row) => counted(row) && row.pass);
+  assert.deepEqual(callerEffect.pooled.pin, { completedRuns: pinDone.length, turnsMedian: 9, callsMedian: 7 });
+  assert.equal(callerEffect.pooled.candidate.turnsMedian, 9);
+  const report = reportOf(PASS_SCENARIO);
+  const start = report.indexOf('\n## MCP caller effect (descriptive, 69 V4 rows)\n');
+  const section = report.slice(start, report.indexOf('\n## Sentinel\n'));
+  assert.ok(section.includes(CALLER_EFFECT_SENTENCE));
+  assert.match(section, /\| pooled \| \d+ \| 9\.0 \| 7\.0 \| \d+ \| 9\.0 \| 7\.0 \|/);
+  assert.ok(start < report.indexOf(`\n${DIAGNOSTICS_HEADING}\n`));
+  for (const word of ['jevMs', 'latencyMs']) assert.equal(section.includes(word), false, word);
+});
+
+test('report and decision: a used fallback reads "mcp-non-jev: <verdict> (from core-rebaseline-71; primary was <verdict>)"', () => {
+  const used = scenario({ ...SENTINEL_TRIP, fallback: FALLBACK });
+  const { decision } = used;
+  assert.equal(decision.paths['mcp-non-jev'].source, 'fallback');
+  assert.equal(decision.fallback.status, 'used');
+  assert.equal(decision.fallback.primaryVerdict, 'inconclusive');
+  assert.deepEqual(decision.fallback.primaryReasons, ['sentinel_trip']);
+  assert.equal(decision.fallback.campaigns.pin.id, REAL_GATE.fallback.campaigns.pin.id);
+  assert.equal(decision.paths['mcp-non-jev'].v6Action, 'publish_mcp_0_12_0');
+  const line = 'mcp-non-jev: pass (from core-rebaseline-71; primary was inconclusive)';
+  assert.equal(describePath(decision, 'mcp-non-jev'), line);
+  assert.deepEqual(validateDecision(decision).errors, []);
+  const report = reportOf(used);
+  assert.ok(report.includes(`- ${line} -> publish_mcp_0_12_0`), 'the report shows the replaced verdict');
+  assert.match(report, /core-rebaseline-71 fallback \(core-rebaseline-71-pin against core-rebaseline-71-candidate\)/);
+  assert.match(report, /Blocker: autopilot off-path regression or drift: investigate before V6/);
+
+  const refused = scenario({ ...SENTINEL_TRIP, fallback: fallbackCampaigns({ pin: { campaignId: 'core-rebaseline-71-pinned' } }) });
+  assert.equal(refused.decision.fallback.status, 'refused');
+  assert.ok(refused.decision.fallback.reasons.every((reason) => reason.startsWith('fallback_campaign_mismatch:')));
+  assert.equal(describePath(refused.decision, 'mcp-non-jev'), 'mcp-non-jev: inconclusive');
+  assert.deepEqual(validateDecision(refused.decision).errors, []);
 });
