@@ -387,8 +387,22 @@ test('raw record carries runTask.fastMode through the run executor', async () =>
   assert.deepEqual(Object.keys(runs.off.runTask), [...OLD_RUN_TASK_KEYS], 'a run without the block keeps the old runTask keys');
   assert.deepEqual(runs.on.claimed, runs.off.claimed, 'claimed is unchanged');
   assert.equal(runs.on.infraError, runs.off.infraError);
-  assert.deepEqual(toCommittedRow(runs.on), toCommittedRow(runs.off), 'the committed rows are identical');
+  // Phase 71 (71-03) writes schema-2 raw records, and a v2 row carries the
+  // block as fastMode and its jev summary as the exposure (71-CONTEXT D-08,
+  // amended 2026-10-16). The schema-1 rows of the same records stay
+  // identical; the v2 rows differ in exactly those two blocks.
+  const v1Row = (record) => toCommittedRow({ ...record, schemaVersion: 1 });
+  assert.deepEqual(v1Row(runs.on), v1Row(runs.off), 'the schema-1 committed rows are identical');
+  assert.deepEqual(Object.keys(v1Row(runs.on)), [...RUN_ROW_KEYS]);
+  const { fastMode: onFastMode, jev: onJev, ...onRest } = toCommittedRow(runs.on);
+  const { fastMode: offFastMode, jev: offJev, ...offRest } = toCommittedRow(runs.off);
+  assert.deepEqual(onRest, offRest, 'the v2 committed rows differ only in fastMode and jev');
+  assert.equal(offFastMode, null);
+  assert.equal(onFastMode.outcome, runs.on.runTask.fastMode.outcome);
+  assert.equal(offJev.source, null);
+  assert.equal(onJev.source, 'summary');
   assert.deepEqual(validateCommittedRow(toCommittedRow(runs.on)), { ok: true, errors: [] });
+  assert.deepEqual(validateCommittedRow(toCommittedRow(runs.off)), { ok: true, errors: [] });
 });
 
 // --- producer/validator parity ---------------------------------------------------------------

@@ -471,6 +471,9 @@ function liveDeps(overrides = {}) {
     readPairingCode: spy('readPairingCode', calls),
     pairExtensionViaCdp: spy('pairExtensionViaCdp', calls),
     startFixtureServer: spy('startFixtureServer', calls),
+    // Phase 71: only --conditions writes or reads the fast-mode switch.
+    writeSetting: spy('writeSetting', calls),
+    readSetting: spy('readSetting', calls),
     ...overrides,
   };
   deps.cleanup = () => {

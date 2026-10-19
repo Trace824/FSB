@@ -39,6 +39,25 @@
  * pairing code or environment values. --pair-via-cdp reads the code from
  * `pair --json` in process and hands it straight to the CDP pairing call.
  *
+ * Conditions and gate (Phase 71, D-04, D-11): --conditions off,on adds the
+ * fast-mode switch to the seeded ABBA schedule. Before each run, outside the
+ * timed window, the runner writes fsbJevFastModeEnabled through the MCP
+ * settings tool (the product path), then reads it back over CDP together
+ * with fsbJevCaptureArmed, which must be false. CDP only reads; the readback,
+ * never the settings tool's answer, decides. A mismatch or an unverifiable
+ * read is the pausing infra code condition_not_applied, and that arm never
+ * runs. The preflight refuses --conditions on a build whose settings tool
+ * does not report the key as a boolean (the 8a058bdf pin has no settings
+ * tool), with an armed capture, or when CDP cannot verify. --gate <file>
+ * records the gate file's path and the sha256 of its bytes in identity, and
+ * the gate hash and the conditions join the fields a resume must keep. Raw
+ * records are schema 2: they add the condition, the session's
+ * jevMeasurement (autopilot only), its terminal-reason token, the safety
+ * counts and the request log's dropped count. An 'on' run waits for
+ * jevMeasurement, within the same retry budget, only when its run_task
+ * fast_mode summary reports Jev attempts, and flags jev_measurement_missing
+ * when it never arrives.
+ *
  * Exit codes: 0 ok, 1 error, 2 refusal or usage, 75 paused (infra),
  * 130 SIGINT, 143 SIGTERM.
  */
@@ -71,17 +90,21 @@ import {
   openRunnerClient,
   openTab,
   readFsbConfig,
+  readSetting,
   runTaskTimed,
+  writeSetting,
 } from './lib/mcp-client.mjs';
 import { evaluateOutcome } from './lib/outcome.mjs';
 import {
   ARMS,
   CAMPAIGN_ID_PATTERN,
+  CONDITIONS,
   HOST_ARMS,
   MAX_ROUNDS,
   RUN_FLAGS,
   buildSchedule,
   classifyInfra,
+  computeSafety,
   evaluateBenchSafety,
   pauseDecision,
   servedModelMatch,
@@ -106,6 +129,11 @@ const TASK_ID_PATTERN = /^(?:core|live)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const LAUNCH_FLAG_PATTERN = /^--[a-z0-9][a-z0-9-]{0,80}$/;
 const REASON_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const TELEMETRY_KEY = 'fsbTelemetryOptOut';
+// The stored fast-mode switch (a writable settings key) and the capture arm
+// (an internal key that only export-capture.mjs writes); 71-SYNC-RECHECK S2, S3.
+const FAST_MODE_KEY = 'fsbJevFastModeEnabled';
+const CAPTURE_ARMED_KEY = 'fsbJevCaptureArmed';
+const RAW_RECORD_SCHEMA_VERSION = 2;
 const DEFAULT_SEED = 66;
 const DEFAULT_COOLDOWN_MS = 3000;
 const MAX_COOLDOWN_MS = 600000;
@@ -136,6 +164,8 @@ export const USAGE = [
   '  --seed N                     schedule seed (default 66)',
   '  --campaign-id <id>           default <set>-<YYYYMMDD>-<git short sha>',
   '  --cooldown-ms N              pause between runs (default 3000)',
+  '  --conditions off,on          interleave the fast-mode switch per run (written via the settings tool, read back over CDP)',
+  '  --gate <file>                record the predeclared gate\'s sha256 in identity',
   '  --tasks-root <dir>           task definitions (default scripts/bench/tasks)',
   '  --fixtures-root <dir>        fixture pages (default scripts/bench/fixtures)',
   '',
@@ -159,7 +189,7 @@ export const USAGE = [
 const VALUE_FLAGS = new Set([
   '--set', '--tasks', '--rounds', '--arms', '--seed', '--claude-model', '--claude-tool-search', '--cursor-model',
   '--chrome-profile', '--expect-extension-id', '--chrome-launch-record', '--campaign-id', '--resume',
-  '--tasks-root', '--fixtures-root', '--cooldown-ms',
+  '--tasks-root', '--fixtures-root', '--cooldown-ms', '--conditions', '--gate',
 ]);
 const BOOLEAN_FLAGS = new Set(['--dry-run', '--preflight', '--smoke', '--campaign', '--allow-dirty', '--pair-via-cdp', '--help', '-h']);
 
@@ -264,6 +294,16 @@ export function resolveOptions(raw) {
     errors.push(issue('arms_invalid', `--arms must list distinct arms from ${ARMS.join(', ')}`));
   }
 
+  // Phase 71: every listed part must be a known condition, once; an empty
+  // part (",", "off,,on") is refused rather than skipped.
+  let conditions = null;
+  if (raw['--conditions'] !== undefined) {
+    conditions = String(raw['--conditions']).split(',').map((part) => part.trim());
+    if (conditions.some((part) => !CONDITIONS.includes(part)) || new Set(conditions).size !== conditions.length) {
+      errors.push(issue('conditions_invalid', `--conditions must list distinct conditions from ${CONDITIONS.join(', ')}`));
+    }
+  }
+
   let rounds = mode === 'smoke' ? SMOKE_ROUNDS : CAMPAIGN_ROUNDS;
   if (raw['--rounds'] !== undefined) {
     rounds = parseInteger(raw['--rounds']);
@@ -350,6 +390,8 @@ export function resolveOptions(raw) {
       tasksRoot: pathOption('--tasks-root', BENCH_TASKS_ROOT),
       fixturesRoot: pathOption('--fixtures-root', BENCH_FIXTURES_ROOT),
       cooldownMs,
+      conditions,
+      gatePath: pathOption('--gate', null),
     },
     errors,
   };
@@ -469,6 +511,8 @@ export function defaultDeps() {
     runTaskTimed,
     getSessionDetailWithRetry,
     listSessions,
+    writeSetting,
+    readSetting,
     readDevToolsPort,
     browserVersion,
     readExtensionStorageFlag,
@@ -552,8 +596,15 @@ function campaignHasRecords(rawDir, outDir) {
  * session id until the 66-06 measurement block is recorded. On a timeout the
  * id comes from get_task_status (called before stop_task) or the
  * list_sessions fallback. Error text stays in memory for classification.
+ *
+ * Phase 71 (Pitfall 9): an 'on' run whose run_task fast_mode summary reports
+ * Jev attempts (jevAttempted) also waits, within the same retry budget, for
+ * session.jevMeasurement, and reports jevMeasurementMissing when a session
+ * was read without it. A run with no reported attempt has no jevMeasurement
+ * to wait for (68-05-PLAN.md:26, :114), so it keeps the Phase 66 predicate
+ * and is never flagged.
  */
-export async function runAutopilotArm({ deps, client, task, startUrl, instruction, signal }) {
+export async function runAutopilotArm({ deps, client, task, startUrl, instruction, signal, condition = null }) {
   let opened;
   try {
     opened = await deps.openTab(client, startUrl);
@@ -581,12 +632,17 @@ export async function runAutopilotArm({ deps, client, task, startUrl, instructio
   if (timed.aborted) {
     return { ...timed, startFailed: false, runTask, taskJson: json, sessionDetail: null };
   }
+  const fastJev = isPlainObject(runTask.fastMode) && isPlainObject(runTask.fastMode.jev) ? runTask.fastMode.jev : null;
+  const jevAttempted = condition === 'on' && fastJev !== null && Number.isSafeInteger(fastJev.attempts) && fastJev.attempts > 0;
+  const recorded = (detail) => !!(detail && detail.session && detail.session.measurement && detail.session.measurement.recorded === true);
   const sessionDetail = await deps.getSessionDetailWithRetry(client, timed.sessionId, {
-    until: (detail) => !!(detail && detail.session && detail.session.measurement && detail.session.measurement.recorded === true),
+    until: jevAttempted ? (detail) => recorded(detail) && isPlainObject(detail.session.jevMeasurement) : recorded,
   });
+  const jevMeasurementMissing = jevAttempted && isPlainObject(sessionDetail) && isPlainObject(sessionDetail.session)
+    && !isPlainObject(sessionDetail.session.jevMeasurement);
   return {
     t0: timed.t0, t1: timed.t1, timedOut: timed.timedOut, aborted: false, startFailed: false,
-    runTask, taskJson: json, errorText: timed.errorText, sessionId: timed.sessionId, sessionDetail,
+    runTask, taskJson: json, errorText: timed.errorText, sessionId: timed.sessionId, sessionDetail, jevMeasurementMissing,
   };
 }
 
@@ -654,6 +710,24 @@ function sessionErrorTextOf(detail) {
   return parts.length ? parts.join('\n') : null;
 }
 
+// The session's terminal reason (71-SYNC-RECHECK S7: session.outcomeDetails.reason)
+// as a token, else null; free text never reaches a record.
+function endReasonOf(detail) {
+  const session = detail && isPlainObject(detail.session) ? detail.session : null;
+  const reason = session && isPlainObject(session.outcomeDetails) ? session.outcomeDetails.reason : null;
+  return typeof reason === 'string' && REASON_PATTERN.test(reason) ? reason : null;
+}
+
+// The 68-09 projected jevMeasurement when it is a plain object, else null.
+function jevMeasurementOf(detail) {
+  const session = detail && isPlainObject(detail.session) ? detail.session : null;
+  return session && isPlainObject(session.jevMeasurement) ? session.jevMeasurement : null;
+}
+
+function nonNegativeCount(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
 /**
  * Builds the per-run executor. Each call runs one schedule entry through its
  * arm, collects the independent evidence after the timed window, evaluates
@@ -661,10 +735,15 @@ function sessionErrorTextOf(detail) {
  * { record, aborted, cleanup }: the raw record (claims stored, never passed
  * to evaluateOutcome; error texts never stored) and a cleanup that closes the
  * run's targets and clears its fixture token.
+ *
+ * A schedule entry with a condition (Phase 71) first awaits
+ * applyCondition(condition), before the arm sets t0. Anything but
+ * { ok: true } returns at once a condition_not_applied record with no
+ * timing and no outcome; the arm and the evidence read never run.
  */
 export function createRunExecutor({
   campaignId, tasksById, fixtureSha256ById, fixtureServer = null, cdpPort = null, arms, collectEvidence, cleanup,
-  streamsDir, now = () => Date.now(), signal = null,
+  streamsDir, now = () => Date.now(), signal = null, applyCondition = null,
 }) {
   return async function executeRun(entry, { attempt }) {
     const task = tasksById.get(entry.taskId);
@@ -680,6 +759,69 @@ export function createRunExecutor({
     const instruction = renderInstruction(task, startUrl);
     const startedAt = new Date(now()).toISOString();
     const isHost = HOST_ARMS.includes(entry.arm);
+    const condition = entry.condition === undefined ? null : entry.condition;
+    if (condition !== null) {
+      if (typeof applyCondition !== 'function') throw new Error(`schedule entry ${entry.runId} has a condition but no applyCondition was given`);
+      let applied = null;
+      try {
+        applied = await applyCondition(condition);
+      } catch {
+        applied = null;
+      }
+      if (!applied || applied.ok !== true) {
+        const noRunFlags = new Set();
+        if (task.set === 'live') noRunFlags.add('live_task');
+        if (entry.arm === 'cursor') noRunFlags.add('experimental_arm');
+        return {
+          record: {
+            schemaVersion: RAW_RECORD_SCHEMA_VERSION,
+            campaignId,
+            runId: entry.runId,
+            attempt,
+            set: task.set,
+            taskId: task.id,
+            taskVersion: task.version,
+            category: task.category,
+            fixtureSha256: fixtureSha256ById.get(task.id),
+            arm: entry.arm,
+            round: entry.round,
+            order: entry.order,
+            condition,
+            startedAt,
+            timing: { t0: null, initAt: null, t1: null, exitedAt: null },
+            wallMs: null,
+            wallFromInitMs: null,
+            timedOut: false,
+            outcome: { pass: false, checks: [] },
+            infraError: 'condition_not_applied',
+            claimed: isHost
+              ? hostClaimed(entry.arm, null)
+              : { status: null, partialOutcome: null, isError: null, subtype: null, completeTask: null },
+            sessions: [],
+            sessionMatch: 'none',
+            measurement: null,
+            hostSummary: null,
+            runTask: null,
+            jevMeasurement: null,
+            endReason: null,
+            safety: null,
+            evidence: { collected: false, requests: null, dropped: null, finalUrl: null, markers: null, text: null },
+            flags: RUN_FLAGS.filter((flag) => noRunFlags.has(flag)),
+            stream: null,
+            armError: null,
+          },
+          aborted: false,
+          cleanup: async () => {
+            try {
+              await cleanup({ targetIds: [], token, task });
+            } catch {
+              // best effort, as for a run that did start
+            }
+          },
+        };
+      }
+    }
+
     let rawStreamPath = null;
     if (isHost && streamsDir) {
       fs.mkdirSync(streamsDir, { recursive: true, mode: 0o700 });
@@ -761,6 +903,7 @@ export function createRunExecutor({
     if (entry.arm === 'autopilot' && servedModelMatch(measurement) === false) flags.add('served_model_mismatch');
     if (measurement && measurement.idleTimeout === true) flags.add('idle_timeout_session');
     if (sessionMatch === 'multiple') flags.add('multiple_mcp_sessions');
+    if (!isHost && result && result.jevMeasurementMissing === true) flags.add('jev_measurement_missing');
 
     const t0 = result && Number.isFinite(result.t0) ? result.t0 : null;
     const endAt = result ? (Number.isFinite(result.t1) ? result.t1 : (isHost && Number.isFinite(result.exitedAt) ? result.exitedAt : null)) : null;
@@ -779,8 +922,15 @@ export function createRunExecutor({
         completeTask: null,
       };
 
+    // Safety evidence (71-02 computeSafety) is computed here, while the request
+    // log is at hand; live tasks have no fixture log.
+    const dropped = task.set === 'core' && evidence ? nonNegativeCount(evidence.dropped) : null;
+    const safety = task.set === 'core'
+      ? computeSafety({ task, requests: evidence ? evidence.requests : null, dropped })
+      : null;
+
     const record = {
-      schemaVersion: 1,
+      schemaVersion: RAW_RECORD_SCHEMA_VERSION,
       campaignId,
       runId: entry.runId,
       attempt,
@@ -792,6 +942,7 @@ export function createRunExecutor({
       arm: entry.arm,
       round: entry.round,
       order: entry.order,
+      condition,
       startedAt,
       timing: {
         t0,
@@ -811,9 +962,15 @@ export function createRunExecutor({
       measurement,
       hostSummary: isHost && result ? result.hostSummary || null : null,
       runTask,
+      // From the detail, only the allowlisted 68-09 jevMeasurement (autopilot)
+      // and the terminal-reason token.
+      jevMeasurement: isHost ? null : jevMeasurementOf(sessionDetail),
+      endReason: endReasonOf(sessionDetail),
+      safety,
       evidence: {
         collected: evidenceCollected,
         requests: evidence ? evidence.requests : null,
+        dropped,
         finalUrl: evidence ? evidence.finalUrl : null,
         markers: evidence ? evidence.markers : null,
         text: evidence ? evidence.text : null,
@@ -942,7 +1099,7 @@ function loadedExtensionId(payload) {
  * bench Chrome's launch flag names. No env value, key, credential, secret
  * or URL.
  */
-async function collectIdentity({ deps, options, mode, campaignId, schedule, lock, pre, providerKeyNames }) {
+async function collectIdentity({ deps, options, mode, campaignId, schedule, lock, pre, providerKeyNames, gate = null }) {
   const payload = pre.config.ok ? pre.config.payload : {};
   const extension = isPlainObject(payload.extension) ? payload.extension : {};
   const marker = isPlainObject(extension.measurement) ? extension.measurement : {};
@@ -964,7 +1121,10 @@ async function collectIdentity({ deps, options, mode, campaignId, schedule, lock
     set: options.set,
     createdAt: new Date(deps.now()).toISOString(),
     schedule: schedule
-      ? { runs: schedule.length, rounds: options.rounds, arms: options.arms, seed: options.seed, cooldownMs: options.cooldownMs }
+      ? {
+        runs: schedule.length, rounds: options.rounds, arms: options.arms, seed: options.seed, cooldownMs: options.cooldownMs,
+        ...(options.conditions ? { conditions: options.conditions } : {}),
+      }
       : null,
     git: { sha: typeof pre.git.sha === 'string' ? pre.git.sha : null, dirty: typeof pre.git.dirty === 'boolean' ? pre.git.dirty : null },
     node: process.version,
@@ -1020,13 +1180,17 @@ async function collectIdentity({ deps, options, mode, campaignId, schedule, lock
       experimental: true,
     };
   }
+  if (gate) identity.gate = { path: gate.path, sha256: gate.sha256 };
   return identity;
 }
 
-// Fields a resumed campaign must share with the one it continues.
+// Fields a resumed campaign must share with the one it continues. The gate
+// hash and the conditions (Phase 71, D-11) are null for a V1 identity.
 function stableIdentity(identity) {
   const hostsClaude = isPlainObject(identity.hosts) && isPlainObject(identity.hosts.claude) ? identity.hosts.claude : {};
   return {
+    gate: isPlainObject(identity.gate) ? identity.gate.sha256 : null,
+    conditions: isPlainObject(identity.schedule) && Array.isArray(identity.schedule.conditions) ? identity.schedule.conditions : null,
     set: identity.set,
     mode: identity.mode,
     schedule: identity.schedule ? { rounds: identity.schedule.rounds, arms: identity.schedule.arms, seed: identity.schedule.seed } : null,
@@ -1110,6 +1274,75 @@ async function runPreflight({ deps, options, mode, client, transport, sdkVersion
   };
 }
 
+/**
+ * The --conditions preflight (Phase 71, D-04), run after the Phase 66
+ * preflight passes. It refuses unless CDP can verify (a DevTools port and an
+ * extension id), the settings tool reports fsbJevFastModeEnabled as a
+ * boolean (the 8a058bdf pin has no settings tool, so a conditioned campaign
+ * can never run against it), and the capture arm reads strictly false.
+ * Nothing is written. Returns { ok, refusals, cdpPort, extensionId }.
+ */
+export async function conditionPreflight({ deps, options, client, pre }) {
+  const cdpPort = pre && pre.cdpPort ? pre.cdpPort : null;
+  const config = pre && pre.config && pre.config.ok ? pre.config.payload : null;
+  const extensionId = (options && options.expectExtensionId) || loadedExtensionId(config);
+  const refuse = (code, detail) => ({ ok: false, refusals: [issue(code, detail)], cdpPort, extensionId });
+  if (!cdpPort || !extensionId) {
+    return refuse('conditions_unverifiable', 'the switch cannot be read back without the bench Chrome DevTools port and the extension id');
+  }
+  let setting = null;
+  try {
+    setting = await deps.readSetting(client, FAST_MODE_KEY);
+  } catch {
+    setting = null;
+  }
+  if (!setting || setting.isError === true || !isPlainObject(setting.json) || setting.json.type !== 'boolean') {
+    return refuse('conditions_unsupported', `the settings tool does not report ${FAST_MODE_KEY} as a boolean on this build`);
+  }
+  let armed = null;
+  try {
+    armed = await deps.readExtensionStorageFlag(cdpPort, extensionId, CAPTURE_ARMED_KEY);
+  } catch {
+    armed = null;
+  }
+  if (armed === true) return refuse('capture_armed', `${CAPTURE_ARMED_KEY} is set; disarm the capture before a conditioned run`);
+  if (armed !== false) return refuse('capture_arm_unverifiable', `${CAPTURE_ARMED_KEY} could not be read over CDP`);
+  return { ok: true, refusals: [], cdpPort, extensionId };
+}
+
+/**
+ * The per-run condition applier (Phase 71, D-04; RESEARCH Pattern 2). It
+ * writes the switch through the settings tool and ignores the answer (an
+ * unconfirmed write can still land), then reads fsbJevFastModeEnabled back
+ * over CDP, which must equal condition === 'on', and fsbJevCaptureArmed,
+ * which must be false. CDP only reads here. Returns { ok, reason } with
+ * reason readback_mismatch, unverifiable or capture_armed; it never throws.
+ */
+export function createConditionApplier({ deps, client, cdpPort, extensionId }) {
+  const read = async (key) => {
+    try {
+      return await deps.readExtensionStorageFlag(cdpPort, extensionId, key);
+    } catch {
+      return null;
+    }
+  };
+  return async function applyCondition(condition) {
+    const on = condition === 'on';
+    try {
+      await deps.writeSetting(client, FAST_MODE_KEY, on ? 'true' : 'false');
+    } catch {
+      // The readback decides.
+    }
+    const stored = await read(FAST_MODE_KEY);
+    if (typeof stored !== 'boolean') return { ok: false, reason: 'unverifiable' };
+    if (stored !== on) return { ok: false, reason: 'readback_mismatch' };
+    const armed = await read(CAPTURE_ARMED_KEY);
+    if (typeof armed !== 'boolean') return { ok: false, reason: 'unverifiable' };
+    if (armed) return { ok: false, reason: 'capture_armed' };
+    return { ok: true, reason: null };
+  };
+}
+
 function isConnectedConfig(result) {
   return !!(result && result.ok && isPlainObject(result.payload) && result.payload.success !== false && isPlainObject(result.payload.config));
 }
@@ -1153,13 +1386,14 @@ function productionEvidence({ deps, fixtureServer, cdpPort }) {
   return async ({ task, token }) => {
     if (task.set === 'core') {
       // The request log is in process and always available; the CDP read can
-      // fail only when the bench browser is unreachable.
-      const requests = fixtureServer.evidence(token).requests;
+      // fail only when the bench browser is unreachable. dropped counts the
+      // requests past the log's cap (safety is unverifiable when it is > 0).
+      const { requests, dropped } = fixtureServer.evidence(token);
       try {
         const cdp = await deps.collectCoreEvidence(cdpPort, token);
-        return { requests, finalUrl: cdp.finalUrl, markers: cdp.markers, text: null, targetIds: cdp.targetIds };
+        return { requests, dropped, finalUrl: cdp.finalUrl, markers: cdp.markers, text: null, targetIds: cdp.targetIds };
       } catch {
-        return { requests, finalUrl: null, markers: {}, text: null, targetIds: [], collectionFailed: true };
+        return { requests, dropped, finalUrl: null, markers: {}, text: null, targetIds: [], collectionFailed: true };
       }
     }
     try {
@@ -1180,7 +1414,9 @@ function productionCleanup({ deps, fixtureServer, cdpPort }) {
 
 function productionArms({ deps, client, options, providerKeyNames }) {
   return {
-    autopilot: ({ task, startUrl, instruction, signal }) => runAutopilotArm({ deps, client, task, startUrl, instruction, signal }),
+    autopilot: ({ entry, task, startUrl, instruction, signal }) => runAutopilotArm({
+      deps, client, task, startUrl, instruction, signal, condition: entry.condition === undefined ? null : entry.condition,
+    }),
     claude: ({ task, instruction, signal, rawStreamPath }) => runHostArm({
       deps,
       client,
@@ -1257,6 +1493,21 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
   }
   const mode = options.mode;
 
+  // The predeclared gate (Phase 71, D-11): read once, before any client
+  // opens; identity keeps its repo-relative path and the sha256 of its bytes.
+  // Plan 71-05 adds the full gate validation here.
+  let gate = null;
+  if (options.gatePath) {
+    let bytes;
+    try {
+      bytes = fs.readFileSync(options.gatePath);
+      JSON.parse(bytes.toString('utf8'));
+    } catch {
+      return refuse('refusing to start', [issue('gate_invalid', '--gate must name a readable JSON file')]);
+    }
+    gate = { path: path.relative(deps.repoRoot, options.gatePath).split(path.sep).join('/'), sha256: sha256Hex(bytes) };
+  }
+
   // Tasks, fixture hashes and the schedule (everything but --preflight).
   let tasks = [];
   let lock = null;
@@ -1280,13 +1531,15 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
     }
     if (!campaignId) campaignId = defaultCampaignId(options, deps);
     if (!CAMPAIGN_ID_PATTERN.test(campaignId)) return refuse('refusing to start', [issue('campaign_id_invalid', 'the campaign id is not valid')]);
-    schedule = buildSchedule({ campaignId, taskIds: tasks.map((task) => task.id), rounds: options.rounds, arms: options.arms, seed: options.seed });
+    const scheduleArgs = { campaignId, taskIds: tasks.map((task) => task.id), rounds: options.rounds, arms: options.arms, seed: options.seed };
+    if (options.conditions) scheduleArgs.conditions = options.conditions;
+    schedule = buildSchedule(scheduleArgs);
   }
 
   if (options.dryRun) {
     out(JSON.stringify({
       campaignId, mode, set: options.set, runs: schedule.length, arms: options.arms, rounds: options.rounds,
-      seed: options.seed, tasks: lock,
+      seed: options.seed, ...(options.conditions ? { conditions: options.conditions } : {}), tasks: lock,
     }));
     return EXIT.OK;
   }
@@ -1337,9 +1590,19 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
     if (!pre.ok) return refuse('preflight refused', pre.refusals);
     if (receivedSignal) return signalExit();
 
+    // With --conditions: verify the build and the capture arm, then build the
+    // per-run applier the executor awaits before each conditioned run.
+    let applyCondition = null;
+    if (options.conditions) {
+      const ready = await conditionPreflight({ deps, options, client: runner.client, pre });
+      if (!ready.ok) return refuse('preflight refused', ready.refusals);
+      applyCondition = createConditionApplier({ deps, client: runner.client, cdpPort: ready.cdpPort, extensionId: ready.extensionId });
+      if (receivedSignal) return signalExit();
+    }
+
     const hostArms = options.arms.filter((arm) => HOST_ARMS.includes(arm));
     const providerKeyNames = hostArms.length ? await deps.loadProviderKeyNames(deps.repoRoot) : [];
-    let identity = await collectIdentity({ deps, options, mode, campaignId, schedule, lock, pre, providerKeyNames });
+    let identity = await collectIdentity({ deps, options, mode, campaignId, schedule, lock, pre, providerKeyNames, gate });
 
     if (mode === 'preflight') {
       out(JSON.stringify({
@@ -1384,6 +1647,7 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
       streamsDir: path.join(runDir, 'streams'),
       now: deps.now,
       signal: stop.signal,
+      applyCondition,
     });
 
     // The first observed tool-loading mode (init.tools) is added to identity.

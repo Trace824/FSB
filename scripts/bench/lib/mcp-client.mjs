@@ -205,6 +205,22 @@ export function openTab(client, url) {
   return callToolJson(client, 'open_tab', { url, active: true }, { timeout: 30000 });
 }
 
+/**
+ * Writes one setting through the 66.1 MCP settings tool, the product path
+ * (Phase 71, D-04). The value goes as a string, as the tool's wire coercion
+ * does. The answer is only a hint: SETTING_UNAVAILABLE after a sent write
+ * means the outcome is unknown, so the caller reads the stored value back
+ * independently and that readback decides.
+ */
+export function writeSetting(client, key, value) {
+  return callToolJson(client, 'settings', { key, value: String(value) }, { timeout: SHORT_TOOL_TIMEOUT_MS });
+}
+
+/** Reads one setting's descriptor ({key, value, type, writable, range, values}) through the settings tool. */
+export function readSetting(client, key) {
+  return callToolJson(client, 'settings', { key }, { timeout: SHORT_TOOL_TIMEOUT_MS });
+}
+
 /** list_sessions index entries (id, startTime, mode, mcpClient, ...), or [] on failure. */
 export async function listSessions(client, limit = LIST_SESSIONS_LIMIT) {
   const result = await callToolJson(client, 'list_sessions', { limit }, { timeout: SHORT_TOOL_TIMEOUT_MS });
