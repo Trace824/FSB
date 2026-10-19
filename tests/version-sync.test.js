@@ -127,6 +127,9 @@ function assertCompatDeclarations(compat) {
   assert.equal(compatFor('0.12.0').minimum, '0.9.92');
   assert.deepEqual(compatFor('0.12.0').feature, { version: '1.0.0', names: ['settings', 'expect'] });
   assert.equal(compatFor('0.12.4'), MCP_EXTENSION_COMPAT['0.12.0'], '0.12.4 inherits the 0.12.0 entry');
+  // IN-07: inheritance runs forward only; an earlier patch never takes a later patch's reasons.
+  assert.throws(() => compatFor('0.11.0'), /no declared extension compatibility for MCP 0\.11\.0;/u);
+  assert.throws(() => compatFor('0.11.1'), /no declared extension compatibility for MCP 0\.11\.1;/u);
   assert.throws(
     () => compatFor('0.13.0'),
     /^Error: no declared extension compatibility for MCP 0\.13\.0; add it to scripts\/lib\/mcp-extension-compat\.mjs$/u,

@@ -10,8 +10,9 @@
  * map as the repository.
  *
  * Lookup: an exact entry wins; otherwise the highest declared entry with the
- * same major.minor (a patch release inherits its minor's declaration);
- * otherwise compatFor throws. Releasing a new MCP minor therefore needs a new
+ * same major.minor and a lower patch (a later patch release inherits the
+ * declaration before it; an earlier patch never inherits a later one's, whose
+ * reasons may name routes it lacks); otherwise compatFor throws. Releasing a new MCP minor therefore needs a new
  * entry here before `npm run version:set:mcp` can succeed.
  *
  * This module is pure: no file, environment or process access.
@@ -76,7 +77,7 @@ export function compatFor(mcpVersion) {
   let inheritedPatch = -1;
   for (const declaredVersion of Object.keys(MCP_EXTENSION_COMPAT)) {
     const [, major, minor, patch] = VERSION_PATTERN.exec(declaredVersion);
-    if (major !== requested[1] || minor !== requested[2]) continue;
+    if (major !== requested[1] || minor !== requested[2] || Number(patch) > Number(requested[3])) continue;
     if (Number(patch) > inheritedPatch) {
       inherited = MCP_EXTENSION_COMPAT[declaredVersion];
       inheritedPatch = Number(patch);
