@@ -16,6 +16,7 @@ Patch release adding the FSB dark logo to MCP server metadata.
 ### Compatibility and update
 
 - Extension compatibility remains FSB 0.9.92 or newer. Server identity, capabilities, tool schemas, installer configuration, and dependency versions are unchanged.
+- FSB extension 0.9.93 (2026-10-18) ships against this same package: its multilingual interface changes no MCP tool schemas or bridge messages, so there is no MCP release for it. The README compatibility line tracks the current extension release and now names 0.9.93; pair `fsb-mcp-server` 0.11.2 with extension 0.9.93.
 - Icon rendering depends on the MCP client; clients that ignore icon metadata keep their existing display.
 - Merging this release into `main` automatically publishes `fsb-mcp-server@0.11.2` and creates the `mcp-v0.11.2` GitHub release. Later main pushes skip publication when the MCP version is already on npm; explicit MCP release tags remain supported.
 

@@ -6,9 +6,21 @@ The independently published `fsb-mcp-server` npm package keeps its own semver ch
 
 ## [Unreleased]
 
-## v0.9.93 — Version bump — 2026-10-13
+## v0.9.93 — Multilingual Extension Interface — 2026-10-18
 
-The extension, showcase, skill, documentation, and store metadata align at `0.9.93`. The independently versioned `fsb-mcp-server` stays at `0.11.2`; see [`mcp/CHANGELOG.md`](./mcp/CHANGELOG.md) for its package-specific release notes.
+The extension, showcase, skill, documentation, and store metadata align at `0.9.93`. The independently versioned `fsb-mcp-server` stays at `0.11.2`; see [`mcp/CHANGELOG.md`](./mcp/CHANGELOG.md) for its package-specific release notes. MCP tool schemas and bridge messages are unchanged, so `fsb-mcp-server` 0.11.2 works with this release as is.
+
+### Added
+
+- **The extension interface reads in seven languages.** The side panel, popup, control panel, onboarding, unlock, and microphone-permission pages render in English, Spanish, German, Japanese, Korean, Simplified Chinese, and Traditional Chinese, and so do the in-page overlay's own controls, status pill, and replay-speed caption. Each language ships a catalog of 1,146 keys in `extension/_locales/`; a message missing from a catalog falls back to English instead of leaving a blank label.
+- **A language picker switches without restarting Chrome.** The side panel header and the control panel carry a picker that lists every language by its own name. The choice is saved in `chrome.storage.local` under `fsbUiLocale`, and open FSB pages and in-page overlays re-render as soon as it changes. Choosing Browser language clears the saved choice: FSB then follows Chrome's UI language, maps regional variants to the nearest catalog, opens Hong Kong and Macau Chinese in Traditional Chinese, and falls back to English for anything else.
+- **The extension's name and description follow the browser language.** The manifest declares `default_locale` and reads its name and description through `__MSG_ext_name__` and `__MSG_ext_description__`. Chrome resolves them in the browser's UI language, so the picker inside FSB does not change them, and the control panel says so beside the picker. The name on `chrome://extensions` is now `FSB`, without a version suffix.
+- **Catalog gaps fail CI.** `scripts/verify-extension-i18n.mjs` fails on a missing key, an empty message, mismatched placeholders between languages, unreviewed copied English, or a dropped protected term such as FSB; `scripts/verify-extension-copy.mjs` fails when one of the 13 in-scope UI files keeps package-owned English outside the catalogs. Both run at the start of `npm test`, so a new key has to land in all seven catalogs in the same change.
+- **Release notes for 0.9.93 on the showcase.** The release-notes page documents this release in all seven site languages.
+
+### Unchanged
+
+- Only FSB's own words are translated. Prompts, model output, task titles, page content, secrets, logs, and provider names appear exactly as written.
 
 ## v0.9.92 — Bridge Reliability and Editing Fixes — 2026-10-07
 
