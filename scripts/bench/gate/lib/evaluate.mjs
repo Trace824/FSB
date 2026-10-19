@@ -54,8 +54,10 @@ import { END_LABELS, PAUSING_INFRA_CODES, buildSchedule, isClaimedSuccess } from
 import { aaNoiseFloor, geoMeanMedianRatio, newcombeDifference, wilson } from '../../lib/stats.mjs';
 import { corpusDigest } from './gate.mjs';
 
-// The V1 baseline and the fallback pin campaign run at this commit (D-03).
+// The V1 baseline and the fallback pin campaign run at this commit (D-03),
+// compared in full: a prefix would accept any commit that shares it (IN-02).
 export const PIN_SHA_PREFIX = '8a058bdf';
+export const PIN_SHA = '8a058bdf0d17c1e3e79ec3104cc1996326b4c402';
 // Two-sided z at gate.bootstrap.sensitivityLevel 0.975: the Bonferroni
 // two-family line (D-14). Never decisive.
 export const SENSITIVITY_Z = 2.241402727604947;
@@ -749,7 +751,7 @@ function refusalsOf(input, gate) {
     add('candidate_sha_mismatch', 'autopilot.git.sha,claude.git.sha');
   }
   const pinSha = gitOf(campaigns.baseline.identity).sha;
-  if (typeof pinSha !== 'string' || !pinSha.startsWith(PIN_SHA_PREFIX)) add('baseline_not_pin', 'baseline.git.sha');
+  if (pinSha !== PIN_SHA) add('baseline_not_pin', 'baseline.git.sha');
   for (const role of candidates) {
     if (campaigns[role].runs.some((row) => row.schemaVersion !== gate.campaigns[role].rowSchema)) add('candidate_row_schema', `${role}.rows.schemaVersion`);
   }
@@ -822,7 +824,7 @@ function fallbackRefusals({ gate, gateSha256, pin, candidate, candidateSha }) {
     if (runs.some((row) => row.schemaVersion !== rule.rowSchema)) add('fallback_campaign_mismatch', `${role}.rows.schemaVersion`);
   }
   const pinSha = gitOf(pin.identity).sha;
-  if (typeof pinSha !== 'string' || !pinSha.startsWith(PIN_SHA_PREFIX)) add('fallback_pin_not_pin', 'pin.git.sha');
+  if (pinSha !== PIN_SHA) add('fallback_pin_not_pin', 'pin.git.sha');
   const git = gitOf(candidate.identity);
   if (typeof git.sha !== 'string' || git.sha !== candidateSha) add('fallback_candidate_not_measured', 'candidate.git.sha');
   if (git.dirty !== false) add('fallback_candidate_not_measured', 'candidate.git.dirty');

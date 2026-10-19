@@ -572,6 +572,8 @@ test('refusals: a tampered or mismatched input is refused with no verdicts', () 
     ['candidate_dirty', { autopilot: autopilotCampaign({ identity: { git: { dirty: true } } }) }],
     ['candidate_sha_mismatch', { claude: claudeCampaign({ identity: { git: { sha: 'b'.repeat(40) } } }) }],
     ['baseline_not_pin', { baseline: baselineCampaign({ identity: { git: { sha: `abc${SYNTHETIC_PIN_SHA.slice(3)}` } } }) }],
+    // IN-02: a commit that only shares the 8-character pin prefix is not the pin.
+    ['baseline_not_pin', { baseline: baselineCampaign({ identity: { git: { sha: `${SYNTHETIC_PIN_SHA.slice(0, 8)}${'0'.repeat(32)}` } } }) }],
     ['campaign_schedule_mismatch', { autopilot: autopilotCampaign({ identity: { schedule: { seed: 72 } } }) }],
     ['candidate_row_schema', { autopilot: withRows(AUTOPILOT, (runs) => { runs[5].schemaVersion = 1; }) }],
     ['baseline_row_schema', { baseline: withRows(BASELINE, (runs) => { runs[0].schemaVersion = 2; }) }],
