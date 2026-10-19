@@ -224,6 +224,8 @@ export function parseArgs(argv) {
     const out = canonical(options.outPath);
     const dirs = [options.baselineDir, ...options.campaignDirs, options.fallbackPin, options.fallbackCandidate].filter(Boolean);
     if (dirs.some((dir) => isInside(out, canonical(dir)))) errors.push({ code: 'out_inside_campaign', detail: '--out' });
+    // IN-03: a typo must never replace the frozen gate with the decision file.
+    if (options.gatePath !== null && out === canonical(options.gatePath)) errors.push({ code: 'out_is_gate', detail: '--out' });
   }
   return { options, errors, help };
 }

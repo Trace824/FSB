@@ -230,6 +230,7 @@ test('evaluate-gate usage errors exit 2 with a code, run no git and write nothin
     ['out_not_json', [...without('--out'), '--out', path.join(dirs.root, 'decisions', 'core-gate-71.md')]],
     ['out_inside_campaign', [...without('--out'), '--out', path.join(dirs.autopilot, 'decision.json')]],
     ['out_inside_campaign', [...without('--out'), '--out', path.join(dirs.baseline, 'gate', 'decision.json')]],
+    ['out_is_gate', [...without('--out'), '--out', base[base.indexOf('--gate') + 1]]],
     ['unknown_flag', [...base, '--force']],
     ['unexpected_argument', [...base, 'stray']],
     ['missing_value', [...without('--gate'), '--gate']],
