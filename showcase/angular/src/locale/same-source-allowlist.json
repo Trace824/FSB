@@ -1456,41 +1456,6 @@
       "reason": "license identifier"
     },
     {
-      "id": "releaseNotes.v0993.001.english",
-      "sourceSha256": "ba118bf7fc9c1aedc1edb28a0aa86e0b43b681f222af6616e13c43be87815b06",
-      "reason": "language autonym shown in its own script"
-    },
-    {
-      "id": "releaseNotes.v0993.002.espanol",
-      "sourceSha256": "94b382b61b9dde0ff8d45a44a34b61971d98df5bd810c803a3f33ce5b115eae8",
-      "reason": "language autonym shown in its own script"
-    },
-    {
-      "id": "releaseNotes.v0993.003.deutsch",
-      "sourceSha256": "801cfe0fa1182664d16f4aaf7856cc73412f79ef508a866eebc2e5ccf125ff0a",
-      "reason": "language autonym shown in its own script"
-    },
-    {
-      "id": "releaseNotes.v0993.004.japanese",
-      "sourceSha256": "77710aedc74ecfa33685e33a6c7df5cc83004da1bdcef7fb280f5c2b2e97e0a5",
-      "reason": "language autonym shown in its own script"
-    },
-    {
-      "id": "releaseNotes.v0993.005.korean",
-      "sourceSha256": "ea3252281bc3bcec5672d33ec8c25dee8abd77235f85b8a049948f59ddf60b8d",
-      "reason": "language autonym shown in its own script"
-    },
-    {
-      "id": "releaseNotes.v0993.006.simplifiedChinese",
-      "sourceSha256": "9937e365aaf3a0854053a3179584ad9cd82e1164ea8535b50c1e6ae7102b373c",
-      "reason": "language autonym shown in its own script"
-    },
-    {
-      "id": "releaseNotes.v0993.007.traditionalChinese",
-      "sourceSha256": "1c95ab9b144ea2f5b3bbf3635472e3274e8995c31a8a783f283e38790ec63ad9",
-      "reason": "language autonym shown in its own script"
-    },
-    {
       "id": "releaseNotes.v0993.008.ready",
       "sourceSha256": "5fa7aac5375c5815787fba3f49559f9b45b14023147ce0652803387974144e5f",
       "reason": "extension UI sample shown in its own language"
