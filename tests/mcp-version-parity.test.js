@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+const { pathToFileURL } = require('url');
 
 let passed = 0;
 let failed = 0;
@@ -223,6 +224,7 @@ function runCommand(command) {
 }
 
 async function run() {
+  const { compatFor } = await import(pathToFileURL(path.join(repoRoot, 'scripts/lib/mcp-extension-compat.mjs')).href);
   const rootPackageJson = readJson('package.json');
   const packageJson = readJson('mcp/package.json');
   const packageLock = readJson('mcp/package-lock.json');
@@ -295,7 +297,7 @@ async function run() {
   assert(packageReadme.includes(`### What's New In v${canonicalVersion}`), 'MCP README has a current release summary');
   assert(packageReadme.includes(`### Releasing ${canonicalVersion}`), 'MCP README release instructions match canonical package version');
   assert(packageReadme.includes(`git tag mcp-v${canonicalVersion} && git push origin mcp-v${canonicalVersion}`), 'MCP README uses the MCP-only release tag');
-  assert(packageReadme.includes(`MCP ${canonicalVersion} requires extension ${extensionVersion} or newer`), 'MCP README documents independent compatibility requirements');
+  assert(packageReadme.includes(`MCP ${canonicalVersion} requires extension ${compatFor(canonicalVersion).minimum} or newer`), 'MCP README documents independent compatibility requirements');
   assert(publishWorkflow.includes("- 'mcp-v*'"), 'MCP release workflow supports MCP tags');
   assert(publishWorkflow.includes('test "$GITHUB_REF_NAME" = "mcp-v${{ steps.package-version.outputs.version }}"'), 'MCP workflow binds the tag to mcp/package.json');
   assert(publishWorkflow.includes('git merge-base --is-ancestor "$release_commit" origin/main'), 'release workflow requires the tagged commit to be on main');
