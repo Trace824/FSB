@@ -1964,6 +1964,10 @@ function evidenceLoop(opts) {
     if (message && message.action === 'executeAction' && message.params && message.params.selector === MAYBE_SELECTOR) {
       return Object.assign({}, UNKNOWN_CLICK_ANSWER);
     }
+    if (typeof o.readResponder === 'function') {
+      const answered = o.readResponder(message);
+      if (answered !== undefined) return answered;
+    }
     if (message && message.action === 'getMarkdownSnapshot' && Object.prototype.hasOwnProperty.call(o, 'snapshotAnswer')) {
       return o.snapshotAnswer;
     }
@@ -2001,12 +2005,25 @@ function maybeClickRecorded(run) {
 async function runEvidenceLoopCases() {
   const fp = fastPathApi();
   section('run evidence through the real loop: the same-turn gap before complete_task is closed (Phase 70 D-14, F1, F2)');
-  for (const [name, calls, expected] of [
+  // Review CR-01: a page read that never reached the page. The content
+  // script is gone ("Receiving end does not exist"), so the executor reports
+  // read_page as a success with bfCacheDetected; get_dom_snapshot reports
+  // success whatever the content script answered.
+  const unreachableRead = (message) => {
+    if (message && message.action === 'executeAction' && message.tool === 'readPage') {
+      throw new Error('Could not establish connection. Receiving end does not exist.');
+    }
+    return undefined;
+  };
+  const erroredDom = (message) => (message && message.action === 'mcp:get-dom' ? { success: false, error: 'DOM unavailable' } : undefined);
+  for (const [name, calls, expected, readResponder] of [
     ['same-turn uncertain then complete', [MAYBE_CLICK, DONE_CALL], true],
     ['same-turn report_progress', [MAYBE_CLICK, { name: 'report_progress', args: { message: 'Clicked it' } }, DONE_CALL], true],
-    ['same-turn observed', [MAYBE_CLICK, { name: 'get_page_snapshot', args: {} }, DONE_CALL], false]
+    ['same-turn observed', [MAYBE_CLICK, { name: 'get_page_snapshot', args: {} }, DONE_CALL], false],
+    ['same-turn read_page that never reached the page', [MAYBE_CLICK, { name: 'read_page', args: {} }, DONE_CALL], true, unreachableRead],
+    ['same-turn errored get_dom_snapshot', [MAYBE_CLICK, { name: 'get_dom_snapshot', args: {} }, DONE_CALL], true, erroredDom]
   ]) {
-    const run = evidenceLoop({ providerScript: [llmTurn('resp_ev', calls)] });
+    const run = evidenceLoop({ providerScript: [llmTurn('resp_ev', calls)], readResponder });
     const captured = [];
     const pipelineCount = (event) => (run.h.pipeline._hooks[event] || []).length;
     try {
@@ -2024,6 +2041,15 @@ async function runEvidenceLoopCases() {
         name + ': complete_task ended the run in the same turn and emitted no after-tool event of its own');
       check(ev && ev.pending === null && ev.lastUncertainSeq > 0 && fp.runEvidenceUnresolved(ev) === expected,
         name + ': runEvidenceUnresolved is ' + expected + ' after the run (' + JSON.stringify(ev) + ')');
+      if (readResponder) {
+        const read = captured.find((c) => c.toolName === calls[1].name);
+        check(read && read.toolResult.success === true && ev.lastObservationSeq === 0,
+          name + ': the read reached the hook as a success (' + JSON.stringify(read && read.toolResult) + ') and is not an observation');
+        const verdict = fp.classifyRunTaskOutcome({ source: 'complete', kind: 'complete',
+          message: { outcome: 'success', reason: 'complete_task' }, evidence: ev });
+        check(verdict.outcome === 'ambiguous' && verdict.reason === 'uncertain_action' && verdict.uncertain_unobserved === true,
+          name + ': the success terminal classifies ambiguous/uncertain_action, never done (' + JSON.stringify(verdict) + ')');
+      }
     } finally {
       finish(run);
     }

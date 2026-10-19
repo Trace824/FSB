@@ -3762,6 +3762,45 @@ async function runEvidenceHandlerRules() {
   check(evidenceOf(session).lastObservationSeq === 0 && FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
     C + ': a failed page read is not an observation');
 
+  // A page read that never reached the page is not an observation (review
+  // CR-01): the executor reports success for a vanished content script
+  // (bfCacheDetected) and for any get_dom_snapshot answer, and
+  // wait_for_stable reports success with stable:false on a timeout.
+  const readUnreachable = await realResult('read_page', refuse('Could not establish connection. Receiving end does not exist.'));
+  const textUnreachable = await realResult('get_text', refuse('Could not establish connection. Receiving end does not exist.'));
+  const domErrored = await realResult('get_dom_snapshot', reply({ success: false, error: 'DOM unavailable' }));
+  const domSilent = await realResult('get_dom_snapshot', reply(undefined));
+  check(readUnreachable.success === true && isPlainObject(readUnreachable.result) && readUnreachable.result.bfCacheDetected === true
+    && textUnreachable.success === true && textUnreachable.result.bfCacheDetected === true
+    && domErrored.success === true && domErrored.result.success === false && domSilent.success === true && domSilent.result === null,
+  C + ': the real executor reports success for an unreachable read_page or get_text and for an errored or silent get_dom_snapshot');
+  const unread = [
+    ['read_page with bfCacheDetected', 'read_page', readUnreachable],
+    ['get_text with bfCacheDetected', 'get_text', textUnreachable],
+    ['an errored get_dom_snapshot', 'get_dom_snapshot', domErrored],
+    ['a get_dom_snapshot with no answer', 'get_dom_snapshot', domSilent],
+    ['a wait_for_stable timeout (stable:false)', 'wait_for_stable',
+      OK_RESULT({ hadEffect: false, result: { success: true, stable: false, reason: 'timeout' } })],
+    ['a page read with no content answer', 'read_page', OK_RESULT({ hadEffect: false, result: null })]
+  ];
+  for (const [label, name, result] of unread) {
+    ({ session, handlers } = evidenceSession());
+    driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result: uncertain }, { name, result }] }]);
+    check(evidenceOf(session).lastObservationSeq === 0 && FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+      C + ': ' + label + ' is not an observation, so an earlier uncertain click stays unresolved');
+    ({ session, handlers } = evidenceSession());
+    evidenceOf(session).fastIteration = 2;
+    driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result: OK_RESULT() }] }, { iteration: 3, calls: [{ name, result }] }]);
+    check(evidenceOf(session).fastUnobservedSeq === 2 && evidenceOf(session).lastObservationSeq === 0
+      && FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+    C + ': ' + label + ' does not resolve an unobserved fast step');
+  }
+  ({ session, handlers } = evidenceSession());
+  driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'click', result: uncertain },
+    { name: 'wait_for_stable', result: OK_RESULT({ hadEffect: false, result: { success: true, stable: true, reason: 'stable' } }) }] }]);
+  check(evidenceOf(session).lastObservationSeq === 4 && !FsbFastPath.runEvidenceUnresolved(evidenceOf(session)),
+    C + ': a settled wait_for_stable (stable:true) still observes the page');
+
   // Human gates from existing code gates only (D-15, F7).
   ({ session, handlers } = evidenceSession());
   driveEvidence(handlers, session, [{ iteration: 2, calls: [{ name: 'fill_payment_method', result: PAYMENT_DECLINED_RESULT }] }]);
@@ -3848,6 +3887,8 @@ async function runEvidenceHandlerHygiene() {
 async function runEvidenceUnresolvedCases() {
   const unresolved = FsbFastPath.runEvidenceUnresolved;
   const uncertain = await uncertainClickResult();
+  const readUnreachable = await realResult('read_page', refuse('Could not establish connection. Receiving end does not exist.'));
+  const domErrored = await realResult('get_dom_snapshot', reply({ success: false, error: 'DOM unavailable' }));
   const cases = [
     ['run evidence same-turn: [uncertain click, complete_task] in one turn', [{ name: 'click', result: uncertain }, { name: 'complete_task' }], true],
     ['run evidence same-turn: [uncertain click, report_progress, complete_task]',
@@ -3857,7 +3898,11 @@ async function runEvidenceUnresolvedCases() {
     ['run evidence: [get_page_snapshot, uncertain click] (the read came first)',
       [{ name: 'get_page_snapshot', result: SNAPSHOT_RESULT }, { name: 'click', result: uncertain }], true],
     ['run evidence: [uncertain click] alone', [{ name: 'click', result: uncertain }], true],
-    ['run evidence: [click unconfirmed, complete_task] (an LLM step keeps baseline semantics)', [{ name: 'click', result: OK_RESULT() }, { name: 'complete_task' }], false]
+    ['run evidence: [click unconfirmed, complete_task] (an LLM step keeps baseline semantics)', [{ name: 'click', result: OK_RESULT() }, { name: 'complete_task' }], false],
+    ['run evidence same-turn: [uncertain click, read_page that never reached the page (bfCacheDetected), complete_task]',
+      [{ name: 'click', result: uncertain }, { name: 'read_page', result: readUnreachable }, { name: 'complete_task' }], true],
+    ['run evidence same-turn: [uncertain click, errored get_dom_snapshot, complete_task]',
+      [{ name: 'click', result: uncertain }, { name: 'get_dom_snapshot', result: domErrored }, { name: 'complete_task' }], true]
   ];
   for (const [name, calls, expected] of cases) {
     const { session, handlers } = evidenceSession();

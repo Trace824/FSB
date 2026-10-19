@@ -2318,6 +2318,21 @@
   }
 
   /**
+   * True only when the call's own result shows the page was read: a success
+   * that is not uncertain and carries a content (or CDP) answer that is not
+   * itself a failure. The executor reports success for a vanished content
+   * script (bfCacheDetected) and for any get_dom_snapshot answer, and
+   * wait_for_stable reports success with stable:false on a timeout; none of
+   * those read the page, so none is an observation (D-14, PD-70-01).
+   */
+  function pageWasRead(name, toolResult, outcome) {
+    if (!isObject(toolResult) || toolResult.success !== true || outcome === 'uncertain') return false;
+    var nested = isObject(toolResult.result) ? toolResult.result : null;
+    if (nested === null || nested.success === false || nested.bfCacheDetected === true) return false;
+    return !(name === 'wait_for_stable' && nested.stable === false);
+  }
+
+  /**
    * Create the run evidence for a fast-mode session and return its three
    * hook handlers {beforeTool, afterTool, afterIteration} (null when there is
    * no session object). A second call replaces the record and the start
@@ -2329,7 +2344,8 @@
    *               marks this call in flight unless it is a terminal tool;
    *   afterTool   clears the marker; notes an uncertain result of any call
    *               (D-14 a), a fast step that showed no effect (D-14 b), a
-   *               successful page read by the LLM (an observation) and the
+   *               page read by the LLM that reached the page (an
+   *               observation, pageWasRead) and the
    *               two human gates, which a later success of the same tool
    *               clears;
    *   afterIteration clears the marker (the turn's calls are over).
@@ -2380,7 +2396,7 @@
         var succeeded = isObject(toolResult) && toolResult.success === true;
         if (outcome === 'uncertain') ev.lastUncertainSeq = seq;
         if (fastCall && contains(FAST_UNOBSERVED_OUTCOMES, outcome)) ev.fastUnobservedSeq = seq;
-        if (!fastCall && succeeded && isPageObservationTool(name)) ev.lastObservationSeq = seq;
+        if (!fastCall && pageWasRead(name, toolResult, outcome) && isPageObservationTool(name)) ev.lastObservationSeq = seq;
         var gate = runGateCode(name, toolResult);
         if (gate !== null) {
           ev.gate = { code: gate, tool: name, seq: seq, cleared: false };
