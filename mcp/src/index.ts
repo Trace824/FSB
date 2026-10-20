@@ -23,7 +23,7 @@ import {
   inspectProductionNativeHost,
 } from './native-host-production.js';
 import { pushMcpClientInventory } from './client-inventory.js';
-import { shutdownWhenStdinEnds } from './stdin-shutdown.js';
+import { shutdownOnBrokenStdout, shutdownWhenStdinEnds } from './stdin-shutdown.js';
 import {
   FSB_EXT_PROTOCOL,
   formatPairingCode,
@@ -419,6 +419,13 @@ async function runStdioServer(): Promise<void> {
   // running -- and holding the port -- forever.
   shutdownWhenStdinEnds(process.stdin, () => {
     console.error('[FSB MCP] stdin closed by the host; shutting down.');
+    shutdown();
+  });
+
+  // A host that closes the pipe mid-response would otherwise crash the server
+  // with an unhandled EPIPE on stdout.
+  shutdownOnBrokenStdout(process.stdout, () => {
+    console.error('[FSB MCP] stdout pipe closed by the host; shutting down.');
     shutdown();
   });
 }
