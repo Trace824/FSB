@@ -103,7 +103,6 @@ var MCP_CLIENT_LABELS = {
   'codex': 'Codex',
   'chatgpt': 'ChatGPT',
   'perplexity': 'Perplexity',
-  'windsurf': 'Windsurf',
   'cursor': 'Cursor',
   'antigravity': 'Antigravity',
   'opencode': 'OpenCode',
@@ -113,6 +112,11 @@ var MCP_CLIENT_LABELS = {
   'gemini': 'Gemini',
   'hermes': 'Hermes',
   'cline': 'Cline',
+  'muse': 'Muse',
+  'grok bot': 'Grok Bot',
+  'grok-bot': 'Grok Bot',
+  'grokbot': 'Grok Bot',
+  'dots': 'Dots',
   'unknown': 'unknown'
 };
 

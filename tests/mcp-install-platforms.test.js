@@ -164,7 +164,7 @@ function run() {
       'Claude Desktop',
       'Cursor',
       'VS Code',
-      'Windsurf',
+      'Antigravity',
       'Cline',
       'Zed',
       'Codex CLI',
@@ -187,8 +187,8 @@ function run() {
     assertIncludes(output, 'name: fsb', 'dry-run shows the Continue YAML array entry');
     assertIncludes(
       output,
-      '.codeium/windsurf/mcp_config.json',
-      'dry-run shows the Windsurf app config path',
+      path.join('.gemini', 'config', 'mcp_config.json'),
+      'dry-run shows the Antigravity config path',
     );
     assertIncludes(
       output,
@@ -264,11 +264,11 @@ function run() {
     assertIncludes(config, '- fsb-mcp-server@latest', 'continue install writes the latest-channel fsb command args');
   });
 
-  console.log('\n--- windsurf app config path ---');
-  withTempHome('mcp-install-windsurf-app', (fixture) => {
-    const windsurfPath = path.join(fixture.home, '.codeium', 'windsurf', 'mcp_config.json');
+  console.log('\n--- antigravity config path ---');
+  withTempHome('mcp-install-antigravity', (fixture) => {
+    const configPath = path.join(fixture.home, '.gemini', 'config', 'mcp_config.json');
     writeText(
-      windsurfPath,
+      configPath,
       JSON.stringify({
         mcpServers: {
           existing: {
@@ -278,52 +278,72 @@ function run() {
         },
       }, null, 2),
     );
+    // An older release's file must not outrank the current config directory.
+    writeText(path.join(fixture.home, '.gemini', 'antigravity', 'mcp_config.json'), '');
 
-    const result = runCli(['install', '--windsurf'], fixture);
+    const result = runCli(['install', '--antigravity'], fixture);
     const output = `${result.stdout}${result.stderr}`;
-    const config = readText(windsurfPath);
+    const config = readJson(configPath);
 
-    assertEqual(result.status, 0, 'windsurf app-path install exits cleanly');
-    assertIncludes(output, 'Installed to Windsurf', 'windsurf app-path install reports success');
-    assertIncludes(config, '"existing"', 'windsurf app-path install preserves existing entries');
-    assertIncludes(config, '"fsb"', 'windsurf app-path install writes the fsb entry');
+    assertEqual(result.status, 0, 'antigravity install exits cleanly');
+    assertIncludes(output, 'Installed to Antigravity', 'antigravity install reports success');
+    assert(Object.hasOwn(config.mcpServers, 'existing'), 'antigravity install preserves existing entries');
+    assertEqual(
+      JSON.stringify(config.mcpServers.fsb),
+      JSON.stringify({ command: 'npx', args: ['-y', 'fsb-mcp-server@latest'] }),
+      'antigravity install writes the standard stdio entry',
+    );
+    assertEqual(
+      readText(path.join(fixture.home, '.gemini', 'antigravity', 'mcp_config.json')),
+      '',
+      'antigravity install leaves the older release file alone when ~/.gemini/config exists',
+    );
   });
 
-  console.log('\n--- windsurf plugin config variant ---');
-  withTempHome('mcp-install-windsurf-plugin', (fixture) => {
-    const pluginPath = path.join(fixture.home, '.codeium', 'mcp_config.json');
-    writeText(
-      pluginPath,
-      JSON.stringify({
-        mcpServers: {
-          existing: {
-            command: 'uvx',
-            args: ['plugin-server'],
-          },
-        },
-      }, null, 2),
+  console.log('\n--- antigravity older release with an empty config file ---');
+  withTempHome('mcp-install-antigravity-legacy', (fixture) => {
+    // Antigravity creates its config file empty until a server is added.
+    const legacyPath = path.join(fixture.home, '.gemini', 'antigravity', 'mcp_config.json');
+    writeText(legacyPath, '');
+
+    const result = runCli(['install', '--antigravity'], fixture);
+    const output = `${result.stdout}${result.stderr}`;
+
+    assertEqual(result.status, 0, 'antigravity install into an empty file exits cleanly');
+    assertIncludes(
+      output,
+      path.join('.gemini', 'antigravity', 'mcp_config.json'),
+      'antigravity install targets the older release file when ~/.gemini/config does not exist',
+    );
+    assertEqual(
+      JSON.stringify(readJson(legacyPath)),
+      JSON.stringify({ mcpServers: { fsb: { command: 'npx', args: ['-y', 'fsb-mcp-server@latest'] } } }),
+      'antigravity install turns an empty config file into an mcpServers map with the fsb entry',
     );
 
+    const rerun = runCli(['install', '--antigravity'], fixture);
+    assertIncludes(
+      `${rerun.stdout}${rerun.stderr}`,
+      'Antigravity (older release) already configured',
+      'antigravity reinstall is a no-op',
+    );
+
+    const uninstallResult = runCli(['uninstall', '--antigravity'], fixture);
+    assertEqual(uninstallResult.status, 0, 'antigravity uninstall exits cleanly');
+    assertIncludes(
+      `${uninstallResult.stdout}${uninstallResult.stderr}`,
+      'Removed from Antigravity',
+      'antigravity uninstall reports a successful removal',
+    );
+    assert(!Object.hasOwn(readJson(legacyPath).mcpServers, 'fsb'), 'antigravity uninstall removes the fsb entry');
+  });
+
+  console.log('\n--- windsurf flag is gone ---');
+  withTempHome('mcp-install-windsurf-retired', (fixture) => {
     const result = runCli(['install', '--windsurf'], fixture);
     const output = `${result.stdout}${result.stderr}`;
-    const config = readText(pluginPath);
-
-    assertEqual(result.status, 0, 'windsurf plugin-path install exits cleanly');
-    assertIncludes(
-      output,
-      '.codeium/mcp_config.json',
-      'windsurf plugin-path install targets the JetBrains/Cascade config when it is the only detected variant',
-    );
-    assertNotIncludes(
-      output,
-      'Directory does not exist',
-      'windsurf plugin-path install does not fail because the app-specific directory is missing',
-    );
-    assertIncludes(
-      config,
-      '"fsb"',
-      'windsurf plugin-path install updates the JetBrains/Cascade config when that is the only Windsurf config surface',
-    );
+    assertNotIncludes(output, 'Installed to', 'install --windsurf writes nothing');
+    assert(!fs.existsSync(path.join(fixture.home, '.codeium')), 'install --windsurf creates no Windsurf config');
   });
 
   console.log('\n--- cline shared settings install + uninstall ---');

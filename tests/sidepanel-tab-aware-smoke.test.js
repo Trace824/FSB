@@ -162,9 +162,9 @@ function installDomStub(idMap) {
 
   // 1.2 trim semantics
   {
-    const fakeRead = async (k) => ({ [k]: { client: '  FSB Autopilot  ' } });
+    const fakeRead = async (k) => ({ [k]: { client: '  Autopilot  ' } });
     const result = await lcl1(42, fakeRead);
-    ok(result === 'FSB Autopilot', 'Part 1.2 -- trim semantics on entry.client');
+    ok(result === 'Autopilot', 'Part 1.2 -- trim semantics on entry.client');
   }
 
   // 1.3 missing entry

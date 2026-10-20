@@ -55,7 +55,7 @@ Project Mariner, Claude Computer Use, and OpenAI Operator rely heavily on visual
 | Claude Desktop | `npx -y fsb-mcp-server@latest install --claude-desktop` |
 | Cursor | `npx -y fsb-mcp-server@latest install --cursor` |
 | VS Code | `npx -y fsb-mcp-server@latest install --vscode` |
-| Windsurf | `npx -y fsb-mcp-server@latest install --windsurf` |
+| Antigravity | `npx -y fsb-mcp-server@latest install --antigravity` |
 | Codex | `npx -y fsb-mcp-server@latest install --codex` |
 | Cline | `npx -y fsb-mcp-server@latest install --cline` |
 | All at once | `npx -y fsb-mcp-server@latest install --all` |
@@ -86,7 +86,7 @@ Want to run FSB standalone from the extension popup/side panel? Open settings, p
 - Uploads real local files to file inputs through the supervised `upload_file` tool with sensitive-path safeguards.
 - Maintains long term memory for past sites, workflows, selectors, and task outcomes.
 - Includes secure credential and payment vault flows for supervised autofill.
-- Exposes a local MCP server so Claude Code, Codex, Cursor, VS Code, Windsurf, Cline, and other MCP clients can drive the browser.
+- Exposes a local MCP server so Claude Code, Codex, Cursor, VS Code, Antigravity, Cline, and other MCP clients can drive the browser.
 
 Background agents are retired. Existing `chrome.storage.local['bgAgents']` data is preserved for users who had old agents, but scheduled or recurring automation is no longer an active FSB feature.
 
@@ -301,7 +301,7 @@ npx -y fsb-mcp-server@latest install --claude-desktop
 npx -y fsb-mcp-server@latest install --claude-code
 npx -y fsb-mcp-server@latest install --cursor
 npx -y fsb-mcp-server@latest install --vscode
-npx -y fsb-mcp-server@latest install --windsurf
+npx -y fsb-mcp-server@latest install --antigravity
 npx -y fsb-mcp-server@latest install --codex
 npx -y fsb-mcp-server@latest install --cline
 npx -y fsb-mcp-server@latest install --all

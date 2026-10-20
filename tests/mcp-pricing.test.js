@@ -566,14 +566,14 @@ const pricingData = JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8'));
       const allowlistSet = new Set(labels);
       const pricingSet = new Set(Object.keys(pricingData.client_default_model));
 
-      // Lock the 13 ORIGINAL core labels (the historical v0.9.36 set
-      // through Hermes) to still have default-model entries, plus Cline,
-      // the one quick-task addition later promoted to the public telemetry
-      // set. The other quick-task additions stay excluded from this lock
-      // because default-model mapping for them is out of scope for the
-      // allowlist expansion.
+      // Lock the original core labels (the v0.9.36 set through Hermes,
+      // less Windsurf, which Antigravity replaced) to still have
+      // default-model entries, plus Cline, the one later addition promoted
+      // to the public telemetry set. The other later additions stay
+      // excluded from this lock because default-model mapping for them is
+      // out of scope for the allowlist expansion.
       const CORE_PRICING_PAIRED_LABELS = [
-        'Claude', 'Codex', 'ChatGPT', 'Perplexity', 'Windsurf',
+        'Claude', 'Codex', 'ChatGPT', 'Perplexity',
         'Cursor', 'Antigravity', 'OpenCode', 'OpenClaw', 'OpenClaw \u{1F980}',
         'Grok', 'Gemini', 'Hermes', 'Cline',
       ];

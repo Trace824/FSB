@@ -16,7 +16,7 @@ const ALL_CLIENT_IDS = [
   'claude-desktop',
   'cursor',
   'vscode',
-  'windsurf',
+  'antigravity',
   'codex',
   'opencode',
   'cline'
@@ -253,9 +253,9 @@ function createHarness(initialStore, options) {
     harness.api.setRender(() => { renderCount++; });
     harness.api.state.iconIndex = 4;
 
-    const result = harness.api.copyCommand('install windsurf', 'current');
+    const result = harness.api.copyCommand('install antigravity', 'current');
     assert.strictEqual(result, undefined, 'visual copy path remains synchronous');
-    assert.deepStrictEqual(clipboardWrites, ['install windsurf'], 'clipboard action runs once immediately');
+    assert.deepStrictEqual(clipboardWrites, ['install antigravity'], 'clipboard action runs once immediately');
     assert.strictEqual(renderCount, 1, 'copy action renders once immediately');
     assert.strictEqual(harness.api.state.copied, 'current', 'base copied state remains current');
     assert.strictEqual(harness.api.state.toast, 'Install command copied', 'one existing toast is shown');
@@ -264,7 +264,7 @@ function createHarness(initialStore, options) {
 
     await harness.api.flushCopyWrites();
     const clicked = plain(harness.store.fsbAgentProviders.clicked);
-    assert.deepStrictEqual(clicked.windsurf, {
+    assert.deepStrictEqual(clicked.antigravity, {
       count: 1,
       firstClickedAt: 1000,
       lastClickedAt: 1000,

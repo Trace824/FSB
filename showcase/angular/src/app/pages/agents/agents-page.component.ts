@@ -384,7 +384,7 @@ const HOST_CHIPS: readonly HostChip[] = [
   { name: 'Cursor', logo: 'cursor.svg' },
   { name: 'Gemini CLI', logo: 'google.png' },
   { name: 'VS Code', logo: 'vscode.svg' },
-  { name: 'Windsurf', logo: 'windsurf.svg' },
+  { name: 'Antigravity', logo: 'antigravity.svg' },
   { name: 'OpenCode', logo: 'opencode.svg' },
   { name: 'Cline', logo: 'cline.svg' },
 ];
@@ -405,7 +405,7 @@ const INSTALL_HOSTS: readonly InstallHost[] = [
   { name: 'cursor', flag: '--cursor' },
   { name: 'gemini', flag: '--gemini' },
   { name: 'vscode', flag: '--vscode' },
-  { name: 'windsurf', flag: '--windsurf' },
+  { name: 'antigravity', flag: '--antigravity' },
   { name: 'opencode', flag: '--opencode' },
   { name: 'cline', flag: '--cline' },
   { name: 'all', flag: '--all' },

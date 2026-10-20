@@ -142,7 +142,7 @@
    * mcp-visual-session-lifecycle.js:58). Returns the trimmed
    * entry.client value (Phase 10 D-01 lifecycle shape) when present,
    * otherwise null. Phase 10 FINT-16 + RESEARCH Section 1.A guarantee
-   * that entry.client is pre-normalized to the 14-entry allowlist
+   * that entry.client is pre-normalized to the visual-session allowlist
    * (verified at mcp-visual-session-lifecycle.js:325-333 write-side
    * gate); this consumer does NOT re-validate against the allowlist.
    *

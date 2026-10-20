@@ -7,11 +7,13 @@ import { mapFSBError } from '../errors.js';
 
 // Approved visual-session client labels (must match the extension's allowlist)
 const MCP_VISUAL_CLIENT_LABELS: string[] = [
-  'Claude', 'Codex', 'ChatGPT', 'Perplexity', 'Windsurf',
+  'Claude', 'Codex', 'ChatGPT', 'Perplexity',
   'Cursor', 'Antigravity', 'OpenCode', 'OpenClaw', 'OpenClaw 🦀', 'Grok', 'Gemini', 'Hermes',
-  // Quick task 260608-6nm -- Tier-1 MCP clients (modelcontextprotocol.io clients + awesome-mcp-clients + Nimbalyst 2026)
+  // Other MCP clients
   'Cline', 'Continue', 'Zed', 'VS Code', 'Copilot',
   'JetBrains', 'Xcode', 'Eclipse', 'Cody', 'Roo Code', 'Kiro', 'Goose',
+  // Always-on agents
+  'Muse', 'Grok Bot', 'Dots',
 ];
 
 const CLIENT_LABEL_MAP: Record<string, string> = Object.create(null);

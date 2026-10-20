@@ -21,6 +21,8 @@ export interface ConfigResult {
  * @returns Parsed data
  */
 function parseByFormat(raw: string, format: ConfigFormat): Record<string, unknown> {
+  // Some clients create their config file empty (Antigravity's mcp_config.json).
+  if (raw.trim() === '') return {};
   switch (format) {
     case 'json':
       return JSON.parse(raw) as Record<string, unknown>;

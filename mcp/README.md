@@ -25,7 +25,7 @@
 
 ## What It Is
 
-`fsb-mcp-server` connects MCP clients such as Claude Desktop, Claude Code, Codex, Cursor, VS Code, Windsurf, Zed, Cline, Gemini CLI, Continue, and others to the FSB Chrome extension.
+`fsb-mcp-server` connects MCP clients such as Claude Desktop, Claude Code, Codex, Cursor, VS Code, Antigravity, Zed, Cline, Gemini CLI, Continue, and others to the FSB Chrome extension.
 
 The server supports two operating styles:
 
@@ -128,7 +128,7 @@ Common file or CLI targets:
 | `--claude-code` | Claude Code |
 | `--cursor` | Cursor |
 | `--vscode` | VS Code |
-| `--windsurf` | Windsurf |
+| `--antigravity` | Antigravity |
 | `--cline` | Cline (VS Code, JetBrains, CLI) |
 | `--zed` | Zed |
 | `--codex` | Codex CLI / Codex IDE |
@@ -194,7 +194,7 @@ npx -y fsb-mcp-server@latest install --claude-desktop
 npx -y fsb-mcp-server@latest install --claude-code
 npx -y fsb-mcp-server@latest install --cursor
 npx -y fsb-mcp-server@latest install --vscode
-npx -y fsb-mcp-server@latest install --windsurf
+npx -y fsb-mcp-server@latest install --antigravity
 npx -y fsb-mcp-server@latest install --codex
 npx -y fsb-mcp-server@latest install --cline
 npx -y fsb-mcp-server@latest install --all
@@ -290,7 +290,7 @@ Cline (`~/.cline/data/settings/cline_mcp_settings.json`) is shared by the Cline 
 }
 ```
 
-After editing config files, restart or reload the host client if tools do not appear. Claude Code is usually active immediately after `claude mcp add`; Cursor, Claude Desktop, VS Code, and Windsurf often need a restart, refresh, or trust/start action in their MCP UI.
+After editing config files, restart or reload the host client if tools do not appear. Claude Code is usually active immediately after `claude mcp add`; Cursor, Claude Desktop, VS Code, and Antigravity often need a restart, refresh, or trust/start action in their MCP UI.
 
 ### Local Streamable HTTP
 
@@ -379,7 +379,7 @@ Move to a normal `http` or `https` page before calling DOM tools such as `read_p
 
 Use the implicit visual session when your MCP client controls the browser and you still want FSB's visible trusted overlay. The session is per-tab and per-agent; the v0.9.60 ownership gate (`TAB_NOT_OWNED`) fires before any session state is touched.
 
-1. Call any action tool (`click`, `type_text`, `navigate`, ...) with the required field bundle: `visual_reason` (short human-readable string for the overlay) and `client` (allowlisted badge label such as `Codex`, `Claude`, `ChatGPT`, `Gemini`, `Cursor`, `Windsurf`, `OpenCode`, `OpenClaw`, `Grok`, `Perplexity`, or `Antigravity`).
+1. Call any action tool (`click`, `type_text`, `navigate`, ...) with the required field bundle: `visual_reason` (short human-readable string for the overlay) and `client` (allowlisted badge label such as `Codex`, `Claude`, `ChatGPT`, `Gemini`, `Cursor`, `Antigravity`, `OpenCode`, `OpenClaw`, `Grok`, `Perplexity`, `Cline`, `Muse`, `Grok Bot`, or `Dots`).
 2. Drive the page with subsequent action tools. Each call re-arms the 60-second sliding window so the overlay stays alive as long as actions keep arriving.
 3. On the LAST action of the task, set `is_final: true`. The overlay clears immediately after the action's `change_report` resolves -- no 60-second wait.
 

@@ -12,6 +12,9 @@ import { getServerEntry } from './platforms.js';
  * @returns Parsed data
  */
 function parseByFormat(raw, format) {
+    // Some clients create their config file empty (Antigravity's mcp_config.json).
+    if (raw.trim() === '')
+        return {};
     switch (format) {
         case 'json':
             return JSON.parse(raw);

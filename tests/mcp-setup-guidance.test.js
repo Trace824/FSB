@@ -48,8 +48,8 @@ const requiredSetupLines = [
     needles: ['~/.cursor/mcp.json', 'restart'],
   },
   {
-    label: 'Windsurf distinguishes app and plugin config surfaces and tells the user to refresh or reload',
-    needles: ['~/.codeium/windsurf/mcp_config.json', '~/.codeium/mcp_config.json', 'reload'],
+    label: 'Antigravity documents the current and older config files and the Manage MCP Servers refresh',
+    needles: ['~/.gemini/config/mcp_config.json', '~/.gemini/antigravity/mcp_config.json', 'Manage MCP Servers'],
   },
   {
     label: 'Cline documents the shared settings file and the request timeout it needs',

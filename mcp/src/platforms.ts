@@ -162,15 +162,15 @@ export const PLATFORMS: PlatformRegistry = {
     mergeStrategy: 'object-map',
   },
 
-  'windsurf': {
-    displayName: 'Windsurf',
-    flag: 'windsurf',
+  'antigravity': {
+    displayName: 'Antigravity',
+    flag: 'antigravity',
     format: 'json',
     serverMapKey: 'mcpServers',
     configPath: {
-      darwin: join(home, '.codeium', 'windsurf', 'mcp_config.json'),
-      win32: join(home, '.codeium', 'windsurf', 'mcp_config.json'),
-      linux: join(home, '.codeium', 'windsurf', 'mcp_config.json'),
+      darwin: join(home, '.gemini', 'config', 'mcp_config.json'),
+      win32: join(home, '.gemini', 'config', 'mcp_config.json'),
+      linux: join(home, '.gemini', 'config', 'mcp_config.json'),
     },
     installMode: 'file',
     mergeStrategy: 'object-map',
@@ -441,18 +441,21 @@ function getPlatformTargetCandidates(platformKey: string, platform: PlatformConf
   const configPath = getPlatformConfigPath(platform);
   if (!configPath) return [];
 
-  if (platformKey === 'windsurf') {
-    const windsurfRoot = join(home, '.codeium');
+  if (platformKey === 'antigravity') {
     return [
       {
         configPath,
         targetLabel: platform.displayName,
-        variant: 'app',
+        variant: null,
       },
       {
-        configPath: join(windsurfRoot, 'mcp_config.json'),
-        targetLabel: platform.displayName + ' (JetBrains/Cascade plugin)',
-        variant: 'plugin',
+        configPath: join(home, '.gemini', 'antigravity', 'mcp_config.json'),
+        targetLabel: platform.displayName + ' (older release)',
+        variant: 'legacy',
+        // Older releases read ~/.gemini/antigravity/mcp_config.json. Use it only
+        // when ~/.gemini/config does not exist, so an upgraded install is not
+        // pinned to a file the app no longer reads.
+        fallback: true,
       },
     ];
   }
@@ -495,7 +498,7 @@ function findDetectedCandidate(candidates: PlatformTargetCandidate[]): PlatformT
  * consulting fallback candidates only when no other candidate is detected,
  * and finally falls back to the default documented path for dry-run/help output.
  *
- * @param platformKey - Platform key (e.g., 'cursor', 'windsurf')
+ * @param platformKey - Platform key (e.g., 'cursor', 'antigravity')
  * @returns Structured target metadata for installer flows
  */
 export function resolvePlatformTarget(platformKey: string): PlatformTarget {

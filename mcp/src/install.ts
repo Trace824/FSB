@@ -339,10 +339,10 @@ export function getInstallNextStep(platformKey: string, variant: string | null =
       return 'Restart Cursor after editing ~/.cursor/mcp.json.';
     case 'vscode':
       return 'Open the MCP view in VS Code, trust/start the server if prompted, then reload VS Code if it does not start automatically.';
-    case 'windsurf':
-      return variant === 'plugin'
-        ? 'In Windsurf or the JetBrains/Cascade plugin, refresh the MCP integration or reload the client after editing ~/.codeium/mcp_config.json.'
-        : 'In Windsurf, refresh the MCP integration or reload the app after editing ~/.codeium/windsurf/mcp_config.json.';
+    case 'antigravity':
+      return variant === 'legacy'
+        ? 'In Antigravity, open Manage MCP Servers and press refresh after editing ~/.gemini/antigravity/mcp_config.json. If fsb does not appear, View raw config shows which file your release reads; current releases read ~/.gemini/config/mcp_config.json.'
+        : 'In Antigravity, open Manage MCP Servers and press refresh after editing ~/.gemini/config/mcp_config.json. View raw config there shows which file Antigravity reads.';
     case 'codex':
       return 'Restart Codex or reload the MCP server list after editing ~/.codex/config.toml.';
     case 'cline':
@@ -528,11 +528,11 @@ export function getSetupSections(httpEndpoint: string, cursorDeeplink: string): 
       ],
     },
     {
-      title: 'Windsurf',
+      title: 'Antigravity',
       lines: [
         'Supported config paths:',
-        '  ~/.codeium/windsurf/mcp_config.json',
-        '  ~/.codeium/mcp_config.json',
+        '  ~/.gemini/config/mcp_config.json',
+        '  ~/.gemini/antigravity/mcp_config.json (older releases)',
         'Use the standard stdio entry:',
         '  {',
         '    "mcpServers": {',
@@ -543,7 +543,7 @@ export function getSetupSections(httpEndpoint: string, cursorDeeplink: string): 
         '    }',
         '  }',
         'Next step:',
-        '  Press refresh in Windsurf or reload the client after editing the matching config file.',
+        '  Open Manage MCP Servers in Antigravity and press refresh after editing the matching config file.',
       ],
     },
     {

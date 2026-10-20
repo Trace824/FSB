@@ -19,10 +19,14 @@ The extension, showcase, skill, documentation, and store metadata align at `0.9.
 - **Catalog gaps fail CI.** `scripts/verify-extension-i18n.mjs` fails on a missing key, an empty message, mismatched placeholders between languages, unreviewed copied English, or a dropped protected term such as FSB; `scripts/verify-extension-copy.mjs` fails when one of the 13 in-scope UI files keeps package-owned English outside the catalogs. Both run at the start of `npm test`, so a new key has to land in all seven catalogs in the same change.
 - **Release notes for 0.9.95 on the showcase.** The release-notes page documents this release in all seven site languages.
 - **Cline is an officially supported MCP client.** The onboarding and showcase install pickers offer `install --cline` with the Cline logo, and the READMEs document Cline's shared settings file. A Cline session is labeled Cline on the owner chip and in the client inventory whether it connects from the VS Code extension or the SDK-based Cline CLI, and anonymous usage stats count it as Cline instead of `unknown`, with the same conservative cost fallback as other bring-your-own-model clients. The companion installer fix ships in `fsb-mcp-server` 0.11.5.
+- **Antigravity replaces Windsurf as an install target.** Onboarding and the showcase install pickers offer `install --antigravity` with the Antigravity logo in Windsurf's place, and an Antigravity session is labeled Antigravity on the owner chip and in the client inventory.
+- **Muse, Grok Bot, and Dots are allowed client labels.** Always-on agents can send `client: "Muse"`, `"Grok Bot"`, or `"Dots"` on action tools, and anonymous usage stats count them under those names instead of `unknown`. The MCP server accepts them from 0.11.5.
 
 ### Changed
 
-- The Grok Bot plugin launches `fsb-mcp-server@0.11.5`; it previously pinned 0.11.0.
+- The Grok Bot plugin launches `fsb-mcp-server@0.11.5` and sends `client: "Grok Bot"`; it previously pinned 0.11.0 and sent `client: "Grok"`.
+- The extension's own autopilot uses the client label `Autopilot` instead of `FSB Autopilot`, so its page overlay badge reads "Autopilot".
+- Windsurf is no longer an install target or an allowed `client` label, and its default-model cost row is gone. The telemetry server still accepts Windsurf from extensions older than 0.9.95.
 
 ### Unchanged
 

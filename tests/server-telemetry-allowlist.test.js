@@ -129,7 +129,7 @@ function post(events) {
   let parsed5 = null; try { parsed5 = JSON.parse(r5.body); } catch {}
   check('error === invalid_event_id for bad uuid', parsed5 && parsed5.error === 'invalid_event_id', `body=${r5.body}`);
 
-  // Sanity: bad mcp_client (not in 14+unknown allowlist).
+  // Sanity: bad mcp_client (not in the allowlist).
   const ev6 = baseEvent();
   ev6.mcp_client = 'Other';
   const r6 = await post([ev6]);
@@ -152,6 +152,15 @@ function post(events) {
   evCline.mcp_client = 'Cline';
   const rCline = await post([evCline]);
   check('mcp_client === "Cline" -> 200', rCline.statusCode === 200, `got ${rCline.statusCode}, body=${rCline.body}`);
+
+  // The always-on agents are accepted, and Windsurf stays accepted for
+  // extensions from before 0.9.95 that still send it.
+  for (const label of ['Muse', 'Grok Bot', 'Dots', 'Windsurf']) {
+    const ev = baseEvent();
+    ev.mcp_client = label;
+    const r = await post([ev]);
+    check(`mcp_client === "${label}" -> 200`, r.statusCode === 200, `got ${r.statusCode}, body=${r.body}`);
+  }
 
   // The emoji-bearing allowlist label is accepted.
   const ev9 = baseEvent();

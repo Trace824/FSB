@@ -182,6 +182,20 @@ async function runAllowlistAndManagerCase() {
     'every canonical allowlist entry produces a unique normalize key (no collisions)'
   );
 
+  // Always-on agents connect as MCP clients too. Windsurf left the list when
+  // Antigravity replaced it, and the autopilot label dropped its FSB prefix.
+  ['Muse', 'Grok Bot', 'Dots', 'Autopilot'].forEach((label) => {
+    assert(MCP_VISUAL_CLIENT_LABELS.includes(label), `allowlist contains ${label}`);
+  });
+  assertEqual(normalizeMcpVisualClientLabel('muse'), 'Muse', 'normalize lowercase "muse" to "Muse"');
+  assertEqual(normalizeMcpVisualClientLabel('grok bot'), 'Grok Bot', 'normalize spaced "grok bot" to "Grok Bot"');
+  assertEqual(normalizeMcpVisualClientLabel('grok-bot'), 'Grok Bot', 'normalize hyphenated "grok-bot" to "Grok Bot"');
+  assertEqual(normalizeMcpVisualClientLabel('GrokBot'), 'Grok Bot', 'normalize concatenated "GrokBot" to "Grok Bot"');
+  assertEqual(normalizeMcpVisualClientLabel('grok'), 'Grok', '"grok" still resolves to Grok, not Grok Bot');
+  assertEqual(normalizeMcpVisualClientLabel('DOTS'), 'Dots', 'normalize uppercase "DOTS" to "Dots"');
+  assertEqual(normalizeMcpVisualClientLabel('Windsurf'), null, 'Windsurf is no longer an allowed label');
+  assertEqual(normalizeMcpVisualClientLabel('FSB Autopilot'), null, 'the old FSB Autopilot label is no longer allowed');
+
   // getAllowedMcpVisualClientLabels returns a defensive copy.
   const copyA = getAllowedMcpVisualClientLabels();
   const copyB = getAllowedMcpVisualClientLabels();

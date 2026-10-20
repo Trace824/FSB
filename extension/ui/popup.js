@@ -266,7 +266,7 @@ async function refreshOwnerChip() {
     // Tier 2: canonical MCP client name (Claude, Codex, Cursor, ...) from the
     //         dispatcher-written fsbAgentClientLabels map, keyed by ownerAgentId.
     // Tier 3: friendly client name from the visual-session lifecycle entry
-    //         (Phase 10 D-01 allowlist; e.g., OpenClaw, Claude, FSB Autopilot).
+    //         (Phase 10 D-01 allowlist; e.g., OpenClaw, Claude, Autopilot).
     // Tier 4: formatAgentIdForDisplay short-prefix fallback for raw-FSB-tool
     //         agents that never tick the visual-session pipeline.
     // The clientLabelFor existence check is a forward-compatibility guard in case

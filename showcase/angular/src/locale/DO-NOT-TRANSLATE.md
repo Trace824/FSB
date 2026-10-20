@@ -34,6 +34,7 @@ whole element only when all of its content is genuinely invariant.
 
 - AI
 - Anthropic
+- Antigravity
 - Brave
 - CDP
 - Chrome
@@ -130,7 +131,6 @@ whole element only when all of its content is genuinely invariant.
 - WeakMap
 - WebRTC
 - WebSocket
-- Windsurf
 - X
 - XSS
 - xAI

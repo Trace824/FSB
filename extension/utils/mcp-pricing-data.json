@@ -243,12 +243,6 @@
       "confidence": "MEDIUM",
       "source_url": "https://www.perplexity.ai/changelog/what-we-shipped---february-6th-2026"
     },
-    "Windsurf": {
-      "model": "claude-sonnet-4-6",
-      "confidence": "LOW",
-      "source_url": "internal-fallback",
-      "notes": "Conservative fallback; SWE-1.5 has no public per-token price."
-    },
     "Cursor": {
       "model": "claude-sonnet-4-6",
       "confidence": "MEDIUM",

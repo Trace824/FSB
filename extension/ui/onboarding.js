@@ -37,7 +37,7 @@
     { id: 'claude-desktop', name: 'Claude Desktop', logo: 'claude.svg', flag: '--claude-desktop', cmd: 'npx -y fsb-mcp-server@latest install --claude-desktop' },
     { id: 'cursor', name: 'Cursor', logo: 'cursor.svg', flag: '--cursor', cmd: 'npx -y fsb-mcp-server@latest install --cursor' },
     { id: 'vscode', name: 'VS Code', logo: 'vscode.svg', flag: '--vscode', cmd: 'npx -y fsb-mcp-server@latest install --vscode' },
-    { id: 'windsurf', name: 'Windsurf', logo: 'windsurf.svg', flag: '--windsurf', cmd: 'npx -y fsb-mcp-server@latest install --windsurf' },
+    { id: 'antigravity', name: 'Antigravity', logo: 'antigravity.svg', flag: '--antigravity', cmd: 'npx -y fsb-mcp-server@latest install --antigravity' },
     { id: 'codex', name: 'Codex', logo: 'openai.svg', flag: '--codex', cmd: 'npx -y fsb-mcp-server@latest install --codex' },
     { id: 'opencode', name: 'OpenCode', logo: 'opencode.svg', flag: '--opencode', cmd: 'npx -y fsb-mcp-server@latest install --opencode' },
     { id: 'cline', name: 'Cline', logo: 'cline.svg', flag: '--cline', cmd: 'npx -y fsb-mcp-server@latest install --cline' },
@@ -51,7 +51,7 @@
     'claude-desktop',
     'cursor',
     'vscode',
-    'windsurf',
+    'antigravity',
     'codex',
     'opencode',
     'cline'

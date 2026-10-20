@@ -37,7 +37,7 @@ Example requests:
 - "Use FSB to read this signed in dashboard and draft a summary."
 - "Use FSB to check this form and report what needs fixing."
 
-The skill guides Bot to discover FSB through its supported tool interface and use the actual returned identifiers. Tool prefixes and the historical `user-fsb` alias are not fixed package contracts. Action calls use `client: "Grok"` and a short `visual_reason`. Manual tools are the default; use `run_task` only for explicit FSB autopilot delegation.
+The skill guides Bot to discover FSB through its supported tool interface and use the actual returned identifiers. Tool prefixes and the historical `user-fsb` alias are not fixed package contracts. Action calls use `client: "Grok Bot"` and a short `visual_reason`. Manual tools are the default; use `run_task` only for explicit FSB autopilot delegation.
 
 Read bounded results, verify each action and clean up task-owned tabs without closing the user's foreground tab. Bot's existing review, tool controls and team policies still apply.
 
