@@ -569,6 +569,32 @@ function extractNamedFunction(source, name) {
     check(overlay.overlayLabel(raw) === raw, `overlay leaves ${JSON.stringify(raw)} as sent`);
   }
 
+  // A language change redraws the pill, detail and log lines the last progress
+  // write left, not only the initial Planning / Initializing... text.
+  for (const name of ['ownedText', 'refreshOwnedChrome']) vm.runInContext(extractNamedFunction(overlaySource, name), overlay);
+  const pill = { textContent: '' };
+  const detail = { textContent: '' };
+  const logLine = { textContent: '' };
+  const overlayRoot = {
+    querySelector: (selector) => ({ '.fsb-step-number': pill, '.fsb-step-text': detail })[selector] || null,
+    querySelectorAll: (selector) => (selector === '.fsb-log-line' ? [logLine] : [])
+  };
+  overlay.writeLabel(pill, 'Acting…');
+  overlay.writeLabel(detail, 'Watching DOM for change');
+  overlay.writeLabel(logLine, 'Reviewing page state');
+  const de = shippedCatalogs.de;
+  shipped.setOverride('de');
+  overlay.refreshOwnedChrome(overlayRoot);
+  check(pill.textContent === de.entry_phase_acting + '…'
+      && detail.textContent === de.entry_detail_watching
+      && logLine.textContent === de.entry_detail_reviewing,
+    'a language change redraws the overlay pill, detail and log lines');
+  detail.textContent = 'Clicked the Submit button';
+  shipped.setOverride('ja');
+  overlay.refreshOwnedChrome(overlayRoot);
+  check(pill.textContent === ja.entry_phase_acting + '…' && detail.textContent === 'Clicked the Submit button',
+    'a language change leaves overlay text that was replaced since its label was written');
+
   const englishCatalogMessages = JSON.parse(fs.readFileSync(path.join(root, 'extension/_locales/en/messages.json'), 'utf8'));
   const labelMisses = Object.entries(overlay.OVERLAY_LABELS)
     .filter(([english, key]) => !englishCatalogMessages[key] || englishCatalogMessages[key].message !== english);
@@ -667,7 +693,7 @@ function extractNamedFunction(source, name) {
   const context = {
     fsbUiLocale: shipped,
     currentStatusMessage: { querySelector: (selector) => (selector === '.status-text' ? statusNode : null) },
-    setAutomationRunnerText: (text) => runner.push(text)
+    setAutomationRunnerText: (text, subs) => runner.push(shipped.line(text, subs))
   };
   context.globalThis = context;
   vm.createContext(context);
@@ -677,8 +703,47 @@ function extractNamedFunction(source, name) {
   context.updateStatusMessage('Step $NUMBER$ complete', null, { number: 3 });
   check(statusNode.textContent === shippedCatalogs.de.copy_d6786d701f.replace('$NUMBER$', '3') && runner[1] === statusNode.textContent,
     'status line fills a template in the active locale');
+  shipped.setOverride('ja');
+  shipped.apply(fakeDoc([statusNode]));
+  check(statusNode.textContent === shippedCatalogs.ja.copy_d6786d701f.replace('$NUMBER$', '3'),
+    'a sitting "Step N complete" status follows a language change');
   context.updateStatusMessage('Clicked the Submit button');
   check(statusNode.textContent === 'Clicked the Submit button', 'status line leaves AI text as sent');
+}
+
+// Delegation cards pass a template and its subs, never a filled line(), so a
+// language change re-renders the sentence and any substitution that is
+// catalog copy itself. A passing Grok Build test writes its translated line.
+{
+  const panelSource = fs.readFileSync(path.join(root, 'extension/ui/sidepanel.js'), 'utf8');
+  const shipped = freshLocale().fsbUiLocale;
+  shipped.setOverride('de');
+  const context = { fsbUiLocale: shipped, document: { createElement: () => fakeNode({}, '') } };
+  context.globalThis = context;
+  vm.createContext(context);
+  vm.runInContext(extractNamedFunction(panelSource, '_delegationElement'), context);
+  const reason = 'the agent process could not be verified';
+  const startTemplate = '$NAME$ could not start a delegated browser run because $REASON$ ($CODE$). Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.';
+  const heading = context._delegationElement('h2', '', '$NAME$ cannot run browser tasks', { name: 'Selected provider' });
+  const body = context._delegationElement('p', '', startTemplate, { name: 'Grok Build', reason, code: 'activation_failed' });
+  const expectHeading = () => shipped.line('$NAME$ cannot run browser tasks', { name: shipped.line('Selected provider') });
+  const expectBody = () => shipped.line(startTemplate, { name: 'Grok Build', reason: shipped.line(reason), code: 'activation_failed' });
+  check(heading.textContent === expectHeading() && body.textContent === expectBody(),
+    'a delegation template is filled with its catalog substitutions translated');
+  shipped.setOverride('ja');
+  shipped.apply(fakeDoc([heading, body]));
+  check(heading.textContent === expectHeading() && heading.textContent !== shipped.line('$NAME$ cannot run browser tasks', { name: 'Selected provider' }),
+    'a language change re-renders a templated heading and its provider fallback');
+  check(body.textContent === expectBody() && body.textContent.includes('Grok Build') && !body.textContent.includes(reason),
+    'a language change re-renders the start-rejected body and its reason');
+
+  const filled = ['_renderDelegationConsent', '_renderDelegationPreflightFailure', '_renderDelegationRunHeader']
+    .filter((name) => extractNamedFunction(panelSource, name).includes('fsbUiLocale.line('));
+  check(filled.length === 0, `delegation cards hand templates to markExact()${filled.length ? '; filled line() in: ' + filled.join(', ') : ''}`);
+
+  const optionsSource = fs.readFileSync(path.join(root, 'extension/ui/options.js'), 'utf8');
+  check(optionsSource.includes("? fsbUiLine('Installed and compatible: Grok Build 1.0.4."),
+    'a passing Grok Build test writes the compatibility line in the active language');
 }
 
 // The dashboard chart draws its legend, axis titles and tooltip on a canvas,

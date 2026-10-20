@@ -1096,16 +1096,17 @@ assert(/e\.key === 'Escape'[\s\S]{0,120}_backToDelegationMessage\(\)/.test(panel
       _ensureDelegationMount: () => ({ run, state: stateCard, feed }),
       _clearDelegationNode(node) { while (node.firstChild) node.removeChild(node.firstChild); },
       _restoreLegacyStopControl() {},
-      _delegationElement(tag, className, textValue) {
+      // Templated consent copy arrives as the template plus { name }.
+      _delegationElement(tag, className, textValue, subs) {
         const node = new TestNode(tag);
         node.className = className || '';
-        if (textValue !== undefined) node.textContent = textValue;
+        if (textValue !== undefined) node.textContent = subs ? textValue.replace('$NAME$', subs.name) : textValue;
         return node;
       },
-      _delegationAction(label, className, handler) {
+      _delegationAction(label, className, handler, subs) {
         const button = new TestNode('button');
         button.className = 'delegation-action' + (className ? ' ' + className : '');
-        button.textContent = label;
+        button.textContent = subs ? label.replace('$NAME$', subs.name) : label;
         button.addEventListener('click', handler);
         return button;
       },

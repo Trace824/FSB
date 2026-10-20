@@ -1250,13 +1250,23 @@ function _clearDelegationNode(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-function _delegationElement(tagName, className, textValue) {
+// Templated copy is passed as the English template plus subs, never as a filled
+// line, so the element keeps its key and follows a language change.
+function _delegationElement(tagName, className, textValue, subs) {
   var element = document.createElement(tagName);
   if (className) element.className = className;
   if (textValue !== undefined && textValue !== null) {
     var english = String(textValue);
-    if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(element, english);
-    else element.textContent = english;
+    if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') {
+      fsbUiLocale.markExact(element, english, subs);
+    } else {
+      element.textContent = subs
+        ? english.replace(/\$([A-Z]+)\$/g, function(all, name) {
+          var value = subs[name.toLowerCase()];
+          return value == null ? all : String(value);
+        })
+        : english;
+    }
   }
   return element;
 }
@@ -1292,13 +1302,13 @@ function _delegationSemanticIcon(tone) {
   return icon;
 }
 
-function _delegationSemanticHeading(tagName, className, textValue, tone) {
+function _delegationSemanticHeading(tagName, className, textValue, tone, subs) {
   var heading = _delegationElement(
     tagName,
     className + ' delegation-semantic-heading'
   );
   heading.appendChild(_delegationSemanticIcon(tone));
-  heading.appendChild(_delegationElement('span', 'delegation-heading-copy', textValue));
+  heading.appendChild(_delegationElement('span', 'delegation-heading-copy', textValue, subs));
   return heading;
 }
 
@@ -1323,11 +1333,12 @@ function _applyDelegationSnapshotTone(container, snapshot, toneOverride) {
   container.setAttribute('data-delegation-tone', tone);
 }
 
-function _delegationAction(label, className, handler) {
+function _delegationAction(label, className, handler, subs) {
   var button = _delegationElement(
     'button',
     'delegation-action' + (className ? ' ' + className : ''),
-    label
+    label,
+    subs
   );
   button.type = 'button';
   if (typeof handler === 'function') button.addEventListener('click', handler);
@@ -1528,10 +1539,10 @@ async function _hydrateDelegationForSelectedConversation() {
   return true;
 }
 
-function _renderDelegationInlineError(container, textValue) {
+function _renderDelegationInlineError(container, textValue, subs) {
   if (!container || !textValue) return;
   var standalone = !container.firstChild;
-  var error = _delegationElement('p', 'delegation-inline-error', textValue);
+  var error = _delegationElement('p', 'delegation-inline-error', textValue, subs);
   if (standalone) error.id = 'delegationRunHeading';
   // The state card owns assertive semantics for lifecycle alerts. Avoid a
   // nested alert that would re-announce unchanged cleanup copy when the
@@ -1575,13 +1586,13 @@ function _renderDelegationConsent(options) {
     _delegationUiState.providerLabel
   );
   var providerLabel = provider ? provider.label : 'Agent';
+  var providerSubs = { name: providerLabel };
 
   var heading = _delegationElement(
     'h2',
     'delegation-state-heading',
-    (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('Let $NAME$ control this browser?', { name: providerLabel })
-      : 'Let $NAME$ control this browser?'.replace('$NAME$', providerLabel)
+    'Let $NAME$ control this browser?',
+    providerSubs
   );
   heading.id = 'delegationRunHeading';
   heading.tabIndex = -1;
@@ -1589,9 +1600,8 @@ function _renderDelegationConsent(options) {
   mount.state.appendChild(_delegationElement(
     'p',
     'delegation-state-body',
-    (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('$NAME$ may drive FSB browser tools for this task.', { name: providerLabel })
-      : '$NAME$ may drive FSB browser tools for this task.'.replace('$NAME$', providerLabel)
+    '$NAME$ may drive FSB browser tools for this task.',
+    providerSubs
   ));
   mount.state.appendChild(_delegationElement(
     'p',
@@ -1605,16 +1615,13 @@ function _renderDelegationConsent(options) {
   checkbox.checked = false;
   checkbox.disabled = _delegationUiState.pendingStart || _delegationUiState.pendingTrust;
   trust.appendChild(checkbox);
-  trust.appendChild(document.createTextNode((globalThis.fsbUiLocale && fsbUiLocale.line)
-    ? fsbUiLocale.line('Trust $NAME$ for future runs', { name: providerLabel })
-    : 'Trust $NAME$ for future runs'.replace('$NAME$', providerLabel)));
+  trust.appendChild(_delegationElement('span', '', 'Trust $NAME$ for future runs', providerSubs));
   mount.state.appendChild(trust);
   mount.state.appendChild(_delegationElement(
     'p',
     'delegation-state-note',
-    (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('This turns off confirmation for future $NAME$ runs on this browser.', { name: providerLabel })
-      : 'This turns off confirmation for future $NAME$ runs on this browser.'.replace('$NAME$', providerLabel)
+    'This turns off confirmation for future $NAME$ runs on this browser.',
+    providerSubs
   ));
 
   if (_delegationUiState.errorCode) {
@@ -1628,11 +1635,10 @@ function _renderDelegationConsent(options) {
 
   var actions = _delegationElement('div', 'delegation-state-actions');
   var allow = _delegationAction(
-    (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('Allow & start $NAME$', { name: providerLabel })
-      : 'Allow & start $NAME$'.replace('$NAME$', providerLabel),
+    'Allow & start $NAME$',
     'delegation-action-primary',
-    function() { _allowDelegationFromConsent(checkbox); }
+    function() { _allowDelegationFromConsent(checkbox); },
+    providerSubs
   );
   allow.disabled = _delegationUiState.pendingStart || _delegationUiState.pendingTrust;
   var back = _delegationAction('Back to message', '', _backToDelegationMessage);
@@ -1830,14 +1836,13 @@ function _renderDelegationPreflightFailure(result) {
     _delegationOwnDataValue(result, 'providerId'),
     _delegationOwnDataValue(result, 'providerLabel')
   );
-  var providerLabel = provider
-    ? provider.label
-    : ((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line('Selected provider') : 'Selected provider');
-  var cannotStartText = (globalThis.fsbUiLocale && fsbUiLocale.line)
-    ? fsbUiLocale.line('$NAME$ cannot start this task', { name: providerLabel })
-    : '$NAME$ cannot start this task'.replace('$NAME$', providerLabel);
+  // Subs stay English (the start reason too); markExact() translates the ones
+  // that are catalog copy along with their template.
+  var providerSubs = { name: provider ? provider.label : 'Selected provider' };
   var headingText = 'Agent offline';
+  var headingSubs = null;
   var bodyText = 'FSB cannot reach the local agent service. Run the doctor command, then try this message again.';
+  var bodySubs = null;
   var primaryLabel = 'Copy doctor command';
   var primaryAction = _copyDelegationDoctorCommand;
   var secondaryLabel = 'Open provider setup';
@@ -1865,45 +1870,43 @@ function _renderDelegationPreflightFailure(result) {
     secondaryLabel = null;
     secondaryAction = null;
   } else if (code === 'unsupported_provider') {
-    headingText = (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('$NAME$ cannot run browser tasks', { name: providerLabel })
-      : '$NAME$ cannot run browser tasks'.replace('$NAME$', providerLabel);
+    headingText = '$NAME$ cannot run browser tasks';
+    headingSubs = providerSubs;
     bodyText = 'The selected provider does not support agents that control browser tabs. Choose a supported agent provider, then try this message again.';
     primaryLabel = 'Choose another provider';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = null;
     secondaryAction = null;
   } else if (code === 'auth_unauthenticated') {
-    headingText = cannotStartText;
-    bodyText = (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('Sign in to $NAME$ locally, then try this message again.', { name: providerLabel })
-      : 'Sign in to $NAME$ locally, then try this message again.'.replace('$NAME$', providerLabel);
+    headingText = '$NAME$ cannot start this task';
+    headingSubs = providerSubs;
+    bodyText = 'Sign in to $NAME$ locally, then try this message again.';
+    bodySubs = providerSubs;
     primaryLabel = 'Open provider setup';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = 'Back to message';
     secondaryAction = _backToDelegationMessage;
   } else if (code === 'auth_unknown') {
-    headingText = cannotStartText;
-    bodyText = (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('$NAME$ sign-in status could not be verified. Use Test Connection in API Configuration, then try again.', { name: providerLabel })
-      : '$NAME$ sign-in status could not be verified. Use Test Connection in API Configuration, then try again.'.replace('$NAME$', providerLabel);
+    headingText = '$NAME$ cannot start this task';
+    headingSubs = providerSubs;
+    bodyText = '$NAME$ sign-in status could not be verified. Use Test Connection in API Configuration, then try again.';
+    bodySubs = providerSubs;
     primaryLabel = 'Open provider setup';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = 'Back to message';
     secondaryAction = _backToDelegationMessage;
   } else if (code === 'start_rejected') {
     var startDetail = _delegationStartRejectionDetail(result);
-    headingText = cannotStartText;
-    var startTemplate = startDetail
+    headingText = '$NAME$ cannot start this task';
+    headingSubs = providerSubs;
+    bodyText = startDetail
       ? '$NAME$ could not start a delegated browser run because $REASON$ ($CODE$). Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.'
       : '$NAME$ could not pass FSB\'s final delegated-browser start checks. Test Connection may still succeed because it does not start a delegated run. Retry the message or review provider setup.';
-    var startReason = startDetail
-      ? ((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line(startDetail.reason) : startDetail.reason)
-      : '';
-    var startCode = startDetail ? startDetail.code : '';
-    bodyText = (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line(startTemplate, { name: providerLabel, reason: startReason, code: startCode })
-      : startTemplate.replace('$NAME$', providerLabel).replace('$REASON$', startReason).replace('$CODE$', startCode);
+    bodySubs = {
+      name: providerSubs.name,
+      reason: startDetail ? startDetail.reason : '',
+      code: startDetail ? startDetail.code : ''
+    };
     primaryLabel = 'Open provider setup';
     primaryAction = _openDelegationProviderSetup;
     secondaryLabel = 'Back to message';
@@ -1937,14 +1940,14 @@ function _renderDelegationPreflightFailure(result) {
     || code === 'bridge_session_unavailable';
   var heading = offlinePresentation
     ? _delegationSemanticHeading(
-      'h2', 'delegation-state-heading delegation-semantic-heading', headingText, 'danger'
+      'h2', 'delegation-state-heading delegation-semantic-heading', headingText, 'danger', headingSubs
     )
-    : _delegationElement('h2', 'delegation-state-heading', headingText);
+    : _delegationElement('h2', 'delegation-state-heading', headingText, headingSubs);
   if (offlinePresentation) heading.setAttribute('data-delegation-tone', 'danger');
   heading.id = 'delegationRunHeading';
   heading.tabIndex = -1;
   mount.state.appendChild(heading);
-  mount.state.appendChild(_delegationElement('p', 'delegation-state-body', bodyText));
+  mount.state.appendChild(_delegationElement('p', 'delegation-state-body', bodyText, bodySubs));
   if (offlinePresentation || code === 'extension_origin_mismatch') {
     mount.state.appendChild(_delegationElement(
       'code',
@@ -2187,8 +2190,9 @@ function _renderDelegationRunHeader(container, snapshot) {
     && !offline
     && !unpaired
     && !unsupported;
-  var providerLabel = snapshot.provider ? snapshot.provider.label : 'Agent';
+  var providerSubs = { name: snapshot.provider ? snapshot.provider.label : 'Agent' };
   var headingText = _delegationStateLabel(snapshot);
+  var headingSubs = null;
   if (bindingCleanupPending) headingText = 'Agent cleanup needs attention';
   else if (restartLost) headingText = 'Agent run ended after daemon restart';
   else if (stopped) headingText = _delegationStoppedHeading(snapshot);
@@ -2196,18 +2200,15 @@ function _renderDelegationRunHeader(container, snapshot) {
   else if (disconnected) headingText = 'Agent connection lost';
   else if (unpaired) headingText = 'Automatic connection needs the native helper';
   else if (unsupported) {
-    var unsupportedName = snapshot.provider
-      ? snapshot.provider.label
-      : ((globalThis.fsbUiLocale && fsbUiLocale.line) ? fsbUiLocale.line('Selected provider') : 'Selected provider');
-    headingText = (globalThis.fsbUiLocale && fsbUiLocale.line)
-      ? fsbUiLocale.line('$NAME$ cannot run browser tasks', { name: unsupportedName })
-      : '$NAME$ cannot run browser tasks'.replace('$NAME$', unsupportedName);
+    headingText = '$NAME$ cannot run browser tasks';
+    headingSubs = { name: snapshot.provider ? snapshot.provider.label : 'Selected provider' };
   } else if (resumeOwnershipFailure) headingText = 'Agent could not resume control';
   var heading = _delegationSemanticHeading(
     'h2',
     'delegation-state-heading',
     headingText,
-    presentationTone
+    presentationTone,
+    headingSubs
   );
   heading.id = 'delegationRunHeading';
   container.appendChild(heading);
@@ -2271,9 +2272,8 @@ function _renderDelegationRunHeader(container, snapshot) {
     container.appendChild(_delegationElement(
       'p',
       'delegation-state-body',
-      (globalThis.fsbUiLocale && fsbUiLocale.line)
-        ? fsbUiLocale.line('FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready.', { name: providerLabel })
-        : 'FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready.'.replace('$NAME$', providerLabel)
+      'FSB could not return this tab to $NAME$, so the run ended and the tab remains under your control. Start a new task when you are ready.',
+      providerSubs
     ));
     var resumeFailureActions = _delegationElement('div', 'delegation-state-actions');
     resumeFailureActions.appendChild(_delegationAction(
@@ -2288,9 +2288,8 @@ function _renderDelegationRunHeader(container, snapshot) {
     container.appendChild(_delegationElement(
       'p',
       'delegation-state-body',
-      (globalThis.fsbUiLocale && fsbUiLocale.line)
-        ? fsbUiLocale.line(failureTemplate, { name: providerLabel })
-        : failureTemplate.replace('$NAME$', providerLabel)
+      failureTemplate,
+      providerSubs
     ));
     _appendDelegationTechnicalCode(container, terminalCode || 'agent_failed');
     var retryActions = _delegationElement('div', 'delegation-state-actions');
@@ -2309,9 +2308,8 @@ function _renderDelegationRunHeader(container, snapshot) {
       || _delegationUiState.errorCode === 'hold_lease_failed') {
     _renderDelegationInlineError(
       container,
-      (globalThis.fsbUiLocale && fsbUiLocale.line)
-        ? fsbUiLocale.line('$NAME$ could not pause for human control.', { name: providerLabel })
-        : '$NAME$ could not pause for human control.'.replace('$NAME$', providerLabel)
+      '$NAME$ could not pause for human control.',
+      providerSubs
     );
   } else if (_delegationUiState.errorCode === 'stop_failed'
       || _delegationUiState.errorCode === 'runtime_unavailable') {
@@ -3345,11 +3343,11 @@ try {
   }
 } catch (_error) { /* reduced-motion changes are best-effort */ }
 
-function setAutomationRunnerText(text) {
+function setAutomationRunnerText(text, subs) {
   if (!automationRunnerLabel) return;
   var label = text || 'Automation running';
-  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(automationRunnerLabel, label);
-  else automationRunnerLabel.textContent = label;
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(automationRunnerLabel, label, subs);
+  else automationRunnerLabel.textContent = subs ? spLine(label, subs) : label;
 }
 
 function showAutomationRunner(startedAt, text) {
@@ -5020,14 +5018,14 @@ function addStatusMessage(text, type = 'ai') {
 
 // Update existing status message with optional progress data
 function updateStatusMessage(text, progressData, subs) {
-  // Templates are filled here; plain lines stay English so markExact() keys them.
-  const line = subs ? spLine(text, subs) : text;
-  setAutomationRunnerText(line);
+  // The template and its subs go to markExact() unfilled, so both lines keep
+  // their key and follow a language change.
+  setAutomationRunnerText(text, subs);
   if (currentStatusMessage) {
     const statusText = currentStatusMessage.querySelector('.status-text');
     if (statusText) {
-      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(statusText, line);
-      else statusText.textContent = line;
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(statusText, text, subs);
+      else statusText.textContent = subs ? spLine(text, subs) : text;
     }
     if (progressData && progressData.iteration != null) {
       const container = currentStatusMessage.querySelector('.progress-container');

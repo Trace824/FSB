@@ -2761,7 +2761,7 @@ async function runFullApiTest() {
 
     if (isAgent && providerId === 'grok-build' && elements.grokBuildCompatibility) {
       elements.grokBuildCompatibility.textContent = result.ok
-        ? 'Installed and compatible: Grok Build 1.0.4. Isolation, ACP, and cached OAuth checks passed without sending a prompt.'
+        ? fsbUiLine('Installed and compatible: Grok Build 1.0.4. Isolation, ACP, and cached OAuth checks passed without sending a prompt.')
         : fsbUiLine('Compatibility check failed: $ERROR$', { error: result.error || 'installation, version, isolation, ACP, or cached OAuth could not be verified.' });
     }
 

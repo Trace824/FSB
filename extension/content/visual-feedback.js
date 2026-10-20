@@ -51,6 +51,23 @@
     return ov(OVERLAY_LABELS[base], base) + (ellipsis ? '…' : '');
   }
 
+  // The English each label was written from, so a language change can redraw
+  // the pill, detail and log lines without waiting for the next progress write.
+  var labelSources = new WeakMap();
+  function writeLabel(el, english) {
+    if (!el) return;
+    var shown = overlayLabel(english);
+    el.textContent = shown;
+    labelSources.set(el, { english: english, shown: shown });
+  }
+  // False when the label was not written by writeLabel() or was replaced since.
+  function rewriteLabel(el) {
+    var source = el ? labelSources.get(el) : null;
+    if (!source || el.textContent !== source.shown) return false;
+    writeLabel(el, source.english);
+    return true;
+  }
+
   var chromeRoots = [];
   function ownedText(current, key, english) {
     if (current === english) return true;
@@ -68,9 +85,10 @@
     var stop = root.querySelector('.fsb-stop');
     if (stop && ownedText(stop.getAttribute('aria-label'), 'entry_stop', 'Stop')) stop.setAttribute('aria-label', ov('entry_stop', 'Stop'));
     var step = root.querySelector('.fsb-step-number');
-    if (step && ownedText(step.textContent, 'entry_planning', 'Planning')) step.textContent = ov('entry_planning', 'Planning');
+    if (step && !rewriteLabel(step) && ownedText(step.textContent, 'entry_planning', 'Planning')) step.textContent = ov('entry_planning', 'Planning');
     var detail = root.querySelector('.fsb-step-text');
-    if (detail && ownedText(detail.textContent, 'entry_initializing', 'Initializing...')) detail.textContent = ov('entry_initializing', 'Initializing...');
+    if (detail && !rewriteLabel(detail) && ownedText(detail.textContent, 'entry_initializing', 'Initializing...')) detail.textContent = ov('entry_initializing', 'Initializing...');
+    if (typeof root.querySelectorAll === 'function') Array.prototype.forEach.call(root.querySelectorAll('.fsb-log-line'), rewriteLabel);
     if (root.getAttribute && ownedText(root.getAttribute('aria-label'), 'entry_replay_controls', 'Replay controls')) {
       root.setAttribute('aria-label', ov('entry_replay_controls', 'Replay controls'));
     }
@@ -398,8 +416,8 @@
       var stepNumberEl = this.container.querySelector('.fsb-step-number');
       if (taskEl) taskEl.textContent = p.title;
       if (summaryEl) summaryEl.textContent = p.subtitle;
-      if (stepTextEl) stepTextEl.textContent = overlayLabel(p.detail);
-      if (stepNumberEl) stepNumberEl.textContent = overlayLabel(p.stepNumberLabel);
+      writeLabel(stepTextEl, p.detail);
+      writeLabel(stepNumberEl, p.stepNumberLabel);
       // Scrollback log: push the outgoing detail text (about to be replaced)
       // into the rolling buffer, deduped against consecutive repeats, capped
       // at 3 entries (current + 2 "previous" lines rendered in update()).
@@ -1058,8 +1076,8 @@
       var logLines = this.container.querySelectorAll('.fsb-log-line');
       if (logLines && logLines.length) {
         var prevLines = this._logBuffer.slice(0, -1).slice(-2).reverse();
-        if (logLines[0]) logLines[0].textContent = overlayLabel(prevLines[0] || '');
-        if (logLines[1]) logLines[1].textContent = overlayLabel(prevLines[1] || '');
+        writeLabel(logLines[0], prevLines[0] || '');
+        writeLabel(logLines[1], prevLines[1] || '');
       }
 
       // Phase 229-02 (OVERLAY-05): suppress generic 'thinking-class' phase
@@ -1155,7 +1173,7 @@
           // Green glow on overlay
           this.container.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(52, 211, 153, 0.3)';
           // Done pill
-          this.container.querySelector('.fsb-step-number').textContent = ov('entry_done_pill', 'Done');
+          writeLabel(this.container.querySelector('.fsb-step-number'), 'Done');
         }
         // Failure: bar stays orange, pill keeps existing text (D-10) -- no action needed
 

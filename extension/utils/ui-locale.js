@@ -218,6 +218,19 @@
     node.removeAttribute('data-i18n-shown');
   }
 
+  // Live nodes keep their substitutions in English. A value that is catalog
+  // copy itself ("Selected provider", a start-failure reason) is translated
+  // with the template, so a language change reaches the whole line.
+  function liveSubs(subs) {
+    if (!subs || typeof subs !== 'object' || Array.isArray(subs)) return subs;
+    var out = {};
+    Object.keys(subs).forEach(function (name) {
+      var value = subs[name];
+      out[name] = exactKey(value) ? line(value) : value;
+    });
+    return out;
+  }
+
   function fill(node, key, english, subs) {
     if (node && typeof node.setAttribute === 'function') {
       node.setAttribute('data-i18n-live', key);
@@ -225,7 +238,7 @@
       if (subs && typeof subs === 'object') node.setAttribute('data-i18n-subs', JSON.stringify(subs));
       else if (typeof node.removeAttribute === 'function') node.removeAttribute('data-i18n-subs');
     }
-    var shown = text(key, english, subs);
+    var shown = text(key, english, liveSubs(subs));
     writeText(node, shown);
     if (node && typeof node.setAttribute === 'function') node.setAttribute('data-i18n-shown', shown);
     return shown;
@@ -312,16 +325,19 @@
     });
   }
 
-  function markExact(node, english) {
+  // Pass a template with its subs rather than a filled line(): only the
+  // template resolves to a key, and the key is what a language change follows.
+  function markExact(node, english, subs) {
     var key = exactKey(english);
     if (!key) {
       // Drop any key left by an earlier fill() so apply() does not bring back
       // the old string over this one.
       clearLive(node);
-      writeText(node, english);
-      return english;
+      var plain = applySubs(english, liveSubs(subs));
+      writeText(node, plain);
+      return plain;
     }
-    return fill(node, key, english);
+    return fill(node, key, english, subs);
   }
 
   function setCatalog(code, messages) {
@@ -615,12 +631,12 @@
       }
       var liveKey = live[i].getAttribute('data-i18n-live');
       var liveEnglish = live[i].getAttribute('data-i18n-en') || '';
-      var liveSubs = null;
+      var storedSubs = null;
       var rawSubs = live[i].getAttribute('data-i18n-subs');
       if (rawSubs) {
-        try { liveSubs = JSON.parse(rawSubs); } catch (err) { liveSubs = null; }
+        try { storedSubs = JSON.parse(rawSubs); } catch (err) { storedSubs = null; }
       }
-      var shown = text(liveKey, liveEnglish, liveSubs);
+      var shown = text(liveKey, liveEnglish, liveSubs(storedSubs));
       writeText(live[i], shown);
       live[i].setAttribute('data-i18n-shown', shown);
     }
