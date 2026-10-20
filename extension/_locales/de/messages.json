@@ -4375,5 +4375,43 @@
         "content": "$1"
       }
     }
+  },
+  "copy_70dc20bbb2": {
+    "message": "Agent gestoppt, $COUNT$ Tab freigegeben",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_4b8cbffa31": {
+    "message": "Agent gestoppt, $COUNT$ Tabs freigegeben",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_2b4b8c0560": {
+    "message": "$NAME$ konnte diese Aufgabe nicht starten. Behalte die Nachricht und versuche es erneut.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_62c33d7a6c": {
+    "message": "Kompatibilitätsprüfung fehlgeschlagen: Installation, Version, Isolation, ACP oder zwischengespeichertes OAuth konnten nicht überprüft werden."
+  },
+  "copy_9fabe26076": {
+    "message": "auf $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c36ee348ff": {
+    "message": "auf dieser Seite"
   }
 }

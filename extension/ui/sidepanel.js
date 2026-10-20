@@ -2003,14 +2003,24 @@ function _delegationHeaderPresentation(snapshot) {
   return { label: 'Ready', tone: '' };
 }
 
-function _delegationStoppedHeading(snapshot) {
+// The heading as a catalog template and its count, so the card can keep the
+// key and follow a language change.
+function _delegationStoppedHeadingParts(snapshot) {
   var count = snapshot
     && snapshot.terminal
     && Number.isSafeInteger(snapshot.terminal.releasedTabCount)
     && snapshot.terminal.releasedTabCount >= 0
     ? snapshot.terminal.releasedTabCount
     : 0;
-  return 'Agent stopped, ' + count + ' ' + (count === 1 ? 'tab' : 'tabs') + ' released';
+  return {
+    template: count === 1 ? 'Agent stopped, $COUNT$ tab released' : 'Agent stopped, $COUNT$ tabs released',
+    subs: { count: count }
+  };
+}
+
+function _delegationStoppedHeading(snapshot) {
+  var parts = _delegationStoppedHeadingParts(snapshot);
+  return parts.template.replace('$COUNT$', String(parts.subs.count));
 }
 
 function _delegationSnapshotAlertKey(snapshot) {
@@ -2195,7 +2205,11 @@ function _renderDelegationRunHeader(container, snapshot) {
   var headingSubs = null;
   if (bindingCleanupPending) headingText = 'Agent cleanup needs attention';
   else if (restartLost) headingText = 'Agent run ended after daemon restart';
-  else if (stopped) headingText = _delegationStoppedHeading(snapshot);
+  else if (stopped) {
+    var stoppedHeading = _delegationStoppedHeadingParts(snapshot);
+    headingText = stoppedHeading.template;
+    headingSubs = stoppedHeading.subs;
+  }
   else if (offline) headingText = 'Agent offline';
   else if (disconnected) headingText = 'Agent connection lost';
   else if (unpaired) headingText = 'Automatic connection needs the native helper';
@@ -2852,8 +2866,8 @@ async function _beginDelegationStart(challengeId) {
       var failedMount = _ensureDelegationMount();
       _renderDelegationInlineError(
         failedMount.state,
-        (_delegationUiState.providerLabel || 'Agent')
-          + ' could not start this task. Keep the message and try again.'
+        '$NAME$ could not start this task. Keep the message and try again.',
+        { name: _delegationUiState.providerLabel || 'Agent' }
       );
     }
     updateSendButtonState();
@@ -3665,7 +3679,7 @@ async function startReconFromSidepanel(url, originalTask) {
       pendingReconTask = null;
     }
   } catch (error) {
-    addMessage('Reconnaissance failed: ' + error.message, 'system');
+    addMessage(spLine('Reconnaissance failed to start: $ERROR$', { error: error.message || 'Unknown error' }), 'system');
     pendingReconTask = null;
   }
 }
@@ -6407,9 +6421,21 @@ function showPaymentFillConfirmation(data) {
   const last4El = document.getElementById('pfcLast4');
   const domainEl = document.getElementById('pfcDomain');
 
-  if (brandEl) brandEl.textContent = brandLabelMap[data.cardBrand] || data.cardBrand || 'Card';
+  // Brand names and the domain stay as sent; the words around them follow the
+  // UI language, including after a switch while the confirmation is open.
+  const brandName = brandLabelMap[data.cardBrand] || data.cardBrand;
+  const canMark = !!(globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function');
+  if (brandEl) {
+    if (canMark) fsbUiLocale.markExact(brandEl, brandName || 'Card');
+    else brandEl.textContent = brandName || 'Card';
+  }
   if (last4El) last4El.textContent = '****' + (data.last4 || '****');
-  if (domainEl) domainEl.textContent = 'on ' + (data.merchantDomain || 'this page');
+  if (domainEl) {
+    const domainTemplate = data.merchantDomain ? 'on $DOMAIN$' : 'on this page';
+    const domainSubs = data.merchantDomain ? { domain: data.merchantDomain } : undefined;
+    if (canMark) fsbUiLocale.markExact(domainEl, domainTemplate, domainSubs);
+    else domainEl.textContent = spLine(domainTemplate, domainSubs);
+  }
 
   overlay.classList.remove('hidden');
 

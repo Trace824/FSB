@@ -10309,7 +10309,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0995.015.keysPerLanguage" datatype="html">
-        <source>1,234 keys per language</source>
+        <source>1,240 keys per language</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">230,233</context>
@@ -10337,7 +10337,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0995.019.eachLanguageShipsA" datatype="html">
-        <source>Each language ships a catalog of 1,234 keys, and a message missing from a catalog falls back to English instead of showing a blank label.</source>
+        <source>Each language ships a catalog of 1,240 keys, and a message missing from a catalog falls back to English instead of showing a blank label.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">239,240</context>
@@ -10561,7 +10561,7 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0995.050.languagesKeys" datatype="html">
-        <source>7 languages × 1,234 keys</source>
+        <source>7 languages × 1,240 keys</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">386,388</context>

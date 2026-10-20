@@ -4375,5 +4375,43 @@
         "content": "$1"
       }
     }
+  },
+  "copy_70dc20bbb2": {
+    "message": "Agente detenido, $COUNT$ pestaña liberada",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_4b8cbffa31": {
+    "message": "Agente detenido, $COUNT$ pestañas liberadas",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_2b4b8c0560": {
+    "message": "$NAME$ no pudo iniciar esta tarea. Conserva el mensaje e inténtalo de nuevo.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_62c33d7a6c": {
+    "message": "Falló la comprobación de compatibilidad: no se pudo verificar la instalación, la versión, el aislamiento, ACP ni OAuth en caché."
+  },
+  "copy_9fabe26076": {
+    "message": "en $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c36ee348ff": {
+    "message": "en esta página"
   }
 }

@@ -575,23 +575,29 @@ function extractNamedFunction(source, name) {
   const pill = { textContent: '' };
   const detail = { textContent: '' };
   const logLine = { textContent: '' };
+  const eta = { textContent: '' };
   const overlayRoot = {
-    querySelector: (selector) => ({ '.fsb-step-number': pill, '.fsb-step-text': detail })[selector] || null,
+    querySelector: (selector) => ({ '.fsb-step-number': pill, '.fsb-step-text': detail, '.fsb-eta': eta })[selector] || null,
     querySelectorAll: (selector) => (selector === '.fsb-log-line' ? [logLine] : [])
   };
   overlay.writeLabel(pill, 'Acting…');
   overlay.writeLabel(detail, 'Watching DOM for change');
   overlay.writeLabel(logLine, 'Reviewing page state');
+  overlay.writeActions(eta, 4);
+  check(eta.textContent === ja.entry_actions.replace('$COUNT$', '4'), 'the overlay action counter renders in the active language');
   const de = shippedCatalogs.de;
   shipped.setOverride('de');
   overlay.refreshOwnedChrome(overlayRoot);
   check(pill.textContent === de.entry_phase_acting + '…'
       && detail.textContent === de.entry_detail_watching
-      && logLine.textContent === de.entry_detail_reviewing,
-    'a language change redraws the overlay pill, detail and log lines');
+      && logLine.textContent === de.entry_detail_reviewing
+      && eta.textContent === de.entry_actions.replace('$COUNT$', '4'),
+    'a language change redraws the overlay pill, detail, log lines and action counter');
   detail.textContent = 'Clicked the Submit button';
+  eta.textContent = '';
   shipped.setOverride('ja');
   overlay.refreshOwnedChrome(overlayRoot);
+  check(eta.textContent === '', 'a language change leaves a cleared action counter empty');
   check(pill.textContent === ja.entry_phase_acting + '…' && detail.textContent === 'Clicked the Submit button',
     'a language change leaves overlay text that was replaced since its label was written');
 
@@ -732,7 +738,7 @@ function extractNamedFunction(source, name) {
     'a delegation template is filled with its catalog substitutions translated');
   shipped.setOverride('ja');
   shipped.apply(fakeDoc([heading, body]));
-  check(heading.textContent === expectHeading() && heading.textContent !== shipped.line('$NAME$ cannot run browser tasks', { name: 'Selected provider' }),
+  check(heading.textContent === expectHeading() && heading.textContent.includes(shippedCatalogs.ja.copy_5fdcceef8a),
     'a language change re-renders a templated heading and its provider fallback');
   check(body.textContent === expectBody() && body.textContent.includes('Grok Build') && !body.textContent.includes(reason),
     'a language change re-renders the start-rejected body and its reason');
@@ -742,8 +748,105 @@ function extractNamedFunction(source, name) {
   check(filled.length === 0, `delegation cards hand templates to markExact()${filled.length ? '; filled line() in: ' + filled.join(', ') : ''}`);
 
   const optionsSource = fs.readFileSync(path.join(root, 'extension/ui/options.js'), 'utf8');
-  check(optionsSource.includes("? fsbUiLine('Installed and compatible: Grok Build 1.0.4."),
-    'a passing Grok Build test writes the compatibility line in the active language');
+  check(optionsSource.includes("fsbUiSet(elements.grokBuildCompatibility, 'Installed and compatible: Grok Build 1.0.4.")
+      && optionsSource.includes("fsbUiSet(elements.grokBuildCompatibility, 'Compatibility check failed: $ERROR$', { error: result.error })")
+      && optionsSource.includes("fsbUiSet(elements.grokBuildCompatibility, 'Compatibility check failed: installation, version, isolation, ACP, or cached OAuth could not be verified.')"),
+    'every Grok Build test result is written through markExact()');
+}
+
+// A substitution that is catalog copy follows the language, raw values do
+// not, and the side panel and control panel lines that used to be filled or
+// concatenated keep their key across a switch.
+{
+  const shipped = freshLocale().fsbUiLocale;
+  const de = shippedCatalogs.de;
+  const ja = shippedCatalogs.ja;
+  shipped.setOverride('de');
+  check(shipped.line('Reconnaissance complete! Site map saved for $DOMAIN$.', { domain: 'this site' })
+      === de.copy_ca79bcd4d7.replace('$DOMAIN$', de.copy_fb625242db),
+    'line() translates a substitution that is catalog copy');
+  check(shipped.line('Reconnaissance failed to start: $ERROR$', { error: 'Unknown error' })
+      === de.copy_7654da628e.replace('$ERROR$', de.panel_27c2ccd962),
+    'the side panel map resolves the Unknown error fallback');
+  check(shipped.line('Starting reconnaissance on $DOMAIN$...', { domain: 'shop.example' }).includes('shop.example')
+      && shipped.line('$NAME$ cannot run browser tasks', { name: 'Grok Build' }).includes('Grok Build'),
+    'line() leaves domains and provider names as sent');
+
+  const panelSource = fs.readFileSync(path.join(root, 'extension/ui/sidepanel.js'), 'utf8');
+  const nodes = {
+    paymentFillConfirmOverlay: { classList: { add() {}, remove() {} } },
+    pfcBrand: fakeNode({}, ''),
+    pfcLast4: fakeNode({}, ''),
+    pfcDomain: fakeNode({}, ''),
+    pfcAllow: { addEventListener() {}, removeEventListener() {} },
+    pfcDeny: { addEventListener() {}, removeEventListener() {} }
+  };
+  const context = {
+    fsbUiLocale: shipped,
+    document: { createElement: () => fakeNode({}, ''), getElementById: (id) => nodes[id] || null }
+  };
+  context.globalThis = context;
+  vm.createContext(context);
+  for (const name of ['spLine', '_delegationElement', '_delegationStoppedHeadingParts', 'showPaymentFillConfirmation']) {
+    vm.runInContext(extractNamedFunction(panelSource, name), context);
+  }
+  const stopped = context._delegationStoppedHeadingParts({ terminal: { releasedTabCount: 2 } });
+  const stoppedHeading = context._delegationElement('span', '', stopped.template, stopped.subs);
+  const startFailure = context._delegationElement('p', '', '$NAME$ could not start this task. Keep the message and try again.', { name: 'Grok Build' });
+  check(stoppedHeading.textContent === de.copy_4b8cbffa31.replace('$COUNT$', '2')
+      && startFailure.textContent === de.copy_2b4b8c0560.replace('$NAME$', 'Grok Build'),
+    'the stopped-run heading and the start-failure line render as templates');
+  context.showPaymentFillConfirmation({ cardBrand: 'visa', last4: '4242', merchantDomain: 'shop.example' });
+  check(nodes.pfcBrand.textContent === 'Visa' && nodes.pfcDomain.textContent === de.copy_9fabe26076.replace('$DOMAIN$', 'shop.example'),
+    'the payment confirmation keeps the brand and domain and translates the words around them');
+  const brand = nodes.pfcBrand;
+  const domain = nodes.pfcDomain;
+  nodes.pfcBrand = fakeNode({}, '');
+  nodes.pfcDomain = fakeNode({}, '');
+  context.showPaymentFillConfirmation({ last4: '4242' });
+  check(nodes.pfcBrand.textContent === de.panel_be3702e3f1 && nodes.pfcDomain.textContent === de.copy_c36ee348ff,
+    'the payment confirmation translates the Card and this-page fallbacks in the side panel');
+
+  const optionsSource = fs.readFileSync(path.join(root, 'extension/ui/options.js'), 'utf8');
+  const title = fakeNode({}, '');
+  const detail = fakeNode({}, '');
+  const optionsContext = {
+    fsbUiLocale: shipped,
+    elements: {
+      apiStatusCard: {
+        style: {},
+        className: '',
+        querySelector: (selector) => ({ '.status-title': title, '.status-detail': detail })[selector] || null
+      }
+    }
+  };
+  optionsContext.globalThis = optionsContext;
+  vm.createContext(optionsContext);
+  for (const name of ['fsbUiLine', 'fsbUiSet', 'updateApiStatusCard']) vm.runInContext(extractNamedFunction(optionsSource, name), optionsContext);
+  optionsContext.updateApiStatusCard('disconnected', 'No API Key', 'Configure your $NAME$ API key to get started', { name: 'OpenAI' });
+  const badge = fakeNode({ 'data-i18n': 'panel_fd05c3a95a' }, 'Requires the reviewed Grok Build 1.0.4 profile.');
+  optionsContext.fsbUiSet(badge, 'Compatibility check failed: installation, version, isolation, ACP, or cached OAuth could not be verified.');
+  check(detail.textContent === de.copy_ec6c5d7132.replace('$NAME$', 'OpenAI') && badge.textContent === de.copy_62c33d7a6c,
+    'the API-key detail and the Grok Build fallback render in the active language');
+
+  shipped.setOverride('ja');
+  shipped.apply(fakeDoc([stoppedHeading, startFailure, brand, domain, nodes.pfcBrand, nodes.pfcDomain, title, detail, badge]));
+  check(stoppedHeading.textContent === ja.copy_4b8cbffa31.replace('$COUNT$', '2')
+      && startFailure.textContent === ja.copy_2b4b8c0560.replace('$NAME$', 'Grok Build'),
+    'a language change re-renders the stopped-run heading and the start-failure line');
+  check(brand.textContent === 'Visa' && domain.textContent === ja.copy_9fabe26076.replace('$DOMAIN$', 'shop.example')
+      && nodes.pfcBrand.textContent === ja.panel_be3702e3f1 && nodes.pfcDomain.textContent === ja.copy_c36ee348ff,
+    'a language change re-renders the payment confirmation');
+  check(title.textContent === ja.copy_6bec306893 && detail.textContent === ja.copy_ec6c5d7132.replace('$NAME$', 'OpenAI'),
+    'a language change re-renders the API-key title and detail');
+  check(badge.textContent === ja.copy_62c33d7a6c,
+    'a language change re-renders a Grok Build result instead of the idle hint');
+
+  check(panelSource.includes("spLine('Reconnaissance failed to start: $ERROR$', { error: error.message || 'Unknown error' })")
+      && !panelSource.includes("'Reconnaissance failed: '"),
+    'an explorer exception uses the failed-to-start template');
+  check(!panelSource.includes("+ ' could not start this task."),
+    'the start-failure line is not concatenated');
 }
 
 // The dashboard chart draws its legend, axis titles and tooltip on a canvas,

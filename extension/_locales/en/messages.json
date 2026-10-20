@@ -4375,5 +4375,43 @@
         "content": "$1"
       }
     }
+  },
+  "copy_70dc20bbb2": {
+    "message": "Agent stopped, $COUNT$ tab released",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_4b8cbffa31": {
+    "message": "Agent stopped, $COUNT$ tabs released",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_2b4b8c0560": {
+    "message": "$NAME$ could not start this task. Keep the message and try again.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_62c33d7a6c": {
+    "message": "Compatibility check failed: installation, version, isolation, ACP, or cached OAuth could not be verified."
+  },
+  "copy_9fabe26076": {
+    "message": "on $DOMAIN$",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c36ee348ff": {
+    "message": "on this page"
   }
 }

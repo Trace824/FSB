@@ -4375,5 +4375,43 @@
         "content": "$1"
       }
     }
+  },
+  "copy_70dc20bbb2": {
+    "message": "代理已停止，已釋放 $COUNT$ 個分頁",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_4b8cbffa31": {
+    "message": "代理已停止，已釋放 $COUNT$ 個分頁",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_2b4b8c0560": {
+    "message": "$NAME$ 無法啟動此工作。請保留訊息並重試。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_62c33d7a6c": {
+    "message": "相容性檢查失敗：無法驗證安裝、版本、隔離、ACP 或快取的 OAuth。"
+  },
+  "copy_9fabe26076": {
+    "message": "在 $DOMAIN$ 上",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c36ee348ff": {
+    "message": "在此頁面上"
   }
 }

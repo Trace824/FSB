@@ -168,10 +168,12 @@
     return typeof english === 'string' && Object.prototype.hasOwnProperty.call(EXACT, english) ? EXACT[english] : null;
   }
 
+  // A substitution that is catalog copy itself ("this site", "Unknown error")
+  // is translated too; raw values such as domains and provider names are not.
   function line(english, subs) {
     var key = exactKey(english);
-    if (key) return text(key, english, subs);
-    return applySubs(english, subs);
+    if (key) return text(key, english, liveSubs(subs));
+    return applySubs(english, liveSubs(subs));
   }
 
   function text(key, english, subs) {

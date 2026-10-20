@@ -68,6 +68,20 @@
     return true;
   }
 
+  // The action counter keeps its count the same way, so a language change can
+  // redraw "Actions: N" before the next action arrives.
+  var actionCounts = new WeakMap();
+  function writeActions(el, count) {
+    if (!el) return;
+    var shown = ov('entry_actions', 'Actions: $COUNT$', { count: count });
+    el.textContent = shown;
+    actionCounts.set(el, { count: count, shown: shown });
+  }
+  function rewriteActions(el) {
+    var source = el ? actionCounts.get(el) : null;
+    if (source && el.textContent === source.shown) writeActions(el, source.count);
+  }
+
   var chromeRoots = [];
   function ownedText(current, key, english) {
     if (current === english) return true;
@@ -89,6 +103,7 @@
     var detail = root.querySelector('.fsb-step-text');
     if (detail && !rewriteLabel(detail) && ownedText(detail.textContent, 'entry_initializing', 'Initializing...')) detail.textContent = ov('entry_initializing', 'Initializing...');
     if (typeof root.querySelectorAll === 'function') Array.prototype.forEach.call(root.querySelectorAll('.fsb-log-line'), rewriteLabel);
+    rewriteActions(root.querySelector('.fsb-eta'));
     if (root.getAttribute && ownedText(root.getAttribute('aria-label'), 'entry_replay_controls', 'Replay controls')) {
       root.setAttribute('aria-label', ov('entry_replay_controls', 'Replay controls'));
     }
@@ -1110,7 +1125,7 @@
       var etaEl = this.container.querySelector('.fsb-eta');
       if (etaEl && actionCount !== this._lastActionCount) {
         if (actionCount !== null && actionCount !== undefined) {
-          etaEl.textContent = ov('entry_actions', 'Actions: ' + actionCount, { count: actionCount });
+          writeActions(etaEl, actionCount);
         } else {
           etaEl.textContent = '';
         }

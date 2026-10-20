@@ -11775,8 +11775,8 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0995.015.keysPerLanguage" datatype="html">
-        <source>1,234 keys per language</source>
-        <target state="translated">1.234 claves por idioma</target>
+        <source>1,240 keys per language</source>
+        <target state="translated">1.240 claves por idioma</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">230,233</context>
@@ -11807,8 +11807,8 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0995.019.eachLanguageShipsA" datatype="html">
-        <source>Each language ships a catalog of 1,234 keys, and a message missing from a catalog falls back to English instead of showing a blank label.</source>
-        <target state="translated">Cada idioma incluye un catálogo de 1.234 claves, y un mensaje que falta en un catálogo se muestra en inglés en lugar de dejar una etiqueta vacía.</target>
+        <source>Each language ships a catalog of 1,240 keys, and a message missing from a catalog falls back to English instead of showing a blank label.</source>
+        <target state="translated">Cada idioma incluye un catálogo de 1.240 claves, y un mensaje que falta en un catálogo se muestra en inglés en lugar de dejar una etiqueta vacía.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">239,240</context>
@@ -12063,8 +12063,8 @@ https://full-selfbrowsing.com/api/telemetry/forget<x id="CLOSE_TAG_CODE" ctype="
         </context-group>
       </trans-unit>
       <trans-unit id="releaseNotes.v0995.050.languagesKeys" datatype="html">
-        <source>7 languages × 1,234 keys</source>
-        <target state="translated">7 idiomas × 1.234 claves</target>
+        <source>7 languages × 1,240 keys</source>
+        <target state="translated">7 idiomas × 1.240 claves</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/release-notes/release-notes-page.component.html</context>
           <context context-type="linenumber">386,388</context>

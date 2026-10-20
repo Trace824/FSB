@@ -1182,8 +1182,7 @@ assert(panelSource.includes('announcedTransitions: Object.create(null)')
     && panelSource.includes("snapshot.delegationId + ':lifecycle:' + suffix")
     && panelSource.includes('announcementParts.join(\'. \')'),
   'lifecycle/control one-shots use a separate dedupe map and the one existing announcer');
-assert(panelSource.includes("return 'Agent stopped, ' + count + ' '")
-    && panelSource.includes("count === 1 ? 'tab' : 'tabs'"),
+assert(panelSource.includes("count === 1 ? 'Agent stopped, $COUNT$ tab released' : 'Agent stopped, $COUNT$ tabs released'"),
   'stopped copy uses only the canonical release count with singular grammar');
 assert(panelSource.includes('var stopping = _delegationStopControlPending(snapshot)')
     && panelSource.includes("snapshot.state === 'stopping'")
@@ -3429,6 +3428,7 @@ assert(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.delegation-native-wak
 
     const headingContext = {};
     vm.createContext(headingContext);
+    vm.runInContext(extractNamedFunction(panelSource, '_delegationStoppedHeadingParts'), headingContext);
     vm.runInContext(extractNamedFunction(panelSource, '_delegationStoppedHeading'), headingContext);
     assert.equal(headingContext._delegationStoppedHeading(stopped), 'Agent stopped, 1 tab released');
     assert.equal(headingContext._delegationStoppedHeading({
@@ -3463,6 +3463,7 @@ assert(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.delegation-native-wak
       '_applyDelegationSnapshotTone',
       '_delegationAction',
       '_renderDelegationInlineError',
+      '_delegationStoppedHeadingParts',
       '_delegationStoppedHeading',
       '_delegationStateLabel',
       '_delegationIsActiveSnapshot',

@@ -4375,5 +4375,43 @@
         "content": "$1"
       }
     }
+  },
+  "copy_70dc20bbb2": {
+    "message": "代理已停止，已释放 $COUNT$ 个标签页",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_4b8cbffa31": {
+    "message": "代理已停止，已释放 $COUNT$ 个标签页",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_2b4b8c0560": {
+    "message": "$NAME$ 无法启动此任务。请保留消息并重试。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_62c33d7a6c": {
+    "message": "兼容性检查失败：无法验证安装、版本、隔离、ACP 或缓存的 OAuth。"
+  },
+  "copy_9fabe26076": {
+    "message": "在 $DOMAIN$ 上",
+    "placeholders": {
+      "domain": {
+        "content": "$1"
+      }
+    }
+  },
+  "copy_c36ee348ff": {
+    "message": "在此页面上"
   }
 }

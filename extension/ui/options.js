@@ -10,10 +10,10 @@ function fsbUiLine(english, subs) {
   });
 }
 
-function fsbUiSet(node, english) {
+function fsbUiSet(node, english, subs) {
   if (!node) return;
-  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(node, english);
-  else node.textContent = english;
+  if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(node, english, subs);
+  else node.textContent = subs ? fsbUiLine(english, subs) : english;
 }
 
 // Escapes quotes as well as markup, so the result is safe in text and attributes.
@@ -2592,7 +2592,7 @@ async function checkApiConnection() {
     const apiKey = (PROVIDER_KEY_GETTERS[provider] || function () { return ''; })();
     if (!apiKey && provider !== 'lmstudio') {
       updateConnectionStatus('disconnected', 'No API key configured');
-      updateApiStatusCard('disconnected', 'No API Key', fsbUiLine('Configure your $NAME$ API key to get started', { name: PROVIDER_NAMES[provider] || provider }));
+      updateApiStatusCard('disconnected', 'No API Key', 'Configure your $NAME$ API key to get started', { name: PROVIDER_NAMES[provider] || provider });
       return {
         ok: false,
         provider: provider,
@@ -2685,7 +2685,9 @@ function updateConnectionStatus(status, text) {
   }
 }
 
-function updateApiStatusCard(status, title, detail) {
+// detail may be a catalog template with detailSubs; it is passed unfilled so
+// the card keeps its key and follows a language change.
+function updateApiStatusCard(status, title, detail, detailSubs) {
   if (elements.apiStatusCard) {
     elements.apiStatusCard.style.display = 'block';
     elements.apiStatusCard.className = `api-status-card ${status}`;
@@ -2705,8 +2707,8 @@ function updateApiStatusCard(status, title, detail) {
       else titleElement.textContent = title;
     }
     if (detailElement) {
-      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(detailElement, detail);
-      else detailElement.textContent = detail;
+      if (globalThis.fsbUiLocale && typeof fsbUiLocale.markExact === 'function') fsbUiLocale.markExact(detailElement, detail, detailSubs);
+      else detailElement.textContent = detailSubs ? fsbUiLine(detail, detailSubs) : detail;
     }
   }
 }
@@ -2760,9 +2762,15 @@ async function runFullApiTest() {
     }
 
     if (isAgent && providerId === 'grok-build' && elements.grokBuildCompatibility) {
-      elements.grokBuildCompatibility.textContent = result.ok
-        ? fsbUiLine('Installed and compatible: Grok Build 1.0.4. Isolation, ACP, and cached OAuth checks passed without sending a prompt.')
-        : fsbUiLine('Compatibility check failed: $ERROR$', { error: result.error || 'installation, version, isolation, ACP, or cached OAuth could not be verified.' });
+      // markExact() gives the result a live key, which takes over from the static
+      // data-i18n key of the idle hint, so a later language change rewrites it.
+      if (result.ok) {
+        fsbUiSet(elements.grokBuildCompatibility, 'Installed and compatible: Grok Build 1.0.4. Isolation, ACP, and cached OAuth checks passed without sending a prompt.');
+      } else if (result.error) {
+        fsbUiSet(elements.grokBuildCompatibility, 'Compatibility check failed: $ERROR$', { error: result.error });
+      } else {
+        fsbUiSet(elements.grokBuildCompatibility, 'Compatibility check failed: installation, version, isolation, ACP, or cached OAuth could not be verified.');
+      }
     }
 
     elements.testResults.innerHTML = `
