@@ -16,11 +16,12 @@ Security patch release updating bundled runtime dependencies and hardening stdio
 
 ### Fixed
 
-- The stdio server no longer crashes with an unhandled `EPIPE` when the MCP host closes the pipe while a response is being written; it shuts down cleanly instead.
+- The stdio server no longer crashes with an unhandled `EPIPE` when the MCP host closes the pipe while a response is being written; it shuts down cleanly instead. The handler is installed before stdio starts, so a response written while the bridge is still connecting is covered too.
 
 ### Compatibility and update
 
 - Extension compatibility remains FSB 0.9.92 or newer. Server identity, tool schemas, and installer configuration are unchanged.
+- Node.js 18.20 or newer remains supported. `@hono/node-server` is held on 1.19.x through `overrides` because the 2.x line the SDK now accepts requires Node 20 and fails Streamable HTTP requests on Node 18.
 - Merging this release into `main` automatically publishes `fsb-mcp-server@0.11.3` and creates the `mcp-v0.11.3` GitHub release.
 
 <a id="v0.11.2"></a>

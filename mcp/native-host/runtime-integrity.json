@@ -2,7 +2,7 @@
   "schema": 1,
   "packageName": "fsb-mcp-server",
   "packageVersion": "0.11.3",
-  "lockSha256": "8017304088efe2568b7664cf8c6015edeb1d1a9f9fb67fe81bb4ff2befde15ae",
+  "lockSha256": "0026f090fa3aabe8b7b53ccbac893928b971e603ca74ce5bec9eb3e2d383ee2d",
   "directDependencies": [
     {
       "name": "@modelcontextprotocol/sdk",
@@ -41,8 +41,8 @@
     {
       "path": "node_modules/@hono/node-server",
       "name": "@hono/node-server",
-      "version": "2.1.5",
-      "integrity": "sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q=="
+      "version": "1.19.17",
+      "integrity": "sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ=="
     },
     {
       "path": "node_modules/@modelcontextprotocol/sdk",

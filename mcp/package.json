@@ -75,5 +75,8 @@
     "@types/ws": "^8.18.1",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@hono/node-server": "1.19.17"
   }
 }
