@@ -4568,7 +4568,7 @@ function createSessionHooks(sessionId) {
   // Stuck detection hook (#157): agent-loop only runs detectStuck inline when
   // NO hook pipeline is passed. Every real session passes this pipeline, so
   // without this registration detectStuck never ran and loops went to the
-  // iteration cap. detectStuck is defined in agent-loop.js (importScripts).
+  // iteration cap. detectStuck comes from agent-loop.js, loaded at startup.
   if (typeof createStuckDetectionHook === 'function' && typeof detectStuck === 'function') {
     const stuckHook = createStuckDetectionHook(detectStuck);
     pipeline.register(LIFECYCLE_EVENTS.AFTER_ITERATION, stuckHook);
@@ -20065,26 +20065,14 @@ async function executeUploadFileUnlocked(tabId, selector, filePath, options = {}
 }
 
 /**
- * Direct CDP tool dispatcher for tool-executor.js CDP routing.
- *
- * Called from agent-loop.js via the cdpHandler wrapper:
- *   executeCDPToolDirect({ tool: cdpVerb, params: params }, tabId)
- *
- * Routes each _cdpVerb from tool-definitions.js to the corresponding
- * chrome.debugger CDP commands. Returns a Promise with structured result.
- *
- * Unlike the handleCDP* message-handler functions (which use sendResponse
- * callbacks), this function uses async/await with direct return values.
- *
- * @param {Object} request - { tool: string (cdpVerb), params: Object }
- * @param {number} tabId - Chrome tab ID to execute against
- * @returns {Promise<Object>} { success, method, error?, ... }
- */
-/**
  * #156: page-side probe for cdpClickAt. Serialized via toString() and run with
  * Runtime.evaluate, so it must stay self-contained (no closures).
  * Walks from the hit-tested element up through ancestors (crossing shadow
- * roots) and reports native :disabled, aria-disabled="true", or inert.
+ * roots) and reports a disabled form control, aria-disabled="true", or inert.
+ * Only form controls are tested with :disabled. The browser already applies
+ * fieldset inheritance, including the first-<legend> exemption, to each
+ * control, so matching the <fieldset> itself would wrongly refuse an enabled
+ * control in its legend.
  * @returns {{disabled: boolean, reason?: string, tag?: string, text?: string}}
  */
 function fsbDisabledTargetProbe(x, y) {
@@ -20094,11 +20082,14 @@ function fsbDisabledTargetProbe(x, y) {
     if (!inner || inner === el) break;
     el = inner;
   }
+  var controlTags = { BUTTON: true, INPUT: true, SELECT: true, TEXTAREA: true, OPTION: true, OPTGROUP: true };
   var node = el;
   while (node) {
     if (node.nodeType === 1) {
       var reason = null;
-      try { if (node.matches(':disabled')) reason = 'native_disabled'; } catch (_e) { /* not a form control */ }
+      if (controlTags[node.tagName]) {
+        try { if (node.matches(':disabled')) reason = 'native_disabled'; } catch (_e) { /* :disabled unsupported */ }
+      }
       if (!reason && node.getAttribute('aria-disabled') === 'true') reason = 'aria_disabled';
       if (!reason && node.hasAttribute('inert')) reason = 'inert';
       if (reason) {
@@ -20115,6 +20106,22 @@ function fsbDisabledTargetProbe(x, y) {
   return { disabled: false };
 }
 
+/**
+ * Direct CDP tool dispatcher for tool-executor.js CDP routing.
+ *
+ * Called from agent-loop.js via the cdpHandler wrapper:
+ *   executeCDPToolDirect({ tool: cdpVerb, params: params }, tabId)
+ *
+ * Routes each _cdpVerb from tool-definitions.js to the corresponding
+ * chrome.debugger CDP commands. Returns a Promise with structured result.
+ *
+ * Unlike the handleCDP* message-handler functions (which use sendResponse
+ * callbacks), this function uses async/await with direct return values.
+ *
+ * @param {Object} request - { tool: string (cdpVerb), params: Object }
+ * @param {number} tabId - Chrome tab ID to execute against
+ * @returns {Promise<Object>} { success, method, error?, ... }
+ */
 async function executeCDPToolDirect(request, tabId) {
   if (!tabId) return { success: false, error: 'No tab ID available' };
   const leaseApi = globalThis.FsbCdpLease;
